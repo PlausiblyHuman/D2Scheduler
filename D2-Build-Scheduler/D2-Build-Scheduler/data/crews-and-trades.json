@@ -1,0 +1,317 @@
+{
+ "trades": [
+  {
+   "id": "dig",
+   "label": "Dig / Excavation"
+  },
+  {
+   "id": "form",
+   "label": "Forms"
+  },
+  {
+   "id": "rebar",
+   "label": "Steel / Rebar"
+  },
+  {
+   "id": "shotcrete",
+   "label": "Shotcrete / Gunite"
+  },
+  {
+   "id": "grade",
+   "label": "Grading"
+  },
+  {
+   "id": "finishgrade",
+   "label": "Finish Grade"
+  },
+  {
+   "id": "drainage",
+   "label": "Drainage"
+  },
+  {
+   "id": "demolition",
+   "label": "Demolition"
+  },
+  {
+   "id": "plumbing",
+   "label": "Plumbing"
+  },
+  {
+   "id": "gas",
+   "label": "Gas Lines"
+  },
+  {
+   "id": "waterline",
+   "label": "Water Line Install"
+  },
+  {
+   "id": "automation",
+   "label": "Automation"
+  },
+  {
+   "id": "hardscape",
+   "label": "Hardscape"
+  },
+  {
+   "id": "pavers",
+   "label": "Pavers"
+  },
+  {
+   "id": "walls",
+   "label": "Retaining Walls"
+  },
+  {
+   "id": "cmu",
+   "label": "CMU Block"
+  },
+  {
+   "id": "masonry",
+   "label": "Brick / Masonry"
+  },
+  {
+   "id": "veneer",
+   "label": "Veneer / Stone"
+  },
+  {
+   "id": "tile",
+   "label": "Waterline Tile"
+  },
+  {
+   "id": "coping",
+   "label": "Coping"
+  },
+  {
+   "id": "plaster",
+   "label": "Plaster"
+  },
+  {
+   "id": "pebbletech",
+   "label": "Pebbletech"
+  },
+  {
+   "id": "sealant",
+   "label": "Sealant"
+  },
+  {
+   "id": "landscaping",
+   "label": "Landscaping"
+  },
+  {
+   "id": "materials",
+   "label": "Material Runs"
+  },
+  {
+   "id": "poolschool",
+   "label": "Pool School"
+  }
+ ],
+ "crews": [
+  {
+   "id": "devon",
+   "name": "Devon Crew +3",
+   "members": [
+    "Devon",
+    "Martin",
+    "Ocoundo",
+    "Eric"
+   ],
+   "size": 4,
+   "skills": [
+    "hardscape",
+    "walls",
+    "drainage",
+    "landscaping"
+   ]
+  },
+  {
+   "id": "guillermo",
+   "name": "Guillermo +2",
+   "members": [
+    "Guillermo",
+    "Sergio R",
+    "Valentine"
+   ],
+   "size": 3,
+   "skills": [
+    "hardscape",
+    "walls",
+    "tile",
+    "coping",
+    "grade",
+    "finishgrade",
+    "drainage",
+    "dig"
+   ],
+   "note": "Finish Grade assumed — not stated on the crew list"
+  },
+  {
+   "id": "cirilo",
+   "name": "Cirilo +2",
+   "members": [
+    "Cirilo",
+    "Yair",
+    "Marbin"
+   ],
+   "size": 3,
+   "skills": [
+    "coping",
+    "tile",
+    "veneer",
+    "cmu",
+    "grade",
+    "drainage",
+    "hardscape"
+   ],
+   "note": "Light grading only — no finish grade"
+  },
+  {
+   "id": "saul",
+   "name": "Saul +2",
+   "members": [
+    "Saul",
+    "Sergio E",
+    "Miguel"
+   ],
+   "size": 3,
+   "skills": [
+    "grade",
+    "finishgrade",
+    "gas",
+    "waterline",
+    "dig"
+   ],
+   "note": "Finish Grade assumed — not stated on the crew list"
+  },
+  {
+   "id": "antonio",
+   "name": "Antonio +1",
+   "members": [
+    "Antonio",
+    "brother"
+   ],
+   "size": 2,
+   "skills": [
+    "sealant",
+    "materials",
+    "pavers",
+    "hardscape"
+   ],
+   "note": "Hardscape only if supervised"
+  },
+  {
+   "id": "campos",
+   "name": "Campos +2",
+   "members": [
+    "Campos",
+    "?",
+    "?"
+   ],
+   "size": 3,
+   "skills": [
+    "hardscape",
+    "demolition",
+    "masonry",
+    "veneer"
+   ],
+   "note": "Other 2 members unidentified"
+  },
+  {
+   "id": "harrison",
+   "name": "Harrison +2",
+   "members": [
+    "Harrison",
+    "Ian",
+    "?"
+   ],
+   "size": 3,
+   "skills": [
+    "dig",
+    "form",
+    "rebar",
+    "automation",
+    "poolschool",
+    "plumbing"
+   ],
+   "note": "Third member unidentified"
+  },
+  {
+   "id": "george",
+   "name": "George Crew",
+   "members": [],
+   "size": null,
+   "skills": [
+    "masonry",
+    "cmu"
+   ],
+   "note": "Crew size / members not specified"
+  },
+  {
+   "id": "armondo",
+   "name": "Armondo Crew",
+   "members": [],
+   "size": null,
+   "skills": [
+    "hardscape",
+    "coping"
+   ],
+   "note": "Crew size / members not specified"
+  },
+  {
+   "id": "stl",
+   "name": "STL Shotcrete",
+   "members": [],
+   "size": null,
+   "skills": [
+    "dig",
+    "form",
+    "rebar",
+    "shotcrete",
+    "plumbing",
+    "pebbletech",
+    "plaster"
+   ],
+   "note": "Advanced pebbletech · size not specified"
+  },
+  {
+   "id": "brothers",
+   "name": "Brothers Crew",
+   "members": [],
+   "size": null,
+   "skills": [
+    "plaster",
+    "pebbletech"
+   ],
+   "note": "Crew size / members not specified"
+  },
+  {
+   "id": "office",
+   "name": "Main Office",
+   "members": [],
+   "size": null,
+   "skills": [],
+   "unlimited": true,
+   "color": "#334155",
+   "note": "Back-office / admin — unlimited capacity, never double-booked"
+  },
+  {
+   "id": "subcon",
+   "name": "Subcontractor",
+   "members": [],
+   "size": null,
+   "skills": [],
+   "unlimited": true,
+   "color": "#0369a1",
+   "note": "Outside trade or inspector — unlimited capacity, never double-booked"
+  },
+  {
+   "id": "unassigned",
+   "name": "Unassigned",
+   "members": [],
+   "size": null,
+   "skills": [],
+   "unlimited": true,
+   "color": "#dc2626",
+   "note": "Needs an owner — triage these before the work comes up"
+  }
+ ]
+}

@@ -1,0 +1,65 @@
+# Node / JS
+node_modules/
+dist/
+build/
+.next/
+.nuxt/
+*.log
+npm-debug.log*
+yarn-debug.log*
+.pnpm-debug.log*
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# PowerShell / .NET
+bin/
+obj/
+*.suo
+*.user
+packages/
+
+# VS / VS Code
+.vs/
+.vscode/
+!.vscode/settings.json
+!.vscode/extensions.json
+
+# JetBrains
+.idea/
+
+# Office lock files
+~$*.docx
+~$*.xlsx
+~$*.pptx
+~$*.doc
+~$*.xls
+~$*.ppt
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Secrets — never commit
+.env
+.env.*
+!.env.example
+*.pfx
+*.key
+*.pem
+secrets.json
+appsettings.Development.json
+appsettings.Local.json
+
+# Session scratch
+*.tmp
+*.bak
+scratch/

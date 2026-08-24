@@ -1,0 +1,510 @@
+<title>D2 Build Scheduler — Power Platform Deployment Plan</title>
+<style>
+:root{
+  --paper:#F6F7F8;
+  --card:#FFFFFF;
+  --ink:#131F27;
+  --slate:#5D6E77;
+  --water:#0B6E78;
+  --clay:#A84A18;
+  --rule:#D6DCDE;
+  --rule-soft:#E7EBEC;
+  --good:#2F6B45;
+  --measure:70ch;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --paper:#0E171D; --card:#141F26; --ink:#DFE7EA; --slate:#93A3AB;
+    --water:#4FBAC3; --clay:#DE8B54; --rule:#26343C; --rule-soft:#1D2930; --good:#6FBF8E;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#0E171D; --card:#141F26; --ink:#DFE7EA; --slate:#93A3AB;
+  --water:#4FBAC3; --clay:#DE8B54; --rule:#26343C; --rule-soft:#1D2930; --good:#6FBF8E;
+}
+:root[data-theme="light"]{
+  --paper:#F6F7F8; --card:#FFFFFF; --ink:#131F27; --slate:#5D6E77;
+  --water:#0B6E78; --clay:#A84A18; --rule:#D6DCDE; --rule-soft:#E7EBEC; --good:#2F6B45;
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--paper); color:var(--ink);
+  font-family:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;
+  font-size:17px; line-height:1.62;
+  -webkit-font-smoothing:antialiased;
+}
+.grot{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif}
+.mono,code,th,td.num{font-family:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace}
+
+.sheet{max-width:var(--measure); margin:0 auto; padding:0 24px 120px}
+
+/* ---- title block: borrowed from a drawing set ---- */
+.title{
+  border-bottom:2px solid var(--ink);
+  padding:56px 0 18px; margin-bottom:44px;
+}
+.title .eyebrow{
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  font-size:11px; letter-spacing:.16em; text-transform:uppercase;
+  color:var(--water); font-weight:700; margin-bottom:14px;
+}
+.title h1{
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  font-size:clamp(30px,5.2vw,44px); line-height:1.06; letter-spacing:-.022em;
+  font-weight:800; margin:0 0 20px; text-wrap:balance;
+}
+.stamp{
+  display:grid; grid-template-columns:repeat(auto-fit,minmax(128px,1fr));
+  gap:2px 0; border-top:1px solid var(--rule); padding-top:14px;
+  font-family:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace; font-size:11.5px;
+}
+.stamp dt{color:var(--slate); text-transform:uppercase; letter-spacing:.07em; font-size:10px; margin-bottom:3px}
+.stamp dd{margin:0; color:var(--ink)}
+
+/* ---- section headings ---- */
+h2{
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  font-size:13px; letter-spacing:.13em; text-transform:uppercase; font-weight:700;
+  color:var(--ink); margin:62px 0 6px; padding-bottom:8px;
+  border-bottom:1px solid var(--rule);
+}
+h2 .n{color:var(--water); margin-right:12px; font-variant-numeric:tabular-nums}
+h3{
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  font-size:17px; font-weight:700; letter-spacing:-.01em; margin:34px 0 8px; text-wrap:balance;
+}
+h4{
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  font-size:11px; letter-spacing:.1em; text-transform:uppercase; font-weight:700;
+  color:var(--slate); margin:26px 0 6px;
+}
+p{margin:0 0 15px}
+.lede{font-size:19px; line-height:1.55; color:var(--ink)}
+ul,ol{margin:0 0 16px; padding-left:22px}
+li{margin-bottom:7px}
+strong{font-weight:700}
+a{color:var(--water)}
+
+code{
+  font-size:.86em; background:var(--rule-soft); padding:1px 5px; border-radius:3px;
+  color:var(--ink); white-space:nowrap;
+}
+
+/* ---- tables ---- */
+.scroll{overflow-x:auto; margin:20px 0 24px; border:1px solid var(--rule); border-radius:2px; background:var(--card)}
+table{border-collapse:collapse; width:100%; font-size:13.5px; min-width:520px}
+th,td{text-align:left; padding:9px 13px; border-bottom:1px solid var(--rule-soft); vertical-align:top}
+thead th{
+  font-size:10px; letter-spacing:.09em; text-transform:uppercase; color:var(--slate);
+  font-weight:700; border-bottom:1px solid var(--rule); white-space:nowrap;
+}
+tbody tr:last-child td{border-bottom:0}
+td.num,th.num{font-variant-numeric:tabular-nums; text-align:right; white-space:nowrap}
+table .t{font-family:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace; font-size:12px; white-space:nowrap}
+tbody td{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif}
+
+/* ---- callouts ---- */
+.note{
+  border-left:3px solid var(--water); background:var(--card);
+  padding:15px 18px; margin:24px 0; font-size:15.5px;
+}
+.note.decide{border-left-color:var(--clay)}
+.note h4{margin:0 0 6px; color:var(--clay)}
+.note.decide h4{color:var(--clay)}
+.note:not(.decide) h4{color:var(--water)}
+.note p:last-child{margin-bottom:0}
+
+/* ---- figures ---- */
+figure{margin:32px 0; padding:0}
+figure svg{display:block; width:100%; max-width:100%; height:auto; color:var(--ink)}
+figcaption{
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  font-size:12.5px; color:var(--slate); margin-top:12px; line-height:1.5;
+  border-top:1px solid var(--rule-soft); padding-top:9px;
+}
+.figwrap{overflow-x:auto}
+
+/* ---- pills ---- */
+.pill{
+  display:inline-block; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  font-size:10.5px; font-weight:700; letter-spacing:.06em; text-transform:uppercase;
+  padding:2px 7px; border-radius:2px; border:1px solid currentColor; white-space:nowrap;
+}
+.pill.hi{color:var(--clay)} .pill.md{color:var(--water)} .pill.lo{color:var(--slate)}
+.pill.ok{color:var(--good)}
+
+hr{border:0; border-top:1px solid var(--rule); margin:52px 0}
+.foot{
+  margin-top:60px; padding-top:18px; border-top:2px solid var(--ink);
+  font-family:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+  font-size:11.5px; color:var(--slate);
+}
+:focus-visible{outline:2px solid var(--water); outline-offset:2px}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<div class="sheet">
+
+<header class="title">
+  <div class="eyebrow">Deployment Plan · Revision A</div>
+  <h1>D2 Build Scheduler on Microsoft Power Platform</h1>
+  <dl class="stamp">
+    <div><dt>Platform</dt><dd>Dataverse + Power Apps</dd></div>
+    <div><dt>Build mode</dt><dd>Low-code</dd></div>
+    <div><dt>Duration</dt><dd>13 weeks</dd></div>
+    <div><dt>Run cost</dt><dd>~$400 / month</dd></div>
+    <div><dt>Users</dt><dd>18</dd></div>
+  </dl>
+</header>
+
+<p class="lede">This plan moves the working browser-based scheduler onto Dataverse, with a desktop app for the office and PMs, an offline-capable mobile app for crew leads signing off in the field, and Power BI for ownership. The scheduling logic runs in Power Automate — no C# — with one structural trick that makes double-booking impossible without writing code.</p>
+
+<h2><span class="n">01</span>The decision</h2>
+
+<p><strong>Build custom tables in Dataverse rather than adopting Dynamics 365 Field Service.</strong> Field Service is built around work orders: short, dispatchable jobs with a technician, a time window, and a service call. A D2 pool is the opposite shape — 46 sub-phases in a fixed sequence, stretched across three to four months, where the constraint is <em>which crew is free for a two-day block</em> and <em>has the qualifying trade</em>. Field Service's Schedule Board would have to be bent hard to model that, and it lists near $95 per user per month against roughly $20 for Power Apps Premium.</p>
+
+<p>What Field Service gives you for free — a Gantt-style Schedule Board — is the one real gap in this plan. Section 06 addresses it honestly.</p>
+
+<h2><span class="n">02</span>How a booking gets rejected</h2>
+
+<p>This is the mechanism the whole low-code decision rests on, so it goes first.</p>
+
+<p>The rule that matters is: <strong>a field crew can be on exactly one pool per day.</strong> With a C# plug-in you would enforce this inside the database transaction. Without one, a Power Automate flow reading availability and then writing an assignment has a gap between the check and the write — two PMs scheduling at the same moment can both pass the check and both write.</p>
+
+<p>The fix is structural rather than procedural. A <code>Crew Day</code> table holds one row per crew per booked day, with a <strong>Dataverse alternate key on Crew + Date</strong>. Dataverse enforces that uniqueness at the database level. The second write doesn't get validated and rejected by logic you wrote — it fails on the key, the way a duplicate primary key fails. The flow catches the error and moves to the next available day.</p>
+
+<figure>
+<div class="figwrap">
+<svg viewBox="0 0 900 320" role="img" aria-label="Diagram: the auto-schedule flow reads availability once into memory, then attempts to create a Crew Day row; the Dataverse alternate key on Crew plus Date either accepts the booking and the Job Sub-Phase is written, or rejects it as a duplicate key and the flow retries on the next day.">
+  <defs>
+    <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+    </marker>
+    <marker id="ahc" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#A84A18"/>
+    </marker>
+  </defs>
+  <g fill="none" stroke="currentColor" stroke-width="1.4">
+    <rect x="240" y="18" width="200" height="42" rx="2" opacity=".45"/>
+    <rect x="20" y="132" width="160" height="54" rx="2"/>
+    <rect x="240" y="132" width="200" height="54" rx="2"/>
+    <rect x="500" y="132" width="150" height="54" rx="2"/>
+    <rect x="700" y="122" width="180" height="74" rx="2" stroke="#0B6E78" stroke-width="2"/>
+    <rect x="500" y="246" width="150" height="54" rx="2"/>
+  </g>
+  <g font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif" fill="currentColor" text-anchor="middle">
+    <text x="340" y="34" font-size="11.5" opacity=".75">Crew Days · Crew Trades</text>
+    <text x="340" y="49" font-size="11.5" opacity=".75">Non-Working Days</text>
+    <text x="100" y="154" font-size="12.5" font-weight="600">PM clicks</text>
+    <text x="100" y="170" font-size="12.5" font-weight="600">Schedule Job</text>
+    <text x="340" y="154" font-size="12.5" font-weight="600">Power Automate</text>
+    <text x="340" y="170" font-size="12.5">Auto-Schedule Job</text>
+    <text x="575" y="154" font-size="12.5" font-weight="600">Create</text>
+    <text x="575" y="170" font-size="12.5">Crew Day row</text>
+    <text x="790" y="147" font-size="12.5" font-weight="700" fill="#0B6E78">ALTERNATE KEY</text>
+    <text x="790" y="166" font-size="12.5" fill="#0B6E78">Crew + Date</text>
+    <text x="790" y="184" font-size="11" fill="#0B6E78" opacity=".8">unique — enforced by Dataverse</text>
+    <text x="575" y="268" font-size="12.5" font-weight="600">Job Sub-Phase</text>
+    <text x="575" y="284" font-size="12.5">crew + dates written</text>
+  </g>
+  <g fill="none" stroke="currentColor" stroke-width="1.4" marker-end="url(#ah)">
+    <line x1="340" y1="60" x2="340" y2="130"/>
+    <line x1="180" y1="159" x2="238" y2="159"/>
+    <line x1="440" y1="159" x2="498" y2="159"/>
+    <line x1="650" y1="159" x2="698" y2="159"/>
+  </g>
+  <polyline points="790,196 790,273 652,273" fill="none" stroke="currentColor" stroke-width="1.4" marker-end="url(#ah)"/>
+  <polyline points="820,122 820,92 330,92 330,130" fill="none" stroke="#A84A18" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#ahc)"/>
+  <g font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif" fill="currentColor" font-size="11">
+    <text x="350" y="100" opacity=".85">read once — 3 queries, held in memory</text>
+    <text x="700" y="262" text-anchor="end">accepted</text>
+  </g>
+  <text x="575" y="84" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="11" fill="#A84A18" font-weight="600" text-anchor="middle">duplicate key → advance one day, retry</text>
+</svg>
+</div>
+<figcaption>The database, not the flow, is what makes a double-booking impossible. The flow's in-memory copy of availability makes it <em>fast</em>; the alternate key makes it <em>correct</em> when two people schedule at once.</figcaption>
+</figure>
+
+<p>Two consequences worth stating up front. First, <strong>Crew Day rows are only written for real field crews</strong> — Main Office, Subcontractor, and Unassigned are capacity-exempt and would collide with themselves on every job. Second, the flow is still not atomic: a mid-run failure can leave orphaned Crew Day rows. Every row created in a run is stamped with a run ID so a compensating step in the error branch can delete them.</p>
+
+<h2><span class="n">03</span>Data model</h2>
+
+<p>Thirteen tables under one publisher prefix, <code>d2_</code>. The shape mirrors the current tool: a template defined once, copied into each job so a pool's history can't be rewritten by a later template edit.</p>
+
+<figure>
+<div class="figwrap">
+<svg viewBox="0 0 880 330" role="img" aria-label="Diagram: Phase Template, Sub-Phase Template and Task Template are copied when a job is created into Job Phase, Job Sub-Phase and Job Task; Job Sub-Phase writes one Crew Day row per booked day.">
+  <defs>
+    <marker id="ah2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+    </marker>
+    <marker id="ah3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#0B6E78"/>
+    </marker>
+  </defs>
+  <g font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" letter-spacing=".08em" fill="currentColor" opacity=".6">
+    <text x="40" y="26">DEFINED ONCE</text>
+    <text x="340" y="26">COPIED PER POOL</text>
+    <text x="640" y="26">SCHEDULING GUARD</text>
+  </g>
+  <g fill="none" stroke="currentColor" stroke-width="1.4">
+    <rect x="340" y="40" width="210" height="38" rx="2"/>
+    <rect x="40" y="104" width="210" height="46" rx="2"/>
+    <rect x="40" y="182" width="210" height="46" rx="2"/>
+    <rect x="40" y="260" width="210" height="46" rx="2"/>
+    <rect x="340" y="104" width="210" height="46" rx="2"/>
+    <rect x="340" y="182" width="210" height="46" rx="2"/>
+    <rect x="340" y="260" width="210" height="46" rx="2"/>
+    <rect x="640" y="182" width="200" height="46" rx="2" stroke="#0B6E78" stroke-width="2"/>
+  </g>
+  <g font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="12" fill="currentColor" text-anchor="middle">
+    <text x="445" y="64">d2_job</text>
+    <text x="145" y="126">d2_phasetemplate</text>
+    <text x="145" y="204">d2_subphasetemplate</text>
+    <text x="145" y="282">d2_tasktemplate</text>
+    <text x="445" y="126">d2_jobphase</text>
+    <text x="445" y="204">d2_jobsubphase</text>
+    <text x="445" y="282">d2_jobtask</text>
+    <text x="740" y="204" fill="#0B6E78">d2_crewday</text>
+  </g>
+  <g font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="currentColor" text-anchor="middle" opacity=".65">
+    <text x="145" y="141">8 rows</text>
+    <text x="145" y="219">46 rows</text>
+    <text x="145" y="297">295 rows</text>
+    <text x="445" y="141">8 per job</text>
+    <text x="445" y="219">46 per job · crew, dates, sign-off</text>
+    <text x="445" y="297">295 per job</text>
+    <text x="740" y="219" fill="#0B6E78">unique: crew + date</text>
+  </g>
+  <g fill="none" stroke="currentColor" stroke-width="1.4" marker-end="url(#ah2)">
+    <line x1="145" y1="150" x2="145" y2="180"/>
+    <line x1="145" y1="228" x2="145" y2="258"/>
+    <line x1="445" y1="78" x2="445" y2="102"/>
+    <line x1="445" y1="150" x2="445" y2="180"/>
+    <line x1="445" y1="228" x2="445" y2="258"/>
+  </g>
+  <g fill="none" stroke="currentColor" stroke-width="1.3" stroke-dasharray="5 4" marker-end="url(#ah2)" opacity=".8">
+    <line x1="250" y1="127" x2="338" y2="127"/>
+    <line x1="250" y1="205" x2="338" y2="205"/>
+    <line x1="250" y1="283" x2="338" y2="283"/>
+  </g>
+  <line x1="550" y1="205" x2="638" y2="205" fill="none" stroke="#0B6E78" stroke-width="1.6" marker-end="url(#ah3)"/>
+  <text x="294" y="98" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="currentColor" text-anchor="middle" opacity=".7">copied on create</text>
+  <text x="594" y="196" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="10" fill="#0B6E78" text-anchor="middle">2 rows</text>
+</svg>
+</div>
+<figcaption>Editing the template later changes future pools only. A job in flight keeps the phase list it was born with — which is what makes the sign-off record defensible six months on.</figcaption>
+</figure>
+
+<h4>Reference and template tables</h4>
+<div class="scroll">
+<table>
+<thead><tr><th>Table</th><th>Key columns</th><th class="num">Rows</th></tr></thead>
+<tbody>
+<tr><td class="t">d2_trade</td><td>Name, Code, Sort Order</td><td class="num">26</td></tr>
+<tr><td class="t">d2_crew</td><td>Name, Size <em>(nullable)</em>, Unlimited Capacity <em>(Yes/No)</em>, Colour, Notes, Active</td><td class="num">14</td></tr>
+<tr><td class="t">d2_crewmember</td><td>Name, Crew <em>(lookup)</em>, Role</td><td class="num">~30</td></tr>
+<tr><td class="t">d2_crewtrade</td><td>Crew, Trade, Qualification Note</td><td class="num">~60</td></tr>
+<tr><td class="t">d2_phasetemplate</td><td>Number, Name, Sequence</td><td class="num">8</td></tr>
+<tr><td class="t">d2_subphasetemplate</td><td>Number, Name, Phase, Trade <em>(nullable)</em>, Assign To <em>(choice)</em>, Default Duration, Sequence</td><td class="num">46</td></tr>
+<tr><td class="t">d2_tasktemplate</td><td>Name, Sub-Phase Template, Sequence</td><td class="num">295</td></tr>
+<tr><td class="t">d2_workcalendar</td><td>Date, Reason <em>(Sunday / Holiday / Weather / Shutdown)</em>, Crew <em>(optional)</em></td><td class="num">~60/yr</td></tr>
+</tbody>
+</table>
+</div>
+
+<h4>Job tables</h4>
+<div class="scroll">
+<table>
+<thead><tr><th>Table</th><th>Key columns</th><th class="num">Rows / job</th></tr></thead>
+<tbody>
+<tr><td class="t">d2_job</td><td>Name, Address, Customer <em>(→ Account)</em>, Project Manager <em>(→ User)</em>, Start Date, Status, Scheduled Finish</td><td class="num">1</td></tr>
+<tr><td class="t">d2_jobphase</td><td>Job, Phase Template, Number, Name, Installer Sign-Off, PM Sign-Off</td><td class="num">8</td></tr>
+<tr><td class="t">d2_jobsubphase</td><td>Job Phase, Job, Number, Name, Trade, <strong>Crew</strong>, Scheduled Start, Duration Days, Scheduled Finish, Not Applicable, Locked, Installer Sign-Off + By + On, PM Sign-Off + By + On</td><td class="num">46</td></tr>
+<tr><td class="t">d2_jobtask</td><td>Name, Job Sub-Phase, Complete, Completed By, Completed On, Sequence</td><td class="num">295</td></tr>
+<tr><td class="t">d2_crewday</td><td>Crew, Date, Job Sub-Phase, Job, Schedule Run ID — <strong>alternate key: Crew + Date</strong></td><td class="num">~92</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>About 450 rows per pool. At 40 pools a year that is under 20 MB — nowhere near the 10 GB Dataverse allowance that arrives with the first Premium licence.</p>
+
+<div class="note">
+<h4>Two Dataverse behaviours to design around</h4>
+<p><strong>Scheduled Finish cannot be a calculated column.</strong> Calculated columns can't skip Sundays, holidays, and weather days. The flow computes and writes it.</p>
+<p><strong>Rollup columns refresh on a schedule, not instantly</strong> — typically hourly. Use a rollup for checklist completion in Power BI, but calculate the on-screen percentage in the app with a live count, or crews will tick a box and see no change.</p>
+</div>
+
+<h2><span class="n">04</span>The scheduling flow</h2>
+
+<p>One cloud flow, <code>Auto-Schedule Job</code>, triggered by a button on the Job form. The naive build issues a Dataverse query per crew per sub-phase and takes fifteen minutes. This one reads everything once and does the arithmetic in memory:</p>
+
+<ol>
+<li><strong>Three reads, up front.</strong> Future Crew Days, all Crew Trades, the Work Calendar — into array variables.</li>
+<li><strong>List the job's sub-phases</strong> in sequence, excluding those marked Not Applicable.</li>
+<li><strong>Loop, sequentially</strong> — concurrency must be off, because each sub-phase starts after the one before it ends.
+  <ul>
+    <li>Locked → keep its dates, advance the cursor past it.</li>
+    <li>Assigned to Main Office / Subcontractor / Unassigned → set the crew, write no Crew Days, advance.</li>
+    <li>Otherwise → filter the in-memory trade list to qualified crews, walk forward from the cursor to the first working-day block of the right length where one of them has no Crew Day, and take the crew with the lightest load.</li>
+  </ul>
+</li>
+<li><strong>Write</strong> the sub-phase and its Crew Day rows; append them to the in-memory array so later iterations see them.</li>
+<li><strong>Stamp</strong> the job's Scheduled Finish.</li>
+</ol>
+
+<div class="scroll">
+<table>
+<thead><tr><th>Operation</th><th class="num">Dataverse calls</th><th>Expected</th></tr></thead>
+<tbody>
+<tr><td>Schedule one job (46 sub-phases)</td><td class="num">~140</td><td>90 seconds – 3 minutes</td></tr>
+<tr><td>Re-schedule after a slipped phase</td><td class="num">~140</td><td>Same — full re-plan of that job</td></tr>
+<tr><td>Nightly re-plan, 10 active jobs</td><td class="num">~1,400</td><td>20–30 min, unattended</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note decide">
+<h4>Accept this trade-off knowingly</h4>
+<p>Ninety seconds of spinner is the price of no C#. It is fine for a button a PM presses when a pool is sold or a phase slips. It would <em>not</em> be fine as a real-time recalculation on every date edit — so don't build one. If the wait becomes intolerable, the same logic ports to a Dataverse Custom API and drops to about two seconds; the data model doesn't change.</p>
+</div>
+
+<h2><span class="n">05</span>Applications</h2>
+
+<div class="scroll">
+<table>
+<thead><tr><th>App</th><th>Who</th><th>What it does</th></tr></thead>
+<tbody>
+<tr><td><strong>D2 Build Scheduler</strong><br><span class="pill md">Model-driven</span></td><td>Office, PMs<br><span class="mono">~8 users</span></td><td>Jobs, crews, trades, phase template. Editable grids for bulk crew reassignment. Views for <em>Unassigned sub-phases</em>, <em>Sign-off past due</em>, <em>This week by crew</em>. Business rules hide the Crew field when Assign To isn't a field trade.</td></tr>
+<tr><td><strong>D2 Field</strong><br><span class="pill md">Canvas · offline</span></td><td>Crew leads<br><span class="mono">~10 users</span></td><td>Today → my sub-phase → checklist → installer sign-off. Offline profile scoped to <em>my crew, next 14 days</em>. Sign-off stamps user and timestamp.</td></tr>
+<tr><td><strong>Build Performance</strong><br><span class="pill md">Power BI</span></td><td>Ownership<br><span class="mono">~3 users</span></td><td>Crew utilisation, schedule slippage against baseline, sign-off compliance, and actual days per sub-phase versus the 2-day default.</td></tr>
+</tbody>
+</table>
+</div>
+
+<p>That last report matters more than it looks. Every duration in the system is currently a placeholder; the BI report is the instrument that replaces guesses with measured durations after the first few pools.</p>
+
+<h4>Offline sync, honestly</h4>
+<p>Power Apps offline resolves conflicts last-write-wins. That is dangerous on a shared record — but crew leads only ever write sign-off and task completion. Lock them out of crew and date columns with a column-security profile and the failure mode disappears.</p>
+
+<h2><span class="n">06</span>The Gantt gap</h2>
+
+<p>Model-driven apps have no native Gantt, and without custom code you cannot build the board that exists in the browser tool today. Three options, none perfect:</p>
+
+<div class="scroll">
+<table>
+<thead><tr><th>Option</th><th>Interactive</th><th>Assessment</th></tr></thead>
+<tbody>
+<tr><td>Power BI Gantt visual on a dashboard tab</td><td>Read-only</td><td><span class="pill ok">Recommended</span> Supported, no code, refreshes from Dataverse. Editing happens in the grid.</td></tr>
+<tr><td>Keep the existing HTML tool as a planning view</td><td>Yes</td><td><span class="pill ok">Recommended</span> Zero cost during transition. Retire once BI is trusted.</td></tr>
+<tr><td>Import a community Gantt PCF component</td><td>Yes</td><td><span class="pill hi">Later</span> No code authored, but unsupported by Microsoft and a real upgrade risk. Revisit once the data is live.</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2><span class="n">07</span>Security</h2>
+
+<div class="scroll">
+<table>
+<thead><tr><th>Role</th><th>Can do</th><th>Cannot do</th></tr></thead>
+<tbody>
+<tr><td><strong>Office Admin</strong></td><td>Everything, including the phase template</td><td>—</td></tr>
+<tr><td><strong>Project Manager</strong></td><td>Create and schedule jobs, assign crews, give PM sign-off</td><td>Edit the phase template</td></tr>
+<tr><td><strong>Crew Lead</strong></td><td>Read own crew's sub-phases; write installer sign-off and task completion</td><td>Change crew, dates, or another crew's work — enforced by column security</td></tr>
+<tr><td><strong>Executive</strong></td><td>Read all, plus Power BI</td><td>Write anything</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2><span class="n">08</span>Environments and release</h2>
+
+<p>Three environments — <span class="mono">D2 Dev</span>, <span class="mono">D2 Test</span>, <span class="mono">D2 Prod</span> — with everything in one solution, <span class="mono">D2BuildScheduler</span>, publisher prefix <span class="mono">d2</span>. Ship with <strong>Power Platform Pipelines</strong>, which is built into the maker portal and needs no Azure DevOps. Dev exports unmanaged; Test and Prod import managed, so nobody can hand-edit production.</p>
+
+<h2><span class="n">09</span>Data migration</h2>
+
+<p>About 450 template rows, loaded in dependency order: Trades → Crews → Crew Members → Crew Trades → Phase Templates → Sub-Phase Templates → Task Templates. Sources are the existing <span class="mono">MASTER TO COPY FROM D2 Gunite Build Phases.xlsx</span> and <span class="mono">D2 Pools Crews.pdf</span>. Excel import in the maker portal handles this in an afternoon.</p>
+
+<div class="note decide">
+<h4>Five data gaps to close before migration — this is the real critical path</h4>
+<p>None of these are technical. All of them will be baked into production if they go across unresolved.</p>
+<ol>
+<li><strong>Four crews have no size or member list</strong> — George, Armondo, STL Shotcrete, Brothers.</li>
+<li><strong>Ten trades map to no sub-phase</strong>: Retaining Walls, Veneer/Stone, CMU, Brick/Masonry, Landscaping, Pavers, Forms, Water Line Install, Material Runs, and plain Grading. George Crew is currently scheduled zero days of work as a direct result.</li>
+<li><strong>Finish Grade on Saul and Guillermo is an inference</strong>, drawn from Cirilo being the only crew explicitly excluded from it. Not stated on the crew list.</li>
+<li><strong>Eleven sub-phases sit in Unassigned</strong> — the field supervision and QC items. They need an owner, or a PM crew needs to exist.</li>
+<li><strong>All 46 durations are the 2-day placeholder.</strong> Fine for building the system; not fine for promising a customer a finish date.</li>
+</ol>
+</div>
+
+<h2><span class="n">10</span>Licensing</h2>
+
+<div class="scroll">
+<table>
+<thead><tr><th>Licence</th><th class="num">Users</th><th class="num">List / user / mo</th><th class="num">Monthly</th></tr></thead>
+<tbody>
+<tr><td>Power Apps Premium — office &amp; PMs</td><td class="num">8</td><td class="num">$20</td><td class="num">$160</td></tr>
+<tr><td>Power Apps Premium — crew leads</td><td class="num">10</td><td class="num">$20</td><td class="num">$200</td></tr>
+<tr><td>Power BI Pro — ownership</td><td class="num">3</td><td class="num">$14</td><td class="num">$42</td></tr>
+<tr><td>Dataverse capacity</td><td class="num">—</td><td class="num">included</td><td class="num">$0</td></tr>
+<tr><td><strong>Total</strong></td><td class="num">21</td><td class="num"></td><td class="num"><strong>~$402</strong></td></tr>
+</tbody>
+</table>
+</div>
+
+<p>Premium licences include the Dataverse and premium-connector rights the flows need, plus 10 GB of database with the first seat and 250 MB per user after. <strong>Evaluate Power Apps per-app (about $5) for the crew leads</strong> — they touch one app and could save roughly $150 a month, but confirm it covers the offline profile before committing.</p>
+
+<p class="mono" style="font-size:12.5px;color:var(--slate)">Figures are US list price and change. Verify against current Power Platform pricing before budgeting.</p>
+
+<h2><span class="n">11</span>Rollout</h2>
+
+<div class="scroll">
+<table>
+<thead><tr><th class="num">Wk</th><th>Phase</th><th>Deliverable</th><th>Done when</th></tr></thead>
+<tbody>
+<tr><td class="num">1–2</td><td><strong>Foundation</strong></td><td>Three environments, solution, publisher, security roles, all 13 tables, the Crew + Date alternate key</td><td>A duplicate Crew Day insert fails in Test</td></tr>
+<tr><td class="num">3–4</td><td><strong>Data</strong></td><td>Close the five gaps in §09; migrate ~450 template rows</td><td>Every trade has a crew and every sub-phase has an owner</td></tr>
+<tr><td class="num">5–7</td><td><strong>Scheduling engine</strong></td><td><code>Auto-Schedule Job</code>, conflict retry, working-calendar logic, sign-off cascade</td><td>Output matches the browser tool for the same inputs</td></tr>
+<tr><td class="num">8–10</td><td><strong>Apps</strong></td><td>Model-driven app, canvas field app with offline profile, Power BI report</td><td>A crew lead signs off from a real site with no signal</td></tr>
+<tr><td class="num">11–13</td><td><strong>Pilot &amp; cutover</strong></td><td>One live pool run in parallel with the browser tool, training, go/no-go</td><td>Two weeks with no schedule kept outside the system</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note">
+<h4>The browser tool is the test oracle</h4>
+<p>It already enforces the same rules — sequence, trade matching, one crew per day, Mon–Sat — and its output has been verified across twelve concurrent jobs. Feed both systems the same three pools in week 7. Any divergence is a bug in one of them, and you know which rules to check.</p>
+</div>
+
+<h2><span class="n">12</span>Risks</h2>
+
+<div class="scroll">
+<table>
+<thead><tr><th>Risk</th><th>Sev</th><th>Mitigation</th></tr></thead>
+<tbody>
+<tr><td>Placeholder durations get treated as commitments</td><td><span class="pill hi">High</span></td><td>Don't quote customer dates from the system until §11 week 13. Measure actuals in Power BI first.</td></tr>
+<tr><td>Ten unmapped trades leave crews idle</td><td><span class="pill hi">High</span></td><td>Blocking item for week 3. George Crew has no work at all today.</td></tr>
+<tr><td>Flow runtime frustrates PMs</td><td><span class="pill md">Med</span></td><td>Scope it to an explicit button; nightly re-plan runs unattended. Port to a Custom API if it bites.</td></tr>
+<tr><td>Partial flow failure orphans Crew Day rows</td><td><span class="pill md">Med</span></td><td>Run-ID stamp plus a compensating delete in the error branch.</td></tr>
+<tr><td>No interactive Gantt at go-live</td><td><span class="pill md">Med</span></td><td>Keep the browser tool running in parallel; revisit a PCF later.</td></tr>
+<tr><td>Crew leads don't adopt mobile sign-off</td><td><span class="pill md">Med</span></td><td>Sign-off is already how the browser tool works — pilot with one crew before the full roll.</td></tr>
+<tr><td>Offline sync conflict overwrites a schedule change</td><td><span class="pill lo">Low</span></td><td>Column security limits crew leads to sign-off and task columns only.</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2><span class="n">13</span>Open decisions</h2>
+
+<ol>
+<li><strong>Should a PM crew exist?</strong> Eleven sub-phases are field supervision and QC, currently parked in Unassigned. A fourth capacity-exempt bucket would clear them in one pass.</li>
+<li><strong>Where do the ten unmapped trades belong?</strong> Most likely inside existing sub-phases — retaining walls and veneer under 5.6 Deck Placement, forms under 2.2 Steel Installation — or the template is missing sub-phases D2's process actually has.</li>
+<li><strong>Per-app or Premium for crew leads?</strong> Roughly $150 a month, contingent on offline support.</li>
+<li><strong>Who builds it?</strong> The plan assumes an internal low-code maker. It is also written tightly enough to hand to a Microsoft partner as a scope of work.</li>
+</ol>
+
+<div class="foot">
+D2 Pools · Power Platform deployment plan · Revision A<br>
+Prepared alongside the working browser-based scheduler, which remains in service until §11 week 13.
+</div>
+
+</div>

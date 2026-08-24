@@ -1,0 +1,812 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>D2 Pool Build Scheduler</title>
+<style>
+:root{
+  --bg:#f6f7f9; --panel:#fff; --ink:#111827; --muted:#6b7280; --line:#e5e7eb;
+  --accent:#0f766e; --danger:#b91c1c; --warn:#b45309; --ok:#15803d;
+  --day:26px; --nmw:400px;
+}
+*{box-sizing:border-box}
+body{margin:0;font:14px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink)}
+header{background:#0b1220;color:#fff;padding:9px 14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;position:sticky;top:0;z-index:60}
+header h1{font-size:14px;margin:0;font-weight:650}
+header .sp{flex:1}
+nav{display:flex;gap:2px;background:#1c2434;border-radius:8px;padding:3px}
+nav button{background:none;border:0;color:#c9d2e3;padding:6px 11px;border-radius:6px;font:inherit;font-size:12.5px;cursor:pointer}
+nav button.on{background:#fff;color:#0b1220;font-weight:600}
+.btn{background:#fff;border:1px solid var(--line);border-radius:7px;padding:6px 10px;font:inherit;font-size:12.5px;cursor:pointer;color:var(--ink)}
+.btn:hover{background:#f3f4f6}
+.btn.p{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.p:hover{background:#0d5f59}
+.btn.d{color:var(--danger);border-color:#fecaca}
+.btn.sm{padding:2px 7px;font-size:11.5px}
+main{padding:12px 14px 60px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;margin-bottom:12px;overflow:hidden}
+.card > h2{margin:0;font-size:12.5px;padding:9px 13px;border-bottom:1px solid var(--line);background:#fafafa;font-weight:650;letter-spacing:.3px;text-transform:uppercase;color:#374151;display:flex;align-items:center;gap:8px}
+.card > h2 .sp{flex:1}
+.pad{padding:13px}
+table{border-collapse:collapse;width:100%}
+th,td{text-align:left;padding:6px 9px;border-bottom:1px solid var(--line);vertical-align:middle}
+th{font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);font-weight:650;background:#fafafa}
+input,select{font:inherit;padding:4px 6px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--ink)}
+input[type=number]{width:60px}
+input[type=checkbox]{width:auto;accent-color:var(--accent);cursor:pointer}
+.chip{display:inline-block;padding:1px 7px;border-radius:999px;font-size:11px;font-weight:600;border:1px solid transparent}
+.skill{background:#eef2ff;color:#3730a3;margin:1px 3px 1px 0;cursor:pointer;user-select:none;border-color:#e0e7ff}
+.skill.off{background:#f3f4f6;color:#9ca3af;border-color:#e5e7eb}
+.sub{background:#f1f5f9;color:#475569;border-color:#e2e8f0}
+.muted{color:var(--muted)}.small{font-size:11.5px}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+/* timeline */
+.tl{overflow:auto;max-height:74vh;position:relative}
+.tl table{width:max-content;min-width:100%}
+.tl th,.tl td{border-bottom:1px solid #f1f2f4;padding:0}
+.nm{position:sticky;left:0;background:#fff;z-index:20;min-width:var(--nmw);max-width:var(--nmw);width:var(--nmw);padding:3px 8px!important;border-right:2px solid var(--line);font-size:12.5px}
+thead .nm{background:#fafafa;z-index:30}
+.tl thead th{position:sticky;top:0;background:#fafafa;z-index:25;border-bottom:1px solid var(--line)}
+.nmflex{display:flex;align-items:center;gap:6px}
+.nmflex .t{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sg{display:flex;gap:9px;align-items:center;flex:0 0 auto}
+.sg label{font-size:9.5px;text-transform:uppercase;letter-spacing:.3px;color:var(--muted);display:flex;align-items:center;gap:2px;font-weight:650;cursor:pointer}
+.sg label.on{color:var(--ok)}
+.wk{font-size:10px;color:var(--muted);text-align:center;border-left:1px solid var(--line);font-weight:600;white-space:nowrap;padding:3px 0!important}
+.dn{font-size:9.5px;color:#9ca3af;text-align:center;width:var(--day);min-width:var(--day);padding:2px 0!important}
+.dn.mon{border-left:1px solid var(--line)}
+.dn.sat{color:#c7cbd1;background:#fafbfc}
+.dn.today{background:#fef3c7;color:#92400e;font-weight:700}
+td.cell{width:var(--day);min-width:var(--day);height:24px;border-left:1px solid #f6f7f8}
+.bar{height:18px;margin:3px 1px;border-radius:4px;color:#fff;font-size:10.5px;line-height:18px;padding:0 6px;white-space:nowrap;overflow:hidden;cursor:pointer;font-weight:600}
+.bar:hover{filter:brightness(1.12);outline:2px solid #111}
+.bar.bad{box-shadow:inset 0 0 0 2px #7f1d1d}
+tr.jobrow td{background:#eef2f6}
+tr.jobrow .nm{background:#eef2f6;font-weight:700;font-size:13px}
+tr.phrow td{background:#f8fafc}
+tr.phrow .nm{background:#f8fafc;font-weight:650}
+.jobbar{height:7px;margin:8px 1px;border-radius:4px}
+.phbar{height:10px;margin:7px 1px;border-radius:3px;opacity:.55}
+.sec{padding-left:16px}
+.skip{opacity:.4;text-decoration:line-through}
+.tw{display:inline-block;width:34px;height:6px;background:#e5e7eb;border-radius:3px;overflow:hidden;vertical-align:1px}
+.tw i{display:block;height:100%;background:var(--accent)}
+.flag{display:block;padding:6px 12px;border-bottom:1px solid var(--line);font-size:12px}
+.flag.err{background:#fef2f2;color:#7f1d1d}
+.flag.warn{background:#fffbeb;color:#78350f}
+.flag.ok{background:#f0fdf4;color:#14532d}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:min(470px,100%);background:#fff;border-left:1px solid var(--line);box-shadow:-8px 0 30px rgba(0,0,0,.14);z-index:100;display:none;flex-direction:column}
+.drawer.open{display:flex}
+.drawer h3{margin:0;padding:11px 15px;border-bottom:1px solid var(--line);font-size:13.5px;display:flex;align-items:center;gap:8px;background:#fafafa}
+.drawer .body{overflow:auto;padding:13px 15px;flex:1}
+.drawer .foot{border-top:1px solid var(--line);padding:9px 15px;display:flex;gap:8px;background:#fafafa}
+.fld{margin-bottom:10px}
+.fld label{display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);font-weight:650;margin-bottom:3px}
+.fld input,.fld select{width:100%}
+.fld input[type=checkbox]{width:auto}
+.row{display:flex;gap:8px}.row > *{flex:1}
+.tk{display:flex;gap:7px;align-items:flex-start;padding:3px 0;font-size:12.5px;border-bottom:1px solid #f4f5f6}
+.tk input{margin-top:2px}
+.tk.done span{text-decoration:line-through;color:var(--muted)}
+.legend{display:flex;flex-wrap:wrap;gap:9px;padding:8px 13px;font-size:11.5px;align-items:center;border-bottom:1px solid var(--line)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:4px;vertical-align:-1px}
+.bars{height:9px;background:#e5e7eb;border-radius:5px;overflow:hidden;min-width:110px}
+.bars i{display:block;height:100%}
+.hint{font-size:11.5px;color:var(--muted);padding:0 13px 11px}
+.ok-txt{color:var(--ok);font-weight:600}.err-txt{color:var(--danger);font-weight:600}
+.tw2{height:8px;background:#e5e7eb;border-radius:4px;overflow:hidden}
+.tw2 i{display:block;height:100%;background:var(--accent)}
+@media print{header,nav,.btn,.drawer{display:none!important}.tl{max-height:none;overflow:visible}}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>D2 Pool Build Scheduler</h1>
+  <nav id="tabs">
+    <button data-t="board" class="on">Job Board</button>
+    <button data-t="crewboard">Crew Board</button>
+    <button data-t="dispatch">Daily Dispatch</button>
+    <button data-t="signoff">Sign-Offs</button>
+    <button data-t="jobs">Jobs</button>
+    <button data-t="crews">Crews</button>
+    <button data-t="phases">Phase Template</button>
+  </nav>
+  <span class="sp"></span>
+  <button class="btn p" id="autoBtn">⚡ Auto-Schedule</button>
+  <button class="btn" id="addJobBtn">+ Job</button>
+  <button class="btn" id="csvBtn">CSV</button>
+  <button class="btn" id="backupBtn" title="Download everything — jobs, crews, template, sign-offs — as a .json file">Backup</button>
+  <button class="btn" id="restoreBtn" title="Load a .json backup, replacing what is in this browser">Restore</button>
+  <input type="file" id="restoreFile" accept="application/json,.json" style="display:none">
+  <button class="btn" id="resetBtn">Reset</button>
+</header>
+
+<main id="main"></main>
+
+<div class="drawer" id="drawer">
+  <h3><span id="dTitle">Edit</span><span style="flex:1"></span><button class="btn sm" onclick="closeDrawer()">✕</button></h3>
+  <div class="body" id="dBody"></div>
+  <div class="foot" id="dFoot"></div>
+</div>
+
+<script>
+const SEED_TEMPLATE = [{"num":"0","name":"Pre Construction/Sales","sections":[{"num":"0.0","name":"Sales to Production Handoff","skill":"@office","days":2,"tasks":["Contract review","Signed","Change orders process","Draw schedule","Design verification","Approved Construction Plans","Pools Dimensions Verified","Spa Dimensions Verified","Feature locations","Equipment specifications approved","Material Selections Approved","Selections","Start ordering Materials as needed?","Budget verification","Permit submission","Procurement planning","HOA Submittals to Client"]}]},{"num":"1","name":"Preconstruction Back Office Admin","sections":[{"num":"1.0","name":"Pre-Construction Back Office Admin","skill":"@office","days":2,"tasks":["Survey Submitted","Survey completed","Fence Location Verified","Equipment Pad Verified","Permits","Permit Obtained","Electric Permit","HOA Approval","811 Utilities Submission","Order Shell if Fiberglass to meet schedule","Plan View","Dig Sheet","PortaPotty Submitted","Delivered","HOA Submission Document","Site Inspection prior to Permit/Codes","Permit Downloaded/Printed/shared","D2 Pool Sign in the Yard","Contruction Tote for supplies onsite"]},{"num":"1.1","name":"Pre-Construction Verification - HANDOVER FROM OFFICE TO FIELD PM","skill":"@office","days":2,"tasks":["Client Meeting - SEE FORM FOR AGENDA FINAL CLIENT SIGH OFF","Review Selections","PM Assigned/Introduced","Vendor Schedule","Materials Procured/Handoff to Admin/Backoffice","Contract scope review","Plan revision verification","Easement review","Property access review","PreCon Meeting PM and Dig Team>digsheet/plan view"]},{"num":"1.2","name":"Site Preparation","skill":"demolition","days":2,"tasks":["Construction Entrance and Curb Protection","Identify Site Obstacles","Site Prep and Demo (existing fence etc)","Security Fence","Silt Fence installed","Landscaping protection","Staging area designation","Material delivery planning","Neighbor notification as needed"]},{"num":"1.3","name":"Pool Layout","skill":"dig","days":2,"tasks":["Benchmark establishment","Stake Perimeter","House-to-pool measurements","Setback verification","Elevation verification","Feature layout (spa, tanning ledge, fire features, water features","Auto Cover Layout","Equipment location confirmation"]},{"num":"1.4","name":"Pre-Dig Quality Check","skill":"@unassigned","days":2,"tasks":["Layout sign-off","Dig depth calculations","Dig Sheet and Plan View OnSite to Excavation Team","Soil condition review","Overdig requirements","Dewatering assessment","Hauloff Coordination"]},{"num":"1.5","name":"Excavation Operations","skill":"dig","days":2,"tasks":["Dig supervision","Evacuate Shell","Evacuate Spa","Evacuate benches","Evacuate Steps","Evacuate Plumbing and Electrical trenches","Shelf and bench measurements","Transition slope verification","Deep-end depth verification","Water Feature(s) verification","Equipment Pad Verification"]},{"num":"1.6","name":"Post-Excavation Review","skill":"@unassigned","days":2,"tasks":["Excavation dimension check","Evacuation Shape","Verify Overdig","Soil stability inspection","Soil pile management","Haul-off verification","Evacuation Images obtained","Excavation acceptance sign-off by PM"]}]},{"num":"2","name":"Engineering","sections":[{"num":"2.1","name":"Engineering Review by PM","skill":"@office","days":2,"tasks":["Structural plan review","Engineering Details","Rebar schedule review","Beam requirement review","Specialty feature reinforcement review","Spa wall reinforcement verification"]},{"num":"2.2","name":"Steel Installation and Forms","skill":"rebar","days":2,"tasks":["Radius formation","Beam construction","Floor steel placement","Wall steel placement","Step reinforcement","Spa Reinforcement","Bench reinforcement"]},{"num":"2.3","name":"Bond Beam Preparation","skill":"rebar","days":2,"tasks":["Bonding Wire","Bond Steel Cage","Beam width verification","Beam height verification","Skimmer reinforcement review","Bond Metallic components","Future deck interface review"]},{"num":"2.4","name":"Bonding System Installation","skill":"@sub","days":2,"tasks":["Bond wire installation","Grid continuity verification","Equipment bonding preparation","Metal component bonding"]},{"num":"2.5","name":"Steel QC Inspection Municipal Inspection","skill":"@sub","days":2,"tasks":["Rebar spacing verification","Steel elevation verification","Steel clearance verification","Bond Beam Verification","Chair placement and height verification","Penetration reinforcement review","Structural Elements Thickened Wall, Raised Bond Beam Review and verification"]},{"num":"2.6","name":"Pre-Gunite Structural Inspection","skill":"@sub","days":2,"tasks":["Internal QC inspection","Municipal inspection preparation","Correction list completion","Inspection sign-off"]}]},{"num":"3","name":"Site Prep","sections":[{"num":"3.1","name":"Hydraulic Design Verification","skill":"@office","days":2,"tasks":["Plumbing Plan Approved","Pipe sizing review","Verify Suction Lines","Verify Feature plumbing","Equipment compatibility review","Flow calculations","Water feature hydraulic review"]},{"num":"3.2","name":"Underground Plumbing Installation","skill":"plumbing","days":2,"tasks":["Main drain installation","Skimmer installation","Return line installation","Cleaner line installation","Spa jet plumbing","Water feature plumbing","Auto Leveler, Overflow Drains"]},{"num":"3.3","name":"Plumbing Pressure Testing","skill":"plumbing","days":2,"tasks":["Pressurize Lines","Monitor Pressure","Isolation testing","Pressure hold verification","Document Results","Leak identification","Repair documentation"]},{"num":"3.4","name":"Electrical Rough-In","skill":"@sub","days":2,"tasks":["Conduit routing","Junction box placement (J Box)","Light niche installation","Low-voltage routing","Automation conduit preparation","Conduit for Water Features and Lights","Auto Cover Conduit"]},{"num":"3.5","name":"Bonding Grid Completion","skill":"@sub","days":2,"tasks":["Grid installation","Grid continuity testing","Deck bonding preparation","Equipment bonding preparation"]},{"num":"3.6","name":"Equipment Pad Preparation","skill":"gas","days":2,"tasks":["Verify Pad Location and Slope","Equipment orientation planning","Service clearance verification","Drainage planning","Future Service Availability","Utility stub-out verification","Transformer and light conduit planning and verification"]},{"num":"3.7","name":"Rough Inspection Preparation","skill":"@unassigned","days":2,"tasks":["Plumbing QC review","Electrical QC review","Bonding QC review","Inspection sign-off"]}]},{"num":"4","name":"Gunite And Shotcrete","sections":[{"num":"4.1","name":"Pre-Shoot Readiness Review","skill":"@unassigned","days":2,"tasks":["Structural inspection approval","Plumbing pressure confirmation","Steel acceptance verification","Electrical  Conduit Approved","Pressure Test Activated","Auto Cover Conduit in Vault","Weather assessment"]},{"num":"4.2","name":"Crew Pre-Shoot Meeting","skill":"@unassigned","days":2,"tasks":["Scope review","Thickness requirements review","Feature details review","Safety review"]},{"num":"4.3","name":"Shotcrete Placement","skill":"shotcrete","days":2,"tasks":["Floor shoot","Wall shoot","Bond beam shoot","Spa shoot","Pad Shoot","Feature shoot","Auto Cover shoot"]},{"num":"4.4","name":"Real-Time QC Monitoring","skill":"@unassigned","days":2,"tasks":["Thickness verification","Encapsulation verification","Nozzle Angle and Rebound management","Pipe penetration review"]},{"num":"4.5","name":"Shaping & Finishing","skill":"shotcrete","days":2,"tasks":["Step shaping","Bench shaping","Radius refinement","Spillway shaping"]},{"num":"4.6","name":"Post-Shoot Inspection","skill":"@unassigned","days":2,"tasks":["Hollow area inspection","Crack review","Thickness documentation","Photograph and document images","Engineer review (if required)"]},{"num":"4.7","name":"Curing Program","skill":"@unassigned","days":2,"tasks":["Cure instruction delivery","Daily cure monitoring","Daily Moisture Curing Schedule 7-10 Days (watering)","Cure log documentation","Customer education"]}]},{"num":"5","name":"Preconstruction Material","sections":[{"num":"5.1","name":"Material Verification","skill":"@office","days":2,"tasks":["Tile approval","Coping approval","Deck material approval","Color approval","Quantity verification"]},{"num":"5.2","name":"Waterproofing & Surface Prep","skill":"sealant","days":2,"tasks":["Beam preparation","Surface cleaning","Waterproofing application","Expansion joint planning"]},{"num":"5.3","name":"Tile Installation","skill":"tile","days":2,"tasks":["Waterline tile layout","Feature tile installation","Spa tile installation","Tile Level Verification","Verify Grout Joint Alignment","Expansion Joints Installation"]},{"num":"5.4","name":"Coping Installation","skill":"coping","days":2,"tasks":["Elevation verification","Overhang verification","Joint spacing verification","Radius consistency review","Water Feature and Veneers","Spa Veneer","Water Feature Veneer"]},{"num":"5.5","name":"Deck Preparation","skill":"finishgrade","days":2,"tasks":["Subgrade preparation","Compaction testing","Form setup","Drain installation"]},{"num":"5.6","name":"Deck Placement","skill":"hardscape","days":2,"tasks":["Concrete placement","Paver installation","Paver Edge Placed","Auto Cover Rough in","Decorative finish application","Expansion joint installation"]},{"num":"5.7","name":"Drainage Verification","skill":"drainage","days":2,"tasks":["Deck slope testing","Water flow testing","Area drain testing","Equipment pad drainage review"]},{"num":"5.8","name":"Hardscape Final QC","skill":"@unassigned","days":2,"tasks":["Surface consistency review","Joint inspection","Trip hazard inspection","Finish approval"]}]},{"num":"6","name":"Construction Equipment Installation","sections":[{"num":"6.1","name":"Equipment Installation","skill":"plumbing","days":2,"tasks":["Pump installation","Filter installation","Heater installation","Chiller Instalation","Automation installation","Sanitizer installation"]},{"num":"6.2","name":"Equipment Plumbing","skill":"plumbing","days":2,"tasks":["Manifold assembly","Valve installation","Check valve installation","Flow verification","Water Feature verification","Auto Leveler and Pool Drain verification"]},{"num":"6.3","name":"Equipment Electrical","skill":"automation","days":2,"tasks":["Breaker installation","Automation wiring","Bonding completion","GFCI verification","Auto Cover Switch"]},{"num":"6.4","name":"Interior Finish Preparation","skill":"plaster","days":2,"tasks":["Surface cleaning","Fill preparation","Water source verification","Trim Out Pool - Main Drains and Covers","Startup planning"]},{"num":"6.5","name":"Interior Finish & Fill","skill":"pebbletech","days":2,"tasks":["Plaster/Pebble installation","Surface inspection","Fill supervision","Fill documentation"]},{"num":"6.6","name":"Startup Procedures","skill":"@unassigned","days":2,"tasks":["Initial equipment startup","Leak Inspection","Auto Cover Installed","Lights Pulled In","Flow balancing","Valve adjustment","Automation programming"]},{"num":"6.7","name":"Water Chemistry Startup","skill":"@unassigned","days":2,"tasks":["Initial testing","Chemical balancing","Brushing schedule","Startup log creation"]},{"num":"6.8","name":"Client Orientation","skill":"poolschool","days":2,"tasks":["Equipment training","Automation training","Maintenance education","Warranty Submission","Documentation handoff"]},{"num":"6.9","name":"Final Project Closeout","skill":"@office","days":2,"tasks":["Punch-list completion","Final inspection","Photo documentation","Warranty registration","Customer Pool School"]}]},{"num":"7","name":"Post Constuction Completion Phase","sections":[{"num":"7.0","name":"Warranty & 30-Day Follow-Up","skill":"@office","days":2,"tasks":["7-day startup review","30-day chemistry review","Warranty inspection","Customer satisfaction survey","Service department handoff"]}]}];
+
+
+/* ============================== skills & crews ============================== */
+const SKILLS = [
+  {id:'dig',        label:'Dig / Excavation'},
+  {id:'form',       label:'Forms'},
+  {id:'rebar',      label:'Steel / Rebar'},
+  {id:'shotcrete',  label:'Shotcrete / Gunite'},
+  {id:'grade',      label:'Grading'},
+  {id:'finishgrade',label:'Finish Grade'},
+  {id:'drainage',   label:'Drainage'},
+  {id:'demolition', label:'Demolition'},
+  {id:'plumbing',   label:'Plumbing'},
+  {id:'gas',        label:'Gas Lines'},
+  {id:'waterline',  label:'Water Line Install'},
+  {id:'automation', label:'Automation'},
+  {id:'hardscape',  label:'Hardscape'},
+  {id:'pavers',     label:'Pavers'},
+  {id:'walls',      label:'Retaining Walls'},
+  {id:'cmu',        label:'CMU Block'},
+  {id:'masonry',    label:'Brick / Masonry'},
+  {id:'veneer',     label:'Veneer / Stone'},
+  {id:'tile',       label:'Waterline Tile'},
+  {id:'coping',     label:'Coping'},
+  {id:'plaster',    label:'Plaster'},
+  {id:'pebbletech', label:'Pebbletech'},
+  {id:'sealant',    label:'Sealant'},
+  {id:'landscaping',label:'Landscaping'},
+  {id:'materials',  label:'Material Runs'},
+  {id:'poolschool', label:'Pool School'}
+];
+function skillLabel(id){
+  if(!id)return '—';
+  if(FIXED[id]){const c=fixedCrew(id);return c?c.name:id;}
+  return (SKILLS.find(s=>s.id===id)||{}).label || '—';
+}
+const PALETTE=['#2563eb','#0891b2','#7c3aed','#db2777','#ea580c','#16a34a','#ca8a04','#475569','#be123c','#0d9488','#4338ca','#a16207'];
+const SEED_CREWS = [
+  {id:'devon',    name:'Devon Crew +3', members:['Devon','Martin','Ocoundo','Eric'], size:4,
+    skills:['hardscape','walls','drainage','landscaping']},
+  {id:'guillermo',name:'Guillermo +2',  members:['Guillermo','Sergio R','Valentine'], size:3,
+    skills:['hardscape','walls','tile','coping','grade','finishgrade','drainage','dig'],
+    note:'Finish Grade assumed — not stated on the crew list'},
+  {id:'cirilo',   name:'Cirilo +2',     members:['Cirilo','Yair','Marbin'], size:3,
+    skills:['coping','tile','veneer','cmu','grade','drainage','hardscape'], note:'Light grading only — no finish grade'},
+  {id:'saul',     name:'Saul +2',       members:['Saul','Sergio E','Miguel'], size:3,
+    skills:['grade','finishgrade','gas','waterline','dig'],
+    note:'Finish Grade assumed — not stated on the crew list'},
+  {id:'antonio',  name:'Antonio +1',    members:['Antonio','brother'], size:2,
+    skills:['sealant','materials','pavers','hardscape'], note:'Hardscape only if supervised'},
+  {id:'campos',   name:'Campos +2',     members:['Campos','?','?'], size:3,
+    skills:['hardscape','demolition','masonry','veneer'], note:'Other 2 members unidentified'},
+  {id:'harrison', name:'Harrison +2',   members:['Harrison','Ian','?'], size:3,
+    skills:['dig','form','rebar','automation','poolschool','plumbing'], note:'Third member unidentified'},
+  {id:'george',   name:'George Crew',   members:[], size:null,
+    skills:['masonry','cmu'], note:'Crew size / members not specified'},
+  {id:'armondo',  name:'Armondo Crew',  members:[], size:null,
+    skills:['hardscape','coping'], note:'Crew size / members not specified'},
+  {id:'stl',      name:'STL Shotcrete', members:[], size:null,
+    skills:['dig','form','rebar','shotcrete','plumbing','pebbletech','plaster'], note:'Advanced pebbletech · size not specified'},
+  {id:'brothers', name:'Brothers Crew', members:[], size:null,
+    skills:['plaster','pebbletech'], note:'Crew size / members not specified'},
+  /* Capacity-exempt buckets: not field crews, so they are never "double-booked"
+     and can carry the same day across every job at once. */
+  {id:'office',    name:'Main Office',   members:[], size:null, skills:[], unlimited:true, color:'#334155',
+    note:'Back-office / admin — unlimited capacity, never double-booked'},
+  {id:'subcon',    name:'Subcontractor', members:[], size:null, skills:[], unlimited:true, color:'#0369a1',
+    note:'Outside trade or inspector — unlimited capacity, never double-booked'},
+  {id:'unassigned',name:'Unassigned',    members:[], size:null, skills:[], unlimited:true, color:'#dc2626',
+    note:'Needs an owner — triage these before the work comes up'}
+];
+/* Sub-phases can require a trade (matched to qualified crews) or be pinned
+   straight to one of the three buckets above via these @-codes. */
+const FIXED={'@office':'office','@sub':'subcon','@unassigned':'unassigned'};
+const fixedCrew=sk=>FIXED[sk]?crew(FIXED[sk]):null;
+const isQualified=(c,sk)=>!sk?true:(FIXED[sk]?(c.id===FIXED[sk]||c.unlimited):c.skills.includes(sk));
+
+/* ============================== dates ============================== */
+const pad=n=>String(n).padStart(2,'0');
+const fmt=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+function parseD(s){const[a,b,c]=s.split('-').map(Number);return new Date(a,b-1,c);}
+const isWork=d=>d.getDay()!==0;   // Mon–Sat are work days; Sunday is not
+function nextWork(s){let d=parseD(s);let g=0;while(!isWork(d)&&g++<10)d.setDate(d.getDate()+1);return fmt(d);}
+function addCal(s,n){const d=parseD(s);d.setDate(d.getDate()+n);return fmt(d);}
+function workSpan(startStr,n){const out=[];let d=parseD(startStr);let g=0;while(out.length<n&&g++<4000){if(isWork(d))out.push(fmt(d));d.setDate(d.getDate()+1);}return out;}
+const todayStr=()=>fmt(new Date());
+function pretty(s){if(!s)return '—';const d=parseD(s);return (d.getMonth()+1)+'/'+d.getDate()+'/'+String(d.getFullYear()).slice(2);}
+const dow=s=>['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][parseD(s).getDay()];
+
+/* ============================== state ============================== */
+const KEY='poolsched.v6';
+const sizeTxt=c=>c.size==null?'?':c.size;
+let S, UI={collapsed:{}};
+
+function mkTemplate(){
+  return SEED_TEMPLATE.map((p,i)=>({
+    id:'g'+i, num:p.num, name:p.name,
+    sections:p.sections.map((s,k)=>({id:'s'+i+'_'+k, num:s.num, name:s.name, skill:s.skill||null, days:s.days||2, tasks:s.tasks.slice()}))
+  }));
+}
+function mkJobGroups(tpl){
+  return tpl.map(g=>({tid:g.id,num:g.num,name:g.name,inst:false,pm:false,
+    sections:g.sections.map(s=>({sid:s.id,num:s.num,name:s.name,skill:s.skill,days:s.days,
+      crewId:null,start:null,skip:false,locked:false,inst:false,pm:false,
+      tasks:s.tasks.map(t=>({t,done:false}))}))}));
+}
+function nextJobNo(){
+  const n=S&&S.jobs?S.jobs.reduce((m,j)=>{const t=String(j.jobno||'').match(/(\d+)\s*$/);
+    return t?Math.max(m,parseInt(t[1],10)):m;},1000):1000;
+  return 'D2-'+(n+1);
+}
+function newJob(name,addr,city,state,zip,start){
+  return {id:'j'+Math.random().toString(36).slice(2,8),jobno:nextJobNo(),
+    name,addr,city:city||'',state:state||'',zip:zip||'',start,
+    groups:mkJobGroups(S?S.template:mkTemplate())};
+}
+const fullAddr=j=>[j.addr,j.city,[j.state,j.zip].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+function load(){
+  try{const raw=localStorage.getItem(KEY);if(raw){S=JSON.parse(raw);return;}}catch(e){}
+  S={crews:JSON.parse(JSON.stringify(SEED_CREWS)),template:mkTemplate(),jobs:[],settings:{}};
+  const mon=(()=>{let d=new Date();while(d.getDay()!==1)d.setDate(d.getDate()+1);return fmt(d);})();
+  S.jobs=[];
+  S.jobs.push(newJob('Harrison Residence','1420 Camino Real','Thousand Oaks','CA','91360',mon));
+  S.jobs.push(newJob('Vasquez Pool & Spa','88 Ridgeline Dr','Simi Valley','CA','93065',addCal(mon,21)));
+  S.jobs.push(newJob('Bell Canyon Remodel','3 Bell Canyon Rd','Bell Canyon','CA','91307',addCal(mon,42)));
+  autoSchedule();
+}
+const save=()=>localStorage.setItem(KEY,JSON.stringify(S));
+const crew=id=>S.crews.find(c=>c.id===id);
+const crewColor=id=>{const c=crew(id);if(c&&c.color)return c.color;
+  const i=S.crews.findIndex(x=>x.id===id);return i<0?'#94a3b8':PALETTE[i%PALETTE.length];};
+function qualified(sk){
+  if(FIXED[sk]){const c=fixedCrew(sk);return c?[c]:[];}
+  return S.crews.filter(c=>c.skills.includes(sk));
+}
+const allSecs=j=>j.groups.flatMap((g,gi)=>g.sections.map((s,si)=>({g,gi,s,si})));
+
+/* ============================== scheduling ============================== */
+function crewLoad(){
+  const m={};S.crews.forEach(c=>m[c.id]=0);
+  S.jobs.forEach(j=>allSecs(j).forEach(({s})=>{if(!s.skip&&s.crewId)m[s.crewId]=(m[s.crewId]||0)+s.days;}));
+  return m;
+}
+function busyMap(skipRef){
+  const m=new Map();
+  S.jobs.forEach(j=>allSecs(j).forEach(({s,gi,si})=>{
+    if(s.skip||!s.crewId||!s.start)return;
+    const c=crew(s.crewId);if(c&&c.unlimited)return;   // capacity-exempt buckets never block
+    if(skipRef&&skipRef.jobId===j.id&&skipRef.gi===gi&&skipRef.si===si)return;
+    let set=m.get(s.crewId);if(!set){set=new Set();m.set(s.crewId,set);}
+    workSpan(s.start,s.days).forEach(d=>set.add(d));
+  }));
+  return m;
+}
+function autoSchedule(){
+  const busy=new Map();
+  S.jobs.forEach(j=>allSecs(j).forEach(({s})=>{
+    if(s.locked&&s.crewId&&s.start&&!s.skip){
+      let set=busy.get(s.crewId);if(!set){set=new Set();busy.set(s.crewId,set);}
+      workSpan(s.start,s.days).forEach(d=>set.add(d));
+    }}));
+  const load=crewLoad();
+  [...S.jobs].sort((a,b)=>a.start.localeCompare(b.start)).forEach(j=>{
+    let cursor=nextWork(j.start);
+    allSecs(j).forEach(({s})=>{
+      if(s.skip)return;
+      const adv=st=>nextWork(addCal(workSpan(st,s.days).pop(),1));
+      if(s.locked&&s.start){cursor=adv(s.start);return;}
+      if(!s.skill){s.crewId='unassigned';s.start=cursor;cursor=adv(cursor);return;}
+      const cands=qualified(s.skill);
+      if(!cands.length){s.crewId=null;s.start=cursor;cursor=adv(cursor);return;}
+      // capacity-exempt bucket: no availability search, it can never be busy
+      if(cands.every(c=>c.unlimited)){s.crewId=cands[0].id;s.start=cursor;cursor=adv(cursor);return;}
+      let at=cursor,found=null;
+      for(let tries=0;tries<600&&!found;tries++){
+        const span=workSpan(at,s.days);
+        for(const c of [...cands].sort((a,b)=>(load[a.id]||0)-(load[b.id]||0))){
+          const set=busy.get(c.id)||new Set();
+          if(span.every(d=>!set.has(d))){found={c,span};break;}
+        }
+        if(!found)at=nextWork(addCal(at,1));
+      }
+      if(found){
+        s.crewId=found.c.id;s.start=found.span[0];
+        let set=busy.get(found.c.id);if(!set){set=new Set();busy.set(found.c.id,set);}
+        found.span.forEach(d=>set.add(d));
+        load[found.c.id]=(load[found.c.id]||0)+s.days;
+        cursor=nextWork(addCal(found.span[found.span.length-1],1));
+      }else{s.crewId=null;s.start=at;cursor=adv(at);}
+    });
+  });
+  save();
+}
+function spanOf(list){
+  let a=null,b=null;
+  list.forEach(s=>{if(s.skip||!s.start)return;const e=workSpan(s.start,s.days).pop();
+    if(!a||s.start<a)a=s.start; if(!b||e>b)b=e;});
+  return [a,b];
+}
+const jobSpan=j=>spanOf(allSecs(j).map(x=>x.s));
+
+/* ============================== sign-off + tasks ============================== */
+function secDone(s){const n=s.tasks.length;if(!n)return 1;return s.tasks.filter(t=>t.done).length/n;}
+function grpSign(g,k){const act=g.sections.filter(s=>!s.skip);
+  if(!act.length)return 'none';
+  const n=act.filter(s=>s[k]).length;
+  return n===0?'none':(n===act.length?'all':'some');}
+function sign(jobId,gi,si,k,val){
+  const j=S.jobs.find(x=>x.id===jobId);
+  if(si===null||si===undefined){j.groups[gi][k]=val;j.groups[gi].sections.forEach(s=>{if(!s.skip)s[k]=val;});}
+  else{j.groups[gi].sections[si][k]=val;j.groups[gi][k]=grpSign(j.groups[gi],k)==='all';}
+  save();render();
+}
+function sgHTML(jobId,gi,si,o){
+  const i=`sign('${jobId}',${gi},${si===null?'null':si},'inst',this.checked)`;
+  const p=`sign('${jobId}',${gi},${si===null?'null':si},'pm',this.checked)`;
+  return `<span class="sg">
+    <label class="${o.inst?'on':''}" title="Installer sign-off"><input type="checkbox" ${o.inst?'checked':''} onchange="${i}">INST</label>
+    <label class="${o.pm?'on':''}" title="Project Manager sign-off"><input type="checkbox" ${o.pm?'checked':''} onchange="${p}">PM</label></span>`;
+}
+
+/* ============================== conflicts ============================== */
+function conflicts(){
+  const out=[],byDay={},T=todayStr();
+  S.jobs.forEach(j=>{
+    let prevEnd=null;
+    allSecs(j).forEach(({g,gi,s,si})=>{
+      if(s.skip)return;
+      const ref=`${j.name} › ${s.num} ${s.name}`;
+      if(!s.start){out.push({lvl:'err',msg:`<b>${ref}</b> — not scheduled.`});return;}
+      if(s.skill&&!s.crewId){const q=qualified(s.skill);
+        out.push({lvl:'err',msg:`<b>${ref}</b> — no crew assigned${q.length?'':` and <u>no crew has the ${skillLabel(s.skill)} skill</u>`}.`});}
+      if(s.skill&&s.crewId){const c=crew(s.crewId);
+        if(!c)out.push({lvl:'err',msg:`<b>${ref}</b> — assigned crew no longer exists.`});
+        else if(!isQualified(c,s.skill))out.push({lvl:'err',msg:`<b>${ref}</b> — ${c.name} is not qualified for ${skillLabel(s.skill)}.`});}
+      if(s.crewId==='unassigned')out.push({lvl:'warn',msg:`<b>${ref}</b> — sitting in <b>Unassigned</b>. Give it Main Office, a Subcontractor, or a field crew.`});
+      if(prevEnd&&s.start<=prevEnd)out.push({lvl:'err',msg:`<b>${ref}</b> — starts ${pretty(s.start)}, on or before the prior sub-phase ends (${pretty(prevEnd)}).`});
+      const end=workSpan(s.start,s.days).pop();
+      prevEnd=end;
+      if(end<T&&(!s.inst||!s.pm))out.push({lvl:'warn',msg:`<b>${ref}</b> — finished ${pretty(end)} but still missing ${!s.inst&&!s.pm?'Installer and PM sign-off':(!s.inst?'Installer sign-off':'PM sign-off')}.`});
+      const cc=s.crewId?crew(s.crewId):null;
+      if(cc&&!cc.unlimited)workSpan(s.start,s.days).forEach(d=>{byDay[s.crewId]=byDay[s.crewId]||{};(byDay[s.crewId][d]=byDay[s.crewId][d]||[]).push({j,s});});
+    });
+  });
+  Object.entries(byDay).forEach(([cid,days])=>{
+    const seen=new Set();
+    Object.entries(days).forEach(([d,list])=>{
+      if(list.length<2)return;
+      const k=list.map(x=>x.j.id+x.s.num).sort().join('|');
+      if(seen.has(k))return;seen.add(k);
+      out.push({lvl:'err',msg:`<b>${crew(cid)?crew(cid).name:cid}</b> double-booked ${pretty(d)}: ${list.map(x=>x.j.name+' ('+x.s.num+' '+x.s.name+')').join(' vs ')}.`});
+    });
+  });
+  for(let a=0;a<S.crews.length;a++)for(let b=a+1;b<S.crews.length;b++){
+    const A=S.crews[a],B=S.crews[b];
+    const both=A.members.filter(m=>m&&m!=='+2'&&B.members.includes(m));
+    if(!both.length)continue;
+    const da=byDay[A.id]||{},db=byDay[B.id]||{};
+    const clash=Object.keys(da).filter(d=>db[d]).sort();
+    if(clash.length)out.push({lvl:'warn',msg:`<b>${both.join(', ')}</b> is on both ${A.name} and ${B.name}, and both crews work ${clash.length} of the same day(s) — first ${pretty(clash[0])}. Confirm these are different people.`});
+  }
+  return out;
+}
+
+/* ============================== axis ============================== */
+function axis(){
+  let min=null,max=null;
+  S.jobs.forEach(j=>{
+    if(!min||j.start<min)min=j.start;
+    const [a,b]=jobSpan(j);
+    if(a&&(!min||a<min))min=a; if(b&&(!max||b>max))max=b;
+  });
+  if(!min)min=todayStr(); if(!max)max=addCal(min,30);
+  min=addCal(min,-3);max=addCal(max,5);
+  let d=parseD(min);while(d.getDay()!==1)d.setDate(d.getDate()-1);
+  const days=[],idx={},end=parseD(max);
+  while(d<=end){if(isWork(d)){idx[fmt(d)]=days.length;days.push(fmt(d));}d.setDate(d.getDate()+1);}
+  return {days,idx};
+}
+function headHTML(ax){
+  const wk=[];let i=0;
+  while(i<ax.days.length){
+    let n=1;const first=ax.days[i];
+    while(i+n<ax.days.length&&parseD(ax.days[i+n]).getDay()>parseD(ax.days[i+n-1]).getDay())n++;
+    wk.push({first,n});i+=n;
+  }
+  const t=todayStr();
+  return `<tr><th class="nm"></th>${wk.map(w=>`<th class="wk" colspan="${w.n}">${pretty(w.first)}</th>`).join('')}</tr>
+  <tr><th class="nm small muted">${ax.days.length} work days · Mon–Sat</th>${ax.days.map(d=>{const g=parseD(d).getDay();
+    return `<th class="dn${g===1?' mon':''}${g===6?' sat':''}${d===t?' today':''}">${parseD(d).getDate()}</th>`;}).join('')}</tr>`;
+}
+function bandRow(ax,i0,len,inner){
+  const pre=i0,post=ax.days.length-i0-len;let s='';
+  if(pre>0)s+=`<td class="cell" colspan="${pre}"></td>`;
+  s+=`<td colspan="${len}" style="padding:0">${inner}</td>`;
+  if(post>0)s+=`<td class="cell" colspan="${post}"></td>`;
+  return s;
+}
+const emptyRow=ax=>`<td class="cell" colspan="${ax.days.length}"></td>`;
+
+/* ============================== views ============================== */
+let TAB='board';
+function render(){
+  document.getElementById('main').innerHTML=
+    ({board:vBoard,crewboard:vCrewBoard,dispatch:vDispatch,signoff:vSignoff,jobs:vJobs,crews:vCrews,phases:vPhases})[TAB]();
+  document.querySelectorAll('input[data-ind]').forEach(el=>el.indeterminate=true);
+  save();
+}
+function flagsCard(){
+  const c=conflicts(),e=c.filter(x=>x.lvl==='err'),w=c.filter(x=>x.lvl==='warn');
+  const show=[...e,...w].slice(0,40);
+  return `<div class="card"><h2>Schedule Check<span class="sp"></span>
+    <span class="${e.length?'err-txt':'ok-txt'}">${e.length} error${e.length===1?'':'s'}</span>
+    <span class="muted small">· ${w.length} warning${w.length===1?'':'s'}</span></h2>
+    ${show.length?show.map(x=>`<span class="flag ${x.lvl}">${x.msg}</span>`).join(''):
+      `<span class="flag ok">Every sub-phase has a qualified crew, no crew is double-booked, and all sub-phases run in order.</span>`}
+    ${c.length>40?`<span class="flag muted">…and ${c.length-40} more.</span>`:''}</div>`;
+}
+const legend=()=>`<div class="legend">${S.crews.map(c=>`<span><i style="background:${crewColor(c.id)}"></i>${c.name} <span class="muted">(${sizeTxt(c)})</span></span>`).join('')}
+  <span><i style="background:#94a3b8"></i>Office / sub — no crew</span><span class="muted">INST = installer sign-off · PM = project manager sign-off</span></div>`;
+
+function vBoard(){
+  const ax=axis();
+  const rows=S.jobs.map(j=>{
+    const [js,je]=jobSpan(j);
+    const jbar=(js&&ax.idx[js]!=null)
+      ? bandRow(ax,ax.idx[js],Math.max(1,(ax.idx[je]??ax.idx[js])-ax.idx[js]+1),`<div class="jobbar" style="background:#94a3b8"></div>`)
+      : emptyRow(ax);
+    let html=`<tr class="jobrow"><td class="nm"><div class="nmflex"><span class="t">${j.name} <span class="muted small mono">${esc(j.jobno||'')}</span></span>
+      <span class="muted small">${pretty(js)} → ${pretty(je)}</span></div></td>${jbar}</tr>`;
+    j.groups.forEach((g,gi)=>{
+      const ck=`${j.id}/${gi}`, col=UI.collapsed[ck];
+      const [gs,ge]=spanOf(g.sections);
+      const gbar=(gs&&ax.idx[gs]!=null)
+        ? bandRow(ax,ax.idx[gs],Math.max(1,(ax.idx[ge]??ax.idx[gs])-ax.idx[gs]+1),`<div class="phbar" style="background:#334155"></div>`)
+        : emptyRow(ax);
+      const gi_=grpSign(g,'inst'),gp_=grpSign(g,'pm');
+      const gsg=`<span class="sg">
+        <label class="${gi_==='all'?'on':''}" title="Installer sign-off — all sub-phases"><input type="checkbox" ${gi_==='all'?'checked':''} ${gi_==='some'?'data-ind="1"':''} onchange="sign('${j.id}',${gi},null,'inst',this.checked)">INST</label>
+        <label class="${gp_==='all'?'on':''}" title="PM sign-off — all sub-phases"><input type="checkbox" ${gp_==='all'?'checked':''} ${gp_==='some'?'data-ind="1"':''} onchange="sign('${j.id}',${gi},null,'pm',this.checked)">PM</label></span>`;
+      html+=`<tr class="phrow"><td class="nm"><div class="nmflex">
+        <button class="btn sm" onclick="UI.collapsed['${ck}']=!UI.collapsed['${ck}'];render()" style="padding:0 5px">${col?'▸':'▾'}</button>
+        <span class="t"><b>${g.num}.0</b> ${g.name}</span>${gsg}</div></td>${gbar}</tr>`;
+      if(col)return;
+      g.sections.forEach((s,si)=>{
+        const pct=Math.round(secDone(s)*100);
+        const nm=`<td class="nm"><div class="nmflex">
+          <span class="t sec${s.skip?' skip':''}" title="${esc(s.num+' '+s.name)}"><b>${s.num}</b> ${s.name}
+            <span class="muted small">· ${s.skill?skillLabel(s.skill):'—'}</span>
+            <span class="tw" title="${pct}% of checklist"><i style="width:${pct}%"></i></span></span>
+          ${sgHTML(j.id,gi,si,s)}</div></td>`;
+        if(s.skip||!s.start||ax.idx[s.start]==null){html+=`<tr>${nm}${emptyRow(ax)}</tr>`;return;}
+        const c=s.crewId?crew(s.crewId):null;
+        const bad=s.skill&&(!c||!isQualified(c,s.skill));
+        const lbl=(c?c.name:'⚠ NO CREW')+(s.locked?' 🔒':'');
+        html+=`<tr>${nm}${bandRow(ax,ax.idx[s.start],s.days,
+          `<div class="bar${bad?' bad':''}" style="background:${c?crewColor(c.id):'#94a3b8'}" onclick="editSec('${j.id}',${gi},${si})">${lbl}</div>`)}</tr>`;
+      });
+    });
+    return html;
+  }).join('');
+  return flagsCard()+`<div class="card"><h2>Job Board<span class="sp"></span>
+    <button class="btn sm" onclick="collapseAll(true)">Collapse all</button>
+    <button class="btn sm" onclick="collapseAll(false)">Expand all</button>
+    <span class="muted small" style="text-transform:none">Click a bar to reassign, move, lock, or open its checklist</span></h2>
+    ${legend()}<div class="tl"><table><thead>${headHTML(ax)}</thead><tbody>${rows||'<tr><td class="pad muted">No jobs.</td></tr>'}</tbody></table></div></div>`;
+}
+function collapseAll(v){S.jobs.forEach(j=>j.groups.forEach((g,gi)=>UI.collapsed[`${j.id}/${gi}`]=v));render();}
+
+function vCrewBoard(){
+  const ax=axis(),load=crewLoad();
+  const rows=S.crews.map(c=>{
+    const cells=new Array(ax.days.length).fill(null);
+    S.jobs.forEach(j=>allSecs(j).forEach(({s,gi,si})=>{
+      if(s.skip||s.crewId!==c.id||!s.start)return;
+      workSpan(s.start,s.days).forEach(d=>{const k=ax.idx[d];if(k==null)return;
+        if(!cells[k])cells[k]={j,s,gi,si,n:1};
+        else cells[k]=c.unlimited?{...cells[k],n:cells[k].n+1,many:true}:'DBL';});
+    }));
+    let html='',k=0;
+    while(k<ax.days.length){
+      const v=cells[k];
+      if(!v){let n=0;while(k+n<ax.days.length&&!cells[k+n])n++;html+=`<td class="cell" colspan="${n}"></td>`;k+=n;continue;}
+      if(v==='DBL'){let n=0;while(k+n<ax.days.length&&cells[k+n]==='DBL')n++;
+        html+=`<td colspan="${n}" style="padding:0"><div class="bar bad" style="background:var(--danger)">DOUBLE-BOOKED</div></td>`;k+=n;continue;}
+      if(v.many){let n=0;while(k+n<ax.days.length&&cells[k+n]&&cells[k+n].many&&cells[k+n].n===v.n)n++;
+        html+=`<td colspan="${n}" style="padding:0"><div class="bar" style="background:${crewColor(c.id)};opacity:.85">${v.n} jobs at once</div></td>`;k+=n;continue;}
+      let n=0;while(k+n<ax.days.length&&cells[k+n]&&cells[k+n]!=='DBL'&&!cells[k+n].many&&cells[k+n].s===v.s)n++;
+      html+=`<td colspan="${n}" style="padding:0"><div class="bar" style="background:${crewColor(c.id)}" onclick="editSec('${v.j.id}',${v.gi},${v.si})">${v.j.name} — ${v.s.num} ${v.s.name}</div></td>`;k+=n;
+    }
+    return `<tr><td class="nm"><b>${c.name}</b><div class="muted small">${c.skills.map(skillLabel).join(', ')}</div></td>${html}</tr>`;
+  }).join('');
+  const max=Math.max(1,...Object.values(load));
+  return `<div class="card"><h2>Crew Board — who is where</h2>
+    <div class="tl"><table><thead>${headHTML(ax)}</thead><tbody>${rows}</tbody></table></div></div>
+  <div class="card"><h2>Crew Load (scheduled days)</h2><table><tbody>
+    ${S.crews.map(c=>`<tr><td style="width:160px">${c.name}</td>
+      <td><div class="bars"><i style="width:${(load[c.id]||0)/max*100}%;background:${crewColor(c.id)}"></i></div></td>
+      <td style="width:70px" class="small muted">${load[c.id]||0} days</td></tr>`).join('')}</tbody></table>
+    <div class="hint">Auto-Schedule gives each sub-phase to the qualified crew with the lightest load that is free for the whole span.</div></div>`;
+}
+
+let DDATE=null;
+function vDispatch(){
+  if(!DDATE)DDATE=nextWork(todayStr());
+  const rows=S.crews.map(c=>{
+    const hits=[];
+    S.jobs.forEach(j=>allSecs(j).forEach(({s,gi,si})=>{
+      if(s.skip||s.crewId!==c.id||!s.start)return;
+      if(workSpan(s.start,s.days).includes(DDATE))hits.push({j,s,gi,si});}));
+    const cell=hits.length?hits.map(h=>{
+      const pct=Math.round(secDone(h.s)*100);
+      return `<b>${h.j.name}</b> <span class="mono small muted">${esc(h.j.jobno||'')}</span><br><span class="muted small">${esc(fullAddr(h.j))}</span><br>
+      <span class="chip" style="background:${crewColor(c.id)};color:#fff">${h.s.num} ${h.s.name}</span>
+      <span class="small muted">day ${workSpan(h.s.start,h.s.days).indexOf(DDATE)+1} of ${h.s.days} · checklist ${pct}%</span>
+      ${sgHTML(h.j.id,h.gi,h.si,h.s)}`;}).join('<hr style="border:0;border-top:1px solid #eee;margin:6px 0">')
+      :`<span class="muted">— Available —</span>`;
+    return `<tr><td style="width:170px"><b>${c.name}</b><div class="muted small">${c.members.length?c.members.join(', '):'members not specified'}${c.note?' · ⚠ '+esc(c.note):''}</div></td>
+      <td>${cell}${hits.length>1?(c.unlimited?` <span class="chip sub">${hits.length} jobs</span>`:' <span class="chip" style="background:#fee2e2;color:#991b1b">DOUBLE-BOOKED</span>'):''}</td></tr>`;
+  }).join('');
+  const subs=[];
+  S.jobs.forEach(j=>allSecs(j).forEach(({s})=>{if(!s.skip&&!s.crewId&&s.start&&workSpan(s.start,s.days).includes(DDATE))subs.push(`${j.name} — ${s.num} ${s.name}`);}));
+  return `<div class="card"><h2>Daily Dispatch<span class="sp"></span>
+      <button class="btn sm" onclick="shiftDay(-1)">◀</button>
+      <input type="date" value="${DDATE}" onchange="DDATE=nextWork(this.value);render()">
+      <button class="btn sm" onclick="shiftDay(1)">▶</button></h2>
+    <div class="pad"><b style="font-size:16px">${dow(DDATE)}, ${pretty(DDATE)}</b>${dow(DDATE)==='Sat'?' <span class="chip sub">Saturday</span>':''}</div>
+    <table><thead><tr><th>Crew</th><th>Assignment</th></tr></thead><tbody>${rows}</tbody></table>
+    ${subs.length?`<div class="pad small"><b>Office / subcontractor work today:</b> ${subs.join(' · ')}</div>`:''}</div>`;
+}
+function shiftDay(n){let d=DDATE;do{d=addCal(d,n);}while(!isWork(parseD(d)));DDATE=d;render();}
+
+function vSignoff(){
+  return S.jobs.map(j=>{
+    const secs=allSecs(j).filter(x=>!x.s.skip);
+    const i=secs.filter(x=>x.s.inst).length,p=secs.filter(x=>x.s.pm).length;
+    const tot=secs.reduce((a,x)=>a+x.s.tasks.length,0),dn=secs.reduce((a,x)=>a+x.s.tasks.filter(t=>t.done).length,0);
+    return `<div class="card"><h2>${j.name} <span class="muted mono" style="text-transform:none">${esc(j.jobno||'')}</span><span class="sp"></span>
+      <span class="small" style="text-transform:none">Installer ${i}/${secs.length} · PM ${p}/${secs.length} · checklist ${dn}/${tot}</span></h2>
+      <div class="pad" style="padding-bottom:0"><div class="tw2"><i style="width:${tot?dn/tot*100:0}%"></i></div></div>
+      <table><thead><tr><th style="width:70px">#</th><th>Sub-phase</th><th style="width:130px">Crew</th><th style="width:150px">Dates</th>
+        <th style="width:110px">Checklist</th><th style="width:130px">Sign-off</th></tr></thead><tbody>
+      ${j.groups.map((g,gi)=>{
+        const gi_=grpSign(g,'inst'),gp_=grpSign(g,'pm');
+        return `<tr class="phrow"><td><b>${g.num}.0</b></td><td colspan="4"><b>${g.name}</b></td>
+          <td><span class="sg">
+            <label class="${gi_==='all'?'on':''}"><input type="checkbox" ${gi_==='all'?'checked':''} ${gi_==='some'?'data-ind="1"':''} onchange="sign('${j.id}',${gi},null,'inst',this.checked)">INST</label>
+            <label class="${gp_==='all'?'on':''}"><input type="checkbox" ${gp_==='all'?'checked':''} ${gp_==='some'?'data-ind="1"':''} onchange="sign('${j.id}',${gi},null,'pm',this.checked)">PM</label></span></td></tr>`+
+        g.sections.map((s,si)=>{
+          const c=s.crewId?crew(s.crewId):null,pct=Math.round(secDone(s)*100);
+          const e=s.start?workSpan(s.start,s.days).pop():null;
+          return `<tr${s.skip?' class="skip"':''}><td class="small muted">${s.num}</td>
+            <td><a href="#" onclick="editSec('${j.id}',${gi},${si});return false">${s.name}</a></td>
+            <td class="small">${c?`<span class="chip" style="background:${crewColor(c.id)};color:#fff">${c.name}</span>`:'<span class="chip sub">none</span>'}</td>
+            <td class="small muted">${pretty(s.start)} → ${pretty(e)}</td>
+            <td class="small"><span class="tw" style="width:50px"><i style="width:${pct}%"></i></span> ${pct}%</td>
+            <td>${sgHTML(j.id,gi,si,s)}</td></tr>`;}).join('');
+      }).join('')}</tbody></table></div>`;
+  }).join('')||'<div class="card pad muted">No jobs.</div>';
+}
+
+function vJobs(){
+  return `<div class="card"><h2>Jobs<span class="sp"></span><button class="btn sm p" onclick="addJob()">+ New Job</button></h2>
+  <table><thead><tr><th style="width:92px">Job ID</th><th>Job Name</th><th>Street Address</th>
+    <th style="width:120px">City</th><th style="width:56px">State</th><th style="width:82px">ZIP</th>
+    <th>Start</th><th>Ends</th><th>Sub-phases</th><th></th></tr></thead><tbody>
+  ${S.jobs.map(j=>{const [a,b]=jobSpan(j);return `<tr>
+    <td><input value="${esc(j.jobno||'')}" onchange="setJob('${j.id}','jobno',this.value)" style="width:82px;font-family:ui-monospace,Menlo,monospace"></td>
+    <td><input value="${esc(j.name)}" onchange="setJob('${j.id}','name',this.value)" style="width:160px"></td>
+    <td><input value="${esc(j.addr)}" onchange="setJob('${j.id}','addr',this.value)" style="width:170px" placeholder="Street"></td>
+    <td><input value="${esc(j.city)}" onchange="setJob('${j.id}','city',this.value)" style="width:110px" placeholder="City"></td>
+    <td><input value="${esc(j.state)}" onchange="setJob('${j.id}','state',this.value)" style="width:46px" maxlength="2" placeholder="CA"></td>
+    <td><input value="${esc(j.zip)}" onchange="setJob('${j.id}','zip',this.value)" style="width:72px" placeholder="ZIP"></td>
+    <td><input type="date" value="${j.start}" onchange="setJob('${j.id}','start',this.value)"></td>
+    <td class="small muted">${pretty(a)} → ${pretty(b)}</td>
+    <td class="small">${allSecs(j).filter(x=>!x.s.skip).length} active</td>
+    <td style="text-align:right"><button class="btn sm d" onclick="delJob('${j.id}')">Delete</button></td></tr>`;}).join('')}
+  </tbody></table>
+  <div class="hint">New jobs are built from the Phase Template. Mark a sub-phase "not applicable" in its editor to skip it on one pool.</div></div>`;
+}
+
+function vCrews(){
+  return `<div class="card"><h2>Crews & Skills<span class="sp"></span><button class="btn sm p" onclick="addCrew()">+ Crew</button></h2>
+  <table><thead><tr><th style="width:145px">Crew</th><th style="width:200px">Members</th><th style="width:55px">Size</th><th>Skills — click to toggle</th><th></th></tr></thead><tbody>
+  ${S.crews.map(c=>`<tr>
+    <td><span class="chip" style="background:${crewColor(c.id)};color:#fff">&nbsp;</span>
+      <input value="${esc(c.name)}" onchange="setCrew('${c.id}','name',this.value)" style="width:105px">
+      ${c.note?`<div class="small muted" style="margin-top:2px">⚠ ${esc(c.note)}</div>`:''}</td>
+    <td><input value="${esc(c.members.join(', '))}" onchange="setCrew('${c.id}','members',this.value)" style="width:190px" placeholder="not specified"></td>
+    <td><input type="number" min="1" value="${c.size==null?'':c.size}" placeholder="?" onchange="setCrew('${c.id}','size',this.value)"></td>
+    <td>${SKILLS.map(s=>`<span class="skill${c.skills.includes(s.id)?'':' off'}" onclick="toggleSkill('${c.id}','${s.id}')">${s.label}</span>`).join('')}</td>
+    <td style="text-align:right"><button class="btn sm d" onclick="delCrew('${c.id}')">✕</button></td></tr>`).join('')}
+  </tbody></table></div>
+  <div class="card"><h2>Skill Coverage</h2><table><thead><tr><th style="width:160px">Skill</th><th>Qualified crews</th><th style="width:230px">Sub-phases needing it</th></tr></thead><tbody>
+  ${SKILLS.map(s=>{const q=qualified(s.id);
+    const used=S.template.flatMap(g=>g.sections.filter(x=>x.skill===s.id).map(x=>x.num));
+    return `<tr><td>${s.label}</td>
+      <td>${q.length?q.map(c=>`<span class="chip" style="background:${crewColor(c.id)};color:#fff">${c.name}</span>`).join(' '):'<span class="err-txt">none</span>'}</td>
+      <td class="small ${used.length?'muted':'err-txt'}">${used.length?used.join(', '):'not mapped to any sub-phase yet'}</td></tr>`;}).join('')}
+  </tbody></table><div class="hint">A skill with no sub-phase is a trade you have crews for but no place in the build template — set it on the Phase Template tab.</div></div>`;
+}
+
+function vPhases(){
+  return `<div class="card"><h2>D2 Gunite Build Phases<span class="sp"></span>
+    <button class="btn sm" onclick="setAllDays()">Set all durations…</button>
+    <button class="btn sm p" onclick="addPhase()">+ Phase</button></h2>
+  <table><thead><tr><th style="width:60px">#</th><th>Sub-phase</th><th style="width:180px">Required trade</th>
+    <th style="width:70px">Days</th><th style="width:60px">Tasks</th><th style="width:120px"></th></tr></thead><tbody>
+  ${S.template.map((g,gi)=>`
+    <tr class="phrow"><td><b>${g.num}.0</b></td>
+      <td><input value="${esc(g.name)}" onchange="setGrp(${gi},'name',this.value)" style="width:100%;font-weight:650"></td>
+      <td colspan="2" class="small muted">parent phase — rolls up its sub-phases</td>
+      <td class="small muted">${g.sections.reduce((a,s)=>a+s.tasks.length,0)}</td>
+      <td style="text-align:right"><button class="btn sm" onclick="addSection(${gi})">+ Sub</button>
+        <button class="btn sm d" onclick="delGrp(${gi})">✕</button></td></tr>
+    ${g.sections.map((s,si)=>`<tr>
+      <td class="small muted" style="padding-left:20px">${s.num}</td>
+      <td><input value="${esc(s.name)}" onchange="setSec(${gi},${si},'name',this.value)" style="width:100%"></td>
+      <td><select onchange="setSec(${gi},${si},'skill',this.value)">
+        <option value="">— No trade set —</option>
+        <optgroup label="Assign straight to">
+          ${Object.keys(FIXED).map(k=>`<option value="${k}"${s.skill===k?' selected':''}>${skillLabel(k)}</option>`).join('')}
+        </optgroup>
+        <optgroup label="Field trade — matched to a qualified crew">
+          ${SKILLS.map(k=>`<option value="${k.id}"${s.skill===k.id?' selected':''}>${k.label}</option>`).join('')}
+        </optgroup></select></td>
+      <td><input type="number" min="1" value="${s.days}" onchange="setSec(${gi},${si},'days',this.value)"></td>
+      <td class="small muted">${s.tasks.length}</td>
+      <td style="text-align:right"><button class="btn sm" onclick="moveSec(${gi},${si},-1)">↑</button>
+        <button class="btn sm" onclick="moveSec(${gi},${si},1)">↓</button>
+        <button class="btn sm d" onclick="delSec(${gi},${si})">✕</button></td></tr>`).join('')}`).join('')}
+  </tbody></table>
+  <div class="hint">Imported from <b>MASTER TO COPY FROM D2 Gunite Build Phases.xlsx</b> — ${S.template.length} phases, ${S.template.reduce((a,g)=>a+g.sections.length,0)} sub-phases, ${S.template.reduce((a,g)=>a+g.sections.reduce((b,s)=>b+s.tasks.length,0),0)} checklist tasks. Every sub-phase starts at 2 days.</div>
+  <div class="pad"><button class="btn" onclick="applyTemplate()">Apply template to all jobs (clears crews, sign-offs, and checklists)</button></div></div>`;
+}
+
+/* ============================== drawer ============================== */
+let CUR=null;
+function editSec(jobId,gi,si){
+  const j=S.jobs.find(x=>x.id===jobId),g=j.groups[gi],s=g.sections[si];CUR={jobId,gi,si};
+  const cands=s.skill?qualified(s.skill):[],other=S.crews.filter(c=>!cands.includes(c));
+  document.getElementById('dTitle').textContent=`${j.name} › ${s.num} ${s.name}`;
+  document.getElementById('dBody').innerHTML=`
+    <div class="small muted" style="margin-bottom:9px">Phase ${g.num}.0 ${g.name}</div>
+    <div class="fld"><label>Required trade</label>${s.skill?`<span class="chip skill">${skillLabel(s.skill)}</span>`:`<span class="chip sub">No trade set</span>`}</div>
+    <div class="fld"><label>Crew</label><select id="fCrew"><option value="">— Unassigned —</option>
+      ${cands.length?`<optgroup label="Qualified">${cands.map(c=>`<option value="${c.id}"${s.crewId===c.id?' selected':''}>${c.name} (${sizeTxt(c)})</option>`).join('')}</optgroup>`:''}
+      ${other.length?`<optgroup label="⚠ Not qualified">${other.map(c=>`<option value="${c.id}"${s.crewId===c.id?' selected':''}>${c.name}${s.skill?' — no '+skillLabel(s.skill):''}</option>`).join('')}</optgroup>`:''}
+    </select></div>
+    <div class="row"><div class="fld"><label>Start</label><input type="date" id="fStart" value="${s.start||''}"></div>
+      <div class="fld"><label>Days</label><input type="number" min="1" id="fDays" value="${s.days}"></div></div>
+    <div class="fld"><label><input type="checkbox" id="fLock" ${s.locked?'checked':''}> Lock — Auto-Schedule won't move this</label></div>
+    <div class="fld"><label><input type="checkbox" id="fSkip" ${s.skip?'checked':''}> Not applicable on this pool</label></div>
+    <div class="fld"><label>Sign-off</label>
+      <label style="text-transform:none;font-size:13px;color:var(--ink)"><input type="checkbox" id="fInst" ${s.inst?'checked':''}> Installer</label>
+      <label style="text-transform:none;font-size:13px;color:var(--ink)"><input type="checkbox" id="fPM" ${s.pm?'checked':''}> Project Manager</label></div>
+    <div class="fld"><label>Crew availability on these dates</label><div id="avail" class="small"></div></div>
+    <div class="fld"><label>Checklist — ${s.tasks.filter(t=>t.done).length}/${s.tasks.length}
+      <a href="#" class="small" style="text-transform:none" onclick="allTasks(true);return false">all</a> /
+      <a href="#" class="small" style="text-transform:none" onclick="allTasks(false);return false">none</a></label>
+      <div id="tasks">${s.tasks.map((t,ti)=>`<div class="tk${t.done?' done':''}">
+        <input type="checkbox" ${t.done?'checked':''} onchange="tick(${ti},this.checked)"><span>${esc(t.t)}</span></div>`).join('')||'<span class="muted small">No tasks.</span>'}</div></div>`;
+  document.getElementById('dFoot').innerHTML=`<button class="btn p" onclick="saveSec()">Save</button><button class="btn" onclick="closeDrawer()">Cancel</button>`;
+  document.getElementById('drawer').classList.add('open');
+  ['fCrew','fStart','fDays'].forEach(id=>document.getElementById(id).addEventListener('input',showAvail));
+  showAvail();
+}
+function cur(){const j=S.jobs.find(x=>x.id===CUR.jobId);return j.groups[CUR.gi].sections[CUR.si];}
+function tick(ti,v){cur().tasks[ti].done=v;save();}
+function allTasks(v){cur().tasks.forEach(t=>t.done=v);save();editSec(CUR.jobId,CUR.gi,CUR.si);}
+function showAvail(){
+  const s=cur(),start=document.getElementById('fStart').value,days=+document.getElementById('fDays').value||1;
+  const el=document.getElementById('avail');
+  if(!start){el.innerHTML='<span class="muted">Pick a start date.</span>';return;}
+  const span=workSpan(nextWork(start),days),busy=busyMap(CUR),cands=s.skill?qualified(s.skill):S.crews;
+  el.innerHTML=`<div class="muted" style="margin-bottom:4px">${pretty(span[0])} → ${pretty(span[span.length-1])} · ${days} work day${days===1?'':'s'}</div>`+
+    (cands.length?cands.map(c=>{const set=busy.get(c.id)||new Set(),hit=span.filter(d=>set.has(d));
+      return `<div>${hit.length?'🔴':'🟢'} <b>${c.name}</b> ${hit.length?`<span class="err-txt">busy ${hit.length} of these days (${pretty(hit[0])}…)</span>`:'<span class="ok-txt">free</span>'}</div>`;}).join('')
+      :'<span class="err-txt">No crew has this trade.</span>');
+}
+function saveSec(){
+  const j=S.jobs.find(x=>x.id===CUR.jobId),g=j.groups[CUR.gi],s=g.sections[CUR.si];
+  s.crewId=document.getElementById('fCrew').value||null;
+  const st=document.getElementById('fStart').value;s.start=st?nextWork(st):null;
+  s.days=Math.max(1,+document.getElementById('fDays').value||1);
+  s.locked=document.getElementById('fLock').checked;
+  s.skip=document.getElementById('fSkip').checked;
+  s.inst=document.getElementById('fInst').checked;
+  s.pm=document.getElementById('fPM').checked;
+  g.inst=grpSign(g,'inst')==='all';g.pm=grpSign(g,'pm')==='all';
+  closeDrawer();render();
+}
+const closeDrawer=()=>document.getElementById('drawer').classList.remove('open');
+
+/* ============================== mutations ============================== */
+const esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+function setJob(id,k,v){S.jobs.find(x=>x.id===id)[k]=v;save();if(k==='start')render();}
+function addJob(){S.jobs.push(newJob('New Job','','','',''  ,nextWork(todayStr())));autoSchedule();TAB='jobs';
+  document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.t==='jobs'));render();}
+function delJob(id){if(!confirm('Delete this job and its schedule?'))return;S.jobs=S.jobs.filter(x=>x.id!==id);render();}
+function setCrew(id,k,v){const c=crew(id);
+  if(k==='members')c.members=v.split(',').map(x=>x.trim()).filter(Boolean);
+  else if(k==='size')c.size=(v===''||v==null)?null:Math.max(1,+v||1);else c[k]=v;save();render();}
+function toggleSkill(id,sk){const c=crew(id);c.skills=c.skills.includes(sk)?c.skills.filter(x=>x!==sk):[...c.skills,sk];save();render();}
+function addCrew(){S.crews.push({id:'c'+Math.random().toString(36).slice(2,7),name:'New Crew',members:[],size:1,skills:[]});render();}
+function delCrew(id){if(!confirm('Delete this crew? Its assignments clear.'))return;
+  S.crews=S.crews.filter(c=>c.id!==id);
+  S.jobs.forEach(j=>allSecs(j).forEach(({s})=>{if(s.crewId===id){s.crewId=null;s.locked=false;}}));render();}
+function setGrp(gi,k,v){S.template[gi][k]=v;save();}
+function setSec(gi,si,k,v){S.template[gi].sections[si][k]= k==='days'?Math.max(1,+v||1):(k==='skill'?(v||null):v);save();}
+function moveSec(gi,si,d){const a=S.template[gi].sections,n=si+d;if(n<0||n>=a.length)return;a.splice(n,0,a.splice(si,1)[0]);render();}
+function delSec(gi,si){S.template[gi].sections.splice(si,1);render();}
+function delGrp(gi){if(!confirm('Delete this phase and all its sub-phases from the template?'))return;S.template.splice(gi,1);render();}
+function addSection(gi){const g=S.template[gi];
+  g.sections.push({id:'s'+Math.random().toString(36).slice(2,7),num:g.num+'.'+(g.sections.length+1),name:'New Sub-Phase',skill:null,days:2,tasks:[]});render();}
+function addPhase(){S.template.push({id:'g'+Math.random().toString(36).slice(2,7),num:String(S.template.length),name:'New Phase',sections:[]});render();}
+function setAllDays(){const v=prompt('Set every sub-phase duration to how many work days?','2');
+  if(v===null)return;const n=Math.max(1,+v||1);
+  S.template.forEach(g=>g.sections.forEach(s=>s.days=n));
+  S.jobs.forEach(j=>allSecs(j).forEach(({s})=>s.days=n));autoSchedule();render();}
+function applyTemplate(){if(!confirm('Rebuild every job from the template? Crew assignments, sign-offs, and checklist ticks are cleared.'))return;
+  S.jobs.forEach(j=>j.groups=mkJobGroups(S.template));autoSchedule();render();}
+
+function exportCSV(){
+  const rows=[['Job ID','Job Name','Street Address','City','State','ZIP','Phase #','Phase','Sub #','Sub-phase','Trade','Crew','Members','Start','End','Days','Checklist done','Checklist total','Installer','PM','Status']];
+  S.jobs.forEach(j=>allSecs(j).forEach(({g,s})=>{
+    if(s.skip)return;
+    const c=s.crewId?crew(s.crewId):null,span=s.start?workSpan(s.start,s.days):[];
+    const bad=s.skill&&(!c||!isQualified(c,s.skill));
+    rows.push([j.jobno||'',j.name,j.addr,j.city||'',j.state||'',j.zip||'',g.num+'.0',g.name,s.num,s.name,s.skill?skillLabel(s.skill):'—',
+      c?c.name:'',c?c.members.join(' / '):'',span[0]||'',span[span.length-1]||'',s.days,
+      s.tasks.filter(t=>t.done).length,s.tasks.length,s.inst?'YES':'',s.pm?'YES':'',bad?'NEEDS ATTENTION':'OK']);
+  }));
+  const csv=rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='d2-pool-schedule.csv';a.click();
+}
+
+function backup(){
+  const stamp=fmt(new Date());
+  const blob=new Blob([JSON.stringify({app:'D2 Pool Build Scheduler',version:KEY,exported:stamp,state:S},null,1)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);a.download=`d2-scheduler-backup-${stamp}.json`;a.click();
+}
+function restore(file){
+  const r=new FileReader();
+  r.onload=()=>{
+    let d;
+    try{d=JSON.parse(r.result);}catch(e){alert('That file is not valid JSON.');return;}
+    const st=d&&d.state?d.state:d;
+    if(!st||!Array.isArray(st.crews)||!Array.isArray(st.jobs)||!Array.isArray(st.template)){
+      alert('That file is not a D2 Scheduler backup — it is missing crews, jobs, or the phase template.');return;}
+    if(!confirm(`Replace everything in this browser with the backup from ${d.exported||'an unknown date'}?\n\n${st.jobs.length} jobs · ${st.crews.length} crews · ${st.template.length} phases`))return;
+    S=st; S.settings=S.settings||{};
+    UI={collapsed:{}}; save(); render();
+    alert('Backup restored.');
+  };
+  r.readAsText(file);
+}
+
+/* ============================== boot ============================== */
+document.getElementById('tabs').addEventListener('click',e=>{
+  const b=e.target.closest('button');if(!b)return;
+  document.querySelectorAll('#tabs button').forEach(x=>x.classList.toggle('on',x===b));
+  TAB=b.dataset.t;render();
+});
+document.getElementById('autoBtn').onclick=()=>{autoSchedule();render();};
+document.getElementById('addJobBtn').onclick=addJob;
+document.getElementById('csvBtn').onclick=exportCSV;
+document.getElementById('backupBtn').onclick=backup;
+document.getElementById('restoreBtn').onclick=()=>document.getElementById('restoreFile').click();
+document.getElementById('restoreFile').onchange=e=>{const f=e.target.files[0];if(f)restore(f);e.target.value='';};
+document.getElementById('resetBtn').onclick=()=>{if(confirm('Reset to the imported template, seeded crews, and demo jobs?')){localStorage.removeItem(KEY);load();render();}};
+load();render();
+</script>
+</body>
+</html>
