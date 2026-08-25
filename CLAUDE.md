@@ -72,23 +72,25 @@ The four load-bearing invariants (enforced by the design, not by a database prim
 - `Unlimited = Yes` flag on their Crews row means they never contribute to busy-map or double-book detection
 - Assigning them zero-in on scheduling logic — they schedule like any other crew but don't consume capacity
 
-**Auth to SharePoint from scripts:**
-- Currently blocked. See Known bugs.
-- Once resolved: scripts should use `-ClientId` with a custom D2-registered Entra app (long-term), NOT `-DeviceLogin` (broken in current PnP) or `-Interactive` without a client ID (needs discontinued PnP Management Shell registration).
+**Auth to SharePoint from scripts:** unsolved for headless PS. Working pattern is Claude Chrome + REST-from-page — see below.
 
 ## Known bugs and gotchas
 
-**Blocking — SharePoint list provisioning is stuck.** Four PnP.PowerShell auth attempts failed in this session:
-1. `Connect-PnPOnline -Interactive` → "Specified method is not supported" (no client ID; PnP Management Shell app registration was discontinued Sept 2024)
-2. `Connect-PnPOnline -DeviceLogin` (PnP v2.latest) → "WriteObject and WriteError methods cannot be called from outside the overrides..." (threading bug in modern PnP versions)
-3. `Connect-PnPOnline -DeviceLogin` (PnP 2.4.0 pinned) → "Unable to connect using provided arguments"
-4. Attempted via Desktop Commander `Start-Process` and `cmd /c start` — same errors as above; stdio inheritance is not the mechanism.
+**RESOLVED — SharePoint provisioning via Claude Chrome + REST-from-page.** All PnP and m365 CLI auth attempts fail on a fresh box:
+- PnP.PowerShell `-Interactive` / `-DeviceLogin` (both v2.4.0 pinned and latest) → not-supported / threading bug / unable-to-connect
+- m365 CLI v11 → requires BYO Entra appId at first login (chicken-and-egg)
 
-**Resolution path (open, not yet chosen):**
-- Option A: Register a custom Entra app in D2 tenant (`Register-PnPEntraIDApp`), use `-ClientId <guid> -Interactive`. Chicken-and-egg on first auth but doable.
-- Option B: Skip PnP entirely, click through SharePoint UI (~30 min guided). Removes auth mess but no script for repeatability.
-- Option C: Try CLI for Microsoft 365 (m365 CLI) — different auth model, may just work.
-- Option D: Use Microsoft Graph SDK PowerShell — different auth path.
+The pattern that actually works, and provisioned all 7 lists in this repo:
+1. Open Claude Chrome (`switch_browser`, pick the right browser profile — profile hop is a common gotcha)
+2. `navigate` to `https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler` — Shane signs in interactively as `stratirus@d2pools.com` on that tab
+3. Fire SharePoint REST from the authenticated page context via `javascript_tool`. Get the digest from `/_api/contextinfo`, then POST to `/_api/web/lists`, `/_api/web/lists/GetByTitle('X')/fields/CreateFieldAsXml`, `/_api/web/lists/GetByTitle('X')/items`. No PnP, no m365 CLI, no BYO Entra app.
+
+Load-bearing details for future runs:
+- **Fresh tab groups need a fresh sign-in.** Each new MCP tab group has its own cookie context. The first tab in a session survives; subsequent tab groups land back on the sign-in wall.
+- **CDP calls time out at ~45s** — split scripts so no single JS call is above that. Batch 60+ REST calls across two or three `javascript_tool` calls.
+- **Parallel field creates on the same list contend and 500** with "requires a newer version" (schema lock). Field creates must be sequential; item creates can be parallel in chunks of 8.
+- **Hyphenated or spaced list names** get sanitized entity type names (`SP.Data.Crew_x002d_TradesListItem`, `SP.Data.Work_x0020_CalendarListItem`). Don't hand-write these — read `ListItemEntityTypeFullName` off the list metadata and use that string verbatim.
+- **`D2-Provision-Lists.ps1` is obsolete.** Keep for archaeology but do not run — the whole PnP path is blocked.
 
 **Chrome MCP tab isolation.** Claude Chrome creates tab groups in an isolated cookie context. Fresh tabs land on sign-in walls even when the user's regular browser tabs are already signed in as the same account. Confirmed deterministic — switching browsers or reconnecting does not resolve. Workaround: user drives their own signed-in browser tabs; agent guides via chat.
 
@@ -105,16 +107,26 @@ The four load-bearing invariants (enforced by the design, not by a database prim
 
 ## How to run it
 
-**Nothing is deployed yet.** Rev D week-by-week runbooks are in repo root (`D2-Week-1-Build-Runbook.md` through `D2-Week-5-Cutover-Runbook.md`).
+**Week 1 complete — all 7 SharePoint lists provisioned and seeded on the D2 tenant** as of 2026-08-25. Rev D week-by-week runbooks are in repo root (`D2-Week-1-Build-Runbook.md` through `D2-Week-5-Cutover-Runbook.md`).
 
-**Immediate next action:** Resolve the PnP auth block (see Known bugs). Then run `D2-Provision-Lists.ps1` to provision the three MVP lists (Jobs, Assignments, Tasks) with seed data.
+**Deployed state (D2BuildScheduler site):**
 
-**After lists exist:**
-1. Verify against Rev D §04 data model
-2. Build the five Power Automate flows per `D2-Week-2-Automations-Runbook.md`
-3. Build the canvas app per `D2-Week-3-Canvas-App-Spec.md`
-4. Pilot one live pool per `D2-Week-4-Pilot-Runbook.md`
-5. Cutover per `D2-Week-5-Cutover-Runbook.md`
+| List | Rows | GUID |
+|---|---|---|
+| Jobs | 1 (Harrison Residence D2-1001) | `ee0ecabf-2f11-458d-a9ea-641f76d10cc3` |
+| Assignments | 5 (D2-1001 sub-phases; 22 fields incl full Week 1 schema) | `49ef7006-d3fe-40a7-a52f-c4c18545bd35` |
+| Tasks | 30 (6 × 5 assignments) | `22c45847-ff0d-417a-b53e-1ea018fbb6d3` |
+| Trades | 26 | `05038f7f-a6cb-4f57-b1a1-3ff9c7126ba5` |
+| Crews | 14 (subcontractor patch applied) | `45e9ff1f-bf36-4ab5-929d-25ab9a80d460` |
+| Crew-Trades | 51 | (see viewlsts.aspx) |
+| Work Calendar | 62 (52 Sundays + 10 US federal holidays) | (see viewlsts.aspx) |
+
+**Immediate next action:** Build the five Power Automate flows per `D2-Week-2-Automations-Runbook.md` — via Claude Chrome UI-driving (not solution ZIP; see session log 2026-08-25 for the trade-off analysis). After each flow works, Export → Package (.zip) and drop into `flows/exports/` for backup + versioning.
+
+**After Week 2 flows:**
+1. Build the canvas app per `D2-Week-3-Canvas-App-Spec.md`
+2. Pilot one live pool per `D2-Week-4-Pilot-Runbook.md`
+3. Cutover per `D2-Week-5-Cutover-Runbook.md`
 
 **Companion tools already in place:**
 - `patched-tool/pool-scheduler.html` — browser scheduler with the two-line Auto-Schedule determinism fix applied (see `patched-tool/README.md` and `patched-tool/determinism-fix.diff`). Verified with `oracle-test.js` — 14 of 16 automated invariant checks pass, two remaining fails are documented data gaps not bugs.
