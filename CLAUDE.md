@@ -121,7 +121,9 @@ Load-bearing details for future runs:
 | Crew-Trades | 51 | (see viewlsts.aspx) |
 | Work Calendar | 62 (52 Sundays + 10 US federal holidays) | (see viewlsts.aspx) |
 
-**Immediate next action:** Build the five Power Automate flows per `D2-Week-2-Automations-Runbook.md` — via Claude Chrome UI-driving (not solution ZIP; see session log 2026-08-25 for the trade-off analysis). After each flow works, Export → Package (.zip) and drop into `flows/exports/` for backup + versioning.
+**Immediate next action:** Continue Week 2 flows. Sign-off Intake is DONE and end-to-end verified. Remaining 4 flows: Daily Dispatch, Event-Driven Reconciliation, Nightly Reconciliation, Daily+Weekly PDF Summary. Build via Claude Chrome UI-driving (not solution ZIP). Export each to `flows/exports/` after it tests green.
+
+**Load-bearing pattern for write-back flows (from Sign-off Intake win):** use "Send an HTTP request to SharePoint" action with SP MERGE, NOT the Update item action. PA's Update item requires binding every required field on the target list (Assignments has 7 required → 14+ dynamic-content bindings per action). Send-HTTP-to-SP with `X-HTTP-Method: MERGE` header does partial updates, only touching fields in the body. ~15 clicks total vs 100+. See sessions/2026-08-25-week2-flow-start.md for the body/headers template.
 
 **After Week 2 flows:**
 1. Build the canvas app per `D2-Week-3-Canvas-App-Spec.md`
