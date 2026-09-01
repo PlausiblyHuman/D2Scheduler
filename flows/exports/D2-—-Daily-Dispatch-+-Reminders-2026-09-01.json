@@ -1,0 +1,930 @@
+{
+  "FlowName": "2683f70a-1bed-b842-b26a-7796485c5233",
+  "Enabled": true,
+  "DisplayName": "D2 — Daily Dispatch + Reminders",
+  "UserType": "Owner",
+  "CreatedTime": "2026-08-26T20:07:30.6578467Z",
+  "CreatedBy": {
+    "tenantId": "",
+    "objectId": "784cbc4a-82d2-4974-9a0f-f8b1f6919ca5",
+    "userId": "784cbc4a-82d2-4974-9a0f-f8b1f6919ca5",
+    "userType": "ActiveDirectory"
+  },
+  "LastModifiedTime": "2026-08-31T21:02:24Z",
+  "EnvironmentName": "2710a01b-6cfa-e820-b338-2286f2649300",
+  "WorkflowEntityId": "f4e387a3-86a1-f111-b8dc-6045bd0195dd",
+  "Internal": {
+    "name": "2683f70a-1bed-b842-b26a-7796485c5233",
+    "id": "/providers/Microsoft.ProcessSimple/environments/2710a01b-6cfa-e820-b338-2286f2649300/flows/2683f70a-1bed-b842-b26a-7796485c5233",
+    "type": "Microsoft.ProcessSimple/environments/flows",
+    "properties": {
+      "apiId": "/providers/Microsoft.PowerApps/apis/shared_logicflows",
+      "displayName": "D2 — Daily Dispatch + Reminders",
+      "userType": "Owner",
+      "definition": {
+        "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+        "contentVersion": "undefined",
+        "parameters": {
+          "$connections": {
+            "defaultValue": {},
+            "type": "Object"
+          },
+          "$authentication": {
+            "defaultValue": {},
+            "type": "SecureObject"
+          }
+        },
+        "triggers": {
+          "Recurrence": {
+            "recurrence": {
+              "frequency": "Week",
+              "interval": 1,
+              "timeZone": "Central Standard Time",
+              "startTime": "2026-08-27T06:00:00",
+              "schedule": {
+                "weekDays": [
+                  "Monday",
+                  "Tuesday",
+                  "Wednesday",
+                  "Thursday",
+                  "Friday",
+                  "Saturday"
+                ],
+                "hours": [
+                  "6"
+                ],
+                "minutes": [
+                  0
+                ]
+              }
+            },
+            "metadata": {
+              "operationMetadataId": "ab9e9407-fb14-4da7-b0c0-c426d44b330d"
+            },
+            "type": "Recurrence"
+          }
+        },
+        "actions": {
+          "Initialize_variable": {
+            "runAfter": {},
+            "metadata": {
+              "operationMetadataId": "ab60e43b-1ec1-46b9-a801-713c923d1061"
+            },
+            "type": "InitializeVariable",
+            "inputs": {
+              "variables": [
+                {
+                  "name": "today",
+                  "type": "string",
+                  "value": "@{formatDateTime(convertFromUtc(utcNow(),'Central Standard Time'),'yyyy-MM-dd')}"
+                }
+              ]
+            }
+          },
+          "Initialize_variable_2": {
+            "runAfter": {
+              "Initialize_variable": [
+                "Succeeded"
+              ]
+            },
+            "metadata": {
+              "operationMetadataId": "b16b5326-3aa6-47cb-8154-51c91999756a"
+            },
+            "type": "InitializeVariable",
+            "inputs": {
+              "variables": [
+                {
+                  "name": "yesterday",
+                  "type": "string",
+                  "value": "@{formatDateTime(addDays(convertFromUtc(utcNow(),'Central Standard Time'),-1),'yyyy-MM-dd')}"
+                }
+              ]
+            }
+          },
+          "Get_items": {
+            "runAfter": {
+              "Initialize_variable_2": [
+                "Succeeded"
+              ]
+            },
+            "metadata": {
+              "operationMetadataId": "9f615177-0f5d-436f-aace-cc2a38d13c62"
+            },
+            "type": "OpenApiConnection",
+            "inputs": {
+              "host": {
+                "connectionName": "shared_sharepointonline",
+                "operationId": "GetItems",
+                "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+              },
+              "parameters": {
+                "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+                "table": "49ef7006-d3fe-40a7-a52f-c4c18545bd35",
+                "$filter": "ScheduledStart le '@{variables('today')}' and ScheduledFinish ge '@{variables('today')}' and NotApplicable ne 1",
+                "$top": 500
+              },
+              "authentication": "@parameters('$authentication')"
+            }
+          },
+          "Get_items_2": {
+            "runAfter": {
+              "Get_items": [
+                "Succeeded"
+              ]
+            },
+            "metadata": {
+              "operationMetadataId": "f8f32bc8-8a82-48ae-8699-5b85352cb4f2"
+            },
+            "type": "OpenApiConnection",
+            "inputs": {
+              "host": {
+                "connectionName": "shared_sharepointonline",
+                "operationId": "GetItems",
+                "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+              },
+              "parameters": {
+                "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+                "table": "49ef7006-d3fe-40a7-a52f-c4c18545bd35",
+                "$filter": "ScheduledFinish eq '@{variables('yesterday')}' and InstallerSignOff ne 1 and NotApplicable ne 1",
+                "$top": 500
+              },
+              "authentication": "@parameters('$authentication')"
+            }
+          },
+          "Get_items_3": {
+            "runAfter": {
+              "Get_items_2": [
+                "Succeeded"
+              ]
+            },
+            "metadata": {
+              "operationMetadataId": "8ded9f7b-5366-48c1-adae-7623121d14aa"
+            },
+            "type": "OpenApiConnection",
+            "inputs": {
+              "host": {
+                "connectionName": "shared_sharepointonline",
+                "operationId": "GetItems",
+                "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+              },
+              "parameters": {
+                "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+                "table": "45e9ff1f-bf36-4ab5-929d-25ab9a80d460",
+                "$filter": "Active eq 1 and Unlimited ne 1",
+                "$top": 100
+              },
+              "authentication": "@parameters('$authentication')"
+            }
+          },
+          "Get_items_4": {
+            "runAfter": {
+              "Get_items_3": [
+                "Succeeded"
+              ]
+            },
+            "metadata": {
+              "operationMetadataId": "2c904360-ba7a-446e-a71b-b73a7347ecae"
+            },
+            "type": "OpenApiConnection",
+            "inputs": {
+              "host": {
+                "connectionName": "shared_sharepointonline",
+                "operationId": "GetItems",
+                "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+              },
+              "parameters": {
+                "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+                "table": "d36758cf-9d27-4342-84e4-817f8dcfa2ba",
+                "$filter": "Date eq '@{variables('today')}'",
+                "$top": 10
+              },
+              "authentication": "@parameters('$authentication')"
+            }
+          },
+          "Compose_2": {
+            "runAfter": {
+              "Get_items_4": [
+                "Succeeded"
+              ]
+            },
+            "metadata": {
+              "operationMetadataId": "66e540c2-7b4e-48f2-b4a5-561b38bd1a50"
+            },
+            "type": "Compose",
+            "inputs": "@length(outputs('Get_items_4')?['body/value'])"
+          },
+          "Condition_2": {
+            "actions": {
+              "Terminate": {
+                "runAfter": {},
+                "metadata": {
+                  "operationMetadataId": "e8b84bf4-4d4b-415d-97dd-7e52a557ab35"
+                },
+                "type": "Terminate",
+                "inputs": {
+                  "runStatus": "Succeeded"
+                }
+              }
+            },
+            "runAfter": {
+              "Compose_2": [
+                "Succeeded"
+              ]
+            },
+            "else": {
+              "actions": {
+                "Apply_to_each": {
+                  "foreach": "@outputs('Get_items_3')?['body/value']",
+                  "actions": {
+                    "Filter_array": {
+                      "runAfter": {},
+                      "metadata": {
+                        "operationMetadataId": "8f63c53d-a5d6-49e6-9f6b-a7b86459e980"
+                      },
+                      "type": "Query",
+                      "inputs": {
+                        "from": "@outputs('Get_items')?['body/value']",
+                        "where": "@equals(item()?['Crew']?['Value'], items('Apply_to_each')?['Title'])"
+                      }
+                    },
+                    "Filter_array_2": {
+                      "runAfter": {
+                        "Filter_array": [
+                          "Succeeded"
+                        ]
+                      },
+                      "metadata": {
+                        "operationMetadataId": "7ddcb2a7-cd9e-43d0-ae2d-1357a8ccec04"
+                      },
+                      "type": "Query",
+                      "inputs": {
+                        "from": "@outputs('Get_items_2')?['body/value']",
+                        "where": "@equals(item()?['Crew']?['Value'], items('Apply_to_each')?['Title'])"
+                      }
+                    },
+                    "Compose": {
+                      "runAfter": {
+                        "Filter_array_2": [
+                          "Succeeded"
+                        ]
+                      },
+                      "metadata": {
+                        "operationMetadataId": "61f59d0c-c833-4191-9427-4dad34cdf520"
+                      },
+                      "type": "Compose",
+                      "inputs": "<div style=\"font-family:Segoe UI,sans-serif;font-size:14px;color:#1a2332\"><h2 style=\"color:#0b6e78\">TODAY — @{formatDateTime(variables('today'),'ddd MM/dd')} · @{items('Apply_to_each')?['Title']}</h2>@{if(empty(body('Filter_array')),'<p><em>No sub-phase scheduled today.</em></p>',concat('<p><strong>',first(body('Filter_array'))?['Job']?['Value'],'</strong><br>',first(body('Filter_array'))?['SubPhaseNumber'],' ',first(body('Filter_array'))?['SubPhaseName'],'</p><p><a href=\"https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler/Lists/Assignments/DispForm.aspx?ID=',string(first(body('Filter_array'))?['ID']),'\">Open sub-phase to sign off</a></p>'))}@{if(empty(body('Filter_array_2')),'',concat('<h3 style=\"color:#a84a18\">OUTSTANDING FROM YESTERDAY</h3><p>',string(length(body('Filter_array_2'))),' sub-phase(s) finished yesterday but not yet signed off.</p>'))}</div>"
+                    },
+                    "Send_an_email_(V2)": {
+                      "runAfter": {
+                        "Compose": [
+                          "Succeeded"
+                        ]
+                      },
+                      "metadata": {
+                        "operationMetadataId": "5504e828-535c-4747-8602-0c7f8042a448"
+                      },
+                      "type": "OpenApiConnection",
+                      "inputs": {
+                        "host": {
+                          "connectionName": "shared_office365",
+                          "operationId": "SendEmailV2",
+                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365"
+                        },
+                        "parameters": {
+                          "emailMessage/To": "@items('Apply_to_each')?['LeadEmail']",
+                          "emailMessage/Subject": "D2 Dispatch — @{formatDateTime(variables('today'),'ddd MM/dd')} · @{items('Apply_to_each')?['Title']}",
+                          "emailMessage/Body": "<p>@{outputs('Compose')}</p>",
+                          "emailMessage/Importance": "Normal"
+                        },
+                        "authentication": "@parameters('$authentication')"
+                      }
+                    }
+                  },
+                  "runAfter": {},
+                  "metadata": {
+                    "operationMetadataId": "fbd75ce0-5711-4cc9-a485-06d7001f4b9b"
+                  },
+                  "type": "Foreach"
+                }
+              }
+            },
+            "expression": {
+              "greater": [
+                "@outputs('Compose_2')",
+                0
+              ]
+            },
+            "metadata": {
+              "operationMetadataId": "60c5436e-92d4-4228-9b1a-52e7538d7f30"
+            },
+            "type": "If"
+          }
+        }
+      },
+      "state": "Started",
+      "sharingType": "CommonDataService",
+      "connectionReferences": {
+        "shared_sharepointonline": {
+          "connectionName": "shared-sharepointonl-20b83f29-d689-437e-b1ff-930f7bf3fda4",
+          "connectionReferenceLogicalName": "new_sharedsharepointonline_beb06",
+          "apiDefinition": {
+            "name": "shared_sharepointonline",
+            "id": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+            "type": "/providers/Microsoft.PowerApps/apis",
+            "properties": {
+              "displayName": "SharePoint",
+              "iconUri": "https://static.powerapps.com/resource/ppcr/releases/v1.0.1813/1.0.1813.4769/sharepointonline/icon.png",
+              "purpose": "NotSpecified",
+              "connectionParameters": {
+                "token": {
+                  "type": "oauthSetting",
+                  "oAuthSettings": {
+                    "identityProvider": "sharepointonlinecertificateV2",
+                    "clientId": "7ab7862c-4c57-491e-8a45-d52a7e023983",
+                    "scopes": [],
+                    "redirectMode": "GlobalPerConnector",
+                    "redirectUrl": "https://global.consent.azure-apim.net/redirect/sharepointonline",
+                    "properties": {
+                      "IsFirstParty": "True",
+                      "IsOnbehalfofLoginSupported": true
+                    },
+                    "customParameters": {
+                      "ResourceUriAAD": {
+                        "value": "https://graph.microsoft.com/"
+                      },
+                      "loginUri": {
+                        "value": "https://login.windows.net"
+                      },
+                      "LoginUriAAD": {
+                        "value": "https://login.windows.net"
+                      },
+                      "ResourceUri": {
+                        "value": "https://graph.microsoft.com"
+                      }
+                    }
+                  },
+                  "uiDefinition": {
+                    "displayName": "Log in with SharePoint Credentials",
+                    "description": "Log in with SharePoint Credentials",
+                    "tooltip": "Provide SharePoint Credentials",
+                    "constraints": {
+                      "required": "true",
+                      "capability": [
+                        "cloud"
+                      ]
+                    }
+                  }
+                },
+                "token:TenantId": {
+                  "type": "string",
+                  "metadata": {
+                    "sourceType": "AzureActiveDirectoryTenant"
+                  },
+                  "uiDefinition": {
+                    "displayName": "Tenant",
+                    "description": "The tenant ID of for the Microsoft Entra ID application",
+                    "constraints": {
+                      "required": "false",
+                      "hidden": "true"
+                    }
+                  }
+                },
+                "gateway": {
+                  "type": "gatewaySetting",
+                  "gatewaySettings": {
+                    "dataSourceType": "SharePoint",
+                    "connectionDetails": []
+                  },
+                  "uiDefinition": {
+                    "tabIndex": 1,
+                    "constraints": {
+                      "hidden": "false",
+                      "capability": [
+                        "gateway"
+                      ]
+                    }
+                  }
+                },
+                "authType": {
+                  "type": "string",
+                  "allowedValues": [
+                    {
+                      "value": "windows"
+                    }
+                  ],
+                  "uiDefinition": {
+                    "displayName": "Authentication Type",
+                    "description": "Authentication type to connect to your database",
+                    "tooltip": "Authentication type to connect to your database",
+                    "constraints": {
+                      "tabIndex": 2,
+                      "required": "false",
+                      "allowedValues": [
+                        {
+                          "text": "Windows",
+                          "value": "windows"
+                        }
+                      ],
+                      "capability": [
+                        "gateway"
+                      ]
+                    }
+                  }
+                },
+                "username": {
+                  "type": "securestring",
+                  "uiDefinition": {
+                    "displayName": "Username",
+                    "description": "Username credential",
+                    "tooltip": "Username credential",
+                    "constraints": {
+                      "tabIndex": 3,
+                      "clearText": true,
+                      "required": "true",
+                      "capability": [
+                        "gateway"
+                      ]
+                    }
+                  }
+                },
+                "password": {
+                  "type": "securestring",
+                  "uiDefinition": {
+                    "displayName": "Password",
+                    "description": "Password credential",
+                    "tooltip": "Password credential",
+                    "constraints": {
+                      "tabIndex": 4,
+                      "required": "true",
+                      "capability": [
+                        "gateway"
+                      ]
+                    }
+                  }
+                }
+              },
+              "scopes": {
+                "will": [
+                  "Read list and library names, as well as the names of the columns",
+                  "Create, read, update, copy and delete files and metadata",
+                  "Create, read, update, and delete list items"
+                ],
+                "wont": []
+              },
+              "runtimeUrls": [
+                "https://2710a01b-6cfa-e820-b338-2286f2649300.07.common.usa002.azure-apihub.net/apim/sharepointonline"
+              ],
+              "primaryRuntimeUrl": "https://2710a01b-6cfa-e820-b338-2286f2649300.07.common.usa002.azure-apihub.net/apim/sharepointonline",
+              "metadata": {
+                "source": "marketplace",
+                "brandColor": "",
+                "useNewApimVersion": "true",
+                "version": {
+                  "previous": "releases/v1.0.1813\\1.0.1813.4743",
+                  "current": "releases/v1.0.1813\\1.0.1813.4769"
+                }
+              },
+              "capabilities": [
+                "tabular",
+                "gateway",
+                "cloud",
+                "federatedKnowledgeSource"
+              ],
+              "tier": "Standard",
+              "isCustomApi": false,
+              "description": "SharePoint helps organizations share and collaborate with colleagues, partners, and customers. You can connect to SharePoint Online or to an on-premises SharePoint 2016 or 2019 farm using the On-Premises Data Gateway to manage documents and list items.",
+              "createdTime": "2018-08-02T22:20:45.5681417Z",
+              "changedTime": "2026-07-11T23:05:50.1609813Z",
+              "publisher": "Microsoft"
+            }
+          },
+          "source": "Embedded",
+          "id": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+          "displayName": "SharePoint",
+          "iconUri": "https://static.powerapps.com/resource/ppcr/releases/v1.0.1813/1.0.1813.4769/sharepointonline/icon.png",
+          "brandColor": "",
+          "tier": "Standard",
+          "apiName": "sharepointonline",
+          "isProcessSimpleApiReferenceConversionAlreadyDone": false
+        },
+        "shared_office365": {
+          "connectionName": "shared-office365-0bc14d33-bf94-4439-bdbc-d600759333d5",
+          "connectionReferenceLogicalName": "new_sharedoffice365_4d59e",
+          "apiDefinition": {
+            "name": "shared_office365",
+            "id": "/providers/Microsoft.PowerApps/apis/shared_office365",
+            "type": "/providers/Microsoft.PowerApps/apis",
+            "properties": {
+              "displayName": "Office 365 Outlook",
+              "iconUri": "https://static.powerapps.com/resource/ppcr/releases/v1.0.1819/1.0.1819.4795/office365/icon.png",
+              "purpose": "NotSpecified",
+              "connectionParameters": {
+                "Token": {
+                  "type": "oauthSetting",
+                  "oAuthSettings": {
+                    "identityProvider": "aadcertificate",
+                    "clientId": "7ab7862c-4c57-491e-8a45-d52a7e023983",
+                    "scopes": [],
+                    "redirectMode": "GlobalPerConnector",
+                    "redirectUrl": "https://global.consent.azure-apim.net/redirect/office365",
+                    "properties": {
+                      "IsFirstParty": "True",
+                      "AzureActiveDirectoryResourceId": "https://graph.microsoft.com",
+                      "IsOnbehalfofLoginSupported": true
+                    },
+                    "customParameters": {
+                      "ResourceUri": {
+                        "value": "https://graph.microsoft.com"
+                      },
+                      "LoginUriAAD": {
+                        "value": "https://login.windows.net"
+                      },
+                      "LoginUri": {
+                        "value": "https://login.windows.net"
+                      }
+                    }
+                  },
+                  "uiDefinition": {
+                    "displayName": "Log in with Office 365 Credentials",
+                    "description": "Log in with Office 365 Credentials",
+                    "tooltip": "Provide Office 365 Credentials",
+                    "constraints": {
+                      "required": "true"
+                    }
+                  }
+                }
+              },
+              "scopes": {
+                "will": [
+                  "Read your user profile",
+                  "Read, update, and delete your mails",
+                  "Send mail as signed in user (you)",
+                  "Create, read, update, and delete events",
+                  "Create, read, update, and delete contacts"
+                ],
+                "wont": []
+              },
+              "runtimeUrls": [
+                "https://2710a01b-6cfa-e820-b338-2286f2649300.07.common.usa002.azure-apihub.net/apim/office365"
+              ],
+              "primaryRuntimeUrl": "https://2710a01b-6cfa-e820-b338-2286f2649300.07.common.usa002.azure-apihub.net/apim/office365",
+              "metadata": {
+                "source": "marketplace",
+                "brandColor": "#0078D4",
+                "useNewApimVersion": "true",
+                "version": {
+                  "previous": "releases/v1.0.1817\\1.0.1817.4781",
+                  "current": "releases/v1.0.1819\\1.0.1819.4795"
+                }
+              },
+              "capabilities": [
+                "actions"
+              ],
+              "tier": "Standard",
+              "isCustomApi": false,
+              "description": "Microsoft Office 365 is a cloud-based service that is designed to help meet your organization's needs for robust security, reliability, and user productivity.",
+              "createdTime": "2018-07-10T17:18:33.233677Z",
+              "changedTime": "2026-07-13T16:56:50.449467Z",
+              "publisher": "Microsoft"
+            }
+          },
+          "source": "Embedded",
+          "id": "/providers/Microsoft.PowerApps/apis/shared_office365",
+          "displayName": "Office 365 Outlook",
+          "iconUri": "https://static.powerapps.com/resource/ppcr/releases/v1.0.1819/1.0.1819.4795/office365/icon.png",
+          "brandColor": "#0078D4",
+          "tier": "Standard",
+          "apiName": "office365",
+          "isProcessSimpleApiReferenceConversionAlreadyDone": false
+        }
+      },
+      "createdTime": "2026-08-26T20:07:30.6578467Z",
+      "lastModifiedTime": "2026-08-31T21:02:24Z",
+      "flowSuspensionReason": "None",
+      "templateName": "",
+      "environment": {
+        "name": "2710a01b-6cfa-e820-b338-2286f2649300",
+        "type": "Microsoft.ProcessSimple/environments",
+        "id": "/providers/Microsoft.ProcessSimple/environments/2710a01b-6cfa-e820-b338-2286f2649300"
+      },
+      "definitionSummary": {
+        "triggers": [
+          {
+            "type": "Recurrence",
+            "metadata": {
+              "operationMetadataId": "ab9e9407-fb14-4da7-b0c0-c426d44b330d"
+            }
+          }
+        ],
+        "actions": [
+          {
+            "type": "InitializeVariable",
+            "metadata": {
+              "operationMetadataId": "ab60e43b-1ec1-46b9-a801-713c923d1061"
+            }
+          },
+          {
+            "type": "InitializeVariable",
+            "metadata": {
+              "operationMetadataId": "b16b5326-3aa6-47cb-8154-51c91999756a"
+            }
+          },
+          {
+            "type": "OpenApiConnection",
+            "swaggerOperationId": "GetItems",
+            "metadata": {
+              "operationMetadataId": "9f615177-0f5d-436f-aace-cc2a38d13c62"
+            },
+            "api": {
+              "name": "shared_sharepointonline",
+              "id": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+              "type": "/providers/Microsoft.PowerApps/apis",
+              "properties": {
+                "displayName": "SharePoint",
+                "iconUri": "https://static.powerapps.com/resource/ppcr/releases/v1.0.1813/1.0.1813.4769/sharepointonline/icon.png",
+                "metadata": {
+                  "source": "marketplace",
+                  "brandColor": "",
+                  "useNewApimVersion": "true",
+                  "version": {
+                    "previous": "releases/v1.0.1813\\1.0.1813.4743",
+                    "current": "releases/v1.0.1813\\1.0.1813.4769"
+                  }
+                },
+                "tier": "Standard",
+                "isCustomApi": false,
+                "description": "SharePoint helps organizations share and collaborate with colleagues, partners, and customers. You can connect to SharePoint Online or to an on-premises SharePoint 2016 or 2019 farm using the On-Premises Data Gateway to manage documents and list items."
+              }
+            }
+          },
+          {
+            "type": "OpenApiConnection",
+            "swaggerOperationId": "GetItems",
+            "metadata": {
+              "operationMetadataId": "f8f32bc8-8a82-48ae-8699-5b85352cb4f2"
+            },
+            "api": {
+              "name": "shared_sharepointonline",
+              "id": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+              "type": "/providers/Microsoft.PowerApps/apis",
+              "properties": {
+                "displayName": "SharePoint",
+                "iconUri": "https://static.powerapps.com/resource/ppcr/releases/v1.0.1813/1.0.1813.4769/sharepointonline/icon.png",
+                "metadata": {
+                  "source": "marketplace",
+                  "brandColor": "",
+                  "useNewApimVersion": "true",
+                  "version": {
+                    "previous": "releases/v1.0.1813\\1.0.1813.4743",
+                    "current": "releases/v1.0.1813\\1.0.1813.4769"
+                  }
+                },
+                "tier": "Standard",
+                "isCustomApi": false,
+                "description": "SharePoint helps organizations share and collaborate with colleagues, partners, and customers. You can connect to SharePoint Online or to an on-premises SharePoint 2016 or 2019 farm using the On-Premises Data Gateway to manage documents and list items."
+              }
+            }
+          },
+          {
+            "type": "OpenApiConnection",
+            "swaggerOperationId": "GetItems",
+            "metadata": {
+              "operationMetadataId": "8ded9f7b-5366-48c1-adae-7623121d14aa"
+            },
+            "api": {
+              "name": "shared_sharepointonline",
+              "id": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+              "type": "/providers/Microsoft.PowerApps/apis",
+              "properties": {
+                "displayName": "SharePoint",
+                "iconUri": "https://static.powerapps.com/resource/ppcr/releases/v1.0.1813/1.0.1813.4769/sharepointonline/icon.png",
+                "metadata": {
+                  "source": "marketplace",
+                  "brandColor": "",
+                  "useNewApimVersion": "true",
+                  "version": {
+                    "previous": "releases/v1.0.1813\\1.0.1813.4743",
+                    "current": "releases/v1.0.1813\\1.0.1813.4769"
+                  }
+                },
+                "tier": "Standard",
+                "isCustomApi": false,
+                "description": "SharePoint helps organizations share and collaborate with colleagues, partners, and customers. You can connect to SharePoint Online or to an on-premises SharePoint 2016 or 2019 farm using the On-Premises Data Gateway to manage documents and list items."
+              }
+            }
+          },
+          {
+            "type": "OpenApiConnection",
+            "swaggerOperationId": "GetItems",
+            "metadata": {
+              "operationMetadataId": "2c904360-ba7a-446e-a71b-b73a7347ecae"
+            },
+            "api": {
+              "name": "shared_sharepointonline",
+              "id": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+              "type": "/providers/Microsoft.PowerApps/apis",
+              "properties": {
+                "displayName": "SharePoint",
+                "iconUri": "https://static.powerapps.com/resource/ppcr/releases/v1.0.1813/1.0.1813.4769/sharepointonline/icon.png",
+                "metadata": {
+                  "source": "marketplace",
+                  "brandColor": "",
+                  "useNewApimVersion": "true",
+                  "version": {
+                    "previous": "releases/v1.0.1813\\1.0.1813.4743",
+                    "current": "releases/v1.0.1813\\1.0.1813.4769"
+                  }
+                },
+                "tier": "Standard",
+                "isCustomApi": false,
+                "description": "SharePoint helps organizations share and collaborate with colleagues, partners, and customers. You can connect to SharePoint Online or to an on-premises SharePoint 2016 or 2019 farm using the On-Premises Data Gateway to manage documents and list items."
+              }
+            }
+          },
+          {
+            "type": "Compose",
+            "metadata": {
+              "operationMetadataId": "66e540c2-7b4e-48f2-b4a5-561b38bd1a50"
+            }
+          },
+          {
+            "type": "If",
+            "metadata": {
+              "operationMetadataId": "60c5436e-92d4-4228-9b1a-52e7538d7f30"
+            }
+          },
+          {
+            "type": "Terminate",
+            "metadata": {
+              "operationMetadataId": "e8b84bf4-4d4b-415d-97dd-7e52a557ab35"
+            }
+          },
+          {
+            "type": "Foreach",
+            "metadata": {
+              "operationMetadataId": "fbd75ce0-5711-4cc9-a485-06d7001f4b9b"
+            }
+          },
+          {
+            "type": "Query",
+            "metadata": {
+              "operationMetadataId": "8f63c53d-a5d6-49e6-9f6b-a7b86459e980"
+            }
+          },
+          {
+            "type": "Query",
+            "metadata": {
+              "operationMetadataId": "7ddcb2a7-cd9e-43d0-ae2d-1357a8ccec04"
+            }
+          },
+          {
+            "type": "Compose",
+            "metadata": {
+              "operationMetadataId": "61f59d0c-c833-4191-9427-4dad34cdf520"
+            }
+          },
+          {
+            "type": "OpenApiConnection",
+            "swaggerOperationId": "SendEmailV2",
+            "metadata": {
+              "operationMetadataId": "5504e828-535c-4747-8602-0c7f8042a448"
+            },
+            "api": {
+              "name": "shared_office365",
+              "id": "/providers/Microsoft.PowerApps/apis/shared_office365",
+              "type": "/providers/Microsoft.PowerApps/apis",
+              "properties": {
+                "displayName": "Office 365 Outlook",
+                "iconUri": "https://static.powerapps.com/resource/ppcr/releases/v1.0.1819/1.0.1819.4795/office365/icon.png",
+                "metadata": {
+                  "source": "marketplace",
+                  "brandColor": "#0078D4",
+                  "useNewApimVersion": "true",
+                  "version": {
+                    "previous": "releases/v1.0.1817\\1.0.1817.4781",
+                    "current": "releases/v1.0.1819\\1.0.1819.4795"
+                  }
+                },
+                "tier": "Standard",
+                "isCustomApi": false,
+                "description": "Microsoft Office 365 is a cloud-based service that is designed to help meet your organization's needs for robust security, reliability, and user productivity."
+              }
+            }
+          }
+        ]
+      },
+      "creator": {
+        "tenantId": "",
+        "objectId": "784cbc4a-82d2-4974-9a0f-f8b1f6919ca5",
+        "userId": "784cbc4a-82d2-4974-9a0f-f8b1f6919ca5",
+        "userType": "ActiveDirectory"
+      },
+      "owningUser": {
+        "id": "cb95df98-dd8b-f111-ab0f-70a8a5b2d5ff",
+        "azureActiveDirectoryObjectId": "784cbc4a-82d2-4974-9a0f-f8b1f6919ca5"
+      },
+      "provisioningMethod": "FromDefinition",
+      "flowFailureAlertSubscribed": true,
+      "workflowEntityId": "f4e387a3-86a1-f111-b8dc-6045bd0195dd",
+      "workflowUniqueId": "3632307e-1a90-44dd-aa17-ed0f7fc77e1c",
+      "referencedResources": [
+        {
+          "service": "sharepoint",
+          "resource": {
+            "site": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+            "list": "49ef7006-d3fe-40a7-a52f-c4c18545bd35"
+          },
+          "referencers": [
+            {
+              "referenceSourceType": "Actions",
+              "operationId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline/apiOperations/GetItems"
+            },
+            {
+              "referenceSourceType": "Actions",
+              "operationId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline/apiOperations/GetItems"
+            },
+            {
+              "referenceSourceType": "Triggers",
+              "operationId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline/apiOperations/GetItems"
+            },
+            {
+              "referenceSourceType": "Triggers",
+              "operationId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline/apiOperations/GetItems"
+            }
+          ]
+        },
+        {
+          "service": "sharepoint",
+          "resource": {
+            "site": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+            "list": "45e9ff1f-bf36-4ab5-929d-25ab9a80d460"
+          },
+          "referencers": [
+            {
+              "referenceSourceType": "Actions",
+              "operationId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline/apiOperations/GetItems"
+            },
+            {
+              "referenceSourceType": "Triggers",
+              "operationId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline/apiOperations/GetItems"
+            }
+          ]
+        },
+        {
+          "service": "sharepoint",
+          "resource": {
+            "site": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+            "list": "d36758cf-9d27-4342-84e4-817f8dcfa2ba"
+          },
+          "referencers": [
+            {
+              "referenceSourceType": "Actions",
+              "operationId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline/apiOperations/GetItems"
+            },
+            {
+              "referenceSourceType": "Triggers",
+              "operationId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline/apiOperations/GetItems"
+            }
+          ]
+        },
+        {
+          "service": "sharepoint",
+          "resource": {
+            "site": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler"
+          },
+          "referencers": [
+            {
+              "referenceSourceType": "Actions",
+              "operationId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline/apiOperations/GetItems"
+            },
+            {
+              "referenceSourceType": "Actions",
+              "operationId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline/apiOperations/GetItems"
+            },
+            {
+              "referenceSourceType": "Actions",
+              "operationId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline/apiOperations/GetItems"
+            },
+            {
+              "referenceSourceType": "Actions",
+              "operationId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline/apiOperations/GetItems"
+            }
+          ]
+        }
+      ],
+      "isManaged": false,
+      "componentState": "Published",
+      "isCustomizable": {
+        "value": true,
+        "canBeChanged": true,
+        "managedPropertyLogicalName": "iscustomizableanddeletable"
+      },
+      "resourceId": "2683f70a-1bed-b842-b26a-7796485c5233",
+      "machineDescriptionData": {},
+      "flowOpenAiData": {
+        "isConsequential": false,
+        "isConsequentialFlagOverwritten": false
+      }
+    }
+  }
+}

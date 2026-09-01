@@ -191,6 +191,21 @@ Test with a manual run once the canvas app is calling it in Week 3.
 
 **Purpose:** Detect crew double-bookings within one polling interval of the offending edit. Post to Ops channel + DM the PM.
 
+> **Schema corrections discovered 2026-09-01 (build against these, not the runbook body below):**
+> - List display name is **`Assignments`**, not "Sub-phase Assignments". Internal `EntityTypeName` is `AssignmentsList`.
+> - `Crew` field is **Text** (holds the crew display name like `"Devon Crew +3"`), not a Lookup. There is **no `CrewId` field**. Substitute `body/Crew` wherever the runbook says `body/CrewId`.
+> - Jobs list originally lacked a `ProjectManager` column — added 2026-09-01 as internal name `ProjectManager` (User/Person, Group=D2, field ID `90ec6a24-4631-4c6f-bc78-43549dc1c37d`). Seed each Job row's PM before the DM step can resolve. Harrison Residence D2-1001 needs seeding on next touch.
+> - Verified Assignments editable fields: `Title, Job (Lookup), SubPhaseNumber, SubPhaseName, Crew (Text), Sequence, ScheduledStart, ScheduledFinish, WorkDate, InstallerSignOff, InstallerSignOffBy, InstallerSignOffOn, Locked, NotApplicable, PMSignOff, TasksComplete, TasksTotal, DurationDays, PMSignOffBy, PMSignOffOn, SignOffNotes, Trade (Lookup)`.
+> - **Trigger condition (field-diff strategy, locked in):**
+>   ```
+>   @or(
+>     not(equals(triggerOutputs()?['body/Crew'], triggerOutputs()?['body/Crew@odata.oldValue'])),
+>     not(equals(triggerOutputs()?['body/ScheduledStart'], triggerOutputs()?['body/ScheduledStart@odata.oldValue'])),
+>     not(equals(triggerOutputs()?['body/DurationDays'], triggerOutputs()?['body/DurationDays@odata.oldValue'])),
+>     equals(triggerOutputs()?['body/Crew@odata.oldValue'], null)
+>   )
+>   ```
+
 ### Flow 3 — Event-Driven Reconciliation
 
 #### Create the flow
