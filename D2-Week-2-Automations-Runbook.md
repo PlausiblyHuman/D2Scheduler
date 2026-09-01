@@ -189,7 +189,23 @@ Test with a manual run once the canvas app is calling it in Week 3.
 
 ## Day 2 — Event-Driven Reconciliation (~6 hrs)
 
-**Purpose:** Detect crew double-bookings within one polling interval of the offending edit. Post to Ops channel + DM the PM.
+> **BUILD-PATH SHIFT (2026-09-01b):** don't hand-build Flow 3 in the designer.
+> The full definition JSON is authored at
+> `flows/definitions/D2-Event-Driven-Reconciliation.json` and imported via
+> `flows/scripts/Import-Flow.ps1` — one PowerShell command. Read
+> `flows/README.md` first. This section stays as the design reference and as
+> the fallback checklist for `flows/manual-build/Flow3-checklist.md` when the
+> REST import doesn't work.
+>
+> **MVP scoping:** Flow 3 alert is **email-only** (Send Email V2 to the touched
+> Job's PM, with a coalesce fallback to `stratirus@d2pools.com`). Native Teams
+> channel post + DM was in the original design but would require wiring a Teams
+> connection to the D2 Automation env — Daily Dispatch never did, so this env
+> has no Teams connection today. Add native Teams as v1.1 once the connection
+> exists; the pattern is a copy-paste of any Post-message action from a flow
+> that already has Teams wired.
+
+**Purpose:** Detect crew double-bookings within one polling interval of the offending edit. Alert the PM by email.
 
 > **Schema corrections discovered 2026-09-01 (build against these, not the runbook body below):**
 > - List display name is **`Assignments`**, not "Sub-phase Assignments". Internal `EntityTypeName` is `AssignmentsList`.
