@@ -1,142 +1,175 @@
-# 2026-09-01b — Flow 3 REST-import wall; FlowAgent picked as forward path
+# 2026-09-02a — Flow 3 PUBLISHED and running; draft-row mechanism solved; Flow 1 fix staged
 
 ## Session goal
 
-Opened as: continue Flow 3 (Event-Driven Reconciliation) dev. Session pivoted
-once the JSON-first authoring pattern collided with the wall that
-`api.flow.microsoft.com` PATCH/PUT/publish is the wrong API surface for
-solution-aware Dataverse flows. Rewrites goal to: prove out the wrong-path,
-research the right-path, pick and document the forward tool. Flow 3 itself
-still not running at close.
+Execute last session's next action: stand up FlowAgent and import Flow 3 (Event-Driven
+Reconciliation) into the D2 Automation stub.
+
+**Flow 3 is live.** Published, Started, definition verified in the published row. The root
+cause of last session's entire REST wall was identified and is no longer a mystery. A real
+defect in the hand-authored definition (`splitOn`) was caught before it reached dispatch. A
+separate production bug in Flow 1 was found, fixed, preview-verified — and blocked at the
+final write by the permission classifier, so it is staged rather than applied.
 
 ## What landed
 
-**JSON-first authoring validated as a pattern.** `flows/definitions/D2-Event-Driven-Reconciliation.json`
-authored offline using Flow 1 & 2 exports as templates. 11 actions,
-correct env GUID, correct connection references (SP + Office 365 Outlook),
-correct list GUIDs, trigger condition, coalesce on Job lookup ID naming.
-JSON parses clean, PowerShell `ConvertFrom-Json -Depth 40` round-trips it.
-This artifact is verbatim-reusable with FlowAgent next session.
+**Flow 3 is published and Started.** Flow ID `523d99c0-bc2e-7819-5d96-6faab60734f1`, env
+`2710a01b-6cfa-e820-b338-2286f2649300`. Published row verified to contain all 11 actions, the
+trigger condition, and `splitOn`.
 
-**Three REST-import scripts + their failure modes documented.**
-Import-Flow.ps1 (PUT), Patch-Flow.ps1 (PATCH), Publish-Flow.ps1 (POST /publish).
-Each auth path works cleanly (`Add-PowerAppsAccount` + `Get-JwtToken` for
-flow audience, JWT `tid` tenant-guard). Each definition-mutation endpoint
-fails deterministically. Kept the scripts as archaeology for what NOT to try.
+**ROOT CAUSE FOUND — the draft-row mechanism. This resolves 2026-09-01b.** Solution-aware flows
+have two rows, published and unpublished-draft. Definition writes through *any* PPAPI surface —
+last session's REST `PATCH` and FlowAgent's `update_flow` alike — land in the **draft**.
+`get_flow` reads the **published** row. So the write returns 200, bumps `lastModifiedTime`, and
+looks like it did nothing.
 
-**Callback Registration workaround discovered but incomplete.** Fresh stubs
-in Dataverse envs throw XrmApiRequestFailed on PATCH until enabled at least
-once (Publish writes the Callback Registration rows XRM routes through).
-Once enabled, PATCH returns 200 — but the change lands in the DRAFT slot
-only, and the `/publish` endpoint doesn't exist to promote it. Cited
-workaround for the first error class, not the second.
+It was never being ignored. It was landing somewhere we weren't looking. Last session's
+"200-OK-but-silently-ignored" was right about the symptom and wrong about the cause.
 
-**FlowAgent is the forward pick.** `microsoft/power-platform-skills` on
-GitHub, published Microsoft first-party, contains a `power-automate`
-plugin whose MCP server (FlowAgent) exposes tools for reading, editing,
-validating, publishing, and reading run history + per-action outputs. Runs
-in Claude Code (not Cowork). MVP validated the design against Mariano
-Gomez Bent's community.dynamics.com writeup shipping three production BC↔CE
-integrations through it.
+Proven three ways:
+1. A deliberately tiny probe definition also failed to appear in `get_flow` — ruling out the
+   suspected ~5KB payload cap.
+2. `preview_update` correctly diffed the proposal against live (`actions: +1`), proving
+   FlowAgent reads live state accurately and the earlier write genuinely had not published.
+3. Applying with `previewToken` surfaced the real Xrm error naming the pending draft:
+   `0x80040203 … Component Type: 29, Object Id: 2764968c-…, CurrentState=ActiveUnpublished`.
 
-**PAC solution ALM held as fallback** for FlowAgent's ~5KB payload
-truncation on big edits: `pac solution export/unpack/pack/import` + local
-edit of `workflow.json`'s `clientdata`.
+**The publish path, end to end.** `PublishXml` initially failed on per-operation
+connection-reference binding (`'new_sharedsharepointonline_beb06' could not be found for the
+operation 'Get_touched_assignment'`). Shane opened the flow in the designer — the draft already
+contained all 11 actions — confirmed the connections, saved, and published.
 
-**Runbook + repo updated.** `D2-Week-2-Automations-Runbook.md` got a
-build-path-shift callout at the top of Flow 3 section. `flows/README.md`
-was written as the one-page ready-to-run before the wall was hit — will
-need a follow-up rewrite next session to reflect the FlowAgent path.
+**That designer Save then unblocked the fully programmatic path.** A subsequent
+`update_flow` + `PublishXml` round trip succeeded with no UI at all. The bindings only need to
+be created once; after that the loop is scriptable. **This is the repeatable pattern for Flows
+4 and 5.**
 
-**CLAUDE.md updated.** New "Flow authoring pattern — FlowAgent, not
-api.flow.microsoft.com REST" callout under Known bugs and gotchas covering
-all three failure modes verbatim, the three correct-path options ranked,
-and the "solution-aware flows don't show in standard list" scope discipline.
+**BUG CAUGHT — missing `splitOn`.** The hand-authored definition omitted the trigger's
+`splitOn`. `GetOnUpdatedItems` returns `{value:[...]}`, so without it every `body/*` field is
+null. Confirmed empirically: the single run that fired during a brief Started window failed at
+`Initialize_startDate` with
 
-**Stub flow in D2 Automation:** `2764968c-4aa6-f111-b8dd-6045bd0196b3`.
-Currently in original state (trigger + one Compose placeholder) after Shane
-accidentally discarded the PATCH draft during the new-designer stuck-toggle
-episode. Reproducible in 30 sec once FlowAgent is up.
+> `The template language function 'formatDateTime' expects its first parameter to be of type
+> string. The provided value is of type 'Null'.`
+
+`Initialize_touchedId` and `Initialize_touchedCrew` both reported **Succeeded** and masked it —
+a null integer initialises fine, and `touchedCrew` used `coalesce(..., '')`. Only the third
+variable, which calls `formatDateTime` on a raw value, surfaced it. Worth remembering: in a
+chain of variable initialisations, the first action to *fail* is not necessarily the first
+action to be *wrong*.
+
+`splitOn` added to the definition file and published; verified present in the published row
+alongside the trigger condition.
+
+**Tooling semantics corrected.**
+- `publish_flow` is **enable/start only** — it does not publish a definition. Called on the
+  unpromoted flow it started it while the published row was still the placeholder.
+- Dataverse `PublishXml` against the **`workflowEntityId`** is the real promote.
+- `preview_update` + `previewToken` is the **diagnostic path**; plain `update_flow` hides real
+  errors behind a successful draft write.
+- `update_flow` will not accept `connectionRefs` without `definition` (500 `ArgumentNullException`).
+
+**Two IDs, both correct.** `523d99c0-…` is the ProcessSimple resource ID (FlowAgent's `flow`
+argument); `2764968c-…` is the `workflowEntityId` (Dataverse row, what `PublishXml` wants). Last
+session recorded the latter — never wrong, just a different identifier.
+
+**Auth: the `az` cached-tenant trap.** `az` was signed in on the Tennetech tenant. In that state
+FlowAgent's `doctor` reports **all checks passing** and `list_environments` returns exactly one
+environment, "Tennetech LLC (default)". D2 Automation is invisible with no error. Further:
+plain `az login --tenant <d2>` silently reused the signed-in browser session and did not switch;
+`--use-device-code` forced account selection and worked. After `az` switches, FlowAgent still
+holds a stale token and needs `reconnect`.
+
+**Headless SharePoint auth still unsolved — now confirmed for `az` too.** An Azure CLI token for
+the SharePoint resource is rejected by SP REST with `401 invalid_request`. Exit-gate list edits
+still require the browser path.
+
+**Flow 1 crew-filter bug — found, fixed, staged, NOT applied.** Both `Filter_array` and
+`Filter_array_2` use `item()?['Crew']?['Value']` against a **Text** column. `?['Value']` on a
+string is null, so every filter returns zero rows and each crew's dispatch email ships an
+**empty assignment table**. The flow reports success and mail arrives — which is exactly why the
+2026-09-01 "verified in prod" pass missed it. Delivery was checked; content was not.
+
+Fix prepared and `preview_update`-verified as a minimal diff: **1 changed action** (`Condition_2`'s
+`else`, which contains both filters), 7 unchanged, trigger unchanged, connection refs unchanged.
+The apply was **blocked by the auto-mode permission classifier** — a live production flow write
+that had not been explicitly approved. Not routed around. Staged as
+`flows/definitions/D2-Daily-Dispatch-crewfilter-fix.json`.
+
+**In-session false alarm, corrected.** I flagged mojibake in the Flow 3 email strings. Wrong —
+self-inflicted, from `json.load(open(...))` without `encoding='utf-8'`, which defaults to cp1252
+on Windows. The file always held correct UTF-8 (`⚠`, `→`, `–`), confirmed in the published row.
+Recorded because the same trap will fire on any future script reading these files on Windows
+without pinning the codec.
 
 ## Design decisions locked
 
-- **REST-import pattern rejected.** api.flow.microsoft.com is runtime
-  management, not definition mutation. Do not re-attempt from another angle.
-- **FlowAgent chosen** for the tight iteration loop (agent reads real run
-  outputs, self-diagnoses, patches, republishes).
-- **Flow 3 alerts stay email-only for MVP** — Send Email V2 to the touched
-  Job's PM, coalesced fallback to stratirus@d2pools.com. Teams native post +
-  DM added as v1.1 once the shared_teams connection is wired to the env and
-  the D2 Build Scheduler team + Field Dispatch/Ownership channels exist.
-- **JSON authoring stays**, delivery mechanism changes. The definition JSON
-  round-trips verbatim through FlowAgent.
+- **`preview_update` + `previewToken` is the diagnostic path.** Plain `update_flow` hides real
+  errors behind a successful draft write.
+- **First designer Save per flow is a one-time cost**, to create connection-reference bindings.
+  After that, `update_flow` + `PublishXml` is fully scriptable.
+- **Strip `authentication` from actions when authoring new flows**; keep it when patching an
+  existing live flow, to keep the diff minimal.
+- **Do not use PAC solution ALM casually here.** Both flows are in `Active Solution` — the
+  default solution, which cannot be exported. PAC would require creating a custom solution and
+  moving the flow into it: a structural ALM change, deferred as Shane's call.
 
 ## Files touched
 
-- `CLAUDE.md` — added Flow authoring pattern callout with all three failure
-  modes, three correct-path options, and scope discipline note
-- `D2-Week-2-Automations-Runbook.md` — build-path-shift callout at top of
-  Flow 3 section pointing at flows/definitions + flows/scripts + README; MVP
-  scoping note on email-only alerts
-- `flows/README.md` — new, one-page ready-to-run (references the failed
-  path — will need FlowAgent rewrite next session)
-- `flows/definitions/D2-Event-Driven-Reconciliation.json` — new, Flow 3
-  body, 11 actions, JSON-valid
-- `flows/scripts/Import-Flow.ps1` — new, PUT attempt (archaeology)
-- `flows/scripts/Patch-Flow.ps1` — new, PATCH attempt (archaeology,
-  landed the draft that got discarded)
-- `flows/scripts/Publish-Flow.ps1` — new, POST /publish attempt (archaeology,
-  endpoint doesn't exist)
-- `flows/scripts/Validate-Flow-Json.ps1` — new, reusable JSON shape check
-- `flows/scripts/Test-Syntax.ps1` — new, reusable PS syntax check
-- `flows/scripts/Check-AuthModules.ps1` — new, prereq module check
-- `flows/scripts/Check-JwtToken.ps1` — new, verifies Get-JwtToken export in
-  Microsoft.PowerApps.Administration.PowerShell v2.0.217
-- `flows/scripts/Grep-PluginSearch.ps1` — new, checked Cowork plugin registry
-  for power-automate (miss — confirms plugin lives in Claude Code marketplace,
-  not Cowork's)
-- `flows/manual-build/Flow3-checklist.md` — new, fallback copy-paste for
-  the designer if FlowAgent path stalls
+- `CLAUDE.md` — Flow 1 crew-filter bug; the `az login` cached-tenant trap; FlowAgent's
+  `authentication` rule and four-argument shape; and the draft-row section covering the two-row
+  model, `preview_update` as diagnostic, `publish_flow` ≠ publish, the `PublishXml` command, the
+  two-IDs distinction, and the default-solution constraint on PAC
+- `flows/README.md` — rewritten for the FlowAgent path; REST scripts relabelled archaeology;
+  envelope→argument mapping table; tenant-pinned login; write-vs-publish section; PAC caveat
+- `flows/definitions/D2-Event-Driven-Reconciliation.json` — stripped `authentication` from the
+  five action `inputs` blocks; **added the missing trigger `splitOn`**. Matches what is published.
+- `flows/definitions/D2-Daily-Dispatch-crewfilter-fix.json` — **new.** Flow 1 with both
+  `Filter_array` expressions corrected to `item()?['Crew']`. Preview-verified, ready to apply.
+- `D2-Week-2-Automations-Runbook.md` — corrected 3 stale `item()?['Crew']?['Value']` occurrences
+  (L74, L80, and the Flow 4 Select projection at L344, which would have reproduced the same bug);
+  rewrote the "Common gotchas" entry that claimed `Crew` filters need `CrewId eq 3` — backwards
+  for this schema
+- `sessions/2026-08-26a-daily-dispatch-handoff.md` — deliberately **not** edited. Session logs
+  are historical record, not instructions; the correction lives in CLAUDE.md.
 
-## Commits
+## State of the environment at close
 
-Rolling this session into one commit at close; last commit before today was
-`0f06069` (yesterday's PM-seed fix).
+| Flow | State | Notes |
+|---|---|---|
+| Flow 3 — Event-Driven Reconciliation | **Started** | Published, all 11 actions + trigger condition + `splitOn` verified |
+| Flow 1 — Daily Dispatch + Reminders | Started | **Still carries the crew-filter bug.** Fix staged, not applied |
+| Flow 2 — Sign-off Intake | Started | Untouched |
+| Generate estimate | Started | Untouched, unrelated workload |
+
+`az` default profile now holds the **D2** tenant, replacing Tennetech — plain `az login`
+restores Tennetech when the estimator work needs it. FlowAgent wrote a `.flowagent/backups/`
+folder at the repo root (untracked); Flow 3's pre-mutation snapshots are in it.
 
 ## Open questions / blocked on
 
-- **Flow 3 not yet running.** Stub exists with placeholder body.
-- **Whether stratirus@d2pools.com has prvWrite/prvReadWrite on the Dataverse
-  `workflow` entity.** The 403 on the connections-list preflight hints at
-  scope gaps. Will be answered when FlowAgent's PATCH runs — if it also 403s,
-  we need to grant workflow-entity permissions via a security role change,
-  or use D2PAdmin.
-- **Whether the `D2 Build Scheduler` Team + `Field Dispatch`/`Ownership`
-  channels exist yet.** Shane can build them tomorrow if not.
-- **shared_teams connection needs wiring to D2 Automation env** before Flow 3
-  v1.1 (native Teams post/DM) can layer in. One-time from Connections UI as
-  stratirus@d2pools.com.
+- **Flow 3 exit-gate tests not yet run.** Both require real Assignments edits, which cannot be
+  driven from here (SP REST rejects the CLI token). The runbook itself notes this flow can't be
+  tested by manual trigger.
+- **Flow 1 fix needs approval to apply**, or a 2-minute designer edit.
+- **`AZURE_CONFIG_DIR` tenant isolation** was chosen but could not be applied: FlowAgent runs as
+  an already-started MCP server, so the variable must be set *before* Claude Code launches.
+- **Teams v1.1 is closer than expected** — the `shared_teams` connection is already wired to
+  D2 Automation and Connected (`shared-teams-bf2bac67-…`), which was an open question. Still
+  needs the team + `Field Dispatch`/`Ownership` channels to exist.
 
 ## Next action
 
-Fresh sit-down (Claude Code, not Cowork). Install the FlowAgent stack in
-order: Node.js LTS → Azure CLI → Power Platform CLI → Claude Code CLI (via
-VS Code extension; verify binary on PATH is the current one, not an older
-standalone) → `claude plugin marketplace add microsoft/power-platform-skills`
-→ `claude plugin install power-automate@power-platform-skills` → restart
-Claude Code → run the plugin's setup skill → `az login --tenant
-f24d9b39-6a71-4f4e-a376-03b6f61c97e4` as stratirus@d2pools.com. Then point
-FlowAgent at `flows/definitions/D2-Event-Driven-Reconciliation.json` and
-import into the existing stub (FlowId 2764968c-4aa6-f111-b8dd-6045bd0196b3).
-Publish and run the exit-gate tests from the runbook.
-
-After Flow 3 v1.0 lands, layer in Teams v1.1: verify/create the team +
-channels, wire shared_teams connection to env, extend the definition JSON
-with two Teams actions + a shared_teams connectionReference, FlowAgent-import.
-
-Fallback path if FlowAgent stalls at any step: manual-build Flow 3 via
-`flows/manual-build/Flow3-checklist.md` (~40 min in the designer using the
-existing stub as scaffold).
-
-Flow 4/5 come next after Flow 3 is live — same FlowAgent pattern, no
-API-surface re-discovery.
+1. **Run the two Flow 3 exit-gate tests** (both need list edits in the browser):
+   - Create a double-book — set a second Assignment to the same Crew over overlapping dates.
+     Expect a high-importance alert email within ~1 min. PM is unset on Harrison D2-1001, so it
+     coalesces to `stratirus@d2pools.com`.
+   - Edit **only** sign-off fields on an Assignment. Expect **no** run — this is the
+     trigger-condition check that protects quota.
+   - Verify with FlowAgent `get_run_history` / `get_run_actions` either way.
+2. **Apply the Flow 1 fix** — either approve the blocked `update_flow` + `PublishXml`, or change
+   `item()?['Crew']?['Value']` → `item()?['Crew']` in both `Filter_array` actions in the designer.
+   Then confirm a dispatch email actually contains rows.
+3. Re-export both flows to `flows/exports/` once green.
+4. Flows 4 and 5 — same FlowAgent pattern, no API-surface re-discovery needed. Expect one
+   designer Save each to create connection bindings, then fully scripted.

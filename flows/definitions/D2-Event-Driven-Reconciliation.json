@@ -12,6 +12,7 @@
       "triggers": {
         "When_an_item_is_created_or_modified": {
           "type": "OpenApiConnection",
+          "splitOn": "@triggerOutputs()?['body/value']",
           "recurrence": { "frequency": "Minute", "interval": 1 },
           "conditions": [
             {
@@ -91,8 +92,7 @@
               "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
               "table": "49ef7006-d3fe-40a7-a52f-c4c18545bd35",
               "id": "@variables('touchedId')"
-            },
-            "authentication": "@parameters('$authentication')"
+            }
           }
         },
         "Get_crew": {
@@ -109,8 +109,7 @@
               "table": "45e9ff1f-bf36-4ab5-929d-25ab9a80d460",
               "$filter": "Title eq '@{variables('touchedCrew')}'",
               "$top": 1
-            },
-            "authentication": "@parameters('$authentication')"
+            }
           }
         },
         "Condition_unlimited": {
@@ -145,8 +144,7 @@
               "table": "49ef7006-d3fe-40a7-a52f-c4c18545bd35",
               "$filter": "Crew eq '@{variables('touchedCrew')}' and ScheduledStart le '@{variables('endDate')}' and ScheduledFinish ge '@{variables('startDate')}' and Id ne @{variables('touchedId')} and NotApplicable ne 1",
               "$top": 20
-            },
-            "authentication": "@parameters('$authentication')"
+            }
           }
         },
         "Compose_conflict_count": {
@@ -172,8 +170,7 @@
                   "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
                   "table": "ee0ecabf-2f11-458d-a9ea-641f76d10cc3",
                   "id": "@coalesce(outputs('Get_touched_assignment')?['body/Job']?['Id'], outputs('Get_touched_assignment')?['body/JobId'], outputs('Get_touched_assignment')?['body/JobLookupId'])"
-                },
-                "authentication": "@parameters('$authentication')"
+                }
               }
             },
             "Compose_alert_body": {
@@ -195,8 +192,7 @@
                   "emailMessage/Subject": "D2 ⚠ Double-book on @{variables('touchedCrew')} — @{outputs('Get_touched_assignment')?['body/Job']?['Value']}",
                   "emailMessage/Body": "@{outputs('Compose_alert_body')}",
                   "emailMessage/Importance": "High"
-                },
-                "authentication": "@parameters('$authentication')"
+                }
               }
             }
           },
