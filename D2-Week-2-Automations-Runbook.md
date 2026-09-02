@@ -437,7 +437,9 @@ Verify all six before proceeding to Week 3:
 
 ## Common gotchas
 
-- **SharePoint filter query syntax is quirky.** Person columns require `CrewId eq 3` not `Crew eq 'Devon Crew +3'`. Lookup ID is the internal integer. If a filter returns 0 unexpectedly, first thing to check.
+- **SharePoint filter query syntax is quirky.** Person and Lookup columns filter on the internal integer ID (`SomeLookupId eq 3`), not the display value. If a filter returns 0 unexpectedly, that's the first thing to check.
+
+  **But `Assignments.Crew` is NOT one of them.** It is a plain **Text** column holding the crew display name, and there is no `CrewId`. Filter it as `Crew eq 'Devon Crew +3'` and read it as `item()?['Crew']` / `triggerOutputs()?['body/Crew']` — a plain string. Applying the lookup shape to it (`?['Value']`, `CrewId`, `Crew/Title`) is what caused the Flow 1 empty-dispatch-table bug. Verified against the provisioned list 2026-09-01; see the schema callout above and the Known-bugs entry in `CLAUDE.md`.
 - **`ne 1` vs `ne true`.** SharePoint's boolean columns return `1`/`0` in filter queries, not `true`/`false`. Use `ne 1` for "is not Yes."
 - **Flow-run quota** on seeded Power Automate rights is 6,000 API calls per user per 24 hours. Well above what these five flows need — Event-Driven fires maybe 50×/day on active editing, Daily Dispatch fires 12 times (crews × 6 days), etc. Not tight. But watch this if the trigger condition on Event-Driven is wrong and it loops.
 - **Convert File action** requires the source file to be in OneDrive or SharePoint. Can't convert an inline string.

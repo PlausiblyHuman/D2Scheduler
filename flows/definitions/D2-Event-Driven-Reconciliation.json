@@ -12,6 +12,7 @@
       "triggers": {
         "When_an_item_is_created_or_modified": {
           "type": "OpenApiConnection",
+          "splitOn": "@triggerOutputs()?['body/value']",
           "recurrence": { "frequency": "Minute", "interval": 1 },
           "conditions": [
             {
