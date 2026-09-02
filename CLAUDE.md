@@ -145,7 +145,19 @@ and confirm with FlowAgent `whoami` that `tokenIdentity.tenantId` is `f24d9b39-�
 | Crew-Trades | 51 | (see viewlsts.aspx) |
 | Work Calendar | 62 (52 Sundays + 10 US federal holidays) | (see viewlsts.aspx) |
 
-**Immediate next action:** Continue Week 2 flows. Sign-off Intake is DONE and end-to-end verified. Remaining 4 flows: Daily Dispatch, Event-Driven Reconciliation, Nightly Reconciliation, Daily+Weekly PDF Summary. Build via Claude Chrome UI-driving (not solution ZIP). Export each to `flows/exports/` after it tests green.
+**Week 2 flow status (as of 2026-09-02):**
+
+| # | Flow | State | Notes |
+|---|---|---|---|
+| 1 | Daily Dispatch + Reminders | Started | **Carries an open bug** — crew filter returns zero rows, emails ship empty tables. Fix staged at `flows/definitions/D2-Daily-Dispatch-crewfilter-fix.json`, not applied. See Known bugs. |
+| 2 | Sign-off Intake | Started | DONE, end-to-end verified |
+| 3 | Event-Driven Reconciliation | Started | **PUBLISHED 2026-09-02.** All 11 actions + trigger condition + `splitOn` verified in the published row. Exit-gate tests not yet run. |
+| 4 | Nightly Reconciliation | Not built | |
+| 5 | Daily + Weekly PDF Summary | Not built | |
+
+**Immediate next action:** (a) run the two Flow 3 exit-gate tests — they need real Assignments edits in the browser, since SP REST rejects the Azure CLI token; (b) apply the staged Flow 1 crew-filter fix; (c) build Flows 4 and 5.
+
+**Build flows via FlowAgent, not Chrome UI-driving.** Author the definition JSON offline, `update_flow` it into the draft, then promote with Dataverse `PublishXml`. Expect **one** designer Save per new flow to create the per-operation connection-reference bindings; after that the loop is fully scriptable. Full mechanics in the draft-row callout under Known bugs, and in `flows/README.md`. Export each flow to `flows/exports/` after it tests green.
 
 **Load-bearing pattern for write-back flows (from Sign-off Intake win):** use "Send an HTTP request to SharePoint" action with SP MERGE, NOT the Update item action. PA's Update item requires binding every required field on the target list (Assignments has 7 required → 14+ dynamic-content bindings per action). Send-HTTP-to-SP with `X-HTTP-Method: MERGE` header does partial updates, only touching fields in the body. ~15 clicks total vs 100+. See sessions/2026-08-25-week2-flow-start.md for the body/headers template.
 
