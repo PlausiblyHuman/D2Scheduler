@@ -63,3 +63,10 @@ appsettings.Local.json
 *.tmp
 *.bak
 scratch/
+
+# Agent tooling scratch — never commit
+# Claude Code worktrees: each is a full checkout; a stray `git add -A` at the
+# repo root would otherwise commit an entire nested copy of the repo.
+.claude/worktrees/
+# FlowAgent pre-mutation flow snapshots (see flows/README.md)
+.flowagent/
