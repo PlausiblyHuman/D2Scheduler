@@ -106,7 +106,11 @@ Load-bearing details for future runs:
 
 `Assignments.Crew` is a **Text** column, not a Lookup (there is no `CrewId`). On a string, `?['Value']` evaluates to null, so the comparison never matches, every filter returns zero rows, and each crew's dispatch email goes out with an **empty assignment table**. The flow still reports success and the emails still arrive — which is why the 2026-09-01 "verified in prod" pass missed it. Verification checked delivery, not content.
 
-Fix is one token in each of the two actions: `item()?['Crew']` directly, no `?['Value']`. Not yet applied — needs the D2-tenant FlowAgent session (see below). The same stale lookup-shape assumption is baked into `D2-Week-2-Automations-Runbook.md` (~L74, L80) and `sessions/2026-08-26a-daily-dispatch-handoff.md` (~L143, L151); fix those when the flow is fixed.
+Fix is one token in each of the two actions: `item()?['Crew']` directly, no `?['Value']`.
+
+**Status 2026-09-02: prepared and verified, NOT applied.** The corrected definition is staged at `flows/definitions/D2-Daily-Dispatch-crewfilter-fix.json`. `preview_update` confirmed it as a minimal diff — 1 changed action (`Condition_2`'s `else`, which contains both filters), 7 unchanged, trigger and connection references untouched. The apply was blocked by the session's permission classifier as an unapproved write to a live production flow. To finish it: either re-run `update_flow` + `PublishXml` with approval, or make the two-token edit in the designer. Then confirm a dispatch email actually contains rows — that is the check the original verification skipped.
+
+The stale lookup-shape assumption in `D2-Week-2-Automations-Runbook.md` has been corrected (L74, L80, the Flow 4 Select projection, and the "Common gotchas" entry that wrongly claimed `Crew` filters need `CrewId eq 3`). `sessions/2026-08-26a-daily-dispatch-handoff.md` (~L143, L151) still carries it and was deliberately left alone — session logs are historical record, not instructions.
 
 Related: `sessions/2026-08-28a-daily-dispatch-test-debug.md` blames the `$orderby Crew/Title` failure on "SP OData can't order by an expanded lookup". That diagnosis is wrong — `Crew` is not a lookup at all, so `Crew/Title` was never a valid path.
 
