@@ -181,6 +181,48 @@ The correct paths are all Dataverse-side:
 
 Artifacts from the failed REST attempt live under `flows/scripts/` (Import-Flow.ps1, Patch-Flow.ps1, Publish-Flow.ps1) — keep as archaeology for what NOT to try. The definition JSON authoring itself validated (correct expressions, connection refs, list GUIDs) — it's the delivery mechanism that was wrong. Reuse `flows/definitions/*.json` verbatim with FlowAgent.
 
+**The draft-row mechanism — this explains the whole 2026-09-01 REST wall (discovered 2026-09-02):**
+
+Solution-aware flows have **two rows**: a published one and an unpublished draft. Definition writes through *any* PPAPI surface — the REST `PATCH`, and FlowAgent's `update_flow` alike — land in the **draft**. `get_flow` reads the **published** row. So a write returns 200, bumps `lastModifiedTime`, and appears to have done nothing. It did something; you just can't see it from there. Last session's "200-OK-but-silently-ignored" was never silent failure — it was a successful draft write read back from the wrong row.
+
+Once a draft exists, the flow sits in `CurrentState=ActiveUnpublished`, and any *published* update is refused:
+
+```
+XrmApiServerError 0x80040203: You are attempting to do a published update of publishable
+component in an unmodified active context when there exists an unpublished active row.
+Component Type: 29  Object Id: <workflowEntityId>  CurrentState=ActiveUnpublished
+```
+
+Practical consequences:
+
+- **To see the real error, use `preview_update` → `update_flow` with `previewToken`.** The plain `update_flow` path writes to the draft and reports success. The token path attempts a published update and surfaces the actual Xrm error. Use it as the diagnostic.
+- **`publish_flow` does NOT publish the definition.** It is enable/start only — it flips state to Started and leaves the draft unpromoted. Starting a flow whose published row is still a stub gets you a live flow running the *old* definition.
+- **`PublishXml` is the real promote**, and it validates the draft:
+
+  ```bash
+  az rest --method post \
+    --url "https://<org>.crm.dynamics.com/api/data/v9.2/PublishXml" \
+    --resource "https://<org>.crm.dynamics.com/" \
+    --headers "Content-Type=application/json" \
+    --body '{"ParameterXml":"<importexportxml><workflows><workflow>{<workflowEntityId>}</workflow></workflows></importexportxml>"}'
+  ```
+
+  Org URL comes from the BAP API: `properties.linkedEnvironmentMetadata.instanceUrl`. For D2 Automation it is `https://org4ed2f722.crm.dynamics.com/`.
+
+**Two different IDs for one flow — don't conflate them.** `523d99c0-bc2e-7819-5d96-6faab60734f1` is Flow 3's **ProcessSimple resource ID** (what FlowAgent's `flow` argument wants). `2764968c-4aa6-f111-b8dd-6045bd0196b3` is its **`workflowEntityId`** (the Dataverse row, what `PublishXml` wants). The 2026-09-01 session log recorded the latter. Both are correct; they address different APIs.
+
+**OPEN — `PublishXml` blocks on connection-reference binding for newly-added operations.** With Flow 3's full definition in the draft, publish fails:
+
+```
+InvalidOpenApiFlow / WorkflowRunActionInputsInvalidProperty:
+The API connection reference 'new_sharedsharepointonline_beb06' could not be found
+for the operation 'Get_touched_assignment'.
+```
+
+The reference record exists and Flow 1 uses that exact logical name from the same solution, so this is per-operation binding, not a missing record. It fails identically whether `connectionReferenceLogicalName` is passed explicitly or left for the server to map. Actions must use the **connector** name in `host.connectionName` (`shared_sharepointonline`) — matching the live Flow 1 shape; using the logical name there is not the fix. The PA designer creates these bindings on Save, which is the current unblock path.
+
+**Both D2 flows live in `Active Solution`** (the default solution, `fd140aae-4df4-11dd-bd17-0019b9312238`). The default solution **cannot be exported**, so the PAC solution-ALM fallback requires first creating a custom solution and adding the flow to it — a structural ALM change, not a drop-in workaround.
+
 **Flow scope discipline:** solution-aware flows (which is all cloud flows on Dataverse-backed envs by default) do NOT appear in the standard flow list — they only show inside their solution. Address by flow ID (from the URL after Save) or from within the solution view.
 
 **After Week 2 flows:**

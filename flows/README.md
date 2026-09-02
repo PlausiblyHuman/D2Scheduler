@@ -72,22 +72,59 @@ flowagent: list_environments
 flowagent: set_current_env <D2 Automation env GUID>
 ```
 
-### 2. Preflight, then create
+### 2. Preflight
 
 ```
 flowagent: preflight_flow  (definition + connectionReferences from the table above)
-flowagent: create_flow     name="D2 - Event-Driven Reconciliation" state=Stopped
-flowagent: publish_flow
 ```
 
-`preflight_flow` catches the three common blockers before anything is written: missing
-`$authentication`, a broken connection reference, and solution-wrap
-(`CannotStartUnpublishedSolutionFlow`).
+Catches missing `$authentication`, broken connection refs, and solution-wrap before any write.
+Flow 3 currently returns `overall: ready`, 2/2 connections Connected.
 
-### 3. If payloads get truncated
+### 3. Write, then actually publish — these are two different things
 
-FlowAgent has a ~5KB practical payload ceiling on large edits. Fall back to PAC solution ALM:
-`pac solution export` → `unpack` → edit `workflow.json`'s `clientdata` → `pack` → `import`.
+**`update_flow` writes to the unpublished draft row, not the published one.** It returns 200
+and bumps `lastModifiedTime`; `get_flow` reads the *published* row and shows no change. That
+is expected, not a failure. See the draft-row callout in `CLAUDE.md`.
+
+**`publish_flow` does not publish the definition** — it is enable/start only. Calling it on an
+unpromoted flow gets you a *running* flow still executing the old published definition.
+
+To promote the draft, use Dataverse `PublishXml` against the **`workflowEntityId`** (not the
+flow resource ID):
+
+```bash
+az rest --method post \
+  --url "https://org4ed2f722.crm.dynamics.com/api/data/v9.2/PublishXml" \
+  --resource "https://org4ed2f722.crm.dynamics.com/" \
+  --headers "Content-Type=application/json" \
+  --body '{"ParameterXml":"<importexportxml><workflows><workflow>{2764968c-4aa6-f111-b8dd-6045bd0196b3}</workflow></workflows></importexportxml>"}'
+```
+
+To see the *real* error instead of a silent draft write, go through
+`preview_update` → `update_flow` with the returned `previewToken`. That path attempts a
+published update and surfaces the underlying Xrm error.
+
+### 4. Current blocker
+
+`PublishXml` rejects the promote with:
+
+```
+The API connection reference 'new_sharedsharepointonline_beb06' could not be found
+for the operation 'Get_touched_assignment'.
+```
+
+Per-operation connection-reference binding, which the PA designer creates on Save. **Unblock
+path:** open the flow in the designer — the draft already contains all 11 actions — confirm
+the SharePoint and Office 365 connections, and Save. That both binds the references and
+publishes. Then re-verify with `get_flow` and start it.
+
+### 5. PAC solution ALM fallback — read this before reaching for it
+
+Both D2 flows live in `Active Solution`, the **default** solution, which cannot be exported.
+Using `pac solution export/unpack/pack/import` therefore requires first creating a custom
+solution and adding the flow to it — a structural ALM change, not a drop-in workaround. Don't
+do it without deciding that's the ALM posture you want.
 
 ## Validation notes (2026-09-02)
 

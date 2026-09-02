@@ -71,13 +71,13 @@ Initialize variable: yesterday (String) = formatDateTime(addDays(convertFromUtc(
   **Filter today's assignments to this crew:**
   ```
   Filter array — from: outputs of "Get today's Assignments"
-  where: item()?['Crew']?['Value'] equals items('Apply_to_each')?['Title']
+  where: item()?['Crew'] equals items('Apply_to_each')?['Title']
   ```
 
   **Filter yesterday's unsigned to this crew:**
   ```
   Filter array — from: outputs of "Get yesterday's unsigned"
-  where: item()?['Crew']?['Value'] equals items('Apply_to_each')?['Title']
+  where: item()?['Crew'] equals items('Apply_to_each')?['Title']
   ```
 
   **Compose the HTML email body:**
@@ -341,7 +341,7 @@ If #2 fires, the trigger condition is wrong. Refine the condition and re-test be
 
 This requires expanding each Assignment's date range into per-day rows. Cleanest way is a Select action followed by aggregating.
 
-- **Select** to project: `{ CrewId: item()?['Crew']?['Value'], Dates: [range of days from ScheduledStart to ScheduledFinish], AssignmentId: item()?['ID'], JobName: item()?['Job']?['Value'], SubPhase: item()?['SubPhaseNumber'] }`
+- **Select** to project: `{ CrewId: item()?['Crew'], Dates: [range of days from ScheduledStart to ScheduledFinish], AssignmentId: item()?['ID'], JobName: item()?['Job']?['Value'], SubPhase: item()?['SubPhaseNumber'] }`
 - Then a nested apply-to-each to flatten dates
 - Then a filter to find any (CrewId, Date) tuple appearing more than once
 
