@@ -98,6 +98,28 @@ Load-bearing details for future runs:
 
 **Path length discipline.** Windows still enforces 260 chars in many cases even with `LongPathsEnabled = 1`. This repo lives at `C:\src\D2Scheduler\` (short). Do not add deeply-nested source generators or copy this repo into OneDrive-synced folders.
 
+**OPEN BUG — Daily Dispatch (Flow 1) filters crew assignments with the wrong shape, and silently sends empty tables.** Both `Filter_array` and `Filter_array_2` in the live flow use:
+
+```
+@equals(item()?['Crew']?['Value'], items('Apply_to_each')?['Title'])
+```
+
+`Assignments.Crew` is a **Text** column, not a Lookup (there is no `CrewId`). On a string, `?['Value']` evaluates to null, so the comparison never matches, every filter returns zero rows, and each crew's dispatch email goes out with an **empty assignment table**. The flow still reports success and the emails still arrive — which is why the 2026-09-01 "verified in prod" pass missed it. Verification checked delivery, not content.
+
+Fix is one token in each of the two actions: `item()?['Crew']` directly, no `?['Value']`. Not yet applied — needs the D2-tenant FlowAgent session (see below). The same stale lookup-shape assumption is baked into `D2-Week-2-Automations-Runbook.md` (~L74, L80) and `sessions/2026-08-26a-daily-dispatch-handoff.md` (~L143, L151); fix those when the flow is fixed.
+
+Related: `sessions/2026-08-28a-daily-dispatch-test-debug.md` blames the `$orderby Crew/Title` failure on "SP OData can't order by an expanded lookup". That diagnosis is wrong — `Crew` is not a lookup at all, so `Crew/Title` was never a valid path.
+
+**`az login` silently uses the cached tenant — the FlowAgent version of the `Add-PowerAppsAccount` trap.** Without `--tenant`, `az` reuses whichever tenant last authenticated (Tennetech LLC, `20f64e0e-…`, in Shane's case). FlowAgent's `doctor` then reports **all checks passing** and `list_environments` returns exactly one environment — "Tennetech LLC (default)". D2 Automation is invisible, with no error anywhere. Always pin:
+
+```powershell
+az login --tenant f24d9b39-6a71-4f4e-a376-03b6f61c97e4
+```
+
+and confirm with FlowAgent `whoami` that `tokenIdentity.tenantId` is `f24d9b39-…` before trusting any flow listing.
+
+**FlowAgent rejects `authentication` in action inputs, but the live exports all contain it.** `validate_flow` fails any definition carrying `"authentication": "@parameters('$authentication')"` inside an action's `inputs` (rule `extra-authentication`) — the Flow API injects it on create. The service then writes it back, which is why every `OpenApiConnection` action in the Flow 1 and Flow 2 exports has it. Correct at runtime, invalid at authoring time: strip it from actions before importing, leave the trigger's copy alone. Also note FlowAgent takes `definition` / `connectionRefs` / `name` / `state` as four separate arguments — our `flows/definitions/*.json` nest all four under `properties`, so they must be split on the way in. Mapping table is in `flows/README.md`.
+
 **PM assignment on Harrison Residence D2-1001 is a placeholder.** `Jobs.ProjectManager` was added to schema 2026-09-01 (User/Person, Group D2, UserSelectionScope=0 — tenant-members only, no external UPNs). Harrison row seeded with stratirus@d2pools.com (display name "D2 Bot" — external PMs like stalbot@stratirus.com are rejected by the scope=0 constraint). Needs to be updated to the real D2 PM before live-fire testing. Every future new Job row must also have PM set at creation or the reconciliation flow's DM step won't resolve.
 
 **Data gaps still open (from Rev D §15 / original plan §09):**
