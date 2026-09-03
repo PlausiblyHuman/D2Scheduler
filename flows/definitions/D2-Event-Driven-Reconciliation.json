@@ -6,14 +6,23 @@
       "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
       "contentVersion": "1.0.0.0",
       "parameters": {
-        "$connections": { "defaultValue": {}, "type": "Object" },
-        "$authentication": { "defaultValue": {}, "type": "SecureObject" }
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        },
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        }
       },
       "triggers": {
         "When_an_item_is_created_or_modified": {
           "type": "OpenApiConnection",
           "splitOn": "@triggerOutputs()?['body/value']",
-          "recurrence": { "frequency": "Minute", "interval": 1 },
+          "recurrence": {
+            "frequency": "Minute",
+            "interval": 1
+          },
           "conditions": [
             {
               "expression": "@or(not(equals(triggerOutputs()?['body/Crew'], triggerOutputs()?['body/Crew@odata.oldValue'])), not(equals(triggerOutputs()?['body/ScheduledStart'], triggerOutputs()?['body/ScheduledStart@odata.oldValue'])), not(equals(triggerOutputs()?['body/DurationDays'], triggerOutputs()?['body/DurationDays@odata.oldValue'])), equals(triggerOutputs()?['body/Crew@odata.oldValue'], null))"
@@ -39,48 +48,88 @@
           "type": "InitializeVariable",
           "inputs": {
             "variables": [
-              { "name": "touchedId", "type": "integer", "value": "@triggerOutputs()?['body/ID']" }
+              {
+                "name": "touchedId",
+                "type": "integer",
+                "value": "@triggerOutputs()?['body/ID']"
+              }
             ]
           }
         },
         "Initialize_touchedCrew": {
-          "runAfter": { "Initialize_touchedId": [ "Succeeded" ] },
+          "runAfter": {
+            "Initialize_touchedId": [
+              "Succeeded"
+            ]
+          },
           "type": "InitializeVariable",
           "inputs": {
             "variables": [
-              { "name": "touchedCrew", "type": "string", "value": "@{coalesce(triggerOutputs()?['body/Crew'], '')}" }
+              {
+                "name": "touchedCrew",
+                "type": "string",
+                "value": "@{coalesce(triggerOutputs()?['body/Crew'], '')}"
+              }
             ]
           }
         },
         "Initialize_startDate": {
-          "runAfter": { "Initialize_touchedCrew": [ "Succeeded" ] },
+          "runAfter": {
+            "Initialize_touchedCrew": [
+              "Succeeded"
+            ]
+          },
           "type": "InitializeVariable",
           "inputs": {
             "variables": [
-              { "name": "startDate", "type": "string", "value": "@{formatDateTime(triggerOutputs()?['body/ScheduledStart'], 'yyyy-MM-dd')}" }
+              {
+                "name": "startDate",
+                "type": "string",
+                "value": "@{formatDateTime(triggerOutputs()?['body/ScheduledStart'], 'yyyy-MM-dd')}"
+              }
             ]
           }
         },
         "Initialize_duration": {
-          "runAfter": { "Initialize_startDate": [ "Succeeded" ] },
+          "runAfter": {
+            "Initialize_startDate": [
+              "Succeeded"
+            ]
+          },
           "type": "InitializeVariable",
           "inputs": {
             "variables": [
-              { "name": "duration", "type": "integer", "value": "@int(coalesce(triggerOutputs()?['body/DurationDays'], 1))" }
+              {
+                "name": "duration",
+                "type": "integer",
+                "value": "@int(coalesce(triggerOutputs()?['body/DurationDays'], 1))"
+              }
             ]
           }
         },
         "Initialize_endDate": {
-          "runAfter": { "Initialize_duration": [ "Succeeded" ] },
+          "runAfter": {
+            "Initialize_duration": [
+              "Succeeded"
+            ]
+          },
           "type": "InitializeVariable",
           "inputs": {
             "variables": [
-              { "name": "endDate", "type": "string", "value": "@{formatDateTime(addDays(variables('startDate'), sub(variables('duration'), 1)), 'yyyy-MM-dd')}" }
+              {
+                "name": "endDate",
+                "type": "string",
+                "value": "@{formatDateTime(addDays(variables('startDate'), sub(variables('duration'), 1)), 'yyyy-MM-dd')}"
+              }
             ]
           }
         },
         "Get_touched_assignment": {
-          "runAfter": { "Initialize_endDate": [ "Succeeded" ] },
+          "runAfter": {
+            "Initialize_endDate": [
+              "Succeeded"
+            ]
+          },
           "type": "OpenApiConnection",
           "inputs": {
             "host": {
@@ -96,7 +145,11 @@
           }
         },
         "Get_crew": {
-          "runAfter": { "Get_touched_assignment": [ "Succeeded" ] },
+          "runAfter": {
+            "Get_touched_assignment": [
+              "Succeeded"
+            ]
+          },
           "type": "OpenApiConnection",
           "inputs": {
             "host": {
@@ -107,31 +160,53 @@
             "parameters": {
               "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
               "table": "45e9ff1f-bf36-4ab5-929d-25ab9a80d460",
-              "$filter": "Title eq '@{variables('touchedCrew')}'",
+              "$filter": "CrewID eq '@{variables('touchedCrew')}'",
               "$top": 1
             }
           }
         },
         "Condition_unlimited": {
-          "runAfter": { "Get_crew": [ "Succeeded" ] },
+          "runAfter": {
+            "Get_crew": [
+              "Succeeded"
+            ]
+          },
           "type": "If",
           "expression": {
             "and": [
-              { "equals": [ "@length(outputs('Get_crew')?['body/value'])", 1 ] },
-              { "equals": [ "@coalesce(first(outputs('Get_crew')?['body/value'])?['Unlimited'], false)", true ] }
+              {
+                "equals": [
+                  "@length(outputs('Get_crew')?['body/value'])",
+                  1
+                ]
+              },
+              {
+                "equals": [
+                  "@coalesce(first(outputs('Get_crew')?['body/value'])?['Unlimited'], false)",
+                  true
+                ]
+              }
             ]
           },
           "actions": {
             "Terminate_unlimited_crew": {
               "runAfter": {},
               "type": "Terminate",
-              "inputs": { "runStatus": "Succeeded" }
+              "inputs": {
+                "runStatus": "Succeeded"
+              }
             }
           },
-          "else": { "actions": {} }
+          "else": {
+            "actions": {}
+          }
         },
         "Get_overlapping": {
-          "runAfter": { "Condition_unlimited": [ "Succeeded" ] },
+          "runAfter": {
+            "Condition_unlimited": [
+              "Succeeded"
+            ]
+          },
           "type": "OpenApiConnection",
           "inputs": {
             "host": {
@@ -148,14 +223,27 @@
           }
         },
         "Compose_conflict_count": {
-          "runAfter": { "Get_overlapping": [ "Succeeded" ] },
+          "runAfter": {
+            "Get_overlapping": [
+              "Succeeded"
+            ]
+          },
           "type": "Compose",
           "inputs": "@length(outputs('Get_overlapping')?['body/value'])"
         },
         "Condition_conflict": {
-          "runAfter": { "Compose_conflict_count": [ "Succeeded" ] },
+          "runAfter": {
+            "Compose_conflict_count": [
+              "Succeeded"
+            ]
+          },
           "type": "If",
-          "expression": { "greater": [ "@outputs('Compose_conflict_count')", 0 ] },
+          "expression": {
+            "greater": [
+              "@outputs('Compose_conflict_count')",
+              0
+            ]
+          },
           "actions": {
             "Get_job": {
               "runAfter": {},
@@ -174,12 +262,20 @@
               }
             },
             "Compose_alert_body": {
-              "runAfter": { "Get_job": [ "Succeeded" ] },
+              "runAfter": {
+                "Get_job": [
+                  "Succeeded"
+                ]
+              },
               "type": "Compose",
               "inputs": "<div style=\"font-family:Segoe UI,sans-serif;font-size:14px;color:#1a2332\"><h2 style=\"color:#a84a18\">⚠ Double-book detected on @{variables('touchedCrew')}</h2><p><strong>Touched sub-phase:</strong> @{outputs('Get_touched_assignment')?['body/Job']?['Value']} → @{outputs('Get_touched_assignment')?['body/SubPhaseNumber']} @{outputs('Get_touched_assignment')?['body/SubPhaseName']}<br><strong>Dates:</strong> @{variables('startDate')} through @{variables('endDate')}</p><p><strong>Overlaps with (@{outputs('Compose_conflict_count')} total):</strong> @{first(outputs('Get_overlapping')?['body/value'])?['Job']?['Value']} → @{first(outputs('Get_overlapping')?['body/value'])?['SubPhaseNumber']} @{first(outputs('Get_overlapping')?['body/value'])?['SubPhaseName']} (@{formatDateTime(first(outputs('Get_overlapping')?['body/value'])?['ScheduledStart'], 'MM/dd')}–@{formatDateTime(first(outputs('Get_overlapping')?['body/value'])?['ScheduledFinish'], 'MM/dd')})</p><p><a href=\"https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler/Lists/Assignments/DispForm.aspx?ID=@{variables('touchedId')}\">Open the touched sub-phase</a></p></div>"
             },
             "Send_email_alert": {
-              "runAfter": { "Compose_alert_body": [ "Succeeded" ] },
+              "runAfter": {
+                "Compose_alert_body": [
+                  "Succeeded"
+                ]
+              },
               "type": "OpenApiConnection",
               "inputs": {
                 "host": {
@@ -196,7 +292,9 @@
               }
             }
           },
-          "else": { "actions": {} }
+          "else": {
+            "actions": {}
+          }
         }
       }
     },

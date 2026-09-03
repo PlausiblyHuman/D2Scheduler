@@ -98,17 +98,135 @@ Load-bearing details for future runs:
 
 **Path length discipline.** Windows still enforces 260 chars in many cases even with `LongPathsEnabled = 1`. This repo lives at `C:\src\D2Scheduler\` (short). Do not add deeply-nested source generators or copy this repo into OneDrive-synced folders.
 
-**OPEN BUG — Daily Dispatch (Flow 1) filters crew assignments with the wrong shape, and silently sends empty tables.** Both `Filter_array` and `Filter_array_2` in the live flow use:
+**RESOLVED 2026-09-03 — Daily Dispatch (Flow 1) crew filter. Fix applied and published.** Both `Filter_array` and `Filter_array_2` used:
 
 ```
 @equals(item()?['Crew']?['Value'], items('Apply_to_each')?['Title'])
 ```
 
-`Assignments.Crew` is a **Text** column, not a Lookup (there is no `CrewId`). On a string, `?['Value']` evaluates to null, so the comparison never matches, every filter returns zero rows, and each crew's dispatch email goes out with an **empty assignment table**. The flow still reports success and the emails still arrive — which is why the 2026-09-01 "verified in prod" pass missed it. Verification checked delivery, not content.
+`Assignments.Crew` is a **Text** column, not a Lookup (there is no `CrewId`). The fix was one token in each action: `item()?['Crew']` directly, no `?['Value']`.
 
-Fix is one token in each of the two actions: `item()?['Crew']` directly, no `?['Value']`.
+**The failure mode was not what the 2026-09-02 write-up said, and the correction matters.** `?['Value']` on a string does **not** evaluate to null — it throws:
 
-**Status 2026-09-02: prepared and verified, NOT applied.** The corrected definition is staged at `flows/definitions/D2-Daily-Dispatch-crewfilter-fix.json`. `preview_update` confirmed it as a minimal diff — 1 changed action (`Condition_2`'s `else`, which contains both filters), 7 unchanged, trigger and connection references untouched. The apply was blocked by the session's permission classifier as an unapproved write to a live production flow. To finish it: either re-run `update_flow` + `PublishXml` with approval, or make the two-token edit in the designer. Then confirm a dispatch email actually contains rows — that is the check the original verification skipped.
+```
+InvalidTemplate: The evaluation of 'query' action 'where' expression failed:
+property 'Value' cannot be selected. Property selection is not supported on
+values of type 'String'.
+```
+
+So the flow did **not** ship empty tables. It behaved as a function of whether that day had data:
+
+| Day has assignments? | Behaviour |
+|---|---|
+| **Yes** | `Filter_array` throws → `Condition_2` fails → **run FAILS, no email sent to anyone** |
+| **No** | `from` is `[]`, the `where` is never evaluated → run succeeds, correct "nothing scheduled today" email |
+
+Confirmed empirically in run history: 2026-08-27, 08-28 (×2), 08-29, 08-31 and 09-02 all **Failed**; 09-01 and 09-03 Succeeded with `Get_items` returning zero rows. The 09-02 failure carried exactly one assignment — ID 2, `D2-1001 · 2.2 Steel Installation`, `Crew: 'Devon Crew'` (a bare string).
+
+**This also explains why the 2026-09-01 "verified in prod" pass missed it** — not because delivery was checked instead of content, but because **that day had no scheduled assignments**, so the broken expression was never evaluated. A green run on an empty day proves nothing about this flow. Any future verification must run on a day with at least one assignment covering it.
+
+**Applied via the fully scriptable path** (no designer): `preview_update` → `update_flow` with `previewToken` → Dataverse `PublishXml` against `workflowEntityId` `f4e387a3-86a1-f111-b8dc-6045bd0195dd`. Published row verified: zero `['Crew']?['Value']` occurrences, two corrected `item()?['Crew']` refs, Unicode (`·`, `—`) intact, state `Started`.
+
+**Note on `authentication`:** the definition was submitted with `"authentication": "@parameters('$authentication')"` on all five `OpenApiConnection` actions; the service **stripped it** from the published row. It is service-managed — do not treat its absence in a published export as drift.
+
+**VERIFIED end-to-end 2026-09-03.** A manual run produced a populated dispatch email — the check no prior run had ever passed:
+
+```
+TODAY — Thu 09/03 · Devon Crew +3
+Harrison Residence
+2.2 Steel Installation
+Open sub-phase to sign off
+```
+
+Exactly one of seven crews matched (the one with work that day); the other six correctly rendered "No sub-phase scheduled today."
+
+**CRITICAL — the crew join key is `CrewID`, not `Title`. Fixed in Flows 1 and 3 on 2026-09-03.** The crew-filter fix above was necessary but *not sufficient*: a second, independent defect sat behind it. Three different value spaces were in play:
+
+| | Devon |
+|---|---|
+| `Crews.CrewID` | `devon` |
+| `Crews.Title` | `Devon Crew +3` |
+| `Assignments.Crew` (as seeded) | `Devon Crew` |
+
+None matched, so every crew filter returned zero rows even after the `?['Value']` fix. The browser tool is the authority and models crews as `{id:'devon', name:'Devon Crew +3'}` — **`CrewID` is the join key; `Title` is a display label** carrying a `+N` headcount suffix (headcount also lives in the separate `Size` column).
+
+The bug was masked for crews whose `Title` has no suffix — `STL Shotcrete` matched by luck while all seven `+N` field crews never could. Do not let a passing subcontractor case suggest the join works.
+
+Fixed:
+- **Flow 1** `Filter_array` / `Filter_array_2`: `equals(item()?['Crew'], items('Apply_to_each')?['CrewID'])`. `Title` is still used for the email subject and heading — display only.
+- **Flow 3** `Get_crew`: `$filter=CrewID eq '@{variables('touchedCrew')}'` (was `Title eq`). This also **restored the subcontractor capacity exemption** — with `Get_crew` returning zero rows, `Condition_unlimited` could never evaluate true, so `Unlimited=Yes` crews were being double-book-checked in violation of business rule 2.
+- **Data:** all 5 Assignments rows reseeded to short codes (`devon`, `antonio`, `stl`, `harrison`).
+
+**Any future flow, the canvas app, and the nightly browser-tool→Lists sync must write and join on `CrewID`.** The Flow 4 Select projection in `D2-Week-2-Automations-Runbook.md` still needs this treatment.
+
+**`az rest` output on Windows silently DROPS characters outside cp1252 — never rebuild a flow definition from an `az rest` capture.** Redirecting `az rest` to a file loses U+26A0 (warning sign), U+2192 (right arrow) and U+2013 (en dash) entirely — they vanish rather than becoming mojibake, and `PYTHONIOENCODING=utf-8` does **not** fix it. Characters that *are* in cp1252 (U+00B7 middle dot, U+2014 em dash) survive, which makes the loss look selective and easy to miss. Writing such a capture back would strip those glyphs from the live flow.
+
+- To read a definition you intend to modify, use FlowAgent `get_flow` (MCP channel, faithful UTF-8). It confirmed Flow 3's glyphs are intact in production.
+- To submit a definition, emit it with `json.dumps(..., ensure_ascii=True)` so every non-ASCII character becomes a backslash-u escape — uncorruptible through any console or transport.
+
+**`authentication` is service-managed on the trigger too, not just actions.** The published rows of both flows contain no `"authentication": "@parameters('$authentication')"` anywhere, trigger included. Submitting it produces a spurious "trigger changed" diff. Omit it everywhere; the service owns it.
+
+**FlowAgent `preview_update` reports container actions as changed with `fields: []`.** `If` blocks and the trigger show as "changed" with an empty field list even when byte-identical to live (verified against `get_flow`). Treat `fields: []` as differ noise; only entries with named fields are real changes.
+
+**Assignments has four Required columns seeded NULL — `Locked`, `NotApplicable`, `PMSignOff`, `DurationDays`.** All are genuine Boolean/Number columns (not Choice), but REST item-creation bypassed required-field validation during Week 1 seeding while the SharePoint form does not. Consequence: **the list form refuses to save any hand-edit** until all four are populated — you cannot change one date in the UI. Use SP REST `MERGE`, which validates only the fields named in the body. This will also hit the canvas app unless it writes via MERGE.
+
+**RESOLVED 2026-09-03 — DateTime storage convention. All seeded dates were one day early, which silently inverted the work-week.**
+
+The date columns were never the problem: `ScheduledStart`, `ScheduledFinish`, `WorkDate`, `Jobs.StartDate` and `Work Calendar.Date` are all already **DateOnly** (`DisplayFormat=0`). The stored *values* were wrong.
+
+Site regional timezone is **(UTC-06:00) Central Time**. What matters is the wall-clock time a DateOnly value is stored at:
+
+| Stored | SP connector reads it as | |
+|---|---|---|
+| `2026-09-02T00:00:00Z` — midnight **UTC** (Week 1 seeding) | `2026-09-01` | **wrong, one day early** |
+| `2026-09-05T05:00:00Z` — midnight **Central** | `2026-09-05` | correct |
+
+**The convention: write DateOnly fields as a bare `'yyyy-MM-dd'` string via REST.** SharePoint interprets it in site-local time and stores local midnight (`05:00Z` under CDT, `06:00Z` under CST). Never write an explicit `...T00:00:00Z` — that is what Week 1 seeding did and it is off by one.
+
+**The serious consequence was in Work Calendar.** All 62 rows (52 Sundays + 10 federal holidays) were stored at midnight UTC, so the connector read every one as the *previous* day. Flow 1's `Get_items_4` checks `Date eq today` to skip non-work days, so the flow would have **terminated on Saturdays** (a work day — no dispatch) and **dispatched on Sundays** (not a work day). Business rule 4 was inverted at the boundary and nothing surfaced it, because the list UI displays the intended date.
+
+Fixed 2026-09-03 by rewriting every affected row as a bare date string:
+- **Work Calendar** — all 62 rows. Verified: 0 remaining at midnight UTC, and each row's stored date matches the date embedded in its own `Title` (`Sunday · 2026-09-06`), giving an independent cross-check.
+- **Assignments** — all 5 rows (`ScheduledStart`, `ScheduledFinish`), plus `DurationDays` computed as the inclusive day span.
+- **Jobs** — `StartDate`.
+
+Re-verified end-to-end: Flow 1 now reads Assignment 2 as `2026-09-02..2026-09-05` (previously `2026-09-01`), `Get_items_4` correctly returns 0 rows on a Thursday, and the dispatch email still renders with rows.
+
+**Same pass closed the Required-but-NULL gap:** `Locked`, `NotApplicable`, `PMSignOff` set to `false` and `DurationDays` populated on all 5 Assignments rows, so the SharePoint list form is usable again. Any newly created Assignment must set all four at creation, or the form will refuse to save edits to that row.
+
+**Two seed-data issues found and deliberately left alone** (flagged, not silently changed):
+- Assignment **1** carries `InstallerSignOff = true` with note `"Chrome-driven test"` — a leftover from an earlier Sign-off Intake test.
+- Assignment **4** (`stl`) is scheduled `2026-09-06 → 09-07`, and 09-06 is a **Sunday**. This violates business rule 4 in the seed data itself; it was invisible while the calendar was off by one.
+
+**OPEN BUG — Flow 3's trigger condition is a no-op; `GetOnUpdatedItems` emits no `@odata.oldValue` properties. Found 2026-09-03 by exit-gate test 2.**
+
+The Rev D §06 trigger condition is:
+
+```
+@or(not(equals(body/Crew, body/Crew@odata.oldValue)),
+    not(equals(body/ScheduledStart, body/ScheduledStart@odata.oldValue)),
+    not(equals(body/DurationDays, body/DurationDays@odata.oldValue)),
+    equals(body/Crew@odata.oldValue, null))
+```
+
+**Empirically, the SharePoint `GetOnUpdatedItems` trigger body contains no `@odata.oldValue` keys whatsoever.** Verified on run `08584131498858558107493709439CU07`: the trigger payload held `ID`, `Crew`, `ScheduledStart`, `InstallerSignOff`, `SignOffNotes` and no `*@odata.oldValue` at all.
+
+Consequences, all following from every `oldValue` reference evaluating to null:
+- The fourth clause `equals(null, null)` is **always true**, so the condition always passes.
+- The first three are also true (`not(equals('harrison', null))`).
+- **Every edit to any Assignments row fires Flow 3**, including every sign-off write from Flow 2 — the precise quota burn the condition exists to prevent.
+
+**Test evidence:** a MERGE touching only `InstallerSignOff` + `SignOffNotes` on row 5 at 17:36:08 produced a Flow 3 run at 17:36:40. Exit-gate test 2 **fails**.
+
+**Severity is quota, not corruption.** Flow 3 only reads (`GetItem`/`GetItems`) and sends mail — it never writes to Assignments — so there is **no self-retriggering loop**. The costs are wasted runs on every sign-off and a duplicate double-book alert whenever a genuine conflict row is later signed off.
+
+**Not yet fixed — needs a design decision.** Options considered, none applied:
+1. Have Flow 2 set a `SkipReconcile` flag that Flow 3 checks and clears (adds a write, so re-check for loops).
+2. Store a last-reconciled copy of `Crew`/`ScheduledStart`/`DurationDays` on the row and compare in-flow.
+3. Drop the condition and gate cheaply inside the flow, accepting one run per edit.
+4. Find a SharePoint trigger variant that does populate `oldValue`.
+
+Until resolved, treat the Rev D §06 "trigger condition prevents self-firing" claim as **not achieved**, and do not rely on it when estimating flow-run consumption.
 
 The stale lookup-shape assumption in `D2-Week-2-Automations-Runbook.md` has been corrected (L74, L80, the Flow 4 Select projection, and the "Common gotchas" entry that wrongly claimed `Crew` filters need `CrewId eq 3`). `sessions/2026-08-26a-daily-dispatch-handoff.md` (~L143, L151) still carries it and was deliberately left alone — session logs are historical record, not instructions.
 
@@ -153,15 +271,60 @@ and confirm with FlowAgent `whoami` that `tokenIdentity.tenantId` is `f24d9b39-�
 
 | # | Flow | State | Notes |
 |---|---|---|---|
-| 1 | Daily Dispatch + Reminders | Started | **Carries an open bug** — crew filter returns zero rows, emails ship empty tables. Fix staged at `flows/definitions/D2-Daily-Dispatch-crewfilter-fix.json`, not applied. See Known bugs. |
+| 1 | Daily Dispatch + Reminders | Started | **DONE — verified end-to-end 2026-09-03.** Both the `?['Value']` fix and the `CrewID` join fix applied and published; a live run produced a populated dispatch email. |
 | 2 | Sign-off Intake | Started | DONE, end-to-end verified |
-| 3 | Event-Driven Reconciliation | Started | **PUBLISHED 2026-09-02.** All 11 actions + trigger condition + `splitOn` verified in the published row. Exit-gate tests not yet run. |
-| 4 | Nightly Reconciliation | Not built | |
-| 5 | Daily + Weekly PDF Summary | Not built | |
+| 3 | Event-Driven Reconciliation | Started | **Detection works; gate test 2 FAILED.** `CrewID` join fix applied + published; double-book correctly fired a High-importance alert with correct body. But the trigger condition is a **no-op** — `GetOnUpdatedItems` emits no `@odata.oldValue`, so every edit fires the flow. See Known bugs. |
+| 4 | Nightly Reconciliation | Started | **DONE — built and both tests passed 2026-09-03.** Created fully headless (no designer). Clean sweep = 0 conflicts, no email; seeded double-book caught and emailed. |
+| 5 | Daily + Weekly Summary | Started | **DONE 2026-09-03 — built as two flows, both tested with rendered output verified.** HTML email body, not PDF (see below). |
 
-**Immediate next action:** (a) run the two Flow 3 exit-gate tests — they need real Assignments edits in the browser, since SP REST rejects the Azure CLI token; (b) apply the staged Flow 1 crew-filter fix; (c) build Flows 4 and 5.
+**Immediate next action:** (a) review the rendered summary previews in flows/testdata/ and decide whether to point Flow 5 at Don; (b) remove the TEST-900x seed data before the pilot (see above); (c) decide how to gate Flow 3 - its trigger condition is a proven no-op; (d) re-export all five flows to flows/exports/.
 
-**Build flows via FlowAgent, not Chrome UI-driving.** Author the definition JSON offline, `update_flow` it into the draft, then promote with Dataverse `PublishXml`. Expect **one** designer Save per new flow to create the per-operation connection-reference bindings; after that the loop is fully scriptable. Full mechanics in the draft-row callout under Known bugs, and in `flows/README.md`. Export each flow to `flows/exports/` after it tests green.
+**TEMPORARY TEST DATA IS LIVE ON THE D2 TENANT — remove before the pilot.** Seeded 2026-09-03 so Flows 4 and 5 could be judged against realistic volume rather than 5 rows.
+
+| What | Count | Marker |
+|---|---|---|
+| Jobs | 2 | `TEST-9001` Sandbox Ridge, `TEST-9002` Sandbox Vista |
+| Assignments | 38 | Titles begin `TEST-900x ` (ids 6-43) |
+| Tasks | 0 | none created; `TasksTotal`/`TasksComplete` carry the numbers instead |
+
+Generated by `flows/testdata/generate-seed.py` from the real 46 sub-phase template in the browser tool, so it mirrors production shape (skills, durations, task counts). The generator enforces all four business rules and cross-checks against the 5 pre-existing Harrison rows before emitting anything — it caught two collisions with Assignment 5 on the first pass.
+
+**To remove:** stop Flows 3 and 4, run `flows/testdata/cleanup.js` in the browser console on the site, restart the flows. It deletes only rows whose Title starts with `TEST-` and Jobs whose JobNumber starts with `TEST-`, is idempotent, and reports what remains. Expected end state: assignments `[1,2,3,4,5]`, jobs `["D2-1001"]`. The manifest of exactly what was created is `flows/testdata/seeded-ids.json`.
+
+**Stop Flow 3 (and Flow 4) before any bulk write to Assignments.** Every insert or edit fires Flow 3 — see the trigger-condition bug above. 38 inserts would otherwise burn 38 runs.
+
+Rendered previews of what the summaries produced against this data: `flows/testdata/daily-summary-preview.html`, `flows/testdata/weekly-summary-preview.html`.
+
+**Flow 5 is HTML email, not PDF — decided 2026-09-03.** The runbook specified Create file -> Convert file -> attach. Investigation showed the only non-premium conversion is **OneDrive for Business `ConvertFile`**; SharePoint has no convert action, and PDF4me / Encodian are third-party premium connectors that would breach the zero-incremental-licensing constraint. No OneDrive connection exists in D2 Automation, so PDF would have cost a new connection plus an interactive sign-in.
+
+Shane's call: send a rich HTML body instead. Same content, zero new connections, no temp-file lifecycle, readable on a phone without opening an attachment. If Don later wants an attachment, the PDF path is four extra actions on top of what exists.
+
+**Built as two flows** (schedules in **Central**, correcting the runbook's Pacific):
+
+| Flow | Schedule | Window |
+|---|---|---|
+| `D2 - Daily Summary` | 06:30, **Mon-Sat** (no Sunday - not a work day) | today, plus 7-day trailing compliance |
+| `D2 - Weekly Summary` | Friday 15:00 | Mon-Sat of the current week |
+
+Both render: active job count, a table of scheduled sub-phases (Job / Sub-phase / Crew / Dates / Tasks), and sign-off compliance as `signed / finished (pct)` with the oldest outstanding item named.
+
+Two implementation details worth keeping:
+- **Percent must multiply before dividing.** PA's `div` truncates on integers, so `div(mul(signed,100), total)` — the naive `mul(div(signed,total),100)` always renders 0%. Guarded for `total = 0`.
+- **Crew is displayed by `Crews.Title`, joined on `CrewID`.** A per-row `Filter_crew` inside the loop resolves the short code to the friendly name, so ownership sees `Devon Crew +3`, not `devon`. Same join rule as everywhere else.
+- Week boundaries: `weekStart = today + (1 - dayOfWeek(today))` -> Monday, `weekEnd = weekStart + 5` -> Saturday. Verified from a Thursday run producing 2026-08-31..2026-09-05.
+
+**Recipient is `stratirus@d2pools.com` on both, deliberately.** Switching to Don (or Don + David) is a one-token edit in each `Send_summary` action. Do not point these at a client inbox until the content has been reviewed on a real cadence.
+
+**Build flows via FlowAgent, not Chrome UI-driving.** Author the definition JSON offline, then: for a **new** flow use `create_flow` (which writes straight to the published row) followed by Dataverse `PublishXml`; for an **existing** flow use `update_flow` (which writes to the draft) followed by `PublishXml`. Full mechanics in the draft-row callout under Known bugs, and in `flows/README.md`. Export each flow to `flows/exports/` after it tests green.
+
+**No designer Save is needed for a new flow — corrected 2026-09-03.** The earlier guidance said to expect one designer Save per new flow to create per-operation connection-reference bindings. Flow 4 was built start to finish with no UI at all. The sequence that works:
+
+1. `create_flow` with `state: "Stopped"` and full `connectionRefs`. The definition lands in the **published** row immediately (unlike `update_flow`).
+2. Running it now fails with `CannotRunUnpublishedSolutionFlow` — *"Please authenticate the flow connections and save the flow to enable activation."* This message is misleading: it does **not** require the designer.
+3. `PublishXml` against the `workflowEntityId` creates the bindings. The failure then changes to `WorkflowTriggerIsNotEnabled`, which proves the connection binding succeeded.
+4. `publish_flow` to enable (start) it. Now it runs.
+
+`create_flow` returns the **Dataverse `workflowid`** directly — the ID `PublishXml` wants — so no lookup is needed for a new flow. (Note a third ID also exists: the internal ARM workflow ID surfaced in trigger errors, e.g. `e51b5571-…` for Flow 4. Ignore it; it addresses nothing you call.)
 
 **Load-bearing pattern for write-back flows (from Sign-off Intake win):** use "Send an HTTP request to SharePoint" action with SP MERGE, NOT the Update item action. PA's Update item requires binding every required field on the target list (Assignments has 7 required → 14+ dynamic-content bindings per action). Send-HTTP-to-SP with `X-HTTP-Method: MERGE` header does partial updates, only touching fields in the body. ~15 clicks total vs 100+. See sessions/2026-08-25-week2-flow-start.md for the body/headers template.
 
@@ -227,7 +390,7 @@ Practical consequences:
 
 **Two different IDs for one flow — don't conflate them.** `523d99c0-bc2e-7819-5d96-6faab60734f1` is Flow 3's **ProcessSimple resource ID** (what FlowAgent's `flow` argument wants). `2764968c-4aa6-f111-b8dd-6045bd0196b3` is its **`workflowEntityId`** (the Dataverse row, what `PublishXml` wants). The 2026-09-01 session log recorded the latter. Both are correct; they address different APIs.
 
-**OPEN — `PublishXml` blocks on connection-reference binding for newly-added operations.** With Flow 3's full definition in the draft, publish fails:
+**RESOLVED 2026-09-03 — `PublishXml` connection-reference binding.** With Flow 3's full definition in the draft, publish originally failed:
 
 ```
 InvalidOpenApiFlow / WorkflowRunActionInputsInvalidProperty:
@@ -235,7 +398,7 @@ The API connection reference 'new_sharedsharepointonline_beb06' could not be fou
 for the operation 'Get_touched_assignment'.
 ```
 
-The reference record exists and Flow 1 uses that exact logical name from the same solution, so this is per-operation binding, not a missing record. It fails identically whether `connectionReferenceLogicalName` is passed explicitly or left for the server to map. Actions must use the **connector** name in `host.connectionName` (`shared_sharepointonline`) — matching the live Flow 1 shape; using the logical name there is not the fix. The PA designer creates these bindings on Save, which is the current unblock path.
+At the time the unblock was a designer Save. **That is no longer required.** Flow 4 (2026-09-03) was created and published with no UI whatsoever — see the build-sequence note in "How to run it". Actions must still use the **connector** name in `host.connectionName` (`shared_sharepointonline`), not the connection-reference logical name; passing the logical name there is what produced the error. Supply the logical name only inside `connectionRefs`.
 
 **Both D2 flows live in `Active Solution`** (the default solution, `fd140aae-4df4-11dd-bd17-0019b9312238`). The default solution **cannot be exported**, so the PAC solution-ALM fallback requires first creating a custom solution and adding the flow to it — a structural ALM change, not a drop-in workaround.
 

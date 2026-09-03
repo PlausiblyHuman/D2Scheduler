@@ -71,13 +71,13 @@ Initialize variable: yesterday (String) = formatDateTime(addDays(convertFromUtc(
   **Filter today's assignments to this crew:**
   ```
   Filter array — from: outputs of "Get today's Assignments"
-  where: item()?['Crew'] equals items('Apply_to_each')?['Title']
+  where: item()?['Crew'] equals items('Apply_to_each')?['CrewID']
   ```
 
   **Filter yesterday's unsigned to this crew:**
   ```
   Filter array — from: outputs of "Get yesterday's unsigned"
-  where: item()?['Crew'] equals items('Apply_to_each')?['Title']
+  where: item()?['Crew'] equals items('Apply_to_each')?['CrewID']
   ```
 
   **Compose the HTML email body:**
@@ -209,7 +209,7 @@ Test with a manual run once the canvas app is calling it in Week 3.
 
 > **Schema corrections discovered 2026-09-01 (build against these, not the runbook body below):**
 > - List display name is **`Assignments`**, not "Sub-phase Assignments". Internal `EntityTypeName` is `AssignmentsList`.
-> - `Crew` field is **Text** (holds the crew display name like `"Devon Crew +3"`), not a Lookup. There is **no `CrewId` field**. Substitute `body/Crew` wherever the runbook says `body/CrewId`.
+> - `Crew` field is **Text** and holds the **crew short code** (`devon`, `antonio`, `stl`), matching `Crews.CrewID` — NOT the display name and NOT a Lookup. There is **no `CrewId` field**. Substitute `body/Crew` wherever the runbook says `body/CrewId`, and always join it to `Crews.CrewID` (never `Crews.Title`, which carries a `+N` headcount suffix).
 > - Jobs list originally lacked a `ProjectManager` column — added 2026-09-01 as internal name `ProjectManager` (User/Person, Group=D2, field ID `90ec6a24-4631-4c6f-bc78-43549dc1c37d`). Seed each Job row's PM before the DM step can resolve. Harrison Residence D2-1001 needs seeding on next touch.
 > - Verified Assignments editable fields: `Title, Job (Lookup), SubPhaseNumber, SubPhaseName, Crew (Text), Sequence, ScheduledStart, ScheduledFinish, WorkDate, InstallerSignOff, InstallerSignOffBy, InstallerSignOffOn, Locked, NotApplicable, PMSignOff, TasksComplete, TasksTotal, DurationDays, PMSignOffBy, PMSignOffOn, SignOffNotes, Trade (Lookup)`.
 > - **Trigger condition (field-diff strategy, locked in):**
@@ -341,7 +341,7 @@ If #2 fires, the trigger condition is wrong. Refine the condition and re-test be
 
 This requires expanding each Assignment's date range into per-day rows. Cleanest way is a Select action followed by aggregating.
 
-- **Select** to project: `{ CrewId: item()?['Crew'], Dates: [range of days from ScheduledStart to ScheduledFinish], AssignmentId: item()?['ID'], JobName: item()?['Job']?['Value'], SubPhase: item()?['SubPhaseNumber'] }`
+- **Select** to project: `{ CrewID: item()?['Crew'], Dates: [range of days from ScheduledStart to ScheduledFinish], AssignmentId: item()?['ID'], JobName: item()?['Job']?['Value'], SubPhase: item()?['SubPhaseNumber'] }`
 - Then a nested apply-to-each to flatten dates
 - Then a filter to find any (CrewId, Date) tuple appearing more than once
 
@@ -439,7 +439,7 @@ Verify all six before proceeding to Week 3:
 
 - **SharePoint filter query syntax is quirky.** Person and Lookup columns filter on the internal integer ID (`SomeLookupId eq 3`), not the display value. If a filter returns 0 unexpectedly, that's the first thing to check.
 
-  **But `Assignments.Crew` is NOT one of them.** It is a plain **Text** column holding the crew display name, and there is no `CrewId`. Filter it as `Crew eq 'Devon Crew +3'` and read it as `item()?['Crew']` / `triggerOutputs()?['body/Crew']` — a plain string. Applying the lookup shape to it (`?['Value']`, `CrewId`, `Crew/Title`) is what caused the Flow 1 empty-dispatch-table bug. Verified against the provisioned list 2026-09-01; see the schema callout above and the Known-bugs entry in `CLAUDE.md`.
+  **But `Assignments.Crew` is NOT one of them.** It is a plain **Text** column holding the crew display name, and there is no `CrewId`. Filter it as `Crew eq 'devon'` (the short code) and read it as `item()?['Crew']` / `triggerOutputs()?['body/Crew']` — a plain string. Join it to `Crews.CrewID`, never `Crews.Title`. Applying the lookup shape to it (`?['Value']`, `CrewId`, `Crew/Title`) is what caused the Flow 1 empty-dispatch-table bug. Verified against the provisioned list 2026-09-01; see the schema callout above and the Known-bugs entry in `CLAUDE.md`.
 - **`ne 1` vs `ne true`.** SharePoint's boolean columns return `1`/`0` in filter queries, not `true`/`false`. Use `ne 1` for "is not Yes."
 - **Flow-run quota** on seeded Power Automate rights is 6,000 API calls per user per 24 hours. Well above what these five flows need — Event-Driven fires maybe 50×/day on active editing, Daily Dispatch fires 12 times (crews × 6 days), etc. Not tight. But watch this if the trigger condition on Event-Driven is wrong and it loops.
 - **Convert File action** requires the source file to be in OneDrive or SharePoint. Can't convert an inline string.

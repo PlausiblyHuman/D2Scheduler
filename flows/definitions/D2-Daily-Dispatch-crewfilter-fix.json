@@ -225,7 +225,7 @@
                     "type": "Query",
                     "inputs": {
                       "from": "@outputs('Get_items')?['body/value']",
-                      "where": "@equals(item()?['Crew'], items('Apply_to_each')?['Title'])"
+                      "where": "@equals(item()?['Crew'], items('Apply_to_each')?['CrewID'])"
                     }
                   },
                   "Filter_array_2": {
@@ -240,7 +240,7 @@
                     "type": "Query",
                     "inputs": {
                       "from": "@outputs('Get_items_2')?['body/value']",
-                      "where": "@equals(item()?['Crew'], items('Apply_to_each')?['Title'])"
+                      "where": "@equals(item()?['Crew'], items('Apply_to_each')?['CrewID'])"
                     }
                   },
                   "Compose": {

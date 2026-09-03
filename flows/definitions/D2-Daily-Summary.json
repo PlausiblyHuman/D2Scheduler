@@ -1,0 +1,285 @@
+{
+  "properties": {
+    "displayName": "D2 - Daily Summary",
+    "state": "Stopped",
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        },
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        }
+      },
+      "triggers": {
+        "Recurrence": {
+          "type": "Recurrence",
+          "recurrence": {
+            "frequency": "Week",
+            "interval": 1,
+            "timeZone": "Central Standard Time",
+            "startTime": "2026-09-04T06:30:00",
+            "schedule": {
+              "weekDays": [
+                "Monday",
+                "Tuesday",
+                "Wednesday",
+                "Thursday",
+                "Friday",
+                "Saturday"
+              ],
+              "hours": [
+                "6"
+              ],
+              "minutes": [
+                30
+              ]
+            }
+          }
+        }
+      },
+      "actions": {
+        "Initialize_today": {
+          "runAfter": {},
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "today",
+                "type": "string",
+                "value": "@{formatDateTime(convertFromUtc(utcNow(),'Central Standard Time'),'yyyy-MM-dd')}"
+              }
+            ]
+          }
+        },
+        "Initialize_lookback": {
+          "runAfter": {
+            "Initialize_today": [
+              "Succeeded"
+            ]
+          },
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "lookback",
+                "type": "string",
+                "value": "@{formatDateTime(addDays(convertFromUtc(utcNow(),'Central Standard Time'),-7),'yyyy-MM-dd')}"
+              }
+            ]
+          }
+        },
+        "Initialize_rows": {
+          "runAfter": {
+            "Initialize_lookback": [
+              "Succeeded"
+            ]
+          },
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "rows",
+                "type": "array",
+                "value": []
+              }
+            ]
+          }
+        },
+        "Get_active_jobs": {
+          "runAfter": {
+            "Initialize_rows": [
+              "Succeeded"
+            ]
+          },
+          "type": "OpenApiConnection",
+          "inputs": {
+            "host": {
+              "connectionName": "shared_sharepointonline",
+              "operationId": "GetItems",
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+            },
+            "parameters": {
+              "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+              "table": "ee0ecabf-2f11-458d-a9ea-641f76d10cc3",
+              "$filter": "Status eq 'Active'",
+              "$top": 200
+            }
+          }
+        },
+        "Get_today_assignments": {
+          "runAfter": {
+            "Get_crews": [
+              "Succeeded"
+            ]
+          },
+          "type": "OpenApiConnection",
+          "inputs": {
+            "host": {
+              "connectionName": "shared_sharepointonline",
+              "operationId": "GetItems",
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+            },
+            "parameters": {
+              "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+              "table": "49ef7006-d3fe-40a7-a52f-c4c18545bd35",
+              "$filter": "ScheduledStart le '@{variables('today')}' and ScheduledFinish ge '@{variables('today')}' and NotApplicable ne 1",
+              "$top": 500
+            }
+          }
+        },
+        "Get_recent_finished": {
+          "runAfter": {
+            "Get_today_assignments": [
+              "Succeeded"
+            ]
+          },
+          "type": "OpenApiConnection",
+          "inputs": {
+            "host": {
+              "connectionName": "shared_sharepointonline",
+              "operationId": "GetItems",
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+            },
+            "parameters": {
+              "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+              "table": "49ef7006-d3fe-40a7-a52f-c4c18545bd35",
+              "$filter": "ScheduledFinish lt '@{variables('today')}' and ScheduledFinish ge '@{variables('lookback')}' and NotApplicable ne 1",
+              "$top": 500
+            }
+          }
+        },
+        "Filter_signed": {
+          "runAfter": {
+            "Get_recent_finished": [
+              "Succeeded"
+            ]
+          },
+          "type": "Query",
+          "inputs": {
+            "from": "@outputs('Get_recent_finished')?['body/value']",
+            "where": "@equals(item()?['InstallerSignOff'], true)"
+          }
+        },
+        "Filter_unsigned": {
+          "runAfter": {
+            "Filter_signed": [
+              "Succeeded"
+            ]
+          },
+          "type": "Query",
+          "inputs": {
+            "from": "@outputs('Get_recent_finished')?['body/value']",
+            "where": "@not(equals(item()?['InstallerSignOff'], true))"
+          }
+        },
+        "For_each_today": {
+          "runAfter": {
+            "Filter_unsigned": [
+              "Succeeded"
+            ]
+          },
+          "type": "Foreach",
+          "foreach": "@outputs('Get_today_assignments')?['body/value']",
+          "runtimeConfiguration": {
+            "concurrency": {
+              "repetitions": 1
+            }
+          },
+          "actions": {
+            "Append_row": {
+              "runAfter": {
+                "Filter_crew": [
+                  "Succeeded"
+                ]
+              },
+              "type": "AppendToArrayVariable",
+              "inputs": {
+                "name": "rows",
+                "value": "@{concat('<tr><td>', coalesce(items('For_each_today')?['Job']?['Value'],'-'), '</td><td>', coalesce(items('For_each_today')?['SubPhaseNumber'],''), ' ', coalesce(items('For_each_today')?['SubPhaseName'],''), '</td><td>', coalesce(first(body('Filter_crew'))?['Title'], items('For_each_today')?['Crew'], 'Unassigned'), '</td><td>', coalesce(items('For_each_today')?['ScheduledStart'],''), ' to ', coalesce(items('For_each_today')?['ScheduledFinish'],''), '</td><td align=\"center\">', string(coalesce(items('For_each_today')?['TasksComplete'],0)), '/', string(coalesce(items('For_each_today')?['TasksTotal'],0)), '</td></tr>')}"
+              }
+            },
+            "Filter_crew": {
+              "runAfter": {},
+              "type": "Query",
+              "inputs": {
+                "from": "@outputs('Get_crews')?['body/value']",
+                "where": "@equals(item()?['CrewID'], items('For_each_today')?['Crew'])"
+              }
+            }
+          }
+        },
+        "Compose_body": {
+          "runAfter": {
+            "For_each_today": [
+              "Succeeded"
+            ]
+          },
+          "type": "Compose",
+          "inputs": "<div style=\"font-family:Segoe UI,sans-serif;font-size:14px;color:#1a2332;max-width:820px\"><h2 style=\"color:#0b6e78;margin-bottom:4px\">D2 Daily Summary @{formatDateTime(variables('today'),'ddd MM/dd/yyyy')}</h2><p style=\"color:#666;margin-top:0\">@{length(outputs('Get_active_jobs')?['body/value'])} active job(s) &#183; @{length(outputs('Get_today_assignments')?['body/value'])} sub-phase(s) scheduled today</p><h3 style=\"color:#0b6e78\">Scheduled today</h3>@{if(equals(length(variables('rows')),0),'<p><em>Nothing scheduled today.</em></p>',concat('<table border=\"1\" cellpadding=\"6\" cellspacing=\"0\" style=\"border-collapse:collapse;font-size:13px\"><tr style=\"background:#f0f0f0\"><th align=\"left\">Job</th><th align=\"left\">Sub-phase</th><th align=\"left\">Crew</th><th align=\"left\">Dates</th><th>Tasks</th></tr>',join(variables('rows'),''),'</table>'))}<h3 style=\"color:#0b6e78\">Sign-off compliance</h3><p>Finished in the last 7 days: <strong>@{length(outputs('Get_recent_finished')?['body/value'])}</strong> &#183; signed off: <strong>@{length(body('Filter_signed'))}</strong> &#183; outstanding: <strong style=\"color:#a84a18\">@{length(body('Filter_unsigned'))}</strong></p><p style=\"font-size:22px;margin:4px 0;color:@{if(greaterOrEquals(if(equals(length(outputs('Get_recent_finished')?['body/value']),0),100,div(mul(length(body('Filter_signed')),100),length(outputs('Get_recent_finished')?['body/value']))),80),'#0b6e78','#a84a18')}\"><strong>@{if(equals(length(outputs('Get_recent_finished')?['body/value']),0),100,div(mul(length(body('Filter_signed')),100),length(outputs('Get_recent_finished')?['body/value'])))}%</strong></p>@{if(equals(length(body('Filter_unsigned')),0),'<p style=\"color:#0b6e78\">All recent work is signed off.</p>',concat('<p style=\"color:#a84a18\">Oldest outstanding: ',coalesce(first(body('Filter_unsigned'))?['Title'],'-'),'</p>'))}<p style=\"color:#888;font-size:11px;margin-top:18px\">Generated automatically by D2 Build Scheduler. Compliance covers sub-phases finishing between @{variables('lookback')} and @{variables('today')}.</p></div>"
+        },
+        "Send_summary": {
+          "runAfter": {
+            "Compose_body": [
+              "Succeeded"
+            ]
+          },
+          "type": "OpenApiConnection",
+          "inputs": {
+            "host": {
+              "connectionName": "shared_office365",
+              "operationId": "SendEmailV2",
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365"
+            },
+            "parameters": {
+              "emailMessage/To": "stratirus@d2pools.com",
+              "emailMessage/Subject": "D2 Daily Summary - @{formatDateTime(variables('today'),'ddd MM/dd')} - @{length(outputs('Get_today_assignments')?['body/value'])} scheduled, @{length(body('Filter_unsigned'))} awaiting sign-off",
+              "emailMessage/Body": "<p>@{outputs('Compose_body')}</p>",
+              "emailMessage/Importance": "Normal"
+            }
+          }
+        },
+        "Get_crews": {
+          "runAfter": {
+            "Get_active_jobs": [
+              "Succeeded"
+            ]
+          },
+          "type": "OpenApiConnection",
+          "inputs": {
+            "host": {
+              "connectionName": "shared_sharepointonline",
+              "operationId": "GetItems",
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+            },
+            "parameters": {
+              "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+              "table": "45e9ff1f-bf36-4ab5-929d-25ab9a80d460",
+              "$top": 100
+            }
+          }
+        }
+      }
+    },
+    "connectionReferences": {
+      "shared_sharepointonline": {
+        "connectionName": "shared-sharepointonl-20b83f29-d689-437e-b1ff-930f7bf3fda4",
+        "connectionReferenceLogicalName": "new_sharedsharepointonline_beb06",
+        "source": "Embedded",
+        "id": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+        "tier": "Standard"
+      },
+      "shared_office365": {
+        "connectionName": "shared-office365-0bc14d33-bf94-4439-bdbc-d600759333d5",
+        "connectionReferenceLogicalName": "new_sharedoffice365_4d59e",
+        "source": "Embedded",
+        "id": "/providers/Microsoft.PowerApps/apis/shared_office365",
+        "tier": "Standard"
+      }
+    }
+  }
+}
