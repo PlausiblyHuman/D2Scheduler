@@ -1,7 +1,25 @@
 # D2 Week 3 build runbook — Power Apps canvas app
 
+> ### ⚠ Read `D2-Canvas-App-Handoff-Contract.md` before building
+>
+> This spec was written **before** the Weeks 1–2 build, which found three production defects and
+> one missing requirement. Corrections applied to this file on 2026-09-04:
+>
+> - `App.OnStart` — was `Crew.Value = gblCurrentCrew.Title`, which is wrong twice over.
+>   `Assignments.Crew` is a **Text** column (so no `.Value`), and the join key is **`CrewID`**,
+>   not `Title`. Now `Crew = gblCurrentCrew.CrewID`. Note `Assignment.Value` on the **Tasks**
+>   list is still correct — that one genuinely is a Lookup.
+> - Identity resolves on **`userPrincipalName`**, not `mail`. `mail` is blank on unlicensed
+>   accounts and diverges even on the service account.
+> - Data connections pointed at a placeholder site URL; corrected below.
+> - **Not yet reflected in the day-by-day steps: PM proxy sign-off.** The four subcontractor
+>   crews have no M365 seat by design and can never sign off for themselves, so a crew picker
+>   and proxy mode are **mandatory**, not optional. See §2 of the handoff contract.
+>
+> The contract wins wherever it disagrees with this file.
+
 **App name:** `D2 Sign-Off`
-**Prereq:** Weeks 1–2 complete. All 6 SharePoint lists exist and populated. Sign-off Intake flow (Flow 2) is callable.
+**Prereq:** Weeks 1–2 complete. All **7** SharePoint lists exist and populated. Sign-off Intake flow (Flow 2) is callable.
 **Time budget:** ~28 hours. Bulk of it in Days 1–3 on the four screens; Days 4–5 on device testing + polish.
 **Working account:** D2 tenant service account with Power Apps standard rights + Contribute on the lists.
 **Runtime:** Power Apps Mobile app (iOS + Android) — crew leads install from App Store / Play Store, sign in with their D2 M365 account, pin the app.
@@ -33,8 +51,8 @@ Plus one hidden screen `scr_ErrorPatterns` used for debugging during build. Dele
 
 Add these under **Data** in the Power Apps studio left rail:
 
-1. **SharePoint** connector — pointed at `https://[tenant].sharepoint.com/sites/d2-scheduler`
-   - Add: `Sub-phase Assignments`, `Sub-phase Tasks`, `Crews`, `Jobs`
+1. **SharePoint** connector — pointed at `https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler`
+   - Add: `Assignments`, `Tasks`, `Crews`, `Jobs`
 2. **Office 365 Users** connector — for resolving the signed-in user's identity
 3. **D2 — Sign-off Intake** flow (from Week 2 Flow 2) — via **Power Automate** left rail → **Add flow**
 
@@ -45,7 +63,7 @@ Add these under **Data** in the Power Apps studio left rail:
 ### Step 1 — Create the app
 
 1. Open `https://make.powerapps.com` signed in with the D2 service account
-2. Environment picker (top-right) → confirm you're in D2's default environment
+2. Environment picker (top-right) → select **D2 Automation** (NOT the default environment)
 3. **Create** → **Blank app** → **Blank canvas app**
 4. Name: `D2 Sign-Off`
 5. Format: **Phone**
@@ -54,7 +72,7 @@ Add these under **Data** in the Power Apps studio left rail:
 ### Step 2 — Add data connections
 
 Left rail → **Data** → **Add data** →
-- SharePoint → connect to `d2-scheduler` site → select the four lists above
+- SharePoint → connect to the `D2BuildScheduler` site (URL above) → select the four lists above
 - Office 365 Users → connect
 - Power Automate → Add flow → `D2 — Sign-off Intake`
 
@@ -71,7 +89,7 @@ Set(
     gblCurrentCrew,
     LookUp(
         Crews,
-        LeadEmail = gblCurrentUser.mail
+        LeadEmail = gblCurrentUser.userPrincipalName
     )
 );
 Set(
@@ -82,8 +100,8 @@ Set(
     gblTodayAssignment,
     First(
         Filter(
-            'Sub-phase Assignments',
-            Crew.Value = gblCurrentCrew.Title
+            Assignments,
+            Crew = gblCurrentCrew.CrewID
               && ScheduledStart <= gblToday
               && ScheduledFinish >= gblToday
               && NotApplicable = false
@@ -94,7 +112,7 @@ Set(
 Set(
     gblTasks,
     Filter(
-        'Sub-phase Tasks',
+        Tasks,
         Assignment.Value = gblTodayAssignment.Title
     )
 );
@@ -183,7 +201,7 @@ Inside `cnt_JobCard`:
 - Type: Container (Vertical)
 - Visible: `IsBlank(gblTodayAssignment)`
 - Position: centered in remaining space
-- Contains: Label with text `"No sub-phase scheduled for you today. Check with your PM if this looks wrong."`, and a `btn_Refresh` that runs `Set(gblTodayAssignment, First(Filter('Sub-phase Assignments', ...same filter as OnStart...)))`
+- Contains: Label with text `"No sub-phase scheduled for you today. Check with your PM if this looks wrong."`, and a `btn_Refresh` that runs `Set(gblTodayAssignment, First(Filter(Assignments, ...same filter as OnStart...)))`
 
 ---
 
@@ -210,7 +228,7 @@ Same rectangle as scr_Today.
   - OnCheck:
     ```powerfx
     Patch(
-        'Sub-phase Tasks',
+        Tasks,
         ThisItem,
         {
             Complete: true,
@@ -218,12 +236,12 @@ Same rectangle as scr_Today.
             CompletedOn: Now()
         }
     );
-    Set(gblTasks, Filter('Sub-phase Tasks', Assignment.Value = gblTodayAssignment.Title));
+    Set(gblTasks, Filter(Tasks, Assignment.Value = gblTodayAssignment.Title));
     ```
   - OnUncheck:
     ```powerfx
     Patch(
-        'Sub-phase Tasks',
+        Tasks,
         ThisItem,
         {
             Complete: false,
@@ -231,7 +249,7 @@ Same rectangle as scr_Today.
             CompletedOn: Blank()
         }
     );
-    Set(gblTasks, Filter('Sub-phase Tasks', Assignment.Value = gblTodayAssignment.Title));
+    Set(gblTasks, Filter(Tasks, Assignment.Value = gblTodayAssignment.Title));
     ```
   - Size: 40 × 40 (big enough for gloves)
 
@@ -370,8 +388,8 @@ Simple screen. On visible, refresh app state.
       gblTodayAssignment,
       First(
           Filter(
-              'Sub-phase Assignments',
-              Crew.Value = gblCurrentCrew.Title
+              Assignments,
+              Crew = gblCurrentCrew.CrewID
                 && ScheduledStart <= gblToday
                 && ScheduledFinish >= gblToday
                 && NotApplicable = false
@@ -382,7 +400,7 @@ Simple screen. On visible, refresh app state.
   Set(
       gblTasks,
       Filter(
-          'Sub-phase Tasks',
+          Tasks,
           Assignment.Value = gblTodayAssignment.Title
       )
   );
@@ -401,7 +419,7 @@ Simple screen. On visible, refresh app state.
 Below the main Job card on scr_Today, a horizontal-scroll gallery showing the last 5 sub-phases this crew has signed off. Useful confidence: "yes, my last submissions were captured."
 
 - Add a Gallery: `gal_Recent`
-- Items: `SortByColumns(Filter('Sub-phase Assignments', Crew.Value = gblCurrentCrew.Title && InstallerSignOff = true), "InstallerSignOffOn", Descending)`
+- Items: `SortByColumns(Filter(Assignments, Crew = gblCurrentCrew.CrewID && InstallerSignOff = true), "InstallerSignOffOn", Descending)`
 - Template shows: JobNumber, sub-phase number, date signed
 - Optional for MVP — skip if Week 3 is running long.
 

@@ -6,7 +6,7 @@ Durable orientation for any Claude session working in this repo.
 
 ## What this is
 
-Pool construction scheduling and field sign-off system for D2 Pools. SharePoint Lists + Power Automate + Teams + a Power Apps canvas app for crew-lead task-tick, running entirely on D2's existing M365 subscription with zero incremental licensing. Replaces a browser-based prototype (`D2-Build-Scheduler/app/pool-scheduler.html`) originally built by Ryan Meyer under his Tennetech brand; Stratirus took over full delivery ownership.
+Pool construction scheduling and field sign-off system for D2 Pools. SharePoint Lists + Power Automate + Teams + a Power Apps canvas app for crew-lead task-tick, running on D2's existing M365 subscription with **no premium connectors and no Dataverse** — but see the licensing note below: the canvas app does require Business Basic seats for the ~10 field crew leads, so "zero incremental licensing" is **not** accurate and must not be repeated to the client. Replaces a browser-based prototype (`D2-Build-Scheduler/app/pool-scheduler.html`) originally built by Ryan Meyer under his Tennetech brand; Stratirus took over full delivery ownership.
 
 Client-facing name: **D2 Build Scheduler**.
 
@@ -17,8 +17,8 @@ Site URL: `https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler` (site
 - **Stratirus owner:** Shane Talbot (stalbot@stratirus.com)
 - **Client owners at D2:** David Taylor (david@d2pools.com), Don Borgeson (don@d2pools.com) — both on Business Premium
 - **Client office/PM:** Amy Stevens, Carolyn Morris, Cody Campbell, Daniel Morris, Emon Alexander, Tyler Huisman — all on Business Standard
-- **Field crew leads (~10):** currently unlicensed. Canvas app requires Business Basic ($6/user/mo) added for them, OR Forms-fallback UX with existing licensing.
-- **Prior builder:** Ryan Meyer (Tennetech). Ryan owns both Tennetech and Stratirus — this handoff is an internal brand reshuffle, not a vendor transition. Ryan is effectively out of day-to-day going forward.
+- **Field crew leads (~10):** currently unlicensed. **DECIDED 2026-09-04 — canvas app, not Forms.** Shane's call: "MS Forms will not cut it." Requires Business Basic ($6/user/mo, ~$720/yr for 10) added for them. Business Basic also gives them a real D2 mailbox, which `Crews.LeadEmail` and Flow 1's dispatch both depend on — the seats are the price of the crew being on the system at all, not just of one app. See "Crew-lead licensing" under Known bugs for the reasoning and the open procurement question.
+- **Prior builder:** Ryan Meyer (Tennetech). **Stratirus is owned by Tennetech**; Ryan owns both companies and both Power Platform environments. This handoff was an internal brand reshuffle, not a vendor transition — so there is no IP, provenance or cross-vendor question about which environment work is built in. **Updated 2026-09-04: Ryan is back on the build**, picking up the Week 3 canvas app (see `D2-Canvas-App-Handoff-Contract.md`). The earlier note that he was "effectively out of day-to-day" no longer holds.
 
 ## Architecture
 
@@ -28,7 +28,7 @@ Site URL: `https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler` (site
 - **SharePoint Lists** — data model, six lists per Rev D §04. MVP demo uses three (Jobs, Assignments, Tasks); full build adds Trades + Crew-Trades intersect + Work Calendar
 - **Power Automate flows (5)** — Daily Dispatch + Reminders, Event-Driven Reconciliation (with sign-off trigger-condition), Sign-off Intake, Nightly Reconciliation, Daily + Weekly PDF Summary
 - **Power Apps canvas app** — crew-lead sign-off + task-tick, mobile-first, standard M365 rights only
-- **Microsoft Forms** — fallback sign-off surface if canvas app is blocked (planned as backup only)
+- ~~**Microsoft Forms** — fallback sign-off surface~~ **RULED OUT 2026-09-04.** Forms cannot render a question set that varies per respondent at runtime, so "show this crew lead today's 6 tasks" has no native expression. The cheap variant (one generic form, sub-phase-level sign-off + a task count) drops Don's explicit task-level tick requirement; the faithful variant (46 forms, one per sub-phase template, deep-linked with a prefilled assignment ID) costs more than the canvas app and is a maintenance trap. Unlicensed crew leads could only use an anonymous "anyone with the link" form, which degrades `InstallerSignOffBy` from a verified User to a typed name on a forwardable link — an audit-trail regression larger than the one Rev D §02 added `WorkDate` to fix.
 - **Teams channels** — `Field Dispatch` and `Ownership` for artifact posting
 - **Browser scheduler** — `D2-Build-Scheduler/app/pool-scheduler.html`, permanent PM-side planner role (not being retired; committed schedule flows to Lists nightly)
 
@@ -73,6 +73,34 @@ The four load-bearing invariants (enforced by the design, not by a database prim
 - Assigning them zero-in on scheduling logic — they schedule like any other crew but don't consume capacity
 
 **Auth to SharePoint from scripts:** unsolved for headless PS. Working pattern is Claude Chrome + REST-from-page — see below.
+
+## Commercial basis — not in this repo
+
+**The `~$14k build` figure in `D2-Stratirus-Ownership-Plan.md` is WRONG for this project** (corrected 2026-09-04). That SOW covered a **Copilot setup and GoDaddy migration** — a separate engagement that was conflated with this build when the plan was drafted. Anything derived from it is equally void: the "build drops ~$4k" for the Forms fallback in `D2-Phase-1-Verifications.md`, and the "$14k Lists vs $36k Dataverse" comparison in `Ryan-Handoff-Email.md`.
+
+**Do not quote any of those numbers as this project's budget.** The commercial terms for the D2 Build Scheduler are not recorded anywhere in this repo. If a cost question comes up, ask rather than infer.
+
+Figures that *are* sound, because they come from Microsoft list pricing rather than the SOW: crew-lead licensing at ~$6/user/mo (Business Basic) or ~$2.25 (M365 F1), and Power Apps Premium at ~$20/user/mo for the Dataverse path.
+
+## Estimating — the week/hour figures are not reliable
+
+The Rev D plan's per-week hour estimates were written for human developers. Observed pace with Claude Code assisting:
+
+| | Estimated | Actual |
+|---|---|---|
+| Week 1 — 7 lists, 22-field schema, 200+ seed rows | 25 hrs / 5 days | **1 session, 1 day** |
+| Week 2 — 5 flows | 22 hrs / 5 days | **~11 sessions over 10 days** |
+
+Week 1 collapsed. Week 2 did not — but its time went to **auth dead ends** (PnP, m365 CLI, the `api.flow.microsoft.com` REST wall, the draft-row mechanism, the `az rest` encoding trap) and **bug discovery**, not authoring. Writing the definitions was the cheap part.
+
+So classify work by what actually bounds it, not by hours:
+
+- **Effort-bound** (authoring, schema, scripts, docs) — compresses hard. Estimate as "a session or two."
+- **Discovery-bound** (auth walls, undocumented platform behaviour, wrong assumptions in the spec) — **does not compress**, and is where Week 2 actually went. Buffer, don't estimate.
+- **Human-gated** (Don's trade mapping, the 7 crew-lead accounts, Teams channels, licensing) — moves at client speed. Currently the longest poles.
+- **Calendar-bound** (the pilot needs a real work week; training needs people in rooms; go-live support needs business days) — **irreducible**. Assistance does nothing here.
+
+The practical consequence: compression helps the app build and nothing after it, so any slack has to be taken out of Week 3 / Phase C. Weeks 4 and 5 cost what they cost.
 
 ## Known bugs and gotchas
 
@@ -242,7 +270,58 @@ and confirm with FlowAgent `whoami` that `tokenIdentity.tenantId` is `f24d9b39-�
 
 **FlowAgent rejects `authentication` in action inputs, but the live exports all contain it.** `validate_flow` fails any definition carrying `"authentication": "@parameters('$authentication')"` inside an action's `inputs` (rule `extra-authentication`) — the Flow API injects it on create. The service then writes it back, which is why every `OpenApiConnection` action in the Flow 1 and Flow 2 exports has it. Correct at runtime, invalid at authoring time: strip it from actions before importing, leave the trigger's copy alone. Also note FlowAgent takes `definition` / `connectionRefs` / `name` / `state` as four separate arguments — our `flows/definitions/*.json` nest all four under `properties`, so they must be split on the way in. Mapping table is in `flows/README.md`.
 
+**`Harrison Residence` / `D2-1001` is NOT a real pool — it is the browser prototype's hardcoded demo job** (`pool-scheduler.html` L258: `newJob('Harrison Residence','1420 Camino Real','Thousand Oaks','CA','91360')`), carried into SharePoint verbatim during Week 1 seeding. Assignments 1-5 hang off it. **D2 production therefore contains no real job data at all** — only this demo job and the `TEST-900x` rows. The first real pool arrives in Week 4. Two things follow: the seed-data "defects" (Assignment 4 spanning Sunday 09-06, Assignment 1's stale sign-off) are demo-data artifacts rather than live scheduling errors, and this is also **why the Week 3 spec referenced `Jobs.State` and `Jobs.ZIP`** — the prototype's job model carries them, the SharePoint list does not.
+
 **PM assignment on Harrison Residence D2-1001 is a placeholder.** `Jobs.ProjectManager` was added to schema 2026-09-01 (User/Person, Group D2, UserSelectionScope=0 — tenant-members only, no external UPNs). Harrison row seeded with stratirus@d2pools.com (display name "D2 Bot" — external PMs like stalbot@stratirus.com are rejected by the scope=0 constraint). Needs to be updated to the real D2 PM before live-fire testing. Every future new Job row must also have PM set at creation or the reconciliation flow's DM step won't resolve.
+
+**Tenant licensing — verified from Graph 2026-09-04. Every paid seat is consumed; there is nothing spare to recover.**
+
+| SKU part number | Product | Enabled | Consumed | Free |
+|---|---|---|---|---|
+| `SPB` | Business Premium | 2 | 2 | **0** |
+| `O365_BUSINESS_PREMIUM` | Business **Standard** | 7 | 7 | **0** |
+| `MICROSOFT_365_COPILOT_FOR_BUSINESS` | Copilot | 4 | 4 | **0** |
+| `O365_BUSINESS_ESSENTIALS` | Business Basic | **0 — Suspended** | 2 | −2 |
+| `EXCHANGE_S_ESSENTIALS` | Exchange Online Essentials | **0 — Suspended** | 6 | −6 |
+
+- **`O365_BUSINESS_PREMIUM` is Business STANDARD**, not Premium — legacy Microsoft naming. Business Basic is `O365_BUSINESS_ESSENTIALS`; real Business Premium is `SPB`. Don't misread the seat math.
+- **D2 Bot (`stratirus@d2pools.com`) holds Business Standard**, which includes Power Apps for M365 seeded rights. **This licenses the entire Week 3 build and most of device testing with no new purchase.**
+- The two `Suspended` rows are **dead subscriptions with 8 stale assignments**, not reclaimable capacity — GoDaddy-era leftovers from D2's move to direct Microsoft billing in late July 2026. The Aug 24 "ghost licensing" question is now closed: it frees nothing.
+- 19 disabled accounts (gmail, thryv.com, emich.edu, plus typo-duplicate pairs) are the same migration debris. Harmless; tidy when convenient.
+
+**Crew-lead licensing — canvas app confirmed, seats not yet bought (2026-09-04).**
+
+- **There are no crew-lead accounts in the tenant at all.** The dependency is *create ~10 identities + mailboxes*, then licence, then install and sign in per handset — not merely "buy 10 seats." That lead time sits upstream of Week 4 and is the item to put in front of David/Don.
+- **Business Basic (~$6/user/mo, ~$720/yr for 10), not Standard.** Standard's premium is desktop Office, which phone-based crew leads never touch. **Microsoft 365 F1 (~$2.25/user/mo, ~$270/yr) is the frontline SKU built for exactly this population** — seeded Power Apps + Teams, but **no mailbox**, so Flow 1 dispatch would need a personal address or Teams delivery. Price both with D2's direct-Microsoft rep; the figures here predate the GoDaddy exit.
+- **Dataverse remains correctly ruled out** — Power Apps Premium at ~$20/user/mo is ~$2,900–4,800/yr across this user set, plus a full rebuild.
+
+**PM proxy sign-off is mandatory regardless of the licensing path — this is load-bearing for the canvas app design.** The four subcontractor crews (George, Armondo, STL, Brothers) are `Unlimited = Yes` with **no M365 seat by design**, so they can never sign off for themselves. Someone in the office must sign off on their behalf. Consequences:
+
+- The app **must** have a crew/assignment picker and proxy sign-off from day one. Retrofitting it later is a screen-flow rewrite.
+- "PM signs off for everyone" is therefore a *subset* of the app you have to build anyway — so D2 can **go live with zero new licences** and add crew seats per-crew afterwards with **no rebuild**.
+- If PM-proxy becomes permanent rather than a starting point, the costs are non-monetary and real: `InstallerSignOffBy` records the PM rather than the person who did the work (attestation-by-proxy, weaker for warranty/QC than the crew-lead signature); 295 tasks/pool funnel through 2 PMs, reinstating the data-entry bottleneck the design exists to remove; and every sign-off becomes retrospective, making `WorkDate` load-bearing rather than an exception valve.
+
+**OPEN — `Crews.LeadEmail` holds placeholder data, and there are 7 field crews, not ~10** (live schema read 2026-09-04; this supersedes the 2026-08-25 note that the column was empty).
+
+- All seven real field crews carry the same value, `stalbot@stratirus.com` — an **external UPN that does not exist in the D2 tenant**, so no D2 user can ever match it, and because all seven share it `LookUp` returns only the first match (`saul`). Worse than empty: it looks populated.
+- **Only 7 crews actually need a sign-off identity** — `saul`, `guillermo`, `harrison`, `antonio`, `devon`, `cirilo`, `campos`. The other 7 rows are `Unlimited = Yes` buckets (`stl`, `george`, `armondo`, `brothers`, `subcon`, `unassigned`, `office`) that never sign off. **Crew-lead licensing is therefore ~7 seats, not 10** — ~$504/yr on Business Basic, ~$190/yr on F1.
+- `subcon`, `unassigned` and `office` are pseudo-crews, not companies.
+
+**Week 3 canvas app is being built by Ryan, IN D2 PRODUCTION — decided 2026-09-04.** No mirror environment, no stub flow, no cross-tenant port. He works in **D2 Automation** against the real lists, signed in as **D2 Bot** (`stratirus@d2pools.com`, Business Standard, which carries Power Apps for M365 seeded rights), and calls the real published Flow 2. This removes roughly a day of port-and-re-point overhead from the only week that still has slack — Weeks 4 and 5 are calendar-locked.
+
+The tradeoff is a third party working in a live client tenant on a shared credential. The safety rules are in `D2-Canvas-App-Handoff-Contract.md` §6a and are load-bearing: never touch Assignments 1–5 or `D2-1001` (use the `TEST-900x` rows, and do **not** delete them — that removal is sequenced for just before the pilot); stop Flows 3 and 4 before bulk writes, because Flow 3's no-op trigger means every Assignments edit burns a run; calling Flow 2 writes real sign-off data; everything logs as D2 Bot so there is no individual attribution; and do not edit the five published flows in the designer.
+
+`canvas-app/mirror-provision.js` is retained as the authoritative live-schema capture (more accurate than the obsolete `D2-Provision-Lists.ps1`) but is **not needed** for this build.
+
+**Canvas-app schema traps — all CONFIRMED against live lists 2026-09-04, all were in the Week 3 spec:**
+
+- **The lists are named `Assignments` and `Tasks`**, not `Sub-phase Assignments` / `Sub-phase Tasks`. The spec had the wrong names in 11 places; Power Apps binds a data source by list Title, so every reference would have failed. Fixed.
+- **`Jobs` has no `State` and no `ZIP` column.** Live schema is exactly `Title, JobNumber, Address, City, StartDate, Status, ProjectManager`. The spec's address formula referenced both.
+- **`Assignments.Job` is a Lookup with `ShowField='Title'`**, so `Job.Value` returns `Harrison Residence`, not `D2-1001`. The spec compared it against `JobNumber` — always blank. **Third instance of the same root cause: joining on a display label instead of a key.** In this data model `Title` is *always* display. Never join on it.
+
+**Join identity on `userPrincipalName`, NOT `mail`.** `mail` is unreliable in this tenant — blank on unlicensed accounts, and divergent even on the service account (D2 Bot's UPN is `stratirus@d2pools.com` while its `mail` is `d2bot@d2pools.com`). UPN is always present and is the actual sign-in identity, so `Crews.LeadEmail` must be seeded with UPNs and matched as `LeadEmail = gblCurrentUser.userPrincipalName`. Matching on `mail` fails silently — the same failure signature as the CrewID bug.
+
+**Context only, not in scope: `d2install.com`.** D2 Pools and D2 Install are sister companies both owned by Don. Four accounts in this tenant (Amy Stevens, Bobby Harlow, David Taylor, Mike Brantley) carry `@d2install.com` in their `mail` attribute while signing in on `netorgft15040037.onmicrosoft.com` UPNs — `d2install.com` is **not** a verified domain here (only `d2pools.com`, `d2tn.com` and the onmicrosoft default are). **This project is pools-only.** Recorded so future sessions don't re-investigate it.
 
 **Data gaps still open (from Rev D §15 / original plan §09):**
 - **10 trades unmapped to any sub-phase:** Retaining Walls, Veneer/Stone, CMU, Brick/Masonry, Landscaping, Pavers, Forms, Water Line Install, Material Runs, Grading. Don owes a mapping decision. George Crew is scheduled zero days until this lands.
@@ -259,7 +338,7 @@ and confirm with FlowAgent `whoami` that `tokenIdentity.tenantId` is `f24d9b39-�
 
 | List | Rows | GUID |
 |---|---|---|
-| Jobs | 1 (Harrison Residence D2-1001) | `ee0ecabf-2f11-458d-a9ea-641f76d10cc3` |
+| Jobs | 1 (Harrison Residence D2-1001 — **demo data, not a real pool**) | `ee0ecabf-2f11-458d-a9ea-641f76d10cc3` |
 | Assignments | 5 (D2-1001 sub-phases; 22 fields incl full Week 1 schema) | `49ef7006-d3fe-40a7-a52f-c4c18545bd35` |
 | Tasks | 30 (6 × 5 assignments) | `22c45847-ff0d-417a-b53e-1ea018fbb6d3` |
 | Trades | 26 | `05038f7f-a6cb-4f57-b1a1-3ff9c7126ba5` |

@@ -5,6 +5,35 @@ Use your D2 tenant service account (not your Stratirus account).
 
 ---
 
+## RESULTS (recorded 2026-09-04, back-filled from the 2026-08-24 session)
+
+These were run on 2026-08-24 but the outcomes were never written into this file, which
+left the SKU decision looking open for 11 days. Recording them now.
+
+| Check | Result | Verdict |
+|---|---|---|
+| 1 — M365 SKU / Power Apps seeded rights | Business Premium ×2, Business Standard ×7, Copilot Business ×4 | **Green for the office team.** Crew leads are a separate problem — see below. |
+| 2 — Power Apps tenant sharing | not separately recorded | assumed green; no blocker was ever hit publishing flows |
+| 3 — Power Automate polling floor | not measured | Rev D §07's detection-window number is still unverified |
+
+**The SKU check answered the office question, not the field question.** The ~10 field crew
+leads hold **no licence at all** — they are not "on a lighter SKU", they are absent. So
+Check 1's Green/Yellow/Red rule never really applied to them.
+
+**DECIDED 2026-09-04 — canvas app, Forms fallback ruled out.** Shane's call: "MS Forms will
+not cut it." Consequence: ~10 × Business Basic ($6/user/mo, ~$720/yr) is now a hard
+dependency. The reasoning, and why Forms structurally cannot carry the task-level tick
+requirement, is in CLAUDE.md.
+
+**Still outstanding from this phase:**
+- Check 3 was never measured, so Rev D §07 still quotes an unverified detection window.
+- Ghost licensing on disabled subscriptions (Exchange Online Essentials, Business Basic,
+  one Business Standard showing `Disabled` with users still assigned) — flagged 2026-08-24,
+  never investigated. Worth closing before buying Business Basic seats, in case D2 already
+  owns some.
+
+---
+
 ## Check 1 — M365 SKU includes Power Apps for M365 seeded rights
 
 **Why:** Rev D's canvas app for crew-lead sign-off relies on this. If D2's on a lighter SKU, we fall back to Microsoft Forms + a SharePoint list view (uglier UX, cuts ~30 build hours).

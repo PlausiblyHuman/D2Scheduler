@@ -2,7 +2,9 @@
 
 **Owner:** Shane Talbot, Stratirus
 **Status:** Stratirus taking full delivery ownership. Tennetech handoff assumed passive — proceeding without waiting on Ryan.
-**Working scope:** Option A (Microsoft Lists), Rev C baseline with Rev D adjustments from Ryan-Claude review, $0/mo incremental, ~$14k build, 5 weeks + pre-build verification.
+**Working scope:** Option A (Microsoft Lists), Rev C baseline with Rev D adjustments from Ryan-Claude review, 5 weeks + pre-build verification.
+
+> **CORRECTION 2026-09-04 — the `~$14k build` figure previously stated here does not apply to this project.** That SOW covered a **Copilot setup and GoDaddy migration**, a separate engagement. It was conflated with this build in the original draft of this plan. The commercial basis for the D2 Build Scheduler is **not recorded in this repo** — do not quote $14k, the derived "$4k saving" for the Forms fallback, or the "$14k vs $36k Dataverse" comparison as if they describe this work. The $0/mo incremental *platform* claim also needs qualifying: see the crew-lead licensing note in CLAUDE.md.
 **Date:** August 19, 2026
 
 ---
@@ -56,7 +58,7 @@ Changes to bake in:
 
 6. **§08 security — clarify that Read-only-for-crew-leads is a view-filter + Contribute-blocked pattern, not item-level permissions.** Item-level permissions on 5,000+ rows have real SharePoint scaling problems. View filter + no-write permission achieves the same thing at scale.
 
-7. **§14 extension paths — reframe Dataverse migration as "either-or, not a ladder."** Reference data ports; flows, security, canvas UI are a full rebuild. Honest math: $14k Lists + $36k eventual Dataverse rebuild if D2 outgrows Lists. Rev C oversold this.
+7. **§14 extension paths — reframe Dataverse migration as "either-or, not a ladder."** Reference data ports; flows, security, canvas UI are a full rebuild. Honest math: ~~$14k Lists + $36k eventual Dataverse rebuild~~ **(figures void — see the correction at the top of this file; they came from an unrelated SOW)**. The *structural* point stands and is the part that matters: reference data ports, but flows, security and canvas UI are a full rebuild. Rev C oversold this.
 
 8. **§14 — add Ryan's load-reset diagnosis to the note about applying the same fix in the Power Automate flow.** The "reset baseline; count only locked work" framing is cleaner than the "add tie-break" framing. Both fixes in the shipped patch, but the diagnosis language should match reality.
 
@@ -79,7 +81,7 @@ Standard Rev C weekly cadence with Rev D adjustments folded in. Each week has an
 - Permission groups: Office Admins, Project Managers, Crew Leads, Owners
 - Seed data: Trades (26), Crews (14, with subcontractor Unlimited=Yes for the four), Work Calendar
 - **Exit gate:** PM opens Assignments list, sees all columns, JobNumber uniqueness enforced. Test insert into `d2_crew_day` equivalent (once we have the composite key emulation flow — actually not a Lists thing; skip this Dataverse-era gate for now).
-- **Estimate:** 25 hrs (was 20 in Rev C; +5 for the extra crew_trades list)
+- **Bounded by:** effort. *Actual: completed 2026-08-25 in a single session against this 25 hr / 5 day estimate.*
 
 ### Week 2 — Automations core (Sep 1 – Sep 5)
 - Daily Dispatch + Reminders flow (6 AM Mon–Sat)
@@ -87,7 +89,7 @@ Standard Rev C weekly cadence with Rev D adjustments folded in. Each week has an
 - Nightly Reconciliation flow (11 PM safety net)
 - Weekly + Daily PDF Summary flows
 - **Exit gate:** Test edit that creates a double-book posts to Ops channel within the measured polling window; dispatch email lands at 6 AM the next morning
-- **Estimate:** 22 hrs
+- **Bounded by:** discovery. *Actual: ~11 sessions over 10 days. The time went to auth dead ends and bug discovery, not authoring.*
 
 ### Week 3 — Canvas app + intake (Sep 8 – Sep 12)
 - Power Apps canvas app for crew-lead sign-off + task-tick
@@ -96,14 +98,14 @@ Standard Rev C weekly cadence with Rev D adjustments folded in. Each week has an
 - Browser-tool export flow (nightly JSON → Lists upsert)
 - Mobile device testing on real crew-lead phones (need 2–3 handsets for a real test)
 - **Exit gate:** crew lead ticks 6 tasks + signs off from phone in under 60 seconds; work-date defaults correctly and is overridable
-- **Estimate:** 28 hrs
+- **Bounded by:** effort + discovery. The only remaining phase where compression is possible, so all slack must be taken here.
 
 ### Week 4 — Pilot (Sep 15 – Sep 19)
 - Pick one live pool. Run through Lists in parallel with browser tool. PM commits schedule in browser tool → nightly export → Lists is the source of truth for execution. Crew lead uses canvas app for sign-off.
 - Daily standup: any divergence between browser tool and Lists? Any conflict alert we didn't expect? Any crew-lead friction?
 - Log every issue. Fix in-week or defer to Week 5.
 - **Exit gate:** one full week with zero divergence between browser tool and Lists; crew lead reports canvas app is usable
-- **Estimate:** 15 hrs pilot support + issue fixes
+- **Bounded by:** CALENDAR. Needs a real work week of real pools to elapse. Cannot be compressed.
 
 ### Week 5 — Cutover + training (Sep 22 – Sep 26)
 - Group training session for 5 office users (~1 hour)
@@ -112,9 +114,34 @@ Standard Rev C weekly cadence with Rev D adjustments folded in. Each week has an
 - Cutover: browser tool becomes planner-only (still used by PM, no longer master data)
 - Go-live support: on-call for first 3 business days
 - **Exit gate:** all active pools running in Lists; browser tool is planning-only; no P0 issues open
-- **Estimate:** 15 hrs
+- **Bounded by:** CALENDAR + human availability. Training needs people in rooms; go-live support needs business days.
 
-**Total build phase: ~105 hrs → ~$14,700 at $140/hr.** Slightly up from Rev C's $14,000 because of Rev D #1 (crew_trades list restored).
+> ### Estimates restructured 2026-09-04 — read this before quoting any number above
+>
+> **The hour figures were written for human developers and do not describe this build.** Observed pace with
+> Claude Code assisting: Week 1's 25 hr / 5 day estimate completed in **one session**; Week 2's 22 hr estimate
+> took **~11 sessions over 10 days**, but almost none of that was authoring — it was PnP/m365 auth dead ends,
+> the `api.flow.microsoft.com` REST wall, the draft-row mechanism, the `az rest` encoding trap, and three
+> production bugs found by verification.
+>
+> Authoring collapsed. Discovery did not. So work is now classified by what actually bounds it:
+>
+> | Bound | Behaviour | Examples here |
+> |---|---|---|
+> | **Effort** | compresses hard; estimate as "a session or two" | schema, flow definitions, scripts, docs |
+> | **Discovery** | does **not** compress; buffer, don't estimate | auth walls, undocumented platform behaviour, wrong assumptions in the spec |
+> | **Human-gated** | moves at client speed | Don's trade mapping, 7 crew-lead accounts, Teams channels, licensing |
+> | **Calendar** | **irreducible** | the pilot week, training sessions, go-live business days |
+>
+> Practical consequence: **compression helps Phase C and nothing after it.** Phases E and F cost what they cost.
+>
+> **The `~$14,700 at $140/hr` total previously stated here is void** — it derived from a SOW covering a Copilot
+> setup and GoDaddy migration, a separate engagement. This project's commercial basis is not recorded in this
+> repo; ask rather than infer.
+>
+> Week numbering is superseded by phases (A–F) — see the AzDo Epics. **Phase D — Real-data readiness** was added
+> because it had no home in the week structure: every flow verified so far has run against the browser
+> prototype's demo job and generated test rows, never an actual D2 pool.
 
 ---
 
