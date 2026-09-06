@@ -366,7 +366,37 @@ and confirm with FlowAgent `whoami` that `tokenIdentity.tenantId` is `f24d9b39-�
 - **DONE 2026-09-05 — all seven placeholders cleared.** Verified against live: `cleared 7` (`saul`, `guillermo`, `harrison`, `antonio`, `devon`, `cirilo`, `campos`), `failures []`, `stillSet []`, row count unchanged. The live read also confirmed the split exactly: 7 `Unlimited=false` field crews all held `stalbot@stratirus.com`, and the 7 `Unlimited=true` buckets were already empty. `canvas-app/blank-lead-email.js` is retained and is idempotent, so it is safe to re-run as a check. Empty is strictly safer than wrong here: populated-but-unmatchable makes the app *look* correct while showing every crew lead Saul's assignments, whereas empty falls through to the PM-proxy picker that has to exist anyway for the four `Unlimited` subcontractor crews. Reseed with **userPrincipalName** once the identities exist.
 - `subcon`, `unassigned` and `office` are pseudo-crews, not companies.
 
-**Canvas app authoring — SPIKED AND ANSWERED 2026-09-06: build in Studio, not headless.** Full reasoning in `canvas-app/README.md`. The short version: `pac canvas` round-trips YAML cleanly, but **data connections are not expressible in YAML** (they live in the `.msapr` residual, and this app needs four SharePoint connections plus the Flow 2 connector), there is **no `pac canvas upload`** verb, and Microsoft scopes the format to "review changes made within Studio and minor edits (Preview)". Use `download` + `unpack` after each Studio session to get reviewable formula-level diffs into git. That is a real gain we did not have before, and it is all the YAML path is good for. The spike cost about half an hour and caught this before it surfaced at Day 1 Step 2 of the Week 3 spec.
+**Canvas app authoring — HEADLESS YAML WORKS. Confirmed end to end 2026-09-06.** This reverses the earlier conclusion the same day that the app had to be built in Studio. A YAML-authored screen was deployed by CLI and rendered live SharePoint data with no hand-building. Loop and rationale in `canvas-app/README.md`; run it with `python canvas-app/deploy.py`.
+
+```
+edit Src/*.pa.yaml -> pac canvas pack -> pac solution export
+   -> swap the .msapp inside the zip -> pac solution import -> open in Studio, Publish
+```
+
+Three facts make it work, and each was the thing that looked like a blocker:
+
+- **Connections survive.** They live in the `.msapr` residual (`References/DataSources.json`, and `Properties.json`'s `LocalConnectionReferences`), which `unpack` writes beside `Src/` and `pack` folds back in. All 7 sources (Jobs, Assignments, Tasks, Crews, Office365Users, `D2-Sign-offIntake`) ride through untouched. **Never delete the `.msapr`, and never rebuild sources from a blank app** — that is how you would silently drop every connection.
+- **The solution swap is accepted.** `customizations.xml` references the app by path only, with no hash or checksum.
+- **Studio is the compiler.** It validates the YAML on open and reports precise errors, e.g. `Src\Screen1.pa.yaml(16,9) : error PA2109 : Unknown variant 'verticalGallery' for control type 'Gallery'`. Treat a failed open as a build error, not a disaster.
+
+**Control vocabulary can only come from Studio.** The published schema does not enumerate it (`Variant` is merely "a non-empty string"), so **do not guess control or variant names.** Drop the control in Studio once, save, publish, download, unpack, and read what it generated. Known-good so far:
+
+| Control | Exact YAML |
+|---|---|
+| Gallery | `Control: Gallery@2.15.0` + `Variant: BrowseLayout_Vertical_TwoTextOneImageVariant_ver5.0` |
+| Label | `Control: Label@2.5.1` |
+| Checkbox | `Control: Classic/CheckBox@2.1.0` |
+| Date picker | `Control: Classic/DatePicker@2.6.0` |
+| Icon | `Control: Classic/Icon@2.5.0` with `Icon: =Icon.ChevronRight` |
+| Rectangle | `Control: Rectangle@2.3.0` |
+
+Omitting `@version` is legal and takes the current version. Font is `=Font.'Open Sans'`.
+
+**`pac canvas download` reads the PUBLISHED version.** A Studio Save alone is invisible to the CLI — publish, or you will read stale YAML and conclude the write failed. Second instance in this project of a published-vs-draft split looking like a silent failure, after the flow draft-row mechanism.
+
+**Microsoft documents this as unsupported** — the `pa.yaml` docs say the files are read-only, "not used when an app is loading", that edits "are ignored and might be lost", and that external editing is supported only via Power Platform Git Integration. It demonstrably works today. The risk is accepted deliberately because the fallback is cheap: the Power Fx is identical either way, so if the mechanism breaks, the same formulas get pasted into Studio and nothing is lost but time. **Git Integration remains the supported alternative** and this repo is already on Azure DevOps, with a Source control tab on the solution.
+
+**Superseded reasoning from earlier the same day, kept so the dead ends are not re-walked:** Full reasoning in `canvas-app/README.md`. The short version: `pac canvas` round-trips YAML cleanly, but **data connections are not expressible in YAML** (they live in the `.msapr` residual, and this app needs four SharePoint connections plus the Flow 2 connector), there is **no `pac canvas upload`** verb, and Microsoft scopes the format to "review changes made within Studio and minor edits (Preview)". Use `download` + `unpack` after each Studio session to get reviewable formula-level diffs into git. That is a real gain we did not have before, and it is all the YAML path is good for. The spike cost about half an hour and caught this before it surfaced at Day 1 Step 2 of the Week 3 spec.
 
 **Superseded detail from the same day, kept because the dead ends are worth not re-walking:**
 

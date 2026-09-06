@@ -105,9 +105,10 @@ Screens:
                 Control: Label@2.5.1
                 Properties:
                   Text: |
-                    =LookUp(Crews, CrewID = ThisItem.Crew, Title)
+                    =Coalesce(LookUp(Crews, CrewID = ThisItem.Crew, Title), ThisItem.Crew, "Unassigned")
                      & "   "
-                     & Text(ThisItem.TasksComplete) & "/" & Text(ThisItem.TasksTotal) & " tasks"
+                     & Text(Coalesce(ThisItem.TasksComplete, 0)) & "/"
+                     & Text(Coalesce(ThisItem.TasksTotal, 0)) & " tasks"
                      & If(ThisItem.InstallerSignOff, "   SIGNED OFF", "")
                   Color: =If(ThisItem.InstallerSignOff, RGBA(15, 118, 110, 1), RGBA(107, 114, 128, 1))
                   Font: =Font.'Open Sans'
