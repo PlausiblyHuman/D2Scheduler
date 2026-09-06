@@ -55,6 +55,25 @@ The four load-bearing invariants (enforced by the design, not by a database prim
 - **Four subcontractor crews** (George, Armondo, STL Shotcrete, Brothers) modeled as `Unlimited = Yes` capacity-exempt buckets. No roster, no M365 seat, cannot be double-booked.
 - **Sign-off happens on connected devices** — David confirmed no signal-required scenarios.
 
+- **Sign-off LOCKS the task list, and a recorded Reopen is the only way back. DECIDED 2026-09-06 (Shane).**
+  Triggered by a real case: a PM walk-through spots something signed off that clearly was not
+  done. Without a reopen path the only remedy is silently unticking tasks underneath a
+  completed sign-off, which is what the app allowed on first build — the attestation said
+  "signed, 5 of 6" while the rows underneath said something else. That is the same
+  counter-vs-rows divergence already recorded on Harrison Assignment 1.
+
+  The rule: once `InstallerSignOff` is true the task rows are read-only, and the sign-off
+  button becomes **Reopen**. Reopening clears `InstallerSignOff` and **appends who reopened and
+  when to `SignOffNotes`**, so a correction is deliberate and attributable rather than a silent
+  edit.
+
+  Deliberately kept small to avoid scope creep — no reason dialog, no separate audit list, no
+  schema change, no new flow. `SignOffNotes` already exists and is already written at sign-off.
+
+  **Open: anyone can reopen.** Restricting it to PMs needs `Crews.LeadEmail` populated with real
+  crew-lead UPNs, which is client-gated. Recording *who* reopened gives accountability now;
+  restricting *who may* is a later switch, not a redesign.
+
 ## Staging / integration contracts
 
 **Between the browser tool and Lists:**
