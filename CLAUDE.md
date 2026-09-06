@@ -441,6 +441,37 @@ Three facts still hold and are what make YAML authoring worth keeping at all:
   and reports precise errors, e.g. `Src\Screen1.pa.yaml(16,9) : error PA2109 : Unknown variant
   'verticalGallery' for control type 'Gallery'`. Treat a failed open as a build error.
 
+**Git Integration is RULED OUT for D2 — licensing, not capability. Investigated 2026-09-06g.**
+
+Microsoft deprecated the very commands this loop runs on: the `pac canvas` reference now states
+**"The `pack` and `unpack` commands are deprecated. To source control your canvas app, use the
+Power Platform Git Integration."** Git Integration is GA, works natively on `.pa.yaml` with no
+conversion, and would replace the manual Studio save outright — *"Any changes are restored with
+the app when you pull changes to your environment."* That is exactly the compile step the pixel
+nudge is faking.
+
+**It is still not available to us.** The prerequisite is explicit: *"Dataverse Git integration is
+a feature of **managed environments**. Development and target environments must be enabled as
+managed environments."* And Managed Environments is *"a suite of **premium** capabilities …
+included as an entitlement with **standalone** Power Apps, Power Automate, Copilot Studio, Power
+Pages, and Dynamics 365 licenses."*
+
+**Standalone** means the ~$20/user/mo premium SKUs. It does **not** include the seeded
+*Power Apps for Microsoft 365* rights that come with Business Basic and Business Standard, which
+are the entire licensing basis of this build. Adopting Git Integration therefore reintroduces the
+premium per-user cost that ruled out Dataverse in the first place, to buy nothing but a nicer
+deploy loop. D2 holds zero standalone licenses today.
+
+**Provider is not the constraint** — Azure DevOps is the first-class provider (GitHub support only
+arrived in 2026 wave 1), and this repo is already on Azure DevOps. The blocker is Managed
+Environments alone.
+
+**Consequence: the manual Studio save is permanent, not a stopgap.** Do not spend time looking for
+a headless publish again, and do not automate the nudge by driving the browser — it is a ~30 second
+manual step and Studio's UI is not a stable automation target. `deploy.py` prints the four steps on
+every run. Revisit only if D2 ever buys standalone Power Apps licenses, which is the same decision
+as adopting Dataverse.
+
 **Control vocabulary can only come from Studio.** The published schema does not enumerate it (`Variant` is merely "a non-empty string"), so **do not guess control or variant names.** Drop the control in Studio once, save, publish, download, unpack, and read what it generated. Known-good so far:
 
 | Control | Exact YAML |

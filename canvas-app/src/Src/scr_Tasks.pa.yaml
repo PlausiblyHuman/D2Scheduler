@@ -38,13 +38,19 @@ Screens:
             OnSelect: |
               =If(
                   !IsBlank(gblAssignment) && gblTasksDirty,
-                  Patch(
-                      Assignments,
-                      gblAssignment,
-                      {
-                          TasksTotal: CountRows(galTasks.AllItems),
-                          TasksComplete: CountRows(Filter(galTasks.AllItems, Complete))
-                      }
+                  IfError(
+                      Patch(
+                          Assignments,
+                          gblAssignment,
+                          {
+                              TasksTotal: CountRows(galTasks.AllItems),
+                              TasksComplete: CountRows(Filter(galTasks.AllItems, Complete))
+                          }
+                      ),
+                      Notify(
+                          "Counter write failed: " & FirstError.Message,
+                          NotificationType.Error
+                      )
                   )
               );
               Navigate(Screen1, ScreenTransition.UnCover)
@@ -166,30 +172,54 @@ Screens:
                   Text: =""
                   Default: =ThisItem.Complete
                   OnCheck: |
-                    =Patch(
-                        Tasks,
-                        ThisItem,
-                        {
-                            Complete: true,
-                            CompletedBy: {
-                                '@odata.type': "#Microsoft.Azure.Connectors.SharePoint.SPListExpandedUser",
-                                Claims: "i:0#.f|membership|" & Lower(gblCurrentUser.userPrincipalName),
-                                DisplayName: gblCurrentUser.displayName,
-                                Email: gblCurrentUser.userPrincipalName
-                            },
-                            CompletedOn: Now()
-                        }
+                    =IfError(
+                        Patch(
+                            Tasks,
+                            ThisItem,
+                            { Complete: true, CompletedOn: Now() }
+                        ),
+                        Notify(
+                            "Tick failed: " & FirstError.Message,
+                            NotificationType.Error
+                        )
+                    );
+                    IfError(
+                        Patch(
+                            Tasks,
+                            ThisItem,
+                            {
+                                CompletedBy: {
+                                    '@odata.type': "#Microsoft.Azure.Connectors.SharePoint.SPListExpandedUser",
+                                    Claims: "i:0#.f|membership|" & Lower(gblCurrentUser.userPrincipalName),
+                                    DisplayName: gblCurrentUser.displayName,
+                                    Email: gblCurrentUser.userPrincipalName
+                                }
+                            }
+                        ),
+                        Notify(
+                            "CompletedBy failed: " & FirstError.Message,
+                            NotificationType.Warning
+                        )
                     );
                     Set(gblTasksDirty, true)
                   OnUncheck: |
-                    =Patch(
-                        Tasks,
-                        ThisItem,
-                        {
-                            Complete: false,
-                            CompletedBy: Blank(),
-                            CompletedOn: Blank()
-                        }
+                    =IfError(
+                        Patch(
+                            Tasks,
+                            ThisItem,
+                            { Complete: false, CompletedOn: Blank() }
+                        ),
+                        Notify(
+                            "Untick failed: " & FirstError.Message,
+                            NotificationType.Error
+                        )
+                    );
+                    IfError(
+                        Patch(Tasks, ThisItem, { CompletedBy: Blank() }),
+                        Notify(
+                            "CompletedBy clear failed: " & FirstError.Message,
+                            NotificationType.Warning
+                        )
                     );
                     Set(gblTasksDirty, true)
                   Height: =44
