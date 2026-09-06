@@ -20,7 +20,12 @@ and reports precise errors (file, line, column, e.g. PA2109 for a bad control
 variant). `pac canvas download` reads the PUBLISHED version, so a Studio Save
 alone is invisible to this script.
 """
-import os, subprocess, sys, zipfile
+import glob, os, subprocess, sys, zipfile
+
+try:
+    import yaml
+except ImportError:
+    sys.exit('pyyaml is required for the pre-pack syntax gate: python -m pip install pyyaml')
 
 ENV      = '2710a01b-6cfa-e820-b338-2286f2649300'
 SOLUTION = 'D2BuildScheduler'
@@ -46,6 +51,26 @@ def run(*args):
 
 
 os.makedirs(EXPORT, exist_ok=True)
+
+# Syntax gate. `pac canvas pack` does NOT parse the YAML -- it packs invalid
+# files without complaint, so the first sign of a syntax error is Studio
+# refusing to open the app, which costs a manual round-trip to discover.
+# Parsing locally catches that class outright. Proven against the real defect:
+# a plain scalar containing ": " (e.g. ="Sign off: " & x) reads as a mapping,
+# and Studio reports it as PA1001 YamlInvalidSyntax at the same line/column
+# this gate does. Use a block scalar for any formula containing ": ".
+failed = False
+for f in sorted(glob.glob(os.path.join(SRC, 'Src', '*.pa.yaml'))):
+    try:
+        yaml.safe_load(open(f, encoding='utf-8'))
+    except yaml.YAMLError as e:
+        failed = True
+        mark = getattr(e, 'problem_mark', None)
+        where = '(%d,%d)' % (mark.line + 1, mark.column + 1) if mark else ''
+        print('YAML FAIL %s%s : %s' % (os.path.basename(f), where, getattr(e, 'problem', e)))
+if failed:
+    sys.exit('Fix the YAML above before deploying.')
+print('YAML syntax gate passed.')
 
 run('pac', 'canvas', 'pack', '--sources', SRC, '--msapp', PACKED,
     '--layout', 'SourceCode', '--overwrite')

@@ -59,7 +59,10 @@ Screens:
       - lblTasksTitle:
           Control: Label@2.5.1
           Properties:
-            Text: ="Sign off: " & gblAssignment.SubPhaseNumber
+            # Block scalar, not a plain one: the ": " inside the string literal
+            # would otherwise be read by YAML as a key separator (PA1001).
+            Text: |
+              ="Sign off: " & gblAssignment.SubPhaseNumber
             Color: =RGBA(255, 255, 255, 1)
             Font: =Font.'Open Sans'
             FontWeight: =FontWeight.Semibold
