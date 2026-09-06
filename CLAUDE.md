@@ -18,7 +18,7 @@ Site URL: `https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler` (site
 - **Client owners at D2:** David Taylor (david@d2pools.com), Don Borgeson (don@d2pools.com) — both on Business Premium
 - **Client office/PM:** Amy Stevens, Carolyn Morris, Cody Campbell, Daniel Morris, Emon Alexander, Tyler Huisman — all on Business Standard
 - **Field crew leads (~10):** currently unlicensed. **DECIDED 2026-09-04 — canvas app, not Forms.** Shane's call: "MS Forms will not cut it." Requires Business Basic ($6/user/mo, ~$720/yr for 10) added for them. Business Basic also gives them a real D2 mailbox, which `Crews.LeadEmail` and Flow 1's dispatch both depend on — the seats are the price of the crew being on the system at all, not just of one app. See "Crew-lead licensing" under Known bugs for the reasoning and the open procurement question.
-- **Prior builder:** Ryan Meyer (Tennetech). **Stratirus is owned by Tennetech**; Ryan owns both companies and both Power Platform environments. This handoff was an internal brand reshuffle, not a vendor transition — so there is no IP, provenance or cross-vendor question about which environment work is built in. **Updated 2026-09-04: Ryan is back on the build**, picking up the Week 3 canvas app (see `D2-Canvas-App-Handoff-Contract.md`). The earlier note that he was "effectively out of day-to-day" no longer holds.
+- **Prior builder:** Ryan Meyer (Tennetech). **Stratirus is owned by Tennetech**; Ryan owns both companies and both Power Platform environments. This handoff was an internal brand reshuffle, not a vendor transition — so there is no IP, provenance or cross-vendor question about which environment work is built in. **Updated 2026-09-05 — Ryan is OFF the build again; the canvas app stays with Stratirus.** This reverses the 2026-09-04 decision to hand Week 3 to him. `D2-Canvas-App-Handoff-Contract.md` is therefore no longer a handoff document: read it as **internal build guidance**, and note that its §6a production-safety rules now bind *us*, not a third party. They are still load-bearing, because the app is still being built in the live client tenant.
 
 ## Architecture
 
@@ -29,7 +29,7 @@ Site URL: `https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler` (site
 - **Power Automate flows (5)** — Daily Dispatch + Reminders, Event-Driven Reconciliation (with sign-off trigger-condition), Sign-off Intake, Nightly Reconciliation, Daily + Weekly PDF Summary
 - **Power Apps canvas app** — crew-lead sign-off + task-tick, mobile-first, standard M365 rights only
 - ~~**Microsoft Forms** — fallback sign-off surface~~ **RULED OUT 2026-09-04.** Forms cannot render a question set that varies per respondent at runtime, so "show this crew lead today's 6 tasks" has no native expression. The cheap variant (one generic form, sub-phase-level sign-off + a task count) drops Don's explicit task-level tick requirement; the faithful variant (46 forms, one per sub-phase template, deep-linked with a prefilled assignment ID) costs more than the canvas app and is a maintenance trap. Unlicensed crew leads could only use an anonymous "anyone with the link" form, which degrades `InstallerSignOffBy` from a verified User to a typed name on a forwardable link — an audit-trail regression larger than the one Rev D §02 added `WorkDate` to fix.
-- **Teams channels** — `Field Dispatch` and `Ownership` for artifact posting
+- **Teams channels** — `Field Dispatch` and `Ownership` for artifact posting. **DEFERRED to post-pilot, decided 2026-09-05.** Neither channel exists (the tenant has only `d2pools.com > General`). The one case where Teams would have been materially better was delivering dispatch to crew leads on a mailbox-less SKU, and that case evaporated when M365 F1 turned out not to include Power Apps at all — see the licensing correction under Known bugs. With Business Basic as the floor, crew leads get mailboxes anyway, so **Flow 1's email dispatch stays as built and verified**. Everything else Teams would carry (Flow 4 alerts, Don's summaries) is duplicating email that already works, in exchange for a client-gated dependency in a calendar-locked week.
 - **Browser scheduler** — `D2-Build-Scheduler/app/pool-scheduler.html`, permanent PM-side planner role (not being retired; committed schedule flows to Lists nightly)
 
 **Environment split:**
@@ -62,6 +62,40 @@ The four load-bearing invariants (enforced by the design, not by a database prim
 - A nightly Power Automate flow reads the browser tool's JSON backup (dropped to a watched SharePoint folder) and upserts Jobs + Sub-phase Assignments into Lists.
 - Lists is the source of truth for execution state (sign-off, task completion, timestamps). Never edit sign-off in the browser tool.
 
+> **THE NIGHTLY SYNC FLOW DOES NOT EXIST (found 2026-09-05).** The bullet above describes a
+> contract with no implementation. It is not one of the five Week 2 flows, it is not in
+> `flows/definitions/`, and it is not a build step in any of the five week runbooks. Nothing
+> anywhere was tracking it. Without it there is **no path for a PM's schedule to reach
+> SharePoint except hand-entry**, which is the bottleneck this system exists to remove.
+>
+> **Decision 2026-09-05: descoped from the pilot, deliberately and on the record.** Week 4
+> pilots one pool with its assignments loaded once, by us, via REST. That is a few dozen rows
+> and it still tests everything the pilot is actually for: does a crew lead sign off on a
+> phone, do the flows fire, does Don's summary land. Build the sync in Week 5 or after,
+> when the browser tool's real JSON export has been seen in anger rather than assumed.
+>
+> Weeks 4 and 5 are calendar-locked. Discovering this during Week 4 would have eaten both.
+
+**`DurationDays` means WORK days, never the inclusive calendar span.** Two conflicting
+definitions are live in the list right now, and the disagreement only shows on rows that
+cross a Sunday:
+
+| Rows | Written by | Definition | Example |
+|---|---|---|---|
+| Harrison 1-5 | the 2026-09-03 date fix, by hand | inclusive calendar span | — |
+| `TEST-900x` | `generate-seed.py` (`'days'`) | work days | `2026-08-22 → 08-24` = **2**, not 3 |
+
+The browser tool is the authority and models sub-phase durations in work days (the "46
+durations at 2-day placeholder" are 2 *work* days), so **work days wins** and the Harrison
+rows are the wrong ones. That self-disposes when the demo job is deleted, but the canvas app
+and the future sync must both write work days or it comes straight back.
+
+Related and easy to get backwards: **a span that contains a Sunday is legitimate.** A
+2-work-day sub-phase starting Saturday correctly runs Sat + Mon and stores
+`start=Sat, finish=Mon`. Only the **endpoints** must be work days. `generate-seed.py` now
+checks both endpoints (it only checked the start before); six of the 38 seeded rows span a
+Sunday and all six are correct.
+
 **Between canvas app and flows:**
 - Canvas app writes task completion directly to the Tasks list (SharePoint connector, standard rights).
 - Canvas app calls the **Sign-off Intake** flow (PowerApps V2 trigger) with `{ AssignmentID, WorkDate, Notes, TasksTotal, TasksComplete }`. Flow writes InstallerSignOff = true, By, On, WorkDate, Notes, task counts onto the Assignment.
@@ -80,7 +114,7 @@ The four load-bearing invariants (enforced by the design, not by a database prim
 
 **Do not quote any of those numbers as this project's budget.** The commercial terms for the D2 Build Scheduler are not recorded anywhere in this repo. If a cost question comes up, ask rather than infer.
 
-Figures that *are* sound, because they come from Microsoft list pricing rather than the SOW: crew-lead licensing at ~$6/user/mo (Business Basic) or ~$2.25 (M365 F1), and Power Apps Premium at ~$20/user/mo for the Dataverse path.
+Figures that *are* sound, because they come from Microsoft list pricing rather than the SOW: crew-lead licensing at ~$6/user/mo (Business Basic), and Power Apps Premium at ~$20/user/mo for the Dataverse path. **The ~$2.25 M365 F1 figure that used to appear here is void** — F1 does not include Power Apps, so it was never a real option at any price. See the crew-lead licensing entry under Known bugs.
 
 ## Estimating — the week/hour figures are not reliable
 
@@ -120,7 +154,20 @@ Load-bearing details for future runs:
 - **Hyphenated or spaced list names** get sanitized entity type names (`SP.Data.Crew_x002d_TradesListItem`, `SP.Data.Work_x0020_CalendarListItem`). Don't hand-write these — read `ListItemEntityTypeFullName` off the list metadata and use that string verbatim.
 - **`D2-Provision-Lists.ps1` is obsolete.** Keep for archaeology but do not run — the whole PnP path is blocked.
 
-**Chrome MCP tab isolation.** Claude Chrome creates tab groups in an isolated cookie context. Fresh tabs land on sign-in walls even when the user's regular browser tabs are already signed in as the same account. Confirmed deterministic — switching browsers or reconnecting does not resolve. Workaround: user drives their own signed-in browser tabs; agent guides via chat.
+**RESOLVED 2026-09-05 — use the `chrome-devtools` MCP server, NOT the Claude Chrome extension, for authenticated SharePoint REST.** These are two different servers and only one of them works:
+
+| | Tools | Cookie context |
+|---|---|---|
+| Claude Chrome extension | `switch_browser`, `navigate`, `javascript_tool` | **Isolated tab group.** Lands on the sign-in wall. |
+| `chrome-devtools` MCP | `list_pages`, `select_page`, `evaluate_script` | **The user's own live session.** Authenticated. |
+
+`chrome-devtools` attaches to Shane's actual running browser. `list_pages` returns his real open tabs, and `evaluate_script` on a signed-in SharePoint tab fires REST with his cookies. Verified 2026-09-05: `/_api/web/currentuser` returned `i:0#.f|membership|stratirus@d2pools.com`, and a 7-row MERGE against Crews succeeded.
+
+**This removes the "agent guides, user pastes into the console" workaround for the whole class of SharePoint work** — provisioning, seeding, MERGE fixes, `cleanup.js`. Always call `list_pages` first and confirm identity with `/_api/web/currentuser` before any write; the tab has to already be open and signed in, and the account must be `stratirus@d2pools.com`.
+
+**Console paste is a non-issue via this route, and worth knowing anyway:** Chrome's self-XSS guard is not a setting or a menu item. It appears only *after* you attempt a paste into the Console, and it asks you to type the words `allow pasting`. If a human does need to run a script by hand, DevTools → **Sources → Snippets** has no such guard and is the easier path.
+
+**Superseded note (kept for context):** the Claude Chrome extension creates tab groups in an isolated cookie context, so fresh tabs land on sign-in walls even when the user's regular tabs are signed in as the same account. That remains true of *that* extension. It is not true of `chrome-devtools`.
 
 **Desktop Commander `Start-Process pwsh.exe` MAY still inherit stdio.** The m365-interactive-auth skill flags this class of issue for Graph SDK. In practice, launching pwsh via `cmd /c start` from a DC-spawned shell has the same failure mode as `Start-Process` directly. When Microsoft auth writers matter, have the user open pwsh manually.
 
@@ -292,7 +339,16 @@ and confirm with FlowAgent `whoami` that `tokenIdentity.tenantId` is `f24d9b39-�
 **Crew-lead licensing — canvas app confirmed, seats not yet bought (2026-09-04).**
 
 - **There are no crew-lead accounts in the tenant at all.** The dependency is *create ~10 identities + mailboxes*, then licence, then install and sign in per handset — not merely "buy 10 seats." That lead time sits upstream of Week 4 and is the item to put in front of David/Don.
-- **Business Basic (~$6/user/mo, ~$720/yr for 10), not Standard.** Standard's premium is desktop Office, which phone-based crew leads never touch. **Microsoft 365 F1 (~$2.25/user/mo, ~$270/yr) is the frontline SKU built for exactly this population** — seeded Power Apps + Teams, but **no mailbox**, so Flow 1 dispatch would need a personal address or Teams delivery. Price both with D2's direct-Microsoft rep; the figures here predate the GoDaddy exit.
+- **Business Basic (~$6/user/mo) is the cheapest SKU that works. This is now a verified floor, not a preference.** Standard's premium is desktop Office, which phone-based crew leads never touch, so Standard is overspend.
+
+- **CORRECTED 2026-09-05 — Microsoft 365 F1 does NOT include Power Apps or Power Automate.** The earlier claim here that F1 was "the frontline SKU built for exactly this population, seeded Power Apps + Teams" was **wrong**, and it was about to be taken into a client licensing conversation as a ~$190/yr option. Microsoft's own plan-comparison table is explicit: `Power Apps for Microsoft 365` and `Power Automate for Microsoft 365` are both **No** for M365 F1, and **Yes** for Business Basic, Business Standard and F3. ([Microsoft 365 and Office 365 platform service description](https://learn.microsoft.com/office365/servicedescriptions/office-365-platform-service-description/office-365-platform-service-description#features-available-across-all-plans))
+
+  Consequences that follow, and they simplify the decision rather than complicate it:
+  - **F1 is off the table at any price.** A crew lead on F1 could not open the canvas app.
+  - **F3 (~$8/user/mo) would work but costs more than Business Basic** and adds only desktop-adjacent frontline features D2 does not need.
+  - **The mailbox is no longer a tradeoff.** The whole reason to consider a mailbox-less SKU was the F1 saving. With F1 gone, Business Basic's mailbox comes free with the cheapest working option, so **Flow 1's email dispatch stays as built and verified** and there is no reason to port dispatch to Teams.
+
+  Price with D2's direct-Microsoft rep; the per-seat figures predate the GoDaddy exit. But the *shape* of the recommendation is settled: **~7 Business Basic seats.**
 - **Dataverse remains correctly ruled out** — Power Apps Premium at ~$20/user/mo is ~$2,900–4,800/yr across this user set, plus a full rebuild.
 
 **PM proxy sign-off is mandatory regardless of the licensing path — this is load-bearing for the canvas app design.** The four subcontractor crews (George, Armondo, STL, Brothers) are `Unlimited = Yes` with **no M365 seat by design**, so they can never sign off for themselves. Someone in the office must sign off on their behalf. Consequences:
@@ -304,12 +360,36 @@ and confirm with FlowAgent `whoami` that `tokenIdentity.tenantId` is `f24d9b39-�
 **OPEN — `Crews.LeadEmail` holds placeholder data, and there are 7 field crews, not ~10** (live schema read 2026-09-04; this supersedes the 2026-08-25 note that the column was empty).
 
 - All seven real field crews carry the same value, `stalbot@stratirus.com` — an **external UPN that does not exist in the D2 tenant**, so no D2 user can ever match it, and because all seven share it `LookUp` returns only the first match (`saul`). Worse than empty: it looks populated.
-- **Only 7 crews actually need a sign-off identity** — `saul`, `guillermo`, `harrison`, `antonio`, `devon`, `cirilo`, `campos`. The other 7 rows are `Unlimited = Yes` buckets (`stl`, `george`, `armondo`, `brothers`, `subcon`, `unassigned`, `office`) that never sign off. **Crew-lead licensing is therefore ~7 seats, not 10** — ~$504/yr on Business Basic, ~$190/yr on F1.
+- **Only 7 crews actually need a sign-off identity** — `saul`, `guillermo`, `harrison`, `antonio`, `devon`, `cirilo`, `campos`. The other 7 rows are `Unlimited = Yes` buckets (`stl`, `george`, `armondo`, `brothers`, `subcon`, `unassigned`, `office`) that never sign off. **Crew-lead licensing is therefore ~7 seats, not 10** — ~$504/yr on Business Basic at list. (Ignore any ~$190/yr F1 figure in older notes; F1 has no Power Apps.)
+
+- **DONE 2026-09-05 — all seven placeholders cleared.** Verified against live: `cleared 7` (`saul`, `guillermo`, `harrison`, `antonio`, `devon`, `cirilo`, `campos`), `failures []`, `stillSet []`, row count unchanged. The live read also confirmed the split exactly: 7 `Unlimited=false` field crews all held `stalbot@stratirus.com`, and the 7 `Unlimited=true` buckets were already empty. `canvas-app/blank-lead-email.js` is retained and is idempotent, so it is safe to re-run as a check. Empty is strictly safer than wrong here: populated-but-unmatchable makes the app *look* correct while showing every crew lead Saul's assignments, whereas empty falls through to the PM-proxy picker that has to exist anyway for the four `Unlimited` subcontractor crews. Reseed with **userPrincipalName** once the identities exist.
 - `subcon`, `unassigned` and `office` are pseudo-crews, not companies.
 
-**Week 3 canvas app is being built by Ryan, IN D2 PRODUCTION — decided 2026-09-04.** No mirror environment, no stub flow, no cross-tenant port. He works in **D2 Automation** against the real lists, signed in as **D2 Bot** (`stratirus@d2pools.com`, Business Standard, which carries Power Apps for M365 seeded rights), and calls the real published Flow 2. This removes roughly a day of port-and-re-point overhead from the only week that still has slack — Weeks 4 and 5 are calendar-locked.
+**Canvas app authoring — SPIKED AND ANSWERED 2026-09-06: build in Studio, not headless.** Full reasoning in `canvas-app/README.md`. The short version: `pac canvas` round-trips YAML cleanly, but **data connections are not expressible in YAML** (they live in the `.msapr` residual, and this app needs four SharePoint connections plus the Flow 2 connector), there is **no `pac canvas upload`** verb, and Microsoft scopes the format to "review changes made within Studio and minor edits (Preview)". Use `download` + `unpack` after each Studio session to get reviewable formula-level diffs into git. That is a real gain we did not have before, and it is all the YAML path is good for. The spike cost about half an hour and caught this before it surfaced at Day 1 Step 2 of the Week 3 spec.
 
-The tradeoff is a third party working in a live client tenant on a shared credential. The safety rules are in `D2-Canvas-App-Handoff-Contract.md` §6a and are load-bearing: never touch Assignments 1–5 or `D2-1001` (use the `TEST-900x` rows, and do **not** delete them — that removal is sequenced for just before the pilot); stop Flows 3 and 4 before bulk writes, because Flow 3's no-op trigger means every Assignments edit burns a run; calling Flow 2 writes real sign-off data; everything logs as D2 Bot so there is no individual attribution; and do not edit the five published flows in the designer.
+**Superseded detail from the same day, kept because the dead ends are worth not re-walking:**
+
+`pac` CLI 2.11.2 is installed and `pac canvas` offers `download / list / pack / unpack / validate / create`. **`pack` and `unpack` are flagged Preview by Microsoft.** `pack` requires a complete `--sources` tree in `SourceCode` layout, and hand-authoring that tree from nothing is a very different proposition from repacking one that `unpack` produced.
+
+Confirmed dead ends for bootstrapping a seed `.msapp` without the designer:
+- `pac canvas list` against D2 Automation returns **empty** — no canvas app exists yet to download.
+- `pac canvas create` builds an app **from a custom connector**, and `pac connector list` reports **no connectors in the environment**.
+
+**So the seed app must be created once in Studio.** The plan: create a blank app, `pac canvas download` it, `unpack` it, then author against a known-good tree rather than inventing one. Decide headless-vs-Studio on the evidence of that round-trip, and do not commit to headless before it. This is deliberately cautious because the Week 2 lesson applies exactly here: authoring compresses, undocumented-platform discovery does not.
+
+**`pac` auth — the cached-tenant trap bites here too.** `pac auth list` showed `stalbot@stratirus.com`, the third instance after `az login` and `Add-PowerAppsAccount`. Fixed with a named profile:
+
+```
+pac auth create --tenant f24d9b39-6a71-4f4e-a376-03b6f61c97e4 --name D2
+```
+
+Sign in as **`stratirus@d2pools.com`**. Verify with `pac env list`, which must show `D2 Automation` / `2710a01b-6cfa-e820-b338-2286f2649300` / `https://org4ed2f722.crm.dynamics.com/`.
+
+**REST from the browser: always use the ABSOLUTE site URL.** A leading-slash path such as `/_api/web/lists/GetByTitle('Crews')` resolves against the **root** site and returns `List 'Crews' does not exist at site with URL 'https://netorgft15040037.sharepoint.com'`. Every call must be prefixed with `https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler`. The list is on the subsite, and the 404 names the root URL, which makes it look like a permissions problem when it is a path problem.
+
+**Week 3 canvas app is built by Stratirus, IN D2 PRODUCTION — env decided 2026-09-04, ownership settled 2026-09-05.** No mirror environment, no stub flow, no cross-tenant port. The build happens in **D2 Automation** against the real lists, signed in as **D2 Bot** (`stratirus@d2pools.com`, Business Standard, which carries Power Apps for M365 seeded rights), calling the real published Flow 2. This removes roughly a day of port-and-re-point overhead from the only week that still has slack — Weeks 4 and 5 are calendar-locked.
+
+The third-party risk is gone, but **the production risk is not** — this is still a live client tenant and still a shared credential. The safety rules are in `D2-Canvas-App-Handoff-Contract.md` §6a and remain load-bearing: never touch Assignments 1–5 or `D2-1001` (use the `TEST-900x` rows, and do **not** delete them — that removal is sequenced for just before the pilot); stop Flows 3 and 4 before bulk writes, because Flow 3's no-op trigger means every Assignments edit burns a run; calling Flow 2 writes real sign-off data; everything logs as D2 Bot so there is no individual attribution; and do not edit the five published flows in the designer.
 
 `canvas-app/mirror-provision.js` is retained as the authoritative live-schema capture (more accurate than the obsolete `D2-Provision-Lists.ps1`) but is **not needed** for this build.
 
@@ -346,17 +426,23 @@ The tradeoff is a third party working in a live client tenant on a shared creden
 | Crew-Trades | 51 | (see viewlsts.aspx) |
 | Work Calendar | 62 (52 Sundays + 10 US federal holidays) | (see viewlsts.aspx) |
 
-**Week 2 flow status (as of 2026-09-02):**
+**Week 2 flow status (as of 2026-09-05 — Week 2 is CLOSED):**
 
 | # | Flow | State | Notes |
 |---|---|---|---|
 | 1 | Daily Dispatch + Reminders | Started | **DONE — verified end-to-end 2026-09-03.** Both the `?['Value']` fix and the `CrewID` join fix applied and published; a live run produced a populated dispatch email. |
 | 2 | Sign-off Intake | Started | DONE, end-to-end verified |
-| 3 | Event-Driven Reconciliation | Started | **Detection works; gate test 2 FAILED.** `CrewID` join fix applied + published; double-book correctly fired a High-importance alert with correct body. But the trigger condition is a **no-op** — `GetOnUpdatedItems` emits no `@odata.oldValue`, so every edit fires the flow. See Known bugs. |
+| 3 | Event-Driven Reconciliation | **STOPPED 2026-09-05** | **Deliberately stopped for the canvas-app build.** Detection works; gate test 2 FAILED. `CrewID` join fix applied + published; double-book correctly fired a High-importance alert with correct body. But the trigger condition is a **no-op** — `GetOnUpdatedItems` emits no `@odata.oldValue`, so every edit fires the flow. See Known bugs. |
 | 4 | Nightly Reconciliation | Started | **DONE — built and both tests passed 2026-09-03.** Created fully headless (no designer). Clean sweep = 0 conflicts, no email; seeded double-book caught and emailed. |
-| 5 | Daily + Weekly Summary | Started | **DONE 2026-09-03 — built as two flows, both tested with rendered output verified.** HTML email body, not PDF (see below). |
+| 5 | Daily + Weekly Summary | Started | **DONE.** Built 2026-09-03 as two flows, HTML body not PDF. **Content reviewed 2026-09-05 and three defects fixed** — weekly compliance counted unfinished work, neither table was sorted, daily footer off by one. Re-verified by manual run. |
 
-**Immediate next action:** (a) review the rendered summary previews in flows/testdata/ and decide whether to point Flow 5 at Don; (b) remove the TEST-900x seed data before the pilot (see above); (c) decide how to gate Flow 3 - its trigger condition is a proven no-op; (d) re-export all five flows to flows/exports/.
+**Week 2 close-out completed 2026-09-05:** summary previews reviewed (three defects found and fixed, see Flow 5 below), Flow 5 recipients deliberately left internal, and all six flows re-exported to `flows/exports/`.
+
+**Immediate next action:** start the Week 3 canvas app per `D2-Week-3-Canvas-App-Spec.md`. Two things gate it and one is now sequenced:
+
+- **Gate Flow 3 before the app writes at volume** — its trigger condition is a proven no-op, so every Assignments write burns a run, and the app is going to write task counters. This moved from "low urgency" to "blocking" the moment we owned the app.
+- **`Crews.LeadEmail` still holds placeholder data** — all seven field crews carry the same non-existent external UPN, so the app's `LookUp` on current user cannot work until it is seeded with real UPNs. That needs the crew-lead accounts to exist, which is client-gated.
+- **TEST-900x stays** until just before the pilot, deliberately — it is the only realistic test volume the canvas app has.
 
 **TEMPORARY TEST DATA IS LIVE ON THE D2 TENANT — remove before the pilot.** Seeded 2026-09-03 so Flows 4 and 5 could be judged against realistic volume rather than 5 rows.
 
@@ -364,11 +450,25 @@ The tradeoff is a third party working in a live client tenant on a shared creden
 |---|---|---|
 | Jobs | 2 | `TEST-9001` Sandbox Ridge, `TEST-9002` Sandbox Vista |
 | Assignments | 38 | Titles begin `TEST-900x ` (ids 6-43) |
-| Tasks | 0 | none created; `TasksTotal`/`TasksComplete` carry the numbers instead |
+| Tasks | **252 (added 2026-09-06)** | see below |
+
+**Tasks were backfilled 2026-09-06 — without them the canvas app could not be built.** The seed originally created **zero** Tasks rows, so 38 of 43 assignments had nothing to tick and the only 30 tasks in the list belonged to the Harrison demo job that is scheduled for deletion. The app's central screen is task-ticking, so this would have stopped the build on Day 2 of the Week 3 spec.
+
+252 rows were generated from the browser tool's `SEED_TEMPLATE` (295 real task names across 46 sub-phases), giving real text like `Verify Suction Lines`, not `Task 1`. Live state is now **282 tasks, 43 of 43 assignments covered, 93 complete**, with every assignment's row count matching its `TasksTotal` and completed count matching `TasksComplete`. The template's per-sub-phase task counts matched the existing `TasksTotal` values on all 38 rows with **zero mismatches**, which is a useful independent check that the seeder and the template agree.
+
+One deliberate inconsistency remains: **Assignment 1 reports `TasksComplete = 6` while all six of its Tasks rows are `Complete = false`.** That is the pre-existing stale `"Chrome-driven test"` sign-off, not a backfill error. It is worth keeping until the demo job is deleted, because the counters are only written at sign-off and the app has to cope when they disagree with the rows.
 
 Generated by `flows/testdata/generate-seed.py` from the real 46 sub-phase template in the browser tool, so it mirrors production shape (skills, durations, task counts). The generator enforces all four business rules and cross-checks against the 5 pre-existing Harrison rows before emitting anything — it caught two collisions with Assignment 5 on the first pass.
 
-**To remove:** stop Flows 3 and 4, run `flows/testdata/cleanup.js` in the browser console on the site, restart the flows. It deletes only rows whose Title starts with `TEST-` and Jobs whose JobNumber starts with `TEST-`, is idempotent, and reports what remains. Expected end state: assignments `[1,2,3,4,5]`, jobs `["D2-1001"]`. The manifest of exactly what was created is `flows/testdata/seeded-ids.json`.
+**Gap found 2026-09-05: the generator's rule-4 check does not cover the whole span.** `TEST-9002 · 2.1 Engineering Review by PM` is scheduled `2026-09-05 → 09-07`, crossing Sunday 09-06 — the same defect class as Assignment 4 in the original seed. It looks like only the start date is tested for Sunday, not every day in the range. Harmless in test data, but **do not reuse this generator for real scheduling without fixing the span check.** It became visible only once the summaries started rendering day names.
+
+**To remove:** stop Flows 3 and 4, run `flows/testdata/cleanup.js` in the browser console on the site, restart the flows. Idempotent; reports what remains. The manifest of exactly what was created is `flows/testdata/seeded-ids.json`.
+
+**`cleanup.js` was extended 2026-09-05 and now removes the Harrison demo job too.** `D2-1001` is no more real than `TEST-900x` — it is the browser prototype's hardcoded demo job and Assignments 1-5 hang off it, so leaving it means going live with demo data in a client tenant. Deleting it also disposes of three separately-tracked defects for free: Assignment 1's stale `"Chrome-driven test"` sign-off, Assignment 4's Sunday start, and the D2 Bot placeholder in `Jobs.ProjectManager`. **Do not spend effort fixing those three; they are being deleted.**
+
+Two behaviours worth knowing:
+- **It now deletes `Tasks` first.** The original version never touched Tasks, which would have orphaned Harrison's 30 rows. The `TEST-900x` rows have no Tasks, so this only matters for the demo job.
+- **`DROP_DEMO_JOB` is a flag at the top.** Set it `false` to clear only `TEST-` rows and keep Harrison alive while the canvas app is being built against it. Set `true` (the default) for the pre-pilot gate, whose expected end state is an empty tenant: `assignments []`, `jobs []`, `tasks 0`.
 
 **Stop Flow 3 (and Flow 4) before any bulk write to Assignments.** Every insert or edit fires Flow 3 — see the trigger-condition bug above. 38 inserts would otherwise burn 38 runs.
 
@@ -392,7 +492,28 @@ Two implementation details worth keeping:
 - **Crew is displayed by `Crews.Title`, joined on `CrewID`.** A per-row `Filter_crew` inside the loop resolves the short code to the friendly name, so ownership sees `Devon Crew +3`, not `devon`. Same join rule as everywhere else.
 - Week boundaries: `weekStart = today + (1 - dayOfWeek(today))` -> Monday, `weekEnd = weekStart + 5` -> Saturday. Verified from a Thursday run producing 2026-08-31..2026-09-05.
 
-**Recipient is `stratirus@d2pools.com` on both, deliberately.** Switching to Don (or Don + David) is a one-token edit in each `Send_summary` action. Do not point these at a client inbox until the content has been reviewed on a real cadence.
+**Recipient is `stratirus@d2pools.com` on both, deliberately.** Switching to Don (or Don + David) is a one-token edit in each `Send_summary` action. Do not point these at a client inbox until the content has been reviewed on a real cadence. Reaffirmed 2026-09-05: still internal, because ~90% of the rows either summary can see are `TEST-900x`.
+
+**RESOLVED 2026-09-05 — the weekly compliance percentage was measuring work that had not happened yet.** Found by reviewing the rendered previews rather than the run status; both flows had been green since they were built.
+
+`Get_week_finished` filtered `ScheduledFinish ge weekStart and ScheduledFinish le weekEnd`. The flow runs **Friday 15:00** but `weekEnd` is **Saturday**, so every sub-phase finishing Friday evening or Saturday was counted as an unsigned outstanding item. The 2026-09-03 preview named `D2-1001 · 2.2 Steel Installation` as the oldest outstanding while it was still two days from finishing.
+
+The effect was a permanently depressed number that would have been the first thing Don ever saw from this system. Fixed to `ScheduledFinish lt <today>`, matching the daily flow, which had it right from the start. Same data now reports **33%** where it previously reported **22%**, and "Finished this week: 9" became "Finished so far this week: 6".
+
+**Known limitation, accepted:** with `lt today` on a Friday run, work finishing Friday or Saturday never appears in *any* weekly compliance figure. The daily's 7-day trailing window still catches it, so nothing goes unmeasured overall. If that gap matters later, the clean fix is to score compliance over the **previous** completed Mon–Sat while keeping the schedule table on the current week, rather than moving the run later.
+
+Two more defects fixed in the same pass:
+
+- **Neither flow set `$orderby`,** so both tables came out in list-ID order. The weekly jumped 09-05, 09-03, 08-29, 09-01 *within a single job*. Now `$orderby=ScheduledStart asc` on `Get_today_assignments` and `Get_week_assignments`. Safe because `ScheduledStart` is a real column — unlike the `Crew/Title` path that failed in Week 2, which was never valid at all.
+- **The daily footer overstated its own window by a day** — it printed `lookback … today` while the filter is `lt today`. Now prints the true end date.
+
+Cosmetics in the same pass: dates render as `Wed 09/02 to Sat 09/05` instead of ISO (matching Flow 1's dispatch), guarded with `if(empty(coalesce(x,'')),'',formatDateTime(x,'ddd MM/dd'))` so a null date cannot fail the run; and a `&#183;` separator after the title.
+
+Both verified by manual runs on 2026-09-05 with the rendered HTML pulled back from the run and committed to `flows/testdata/`.
+
+**The `Tasks` column reads counters that nothing currently maintains.** `Append_row` projects `TasksComplete`/`TasksTotal` off the Assignment row, and those are only ever written by **Flow 2 at sign-off**. Every real (Harrison) row therefore shows `0/0` despite the Tasks list holding 6 rows for each. It is accurate — nothing has been ticked yet — but it means the column is blank until sign-off and redundant after it.
+
+**Decision 2026-09-05: fix this in the canvas app, not the summaries.** The app maintains the counters, writing **one MERGE when the crew lead leaves the assignment screen, never one per checkbox** — at 295 tasks per pool, per-tick writes would burn a Flow 3 run each (see the trigger no-op bug). Counting the Tasks list inside the summary loop was rejected: it adds a SharePoint call per row per email, six mornings a week, on top of the per-row `Filter_crew`. **Sequencing consequence: gate Flow 3 before the canvas app writes at volume.**
 
 **Build flows via FlowAgent, not Chrome UI-driving.** Author the definition JSON offline, then: for a **new** flow use `create_flow` (which writes straight to the published row) followed by Dataverse `PublishXml`; for an **existing** flow use `update_flow` (which writes to the draft) followed by `PublishXml`. Full mechanics in the draft-row callout under Known bugs, and in `flows/README.md`. Export each flow to `flows/exports/` after it tests green.
 
@@ -414,7 +535,13 @@ Two implementation details worth keeping:
 
 Same rule for every connector's outputs — never `body('X')?[...]` in a bare Expression, always `outputs('X')?['body/...']`. Discovered on Compose 2 Inputs fix in Daily Dispatch; see sessions/2026-08-28b-compose2-fix.md.
 
-**Flow definition export — ZIP button is gone; use Get-AdminFlow:** The PA cloud-flow toolbar no longer surfaces Package (.zip) export as of 2026 — the Export dropdown holds only "Learn how" and "Get flow identifier", overflow menu has nothing useful. For version-control artifacts, use `Get-AdminFlow` from `Microsoft.PowerApps.Administration.PowerShell`. The returned object's `Internal.properties.definition` holds the full trigger + actions JSON.
+**Flow definition export — use the ProcessSimple GET from a script that writes UTF-8 itself (2026-09-05).** `flows/exports/` is regenerated wholesale by fetching every flow from `https://api.flow.microsoft.com/providers/Microsoft.ProcessSimple/environments/{env}/flows` with a bearer token from `az account get-access-token --resource https://service.flow.microsoft.com/`, then writing with an explicit `encoding='utf-8'`.
+
+**The token must come from `az`, but the response must NOT.** Piping `az rest` to a file drops non-cp1252 glyphs silently. This is not theoretical: the 2026-09-05 export run proved Flow 3 carries `U+2013 U+2014 U+2192 U+26A0` and Flow 1 carries `U+00B7 U+2014`, and the run's own console `print` of those characters crashed with `UnicodeEncodeError: charmap` while the files themselves came out intact. Console encoding is the trap; file encoding under your control is the escape.
+
+Exports are named `<Flow-Name>-<YYYY-MM-DD>.json` and carry `flowId`, `workflowEntityId`, `state` and `connectionReferences` alongside the definition, so a future `PublishXml` needs no lookup. Note the environment also contains a `Generate estimate` flow belonging to the separate estimator workload — it is deliberately not exported here.
+
+**Superseded approach — ZIP button is gone; `Get-AdminFlow` also works:** The PA cloud-flow toolbar no longer surfaces Package (.zip) export as of 2026 — the Export dropdown holds only "Learn how" and "Get flow identifier", overflow menu has nothing useful. For version-control artifacts, use `Get-AdminFlow` from `Microsoft.PowerApps.Administration.PowerShell`. The returned object's `Internal.properties.definition` holds the full trigger + actions JSON.
 
 Two auth gotchas that will bite hard if missed:
 

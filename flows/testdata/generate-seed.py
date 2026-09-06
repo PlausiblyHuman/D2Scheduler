@@ -163,7 +163,16 @@ for p in plan:
         d += dt.timedelta(days=1)
     if not is_work(dt.date.fromisoformat(p['start'])):
         errs.append('SUNDAY START %s %s' % (p['job'], p['num']))
+    if not is_work(dt.date.fromisoformat(p['finish'])):
+        errs.append('SUNDAY FINISH %s %s' % (p['job'], p['num']))
+    # NOTE: a span that *contains* a Sunday is legitimate - a 2-work-day sub-phase
+    # starting Saturday runs Sat + Mon. Only the endpoints must be work days.
+    # 'days' is therefore WORK days, never the inclusive calendar span. See CLAUDE.md.
 
+# WARNING: this OVERWRITES seed-plan.json, which is the record of what is actually
+# seeded in the live tenant (generated 2026-09-03). Re-running on a different date
+# produces a different plan and makes the repo disagree with production. Only re-run
+# when you intend to reseed, and run cleanup.js first. Otherwise: git checkout the file.
 out = {'generatedFor': TODAY.isoformat(), 'jobs': JOBS, 'assignments': plan}
 for j in out['jobs']:
     j['start'] = j['start'].isoformat()

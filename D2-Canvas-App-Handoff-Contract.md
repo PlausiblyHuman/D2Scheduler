@@ -1,8 +1,15 @@
-# D2 Build Scheduler — canvas app handoff contract
+# D2 Build Scheduler — canvas app build contract
 
-**For:** Ryan Meyer, picking up the Week 3 canvas app build
+> **SUPERSEDED AS A HANDOFF, 2026-09-05.** The canvas app is staying with Stratirus; Ryan is
+> not picking it up. Everything below still stands as **internal build guidance** — the
+> invariants, the schema traps and the §6a production-safety rules are all properties of the
+> environment, not of who is holding the keyboard. §6a in particular still binds, because the
+> app is still being built in a live client tenant on a shared credential. Read "you" as
+> "whoever is building this", not as Ryan.
+
+**Originally for:** Ryan Meyer, picking up the Week 3 canvas app build
 **From:** Shane Talbot / Stratirus
-**Date:** 2026-09-04
+**Date:** 2026-09-04 (reversed 2026-09-05)
 **Status of the rest of the build:** Weeks 1–2 complete. All 7 SharePoint lists provisioned and
 seeded; all 5 Power Automate flows built, published and verified end-to-end.
 
