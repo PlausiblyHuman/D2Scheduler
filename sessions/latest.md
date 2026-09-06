@@ -1,111 +1,82 @@
-# 2026-09-03a — Week 2 flows complete; three production bugs found and fixed
+# 2026-09-06a — Week 2 closed, canvas app unblocked, headless build loop proven
 
-**Session goal:** apply the staged Flow 1 crew-filter fix and run the Flow 3 exit-gate tests.
-The staged fix turned out to be hiding two deeper defects, and the session ended with all
-five Week 2 flows built and verified.
+Spans 2026-09-05 into 09-06. Opened as "close out Week 2", became "Week 3 is buildable and
+here is the loop". Five commits, `12e8e99` through `21e7680`.
 
 ## What landed
 
-**All five Week 2 flows are now built and Started.** Flows 4 and 5 (daily + weekly) were
-created **fully headless** — no PA designer at any point.
+**Week 2 closed.** Reviewed the rendered summary output rather than run status, which is how
+three defects surfaced in flows that had been green since they were built:
 
-**Flow 1 — two bugs, not one.**
+- **Weekly compliance counted work that had not finished yet.** A Friday 15:00 run with a
+  Saturday `weekEnd` scored Friday and Saturday work as outstanding. It named
+  `D2-1001 · 2.2 Steel Installation` as oldest outstanding while it was still two days from
+  finishing. Same data now reports a true **33%**, not a false 22%.
+- Neither summary set `$orderby`, so tables came out in list-ID order.
+- The daily footer overstated its own compliance window by a day.
 
-1. The staged `item()?['Crew']?['Value']` fix was applied and published. But the recorded
-   failure mode was wrong: `?['Value']` on a string does **not** evaluate to null, it
-   **throws** `InvalidTemplate ... Property selection is not supported on values of type
-   'String'`. So the flow did not "ship empty tables" — on days with work it **failed and
-   sent nothing**; on empty days it succeeded. Run history confirms it: 08-27, 08-28 (x2),
-   08-29, 08-31, 09-02 all Failed; 09-01 and 09-03 Succeeded with zero rows.
-   The 09-01 "verified in prod" pass passed only because that day had no data.
+Fixed headless, published, verified by manual runs with the rendered HTML pulled back into
+`flows/testdata/`. All six flows re-exported.
 
-2. Fixing that revealed the real defect: **the crew join key was wrong.** Three value
-   spaces were in play — `Crews.CrewID`='devon', `Crews.Title`='Devon Crew +3',
-   `Assignments.Crew`='Devon Crew'. None matched. The browser tool models crews as
-   `{id, name}`, so **CrewID is the join key and Title is a display label**. Masked for
-   crews without a `+N` suffix: `STL Shotcrete` matched by luck while all seven field crews
-   never could.
+**M365 F1 does not include Power Apps or Power Automate.** CLAUDE.md had it as the ~$190/yr
+frontline option with "seeded Power Apps + Teams". A crew lead on F1 could not open the app.
+Business Basic is the verified floor, not a preference. Caught the day before the licensing
+conversation with Don.
 
-   Fixed in Flow 1 and Flow 3; all 5 Assignments reseeded to short codes. Flow 3's fix also
-   **restored the subcontractor capacity exemption** — with `Get_crew` returning zero rows,
-   `Condition_unlimited` could never be true, so `Unlimited=Yes` crews were being
-   double-book-checked in violation of business rule 2.
+**Canvas app prerequisites cleared.** `Crews.LeadEmail` placeholders removed (all seven field
+crews held the same unmatchable external UPN, which made the app look correct while showing
+everyone Saul's work). 252 Tasks rows backfilled from the browser tool's template — the seed
+had created **zero**, so 38 of 43 assignments had nothing to tick and the app's core screen
+could not have been built. Now 282 tasks across all 43, counts matching their counters.
 
-**Flow 1 verified end-to-end for the first time ever** — a populated dispatch email:
-`TODAY — Thu 09/03 · Devon Crew +3 / Harrison Residence / 2.2 Steel Installation`.
+**Headless canvas build loop proven end to end.** A Today screen authored entirely in YAML,
+deployed by CLI, rendering live SharePoint data. `python canvas-app/deploy.py` runs it:
+pack → solution export → swap the `.msapp` in the zip → solution import → Studio publish.
+Connections survive because they live in the `.msapr` residual, not the YAML.
 
-**Dates were one day early everywhere, and it had inverted the work week.** The columns were
-already DateOnly; the *values* were wrong. Week 1 seeded midnight **UTC**, which the SP
-connector reads as the previous day in Central. All 62 Work Calendar rows were affected, so
-Flow 1 would have **terminated on Saturdays** (no dispatch on a work day) and **dispatched on
-Sundays**. Business rule 4 was inverted and nothing surfaced it, because the list UI shows the
-intended date. Fixed all 62 calendar rows, 5 assignments and Jobs.StartDate by rewriting as
-bare `yyyy-MM-dd` strings, which SharePoint stores at site-local midnight.
-
-**Flow 3 exit gates: one pass, one fail.** Double-book fired a correct High-importance alert.
-Sign-off-only edit **also fired** — `GetOnUpdatedItems` emits **no `@odata.oldValue`
-properties at all**, so the Rev D §06 trigger condition is a no-op and every edit triggers the
-flow. Severity is quota, not corruption: Flow 3 only reads and emails, so there is no loop.
-
-**Flow 4 — Nightly Reconciliation.** Interval-overlap sweep (corrected from the runbook's
-`ScheduledStart`-only filter, which misses in-progress work), 30-day window, Unlimited crews
-exempt. Both tests passed, then re-verified against 43 rows.
-
-**Flow 5 — two flows, HTML email not PDF.** The only non-premium conversion is OneDrive
-`ConvertFile`; SharePoint has none and PDF4me/Encodian are premium. No OneDrive connection
-exists. Shane chose a rich HTML body: same content, no new connection, no temp-file lifecycle.
-
-**Test data seeded** — 38 assignments across `TEST-9001`/`TEST-9002`, generated from the real
-46 sub-phase template. The generator enforces all four business rules and cross-checks against
-the pre-existing rows; it caught two collisions with Assignment 5 on the first pass.
-
-## Corrections to prior guidance
-
-- **No designer Save is needed for a new flow.** `create_flow` (writes to the published row)
-  + `PublishXml` (creates the connection bindings) + `publish_flow` is fully headless. The
-  intermediate `CannotRunUnpublishedSolutionFlow` error says to use the designer; it is wrong.
-- **`az rest` on Windows silently drops non-cp1252 characters** and `PYTHONIOENCODING` does
-  not fix it. Rebuilding a definition from such a capture would strip glyphs from production.
-  Read with FlowAgent `get_flow`; submit with `ensure_ascii=True`.
-- **`authentication` is service-managed on the trigger too**, not just actions.
-- **`preview_update` reports containers as changed with `fields: []`** — differ noise.
-
-## Files touched
-
-- `CLAUDE.md` — rewrote the Flow 1 bug entry; new sections on the CrewID join key, the date
-  convention, the `az rest` encoding trap, the Flow 3 trigger no-op, Required-but-NULL
-  columns, the headless build sequence, and the live test data
-- `D2-Week-2-Automations-Runbook.md` — 5 corrections (crew join, the claim that `Crew` holds
-  the display name, the Flow 4 Select projection)
-- `flows/definitions/` — Flow 1 and Flow 3 synced to production; **new**: Nightly
-  Reconciliation, Daily Summary, Weekly Summary
-- `flows/testdata/` — **new**: generator, seed plan, ID manifest, cleanup script, rendered
-  HTML previews of both summaries
+**Week 3 formula review** — nine findings in `canvas-app/formula-review.md`, two of them
+design gaps rather than formula bugs.
 
 ## Decisions made
 
-- **Join on `CrewID` everywhere**; `Title` is display only. Applies to future flows, the
-  canvas app, and the nightly sync.
-- **DateOnly fields are written as bare `'yyyy-MM-dd'`**, never `...T00:00:00Z`.
-- **Flow 5 sends HTML, not PDF** — PDF isn't worth a new connection and an auth.
-- **Flow 4 emails now, Teams later** — the planned channels don't exist (only
-  `d2pools.com > General`), and creating them is the client's call.
-- **All alerts and summaries go to `stratirus@d2pools.com`** until the content is reviewed.
-- Test data marked via **Job number**, not a new `IsTestData` column — no permanent schema
-  change for a temporary need.
+- **Ryan is off the build; the canvas app stays with Stratirus.** The handoff contract becomes
+  internal build guidance, and its §6a production-safety rules now bind us.
+- **Build headless in YAML**, accepting that Microsoft documents it as unsupported. The
+  fallback is cheap: the Power Fx is identical either way, so a break costs only time.
+  Git Integration remains the supported alternative and is worth evaluating.
+- **Business Basic, ~7 seats.** Lead with *identities*, not SKUs — no crew-lead account exists
+  in the tenant at all, and that has lead time upstream of Week 4.
+- **The nightly browser-tool → Lists sync is descoped from the pilot**, on the record. It does
+  not exist, was in no runbook, and nothing was tracking it. Week 4 loads one pool by REST.
+- **Teams deferred to post-pilot.** Its one material use case evaporated when F1 turned out
+  not to include Power Apps.
+- **TEST-900x stays** until just before the pilot; it is the only realistic test volume.
+- **`cleanup.js` now removes Harrison `D2-1001` too**, which is no more real than the TEST
+  rows. That disposes of three tracked defects at once.
+- **`DurationDays` means work days**, not the inclusive calendar span.
+- Flow 3 **stopped** for the build.
 
-## Open questions / blocked on
+## Open / blocked on
 
-- **Flow 3 trigger gating** — the `@odata.oldValue` condition is a proven no-op. Options are
-  in CLAUDE.md; low urgency (~1 wasted run per sign-off, no loop).
-- **Teams channels don't exist** — `Field Dispatch` / `Ownership` need creating before the
-  Teams half of Flow 4 can be wired.
-- **Two seed-data issues left deliberately untouched:** Assignment 1 carries a stale
-  `"Chrome-driven test"` sign-off, and Assignment 4 (`stl`) is scheduled across Sunday 09-06,
-  violating business rule 4 in the seed itself.
-- **Test data is live on the client tenant** and must be removed before the pilot.
+- **Flow 2 never writes `InstallerSignOffBy`, so every sign-off is anonymous.** The staging
+  contract claimed otherwise. Needs a sixth trigger parameter and a site-user lookup, since a
+  Person column cannot be set by email. **Blocked on `az login`** — the `pac` sign-in revoked
+  the token tenant-wide.
+- **The spec has no PM-proxy path**, and `LeadEmail` is empty by design, so every user is a
+  proxy today. Permanently required for the four `Unlimited` subcontractor crews.
+- **Delegation**: `Tasks` is at 282 rows against a 500 default. One real pool is 295. Once
+  breached, tasks vanish silently from the sign-off screen.
+- **Wednesday with Don**: seven identities, Business Basic, PM on the first real pool, the 11
+  Unassigned sub-phases and the 10 unmapped trades.
+- Flow 3 gating still unresolved; needed before the app writes at volume.
+- Commercial basis for this project is still recorded nowhere.
 
 ## Next action
 
-Review the rendered previews in `flows/testdata/`, decide whether to point Flow 5 at Don, then
-remove the TEST-900x seed data and re-export all five flows to `flows/exports/`.
+Build the Tasks screen (282 real rows now exist), then the sign-off screen, then the proxy
+picker. Fix Flow 2's `InstallerSignOffBy` first if `az login` is available, because it is
+broken independently of the app.
+
+**Rule to adopt before the app can write:** deploying untested Power Fx into the live client
+tenant is acceptable only while the app is read-only. Write-path changes get tested against a
+`TEST-900x` row, never Harrison.
