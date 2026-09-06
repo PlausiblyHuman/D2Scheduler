@@ -1,0 +1,196 @@
+{
+ "displayName": "D2 - Sign-off Intake",
+ "flowId": "3e619659-850d-1b98-d552-93a63148e50d",
+ "workflowEntityId": "bf7e4a71-c3a0-f111-b8dc-6045bd0195dd",
+ "state": "Started",
+ "exportedUtc": "2026-09-06",
+ "definition": {
+  "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+  "contentVersion": "undefined",
+  "parameters": {
+   "$authentication": {
+    "defaultValue": {},
+    "type": "SecureObject"
+   },
+   "$connections": {
+    "defaultValue": {},
+    "type": "Object"
+   }
+  },
+  "triggers": {
+   "manual": {
+    "type": "Request",
+    "kind": "PowerAppV2",
+    "inputs": {
+     "schema": {
+      "type": "object",
+      "properties": {
+       "number": {
+        "description": "Please enter a number",
+        "title": "AssignmentID",
+        "type": "number",
+        "x-ms-content-hint": "NUMBER",
+        "x-ms-dynamically-added": true
+       },
+       "date": {
+        "description": "Please enter or select a date (YYYY-MM-DD)",
+        "format": "date",
+        "title": "WorkDate",
+        "type": "string",
+        "x-ms-content-hint": "DATE",
+        "x-ms-dynamically-added": true
+       },
+       "text": {
+        "description": "Please enter your input",
+        "title": "Notes",
+        "type": "string",
+        "x-ms-content-hint": "TEXT",
+        "x-ms-dynamically-added": true
+       },
+       "number_1": {
+        "description": "Please enter a number",
+        "title": "TasksTotal",
+        "type": "number",
+        "x-ms-content-hint": "NUMBER",
+        "x-ms-dynamically-added": true
+       },
+       "number_2": {
+        "description": "Please enter a number",
+        "title": "TasksComplete",
+        "type": "number",
+        "x-ms-content-hint": "NUMBER",
+        "x-ms-dynamically-added": true
+       },
+       "text_1": {
+        "description": "Please enter your input",
+        "title": "SignedByEmail",
+        "type": "string",
+        "x-ms-content-hint": "TEXT",
+        "x-ms-dynamically-added": true
+       }
+      },
+      "required": [
+       "number",
+       "date",
+       "text",
+       "number_1",
+       "number_2",
+       "text_1"
+      ]
+     }
+    }
+   }
+  },
+  "actions": {
+   "Get_item": {
+    "runAfter": {},
+    "type": "OpenApiConnection",
+    "inputs": {
+     "parameters": {
+      "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+      "table": "49ef7006-d3fe-40a7-a52f-c4c18545bd35",
+      "id": "@triggerBody()?['number']"
+     },
+     "host": {
+      "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+      "operationId": "GetItem",
+      "connectionName": "shared_sharepointonline"
+     }
+    }
+   },
+   "Ensure_signoff_user": {
+    "runAfter": {
+     "Get_item": [
+      "Succeeded"
+     ]
+    },
+    "type": "OpenApiConnection",
+    "inputs": {
+     "parameters": {
+      "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+      "parameters/method": "POST",
+      "parameters/uri": "_api/web/ensureuser",
+      "parameters/headers": {
+       "Content-Type": "application/json;odata=verbose",
+       "Accept": "application/json;odata=verbose"
+      },
+      "parameters/body": "{\"logonName\":\"i:0#.f|membership|@{triggerBody()?['text_1']}\"}"
+     },
+     "host": {
+      "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+      "operationId": "HttpRequest",
+      "connectionName": "shared_sharepointonline"
+     }
+    }
+   },
+   "Send_an_HTTP_request_to_SharePoint": {
+    "runAfter": {
+     "Ensure_signoff_user": [
+      "Succeeded"
+     ]
+    },
+    "type": "OpenApiConnection",
+    "inputs": {
+     "parameters": {
+      "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+      "parameters/method": "POST",
+      "parameters/uri": "_api/web/lists/GetByTitle('Assignments')/items(@{triggerBody()?['number']})",
+      "parameters/headers": {
+       "X-HTTP-Method": "MERGE",
+       "If-Match": "*",
+       "Content-Type": "application/json;odata=verbose",
+       "Accept": "application/json;odata=verbose"
+      },
+      "parameters/body": "{\"__metadata\":{\"type\":\"SP.Data.AssignmentsListItem\"},\"InstallerSignOff\":true,\"InstallerSignOffOn\":\"@{utcNow()}\",\"InstallerSignOffById\":@{body('Ensure_signoff_user')?['d']?['Id']},\"WorkDate\":\"@{triggerBody()?['date']}\",\"SignOffNotes\":\"@{triggerBody()?['text']}\",\"TasksTotal\":@{triggerBody()?['number_1']},\"TasksComplete\":@{triggerBody()?['number_2']}}"
+     },
+     "host": {
+      "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+      "operationId": "HttpRequest",
+      "connectionName": "shared_sharepointonline"
+     }
+    }
+   },
+   "Respond_to_a_Power_App_or_flow": {
+    "runAfter": {
+     "Send_an_HTTP_request_to_SharePoint": [
+      "Succeeded"
+     ]
+    },
+    "type": "Response",
+    "kind": "PowerApp",
+    "inputs": {
+     "schema": {
+      "type": "object",
+      "properties": {
+       "status": {
+        "title": "Status",
+        "type": "string",
+        "x-ms-content-hint": "TEXT",
+        "x-ms-dynamically-added": true
+       }
+      },
+      "additionalProperties": {}
+     },
+     "statusCode": 200,
+     "body": {
+      "status": "Success"
+     }
+    }
+   }
+  }
+ },
+ "connectionReferences": {
+  "shared_sharepointonline": {
+   "connectionName": "shared-sharepointonl-20b83f29-d689-437e-b1ff-930f7bf3fda4",
+   "connectionReferenceLogicalName": "new_sharedsharepointonline_beb06",
+   "source": "Invoker",
+   "id": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+   "displayName": "SharePoint",
+   "iconUri": "https://static.powerapps.com/resource/ppcr/releases/v1.0.1813/1.0.1813.4769/sharepointonline/icon.png",
+   "brandColor": "",
+   "tier": "Standard",
+   "apiName": "sharepointonline",
+   "isProcessSimpleApiReferenceConversionAlreadyDone": false
+  }
+ }
+}
