@@ -160,7 +160,7 @@ Screens:
               )
             TemplateSize: =76
             BorderColor: =RGBA(0, 18, 107, 1)
-            Height: =Parent.Height - 136
+            Height: =Parent.Height - 136 - 132
             Width: =Parent.Width
             X: =0
             Y: =136
@@ -249,3 +249,208 @@ Screens:
                   Width: =Parent.TemplateWidth
                   X: =0
                   Y: =Parent.TemplateHeight - 1
+
+      # ---------------------------------------------------------------- sign-off bar
+      # Docked to the bottom so it stays reachable one-handed on a phone.
+      - recSignOffBar:
+          Control: Rectangle@2.3.0
+          Properties:
+            Fill: =RGBA(255, 255, 255, 1)
+            Height: =132
+            Width: =Parent.Width
+            X: =0
+            Y: =Parent.Height - 132
+      - lblWorkDateCaption:
+          Control: Label@2.5.1
+          Properties:
+            Text: ="Work date"
+            Color: =RGBA(107, 114, 128, 1)
+            Font: =Font.'Open Sans'
+            Size: =11
+            Height: =20
+            Width: =120
+            X: =16
+            Y: =Parent.Height - 126
+      - dpWorkDate:
+          Control: Classic/DatePicker@2.6.0
+          Properties:
+            DefaultDate: =gblToday
+            Font: =Font.'Open Sans'
+            Size: =13
+            Height: =40
+            Width: =170
+            X: =16
+            Y: =Parent.Height - 106
+      # Amber while tasks are outstanding, teal when the sub-phase is complete.
+      # A partial sign-off is legitimate, so this warns rather than blocks.
+      - recSignOffBtn:
+          Control: Rectangle@2.3.0
+          Properties:
+            Fill: |
+              =If(
+                  CountRows(galTasks.AllItems) > 0
+                      && CountRows(Filter(galTasks.AllItems, Complete)) = CountRows(galTasks.AllItems),
+                  RGBA(15, 118, 110, 1),
+                  RGBA(180, 83, 9, 1)
+              )
+            OnSelect: =Set(gblConfirmOpen, true)
+            Height: =52
+            Width: =Parent.Width - 214
+            X: =198
+            Y: =Parent.Height - 110
+      - lblSignOffBtn:
+          Control: Label@2.5.1
+          Properties:
+            Text: |
+              =If(
+                  CountRows(Filter(galTasks.AllItems, Complete)) = CountRows(galTasks.AllItems),
+                  "Sign off",
+                  "Sign off " & Text(CountRows(Filter(galTasks.AllItems, Complete)))
+                      & "/" & Text(CountRows(galTasks.AllItems))
+              )
+            Color: =RGBA(255, 255, 255, 1)
+            Font: =Font.'Open Sans'
+            FontWeight: =FontWeight.Semibold
+            Size: =15
+            Align: =Align.Center
+            OnSelect: =Set(gblConfirmOpen, true)
+            Height: =52
+            Width: =Parent.Width - 214
+            X: =198
+            Y: =Parent.Height - 110
+      # ---------------------------------------------------------------- confirm overlay
+      # Power Fx has no Confirm() function (formula-review finding 3), so the
+      # "sign off anyway?" step is a Visible-bound overlay rather than a dialog.
+      - recConfirmScrim:
+          Control: Rectangle@2.3.0
+          Properties:
+            Fill: =RGBA(17, 24, 39, 0.55)
+            OnSelect: =Set(gblConfirmOpen, false)
+            Height: =Parent.Height
+            Width: =Parent.Width
+            X: =0
+            Y: =0
+            Visible: =gblConfirmOpen
+      - recConfirmCard:
+          Control: Rectangle@2.3.0
+          Properties:
+            Fill: =RGBA(255, 255, 255, 1)
+            Height: =230
+            Width: =Parent.Width - 48
+            X: =24
+            Y: =(Parent.Height / 2) - 115
+            Visible: =gblConfirmOpen
+      - lblConfirmTitle:
+          Control: Label@2.5.1
+          Properties:
+            Text: |
+              =If(
+                  CountRows(Filter(galTasks.AllItems, !Complete)) > 0,
+                  "You have unticked tasks",
+                  "Confirm sign-off"
+              )
+            Color: =RGBA(17, 24, 39, 1)
+            Font: =Font.'Open Sans'
+            FontWeight: =FontWeight.Semibold
+            Size: =17
+            Height: =32
+            Width: =Parent.Width - 80
+            X: =40
+            Y: =(Parent.Height / 2) - 99
+            Visible: =gblConfirmOpen
+      - lblConfirmBody:
+          Control: Label@2.5.1
+          Properties:
+            Text: |
+              =Text(CountRows(Filter(galTasks.AllItems, Complete)))
+               & " of "
+               & Text(CountRows(galTasks.AllItems))
+               & " tasks ticked. Signing off records your name against this sub-phase for "
+               & Text(dpWorkDate.SelectedDate, "ddd mm/dd")
+               & "."
+            Color: =RGBA(75, 85, 99, 1)
+            Font: =Font.'Open Sans'
+            Size: =13
+            Height: =76
+            Width: =Parent.Width - 80
+            X: =40
+            Y: =(Parent.Height / 2) - 63
+            Visible: =gblConfirmOpen
+      - recConfirmCancel:
+          Control: Rectangle@2.3.0
+          Properties:
+            Fill: =RGBA(229, 231, 235, 1)
+            OnSelect: =Set(gblConfirmOpen, false)
+            Height: =48
+            Width: =(Parent.Width - 104) / 2
+            X: =40
+            Y: =(Parent.Height / 2) + 25
+            Visible: =gblConfirmOpen
+      - lblConfirmCancel:
+          Control: Label@2.5.1
+          Properties:
+            Text: ="Cancel"
+            Color: =RGBA(55, 65, 81, 1)
+            Font: =Font.'Open Sans'
+            FontWeight: =FontWeight.Semibold
+            Size: =14
+            Align: =Align.Center
+            OnSelect: =Set(gblConfirmOpen, false)
+            Height: =48
+            Width: =(Parent.Width - 104) / 2
+            X: =40
+            Y: =(Parent.Height / 2) + 25
+            Visible: =gblConfirmOpen
+      # WorkDate is built from parts rather than a format string. Power Fx Text()
+      # only treats "mm" as month when no time part precedes it, and this project
+      # already inverted its entire work week once by storing a DateOnly value at
+      # midnight UTC. A bare yyyy-MM-dd string is the fixed convention.
+      - recConfirmGo:
+          Control: Rectangle@2.3.0
+          Properties:
+            Fill: =RGBA(15, 118, 110, 1)
+            OnSelect: |
+              =IfError(
+                  Set(
+                      gblIntakeResponse,
+                      'D2-Sign-offIntake'.Run(
+                          gblAssignment.ID,
+                          Text(Year(dpWorkDate.SelectedDate))
+                              & "-" & Right("0" & Text(Month(dpWorkDate.SelectedDate)), 2)
+                              & "-" & Right("0" & Text(Day(dpWorkDate.SelectedDate)), 2),
+                          "",
+                          CountRows(galTasks.AllItems),
+                          CountRows(Filter(galTasks.AllItems, Complete)),
+                          gblCurrentUser.userPrincipalName
+                      )
+                  );
+                  Set(gblConfirmOpen, false);
+                  Set(gblTasksDirty, false);
+                  Refresh(Assignments);
+                  Notify("Signed off", NotificationType.Success);
+                  Navigate(Screen1, ScreenTransition.UnCover),
+                  Notify(
+                      "Sign-off failed: " & FirstError.Message,
+                      NotificationType.Error
+                  )
+              )
+            Height: =48
+            Width: =(Parent.Width - 104) / 2
+            X: =Parent.Width - 40 - ((Parent.Width - 104) / 2)
+            Y: =(Parent.Height / 2) + 25
+            Visible: =gblConfirmOpen
+      - lblConfirmGo:
+          Control: Label@2.5.1
+          Properties:
+            Text: ="Sign off"
+            Color: =RGBA(255, 255, 255, 1)
+            Font: =Font.'Open Sans'
+            FontWeight: =FontWeight.Semibold
+            Size: =14
+            Align: =Align.Center
+            OnSelect: =Select(recConfirmGo)
+            Height: =48
+            Width: =(Parent.Width - 104) / 2
+            X: =Parent.Width - 40 - ((Parent.Width - 104) / 2)
+            Y: =(Parent.Height / 2) + 25
+            Visible: =gblConfirmOpen
