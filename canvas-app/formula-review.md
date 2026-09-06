@@ -235,3 +235,58 @@ with a non-Success status.
 - `Locked`, `NotApplicable`, `PMSignOff`, `DurationDays` are populated on all 43 rows, so the
   Required-but-NULL problem will not block Patch.
 - `Tasks` now has 282 rows covering all 43 assignments, so the task screen has real data.
+
+---
+
+## CORRECTION 2026-09-06b — findings 6 and 7 had the delegation direction backwards
+
+Both findings state that `Filter(Tasks, Assignment.Value = ...)` "is not delegable" and propose
+`Assignment.Id` as the delegable fix. **The live connector metadata says the opposite.** Read
+from `References/DataSources.json` in the app's own `.msapr` residual, the `Assignment` lookup
+on `Tasks` declares:
+
+| Subfield | Declared `filterFunctions` | OData path |
+|---|---|---|
+| `Assignment.Value` | `["eq"]` | `Assignment/Title` |
+| `Assignment.Id` | **none** | — |
+
+Microsoft's SharePoint delegation table resolves a complex type "by deferring the decision for
+delegation to the subfield involved", so it is `.Value` that delegates here and `.Id` that is
+unadvertised. Filtering solely on `Assignment.Id` would have *caused* the silent 500-row
+truncation that finding 7 exists to prevent.
+
+Both concerns are real, though, and they are not in conflict. `scr_Tasks` satisfies each with a
+nested filter:
+
+```powerfx
+Sort(
+    Filter(
+        Filter(Tasks, Assignment.Value = gblAssignment.Title),   // delegated to SharePoint
+        Assignment.Id = gblAssignment.ID                          // local, over the few rows returned
+    ),
+    Sequence, SortOrder.Ascending
+)
+```
+
+The inner filter is delegated, so only matching rows come down and the row limit is never
+approached. The outer filter is the actual key join, run locally over a handful of records, so
+finding 6's collision risk is closed at no delegation cost. Raising the data row limit to 2000
+is still worth doing as defence in depth, but it is no longer load-bearing.
+
+**Method note:** this was settled by reading the connector's own declared capabilities rather
+than by reasoning about connector behaviour. That file is the authority and is already in the
+repo. Prefer it to inference for any future delegation question.
+
+---
+
+## Build status 2026-09-06b — `scr_Tasks` deployed
+
+Findings **4** (Person-column patch shape) and **6/7** (join key and delegation) are **applied**
+in `canvas-app/src/Src/scr_Tasks.pa.yaml`. Finding 5 (`WorkDate` round-trip), 3 (`Confirm()`),
+8 and 9 belong to the sign-off screen and are still open.
+
+One guard was added that no finding called for: the Back button writes the task counters to the
+Assignment only when a tick actually happened this visit (`gblTasksDirty`). Without it, merely
+opening a row to look at it and pressing Back would Patch counters onto it — and on a Sunday the
+Today screen shows Harrison's Assignment 4 alongside the `TEST-900x` rows, so the very first
+manual test would have written to a row §6a says never to touch.

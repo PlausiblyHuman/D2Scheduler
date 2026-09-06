@@ -67,6 +67,9 @@ Screens:
                   ScheduledFinish >= gblToday,
                   NotApplicable = false
               )
+            OnSelect: |
+              =Set(gblAssignment, galToday.Selected);
+              Navigate(scr_Tasks, ScreenTransition.Cover)
             TemplateSize: =96
             BorderColor: =RGBA(0, 18, 107, 1)
             Height: =Parent.Height - 92
