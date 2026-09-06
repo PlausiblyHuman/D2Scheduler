@@ -27,18 +27,19 @@ Screens:
       # Back writes the task counters to the Assignment in ONE Patch, per the
       # CLAUDE.md decision: never one write per checkbox. At 295 tasks a pool,
       # per-tick counter writes would each burn a Flow 3 run.
-      - icoTasksBack:
-          Control: Classic/Icon@2.5.0
+      - lblTasksBack:
+          Control: Label@2.5.1
           Properties:
-            Icon: =Icon.ChevronLeft
+            Text: ="Back"
             Color: =RGBA(255, 255, 255, 1)
-            BorderColor: =RGBA(0, 0, 0, 1)
-            DisabledBorderColor: =RGBA(56, 56, 56, 1)
-            DisabledColor: =RGBA(119, 119, 119, 1)
+            Font: =Font.'Open Sans'
+            FontWeight: =FontWeight.Semibold
+            Size: =14
+            Align: =Align.Center
             OnSelect: |
-              =If(
-                  !IsBlank(gblAssignment) && gblTasksDirty,
-                  IfError(
+              =IfError(
+                  If(
+                      !IsBlank(gblAssignment) && gblTasksDirty,
                       Patch(
                           Assignments,
                           gblAssignment,
@@ -46,22 +47,18 @@ Screens:
                               TasksTotal: CountRows(galTasks.AllItems),
                               TasksComplete: CountRows(Filter(galTasks.AllItems, Complete = true))
                           }
-                      ),
-                      Notify(
-                          "Counter write failed: " & FirstError.Message,
-                          NotificationType.Error
                       )
+                  ),
+                  Notify(
+                      "Counter write failed: " & FirstError.Message,
+                      NotificationType.Error
                   )
               );
               Navigate(Screen1, ScreenTransition.UnCover)
-            PaddingBottom: =12
-            PaddingLeft: =12
-            PaddingRight: =12
-            PaddingTop: =12
-            Height: =48
-            Width: =48
-            X: =4
-            Y: =22
+            Height: =40
+            Width: =60
+            X: =8
+            Y: =26
       - lblTasksTitle:
           Control: Label@2.5.1
           Properties:
