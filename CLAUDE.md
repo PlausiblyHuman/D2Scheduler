@@ -372,18 +372,74 @@ and confirm with FlowAgent `whoami` that `tokenIdentity.tenantId` is `f24d9b39-�
 - **DONE 2026-09-05 — all seven placeholders cleared.** Verified against live: `cleared 7` (`saul`, `guillermo`, `harrison`, `antonio`, `devon`, `cirilo`, `campos`), `failures []`, `stillSet []`, row count unchanged. The live read also confirmed the split exactly: 7 `Unlimited=false` field crews all held `stalbot@stratirus.com`, and the 7 `Unlimited=true` buckets were already empty. `canvas-app/blank-lead-email.js` is retained and is idempotent, so it is safe to re-run as a check. Empty is strictly safer than wrong here: populated-but-unmatchable makes the app *look* correct while showing every crew lead Saul's assignments, whereas empty falls through to the PM-proxy picker that has to exist anyway for the four `Unlimited` subcontractor crews. Reseed with **userPrincipalName** once the identities exist.
 - `subcon`, `unassigned` and `office` are pseudo-crews, not companies.
 
-**Canvas app authoring — HEADLESS YAML WORKS. Confirmed end to end 2026-09-06.** This reverses the earlier conclusion the same day that the app had to be built in Studio. A YAML-authored screen was deployed by CLI and rendered live SharePoint data with no hand-building. Loop and rationale in `canvas-app/README.md`; run it with `python canvas-app/deploy.py`.
+**Canvas app authoring — YAML authoring works, but the loop is NOT headless. Corrected 2026-09-06g.**
+
+This reverses the "headless YAML authoring CONFIRMED WORKING" entry written earlier the same
+day. That claim was verified **in Studio only**, and Studio is the one client that cannot
+detect this bug.
+
+**A canvas app has two representations of the same screens, and they can silently diverge:**
+
+| Client | Reads | Result with our loop |
+|---|---|---|
+| **Studio (Edit)** | `Src/*.pa.yaml` (because `packed.json` sets `LoadFromYaml: true`) | Correct — renders the authored YAML |
+| **The player (Play)** | the compiled control model, `Controls/*.json` | **Stale** — renders whatever was last compiled |
+
+`pac canvas pack` **does not compile YAML.** It copies `Controls/*.json` verbatim out of the
+`.msapr` residual and writes the YAML alongside. So an imported app shows the new screens in
+Studio and the *old* ones in the player, with no error anywhere.
+
+**Publishing does not fix it.** Studio only creates a new published version when the document
+is genuinely dirty. Loading YAML for display does not mark it dirty, so Publish re-publishes
+the previous version indefinitely. Two full Save+Publish rounds changed nothing.
+
+**The working deploy sequence — the Studio step is mandatory, not a validation nicety:**
 
 ```
-edit Src/*.pa.yaml -> pac canvas pack -> pac solution export
-   -> swap the .msapp inside the zip -> pac solution import -> open in Studio, Publish
+python canvas-app/deploy.py          # YAML syntax gate, pack, solution export/swap/import
+open the app in Studio               # it loads and validates the YAML
+select any control, press Down then Up   # 1px move and back: no net change, marks it dirty
+Ctrl+S, wait for "Saved"             # THIS is what compiles YAML -> Controls/*.json
+Publish -> Publish this version      # now the player gets it
 ```
 
-Three facts make it work, and each was the thing that looked like a blocker:
+**Diagnosis evidence, so this is not re-litigated:** `Controls/4.json` in the live published app
+was byte-identical to the stale `.msapr` residual across three downloads spanning two publishes,
+and its control tree was the seed app's scratch screen (`Gallery1`, `Image1`, `Title1`,
+`Subtitle1`, `DatePicker1`, `Label1`) — exactly what the player rendered, and nothing like the
+authored YAML. Confirmed on a second, different computer, which ruled out browser caching.
 
-- **Connections survive.** They live in the `.msapr` residual (`References/DataSources.json`, and `Properties.json`'s `LocalConnectionReferences`), which `unpack` writes beside `Src/` and `pack` folds back in. All 7 sources (Jobs, Assignments, Tasks, Crews, Office365Users, `D2-Sign-offIntake`) ride through untouched. **Never delete the `.msapr`, and never rebuild sources from a blank app** — that is how you would silently drop every connection.
-- **The solution swap is accepted.** `customizations.xml` references the app by path only, with no hash or checksum.
-- **Studio is the compiler.** It validates the YAML on open and reports precise errors, e.g. `Src\Screen1.pa.yaml(16,9) : error PA2109 : Unknown variant 'verticalGallery' for control type 'Gallery'`. Treat a failed open as a build error, not a disaster.
+**`pac canvas download` is NOT a check on what the player serves.** It returned the same
+artifact this repo imported, every time, regardless of Studio activity — almost certainly the
+solution component rather than the live published document. **Verify canvas changes by playing
+the app, never by downloading it.** Trusting the download is how the original wrong conclusion
+was reached.
+
+**First run of a rebuilt app prompts for connection consent** ("Allow D2 Sign-off to access your
+data?" — SharePoint + Office 365 Users). Until Allow is clicked the galleries are empty and the
+app looks broken but is not.
+
+**The `deploy.py` YAML syntax gate.** `pac canvas pack` also does not *parse* the YAML — it packs
+invalid files without complaint, so a syntax error surfaces only as Studio refusing to open the
+app. `deploy.py` now parses every `*.pa.yaml` before packing and refuses to deploy on error.
+Watch for one trap in particular: **a plain YAML scalar containing `": "` is read as a mapping.**
+`Text: ="Sign off: " & x` fails as `PA1001 YamlInvalidSyntax`; use a block scalar (`Text: |`) for
+any formula containing a colon-space. Requires `pyyaml`.
+
+Loop and rationale in `canvas-app/README.md`; run it with `python canvas-app/deploy.py`.
+
+Three facts still hold and are what make YAML authoring worth keeping at all:
+
+- **Connections survive.** They live in the `.msapr` residual (`References/DataSources.json`, and
+  `Properties.json`'s `LocalConnectionReferences`), which `unpack` writes beside `Src/` and `pack`
+  folds back in. All 7 sources (Jobs, Assignments, Tasks, Crews, Office365Users,
+  `D2-Sign-offIntake`) ride through untouched. **Never delete the `.msapr`, and never rebuild
+  sources from a blank app** — that is how you would silently drop every connection.
+- **The solution swap is accepted.** `customizations.xml` references the app by path only, with no
+  hash or checksum.
+- **Studio is the compiler**, in the literal sense established above. It validates the YAML on open
+  and reports precise errors, e.g. `Src\Screen1.pa.yaml(16,9) : error PA2109 : Unknown variant
+  'verticalGallery' for control type 'Gallery'`. Treat a failed open as a build error.
 
 **Control vocabulary can only come from Studio.** The published schema does not enumerate it (`Variant` is merely "a non-empty string"), so **do not guess control or variant names.** Drop the control in Studio once, save, publish, download, unpack, and read what it generated. Known-good so far:
 

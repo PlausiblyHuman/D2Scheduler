@@ -1,5 +1,21 @@
 # canvas-app
 
+> **CORRECTION 2026-09-06g — this loop is NOT headless.** Everything below describes getting
+> YAML into the tenant, which works. It is not sufficient. Studio renders from `Src/*.pa.yaml`
+> but the **player renders from the compiled control model** in `Controls/*.json`, and
+> `pac canvas pack` never compiles — it copies the stale `Controls/*.json` out of the `.msapr`
+> residual. The result is an app that looks correct in Studio and serves the old screens in the
+> player, with no error anywhere.
+>
+> **After every deploy:** open in Studio, select a control, press Down then Up (1px and back, to
+> mark the document dirty), `Ctrl+S`, then Publish. Studio only writes a new published version
+> when the document actually changed, so Publish alone re-publishes the old version forever.
+>
+> **Verify by playing the app, never by `pac canvas download`** — the download returns the
+> artifact `deploy.py` imported regardless of Studio activity, which is exactly how this loop
+> was first recorded as working when it was not.
+
+
 Week 3: the crew-lead sign-off + task-tick canvas app, built in **D2 Automation**
 against the live SharePoint lists, signed in as **D2 Bot** (`stratirus@d2pools.com`).
 

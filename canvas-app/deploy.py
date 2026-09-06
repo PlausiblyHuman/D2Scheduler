@@ -1,10 +1,13 @@
-"""Deploy the YAML-authored canvas app to D2 Automation, with no Studio in the chain.
+"""Deploy the YAML-authored canvas app to D2 Automation.
 
     python canvas-app/deploy.py
 
-Steps: pack Src/*.pa.yaml into an .msapp, export the D2BuildScheduler solution,
-swap the packed .msapp in, re-import the solution, then download and diff to prove
-what actually landed.
+This gets the YAML into the tenant. It does NOT finish the job on its own -- a
+manual Studio save is required afterwards, for the reason set out below.
+
+Steps: parse every *.pa.yaml as a syntax gate, pack Src/*.pa.yaml into an
+.msapp, export the D2BuildScheduler solution, swap the packed .msapp in, and
+re-import the solution.
 
 Why the swap works: customizations.xml references the app by path
 (<DocumentUri>/CanvasApps/..._DocumentUri.msapp</DocumentUri>) with no hash or
@@ -15,10 +18,30 @@ Why the connections survive: they live in the .msapr residual
 which `pac canvas unpack` writes alongside Src/ and `pack` folds back in. Never
 delete the .msapr, and never rebuild sources from a blank app.
 
-AFTER DEPLOY: open the app in Studio once and Publish. Studio validates the YAML
-and reports precise errors (file, line, column, e.g. PA2109 for a bad control
-variant). `pac canvas download` reads the PUBLISHED version, so a Studio Save
-alone is invisible to this script.
+AFTER DEPLOY -- MANDATORY, and not merely a validation step:
+
+    1. Open the app in Power Apps Studio (Edit).
+    2. Select any control, press Down arrow then Up arrow. That is a 1px move
+       and back: no net change, but it marks the document dirty.
+    3. Ctrl+S and wait for "Saved".
+    4. Publish -> Publish this version.
+
+Step 2 is the whole point. Studio renders from Src/*.pa.yaml, but the PLAYER
+renders from the compiled control model in Controls/*.json -- and `pac canvas
+pack` never compiles anything, it copies Controls/*.json verbatim out of the
+.msapr residual. So without a dirty save the app looks correct in Studio and
+serves the OLD screens in the player, silently, with no error anywhere. Studio
+only writes a new published version when the document actually changed, so
+Publish on its own re-publishes the previous version forever.
+
+Verify by PLAYING the app. Do NOT verify with `pac canvas download` -- it
+returns the artifact this script imported regardless of Studio activity
+(apparently the solution component, not the live published document), so it
+will happily confirm a change the player is not serving. That mistake is how
+this loop was originally recorded as working when it was not.
+
+First play after a rebuild prompts for connection consent (SharePoint +
+Office 365 Users). Until Allow is clicked the galleries are empty.
 """
 import glob, os, subprocess, sys, zipfile
 
@@ -94,5 +117,13 @@ zout.close()
 run('pac', 'solution', 'import', '--path', PATCH,
     '--publish-changes', '--force-overwrite')
 
-print('\nDeployed. Now open "%s" in Power Apps Studio and Publish, so that Studio '
-      'validates the YAML and the change becomes the published version.' % APP)
+print("""
+Imported -- but the player is still serving the OLD screens until you do this:
+
+  1. Open "%s" in Power Apps Studio (Edit).
+  2. Select any control, press Down arrow then Up arrow (1px move and back).
+     Without this the document is not dirty and Publish is a no-op.
+  3. Ctrl+S, wait for "Saved".
+  4. Publish -> Publish this version.
+  5. Verify by PLAYING the app. Never verify with `pac canvas download`.
+""" % APP)
