@@ -98,7 +98,8 @@ Sunday and all six are correct.
 
 **Between canvas app and flows:**
 - Canvas app writes task completion directly to the Tasks list (SharePoint connector, standard rights).
-- Canvas app calls the **Sign-off Intake** flow (PowerApps V2 trigger) with `{ AssignmentID, WorkDate, Notes, TasksTotal, TasksComplete }`. Flow writes InstallerSignOff = true, By, On, WorkDate, Notes, task counts onto the Assignment.
+- Canvas app calls the **Sign-off Intake** flow (PowerApps V2 trigger) with `{ AssignmentID, WorkDate, Notes, TasksTotal, TasksComplete }` — all five **required** by the trigger schema, so `Notes` must be sent even when empty.
+- **CORRECTED 2026-09-06 — the flow does NOT write `InstallerSignOffBy`.** This contract previously claimed it wrote "InstallerSignOff = true, By, On, ...". The published MERGE body writes `InstallerSignOff`, `InstallerSignOffOn`, `WorkDate`, `SignOffNotes`, `TasksTotal`, `TasksComplete` and nothing else. **Every sign-off is therefore anonymous**, which undercuts the attestation the system exists to produce, and makes the crew-lead-vs-PM-proxy distinction unrecordable. Fixing it needs a sixth trigger parameter (`SignedByEmail`) plus a site-user lookup in the flow, because a Person column cannot be set by email through REST — it needs the numeric id from `_api/web/siteusers/getByEmail(...)`. Send the **UPN**, not `mail`. See `canvas-app/formula-review.md` §2.
 - **CRITICAL:** The Event-Driven Reconciliation flow's trigger condition MUST skip sign-off-only edits, or Sign-off Intake writes re-fire it and burn quota. See Rev D §06 for the trigger-condition expression.
 
 **Between the four subcontractor crews and Assignments:**
@@ -161,7 +162,7 @@ Load-bearing details for future runs:
 | Claude Chrome extension | `switch_browser`, `navigate`, `javascript_tool` | **Isolated tab group.** Lands on the sign-in wall. |
 | `chrome-devtools` MCP | `list_pages`, `select_page`, `evaluate_script` | **The user's own live session.** Authenticated. |
 
-`chrome-devtools` attaches to Shane's actual running browser. `list_pages` returns his real open tabs, and `evaluate_script` on a signed-in SharePoint tab fires REST with his cookies. Verified 2026-09-05: `/_api/web/currentuser` returned `i:0#.f|membership|stratirus@d2pools.com`, and a 7-row MERGE against Crews succeeded.
+`chrome-devtools` **can** attach to Shane's actual running browser — `list_pages` then returns his real open tabs and `evaluate_script` fires REST with his cookies. **But this is not guaranteed.** Observed 2026-09-06: after a browser restart the MCP came back attached to a fresh instance with only `about:blank` and no session, and calls that had worked minutes earlier returned `403 UnauthorizedAccessException`. **Always call `list_pages` and re-confirm identity via `/_api/web/currentuser` after any gap or unexplained 403** — a 403 here means the session changed, not that permissions did. Verified 2026-09-05: `/_api/web/currentuser` returned `i:0#.f|membership|stratirus@d2pools.com`, and a 7-row MERGE against Crews succeeded.
 
 **This removes the "agent guides, user pastes into the console" workaround for the whole class of SharePoint work** — provisioning, seeding, MERGE fixes, `cleanup.js`. Always call `list_pages` first and confirm identity with `/_api/web/currentuser` before any write; the tab has to already be open and signed in, and the account must be `stratirus@d2pools.com`.
 
