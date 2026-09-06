@@ -70,3 +70,8 @@ scratch/
 .claude/worktrees/
 # FlowAgent pre-mutation flow snapshots (see flows/README.md)
 .flowagent/
+
+# canvas app build artifacts (throwaway; regenerate with pac canvas download/unpack)
+canvas-app/verify/
+canvas-app/solution-export/
+canvas-app/msapp/test-authored.msapp
