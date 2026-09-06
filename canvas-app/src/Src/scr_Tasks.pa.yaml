@@ -44,7 +44,7 @@ Screens:
                           gblAssignment,
                           {
                               TasksTotal: CountRows(galTasks.AllItems),
-                              TasksComplete: CountRows(Filter(galTasks.AllItems, Complete))
+                              TasksComplete: CountRows(Filter(galTasks.AllItems, Complete = true))
                           }
                       ),
                       Notify(
@@ -100,14 +100,14 @@ Screens:
           Control: Label@2.5.1
           Properties:
             Text: |
-              =Text(CountRows(Filter(galTasks.AllItems, Complete)))
+              =Text(CountRows(Filter(galTasks.AllItems, Complete = true)))
                & " of "
                & Text(CountRows(galTasks.AllItems))
                & " tasks done"
             Color: |
               =If(
                   CountRows(galTasks.AllItems) > 0
-                      && CountRows(Filter(galTasks.AllItems, Complete)) = CountRows(galTasks.AllItems),
+                      && CountRows(Filter(galTasks.AllItems, Complete = true)) = CountRows(galTasks.AllItems),
                   RGBA(15, 118, 110, 1),
                   RGBA(107, 114, 128, 1)
               )
@@ -158,6 +158,22 @@ Screens:
                   Sequence,
                   SortOrder.Ascending
               )
+            OnSelect: |
+              =IfError(
+                  Patch(
+                      Tasks,
+                      ThisItem,
+                      {
+                          Complete: !ThisItem.Complete,
+                          CompletedOn: If(!ThisItem.Complete, Now(), Blank())
+                      }
+                  ),
+                  Notify(
+                      "Tick failed: " & FirstError.Message,
+                      NotificationType.Error
+                  )
+              );
+              Set(gblTasksDirty, true)
             TemplateSize: =76
             BorderColor: =RGBA(0, 18, 107, 1)
             Height: =Parent.Height - 136 - 132
@@ -166,66 +182,39 @@ Screens:
             Y: =136
           Children:
             # 44x44 touch target -- these are tapped with work gloves on.
-            - chkTask:
-                Control: Classic/CheckBox@2.1.0
+            # Inert state indicator, NOT an input. Rectangle + Icon are both
+            # confirmed control types, and neither intercepts the tap, so the
+            # whole 76px row is the touch target -- better with work gloves on
+            # than a checkbox, and it avoids the OnCheck event entirely.
+            - recTaskBox:
+                Control: Rectangle@2.3.0
                 Properties:
-                  Text: =""
-                  Default: =ThisItem.Complete
-                  OnCheck: |
-                    =IfError(
-                        Patch(
-                            Tasks,
-                            ThisItem,
-                            { Complete: true, CompletedOn: Now() }
-                        ),
-                        Notify(
-                            "Tick failed: " & FirstError.Message,
-                            NotificationType.Error
-                        )
-                    );
-                    IfError(
-                        Patch(
-                            Tasks,
-                            ThisItem,
-                            {
-                                CompletedBy: {
-                                    '@odata.type': "#Microsoft.Azure.Connectors.SharePoint.SPListExpandedUser",
-                                    Claims: "i:0#.f|membership|" & Lower(gblCurrentUser.userPrincipalName),
-                                    DisplayName: gblCurrentUser.displayName,
-                                    Email: gblCurrentUser.userPrincipalName
-                                }
-                            }
-                        ),
-                        Notify(
-                            "CompletedBy failed: " & FirstError.Message,
-                            NotificationType.Warning
-                        )
-                    );
-                    Set(gblTasksDirty, true)
-                  OnUncheck: |
-                    =IfError(
-                        Patch(
-                            Tasks,
-                            ThisItem,
-                            { Complete: false, CompletedOn: Blank() }
-                        ),
-                        Notify(
-                            "Untick failed: " & FirstError.Message,
-                            NotificationType.Error
-                        )
-                    );
-                    IfError(
-                        Patch(Tasks, ThisItem, { CompletedBy: Blank() }),
-                        Notify(
-                            "CompletedBy clear failed: " & FirstError.Message,
-                            NotificationType.Warning
-                        )
-                    );
-                    Set(gblTasksDirty, true)
-                  Height: =44
-                  Width: =44
-                  X: =14
-                  Y: =16
+                  Fill: =If(ThisItem.Complete, RGBA(15, 118, 110, 1), RGBA(255, 255, 255, 1))
+                  BorderColor: =If(ThisItem.Complete, RGBA(15, 118, 110, 1), RGBA(156, 163, 175, 1))
+                  BorderThickness: =2
+                  OnSelect: =Select(Parent)
+                  Height: =30
+                  Width: =30
+                  X: =20
+                  Y: =23
+            - icoTaskCheck:
+                Control: Classic/Icon@2.5.0
+                Properties:
+                  Icon: =Icon.Check
+                  Color: =RGBA(255, 255, 255, 1)
+                  BorderColor: =RGBA(0, 0, 0, 1)
+                  DisabledBorderColor: =RGBA(56, 56, 56, 1)
+                  DisabledColor: =RGBA(119, 119, 119, 1)
+                  OnSelect: =Select(Parent)
+                  PaddingBottom: =6
+                  PaddingLeft: =6
+                  PaddingRight: =6
+                  PaddingTop: =6
+                  Visible: =ThisItem.Complete
+                  Height: =30
+                  Width: =30
+                  X: =20
+                  Y: =23
             - lblTaskName:
                 Control: Label@2.5.1
                 Properties:
@@ -289,7 +278,7 @@ Screens:
             Fill: |
               =If(
                   CountRows(galTasks.AllItems) > 0
-                      && CountRows(Filter(galTasks.AllItems, Complete)) = CountRows(galTasks.AllItems),
+                      && CountRows(Filter(galTasks.AllItems, Complete = true)) = CountRows(galTasks.AllItems),
                   RGBA(15, 118, 110, 1),
                   RGBA(180, 83, 9, 1)
               )
@@ -303,9 +292,9 @@ Screens:
           Properties:
             Text: |
               =If(
-                  CountRows(Filter(galTasks.AllItems, Complete)) = CountRows(galTasks.AllItems),
+                  CountRows(Filter(galTasks.AllItems, Complete = true)) = CountRows(galTasks.AllItems),
                   "Sign off",
-                  "Sign off " & Text(CountRows(Filter(galTasks.AllItems, Complete)))
+                  "Sign off " & Text(CountRows(Filter(galTasks.AllItems, Complete = true)))
                       & "/" & Text(CountRows(galTasks.AllItems))
               )
             Color: =RGBA(255, 255, 255, 1)
@@ -345,7 +334,7 @@ Screens:
           Properties:
             Text: |
               =If(
-                  CountRows(Filter(galTasks.AllItems, !Complete)) > 0,
+                  CountRows(Filter(galTasks.AllItems, Complete = false)) > 0,
                   "You have unticked tasks",
                   "Confirm sign-off"
               )
@@ -362,7 +351,7 @@ Screens:
           Control: Label@2.5.1
           Properties:
             Text: |
-              =Text(CountRows(Filter(galTasks.AllItems, Complete)))
+              =Text(CountRows(Filter(galTasks.AllItems, Complete = true)))
                & " of "
                & Text(CountRows(galTasks.AllItems))
                & " tasks ticked. Signing off records your name against this sub-phase for "
@@ -420,7 +409,7 @@ Screens:
                               & "-" & Right("0" & Text(Day(dpWorkDate.SelectedDate)), 2),
                           "",
                           CountRows(galTasks.AllItems),
-                          CountRows(Filter(galTasks.AllItems, Complete)),
+                          CountRows(Filter(galTasks.AllItems, Complete = true)),
                           gblCurrentUser.userPrincipalName
                       )
                   );
