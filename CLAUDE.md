@@ -55,6 +55,36 @@ The four load-bearing invariants (enforced by the design, not by a database prim
 - **Four subcontractor crews** (George, Armondo, STL Shotcrete, Brothers) modeled as `Unlimited = Yes` capacity-exempt buckets. No roster, no M365 seat, cannot be double-booked.
 - **Sign-off happens on connected devices** — David confirmed no signal-required scenarios.
 
+- **No sign-off while any task is unresolved. Every task is Done, N/A, or to do. DECIDED 2026-09-07 (Shane, from Don).**
+  Don's objection was never the ceremony — it was someone glossing a clean checklist with "yep, all
+  done" without really checking. So sign-off is now **blocked** until every task is resolved.
+
+  **A bare block would have made things worse.** If a crew lead cannot close the day at 5 of 6, they
+  do not go and do the sixth — they tick it falsely. That converts an honest "5 of 6" into a
+  dishonest "6 of 6" *carrying their name*, destroying the very signal Don wants. The gate is only
+  fair because **N/A** exists as the honest alternative: materials did not arrive, inspection
+  pending, or the task simply does not apply to this pool.
+
+  | State | Meaning |
+  |---|---|
+  | Done | ticked, timestamped |
+  | N/A | deliberately excluded, **reason required** |
+  | to do | neither — blocks sign-off |
+
+  **The N/A reason is mandatory, and that is load-bearing.** Without it, "mark everything N/A then
+  sign off" is simply a second rubber-stamp route and the gate is worth nothing. N/A is also a
+  separate tap target, never a cycle through the row tap, so excluding work cannot happen by
+  mis-tap.
+
+  **Per-task attribution is deliberately NOT the point.** Shane: *"who completed the work is
+  unimportant for this — who signed off on the completed work is more important."* `CompletedBy`
+  stays populated because it is free and the timestamps expose rubber-stamping (six tasks ticked in
+  four seconds is visible), but the attestation that matters is `InstallerSignOffBy` at sub-phase
+  level. Do not build per-task signature ceremony.
+
+  **`TasksComplete` counts genuinely Done only, not N/A.** A sub-phase signed off with one N/A reads
+  5/6 forever, which is honest: five were done, one was excluded, and the exclusion carries a reason.
+
 - **Sign-off LOCKS the task list, and a recorded Reopen is the only way back. DECIDED 2026-09-06 (Shane).**
   Triggered by a real case: a PM walk-through spots something signed off that clearly was not
   done. Without a reopen path the only remedy is silently unticking tasks underneath a

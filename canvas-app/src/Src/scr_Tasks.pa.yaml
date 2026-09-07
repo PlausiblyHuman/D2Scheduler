@@ -42,11 +42,14 @@ Screens:
                       !IsBlank(gblAssignment) && gblTasksDirty,
                       'D2-TaskTickBatch'.Run(
                           gblAssignment.ID,
-                          Concat(
+                          "[" & Concat(
                               galTasks.AllItems,
-                              Text(ID) & ":" & If(Complete, "1", "0"),
+                              "{""id"":" & Text(ID)
+                                  & ",""s"":""" & If(Complete, "d", NotApplicable, "n", "t")
+                                  & """,""r"":""" & Substitute(Coalesce(Note, ""), """", "'")
+                                  & """}",
                               ","
-                          ),
+                          ) & "]",
                           CountRows(galTasks.AllItems),
                           CountRows(Filter(galTasks.AllItems, Complete = true)),
                           gblCurrentUser.userPrincipalName
@@ -106,7 +109,17 @@ Screens:
               =Text(CountRows(Filter(galTasks.AllItems, Complete = true)))
                & " of "
                & Text(CountRows(galTasks.AllItems))
-               & " tasks done"
+               & " done"
+               & If(
+                   CountRows(Filter(galTasks.AllItems, NotApplicable = true)) > 0,
+                   "  -  " & Text(CountRows(Filter(galTasks.AllItems, NotApplicable = true))) & " N/A",
+                   ""
+               )
+               & If(
+                   CountRows(Filter(galTasks.AllItems, Complete = false, NotApplicable = false)) > 0,
+                   "  -  " & Text(CountRows(Filter(galTasks.AllItems, Complete = false, NotApplicable = false))) & " to do",
+                   ""
+               )
                & If(gblAssignment.InstallerSignOff, "     SIGNED OFF - LOCKED", "")
             Color: |
               =If(
@@ -174,6 +187,7 @@ Screens:
                       ThisItem,
                       {
                           Complete: !ThisItem.Complete,
+                          NotApplicable: false,
                           CompletedOn: If(!ThisItem.Complete, Now(), Blank())
                       }
                   );
@@ -194,8 +208,18 @@ Screens:
             - recTaskBox:
                 Control: Rectangle@2.3.0
                 Properties:
-                  Fill: =If(ThisItem.Complete, RGBA(15, 118, 110, 1), RGBA(255, 255, 255, 1))
-                  BorderColor: =If(ThisItem.Complete, RGBA(15, 118, 110, 1), RGBA(156, 163, 175, 1))
+                  Fill: |
+                    =If(
+                        ThisItem.Complete, RGBA(15, 118, 110, 1),
+                        ThisItem.NotApplicable, RGBA(156, 163, 175, 1),
+                        RGBA(255, 255, 255, 1)
+                    )
+                  BorderColor: |
+                    =If(
+                        ThisItem.Complete, RGBA(15, 118, 110, 1),
+                        ThisItem.NotApplicable, RGBA(156, 163, 175, 1),
+                        RGBA(156, 163, 175, 1)
+                    )
                   BorderThickness: =2
                   OnSelect: =Select(Parent)
                   Height: =30
@@ -223,8 +247,19 @@ Screens:
             - lblTaskName:
                 Control: Label@2.5.1
                 Properties:
-                  Text: =ThisItem.Title
-                  Color: =If(ThisItem.Complete, RGBA(107, 114, 128, 1), RGBA(17, 24, 39, 1))
+                  Text: |
+                    =ThisItem.Title
+                     & If(
+                         ThisItem.NotApplicable,
+                         "     N/A" & If(IsBlank(ThisItem.Note), "", " - " & ThisItem.Note),
+                         ""
+                     )
+                  Color: |
+                    =If(
+                        ThisItem.Complete Or ThisItem.NotApplicable,
+                        RGBA(107, 114, 128, 1),
+                        RGBA(17, 24, 39, 1)
+                    )
                   Font: =Font.'Open Sans'
                   Size: =15
                   OnSelect: =Select(Parent)
@@ -233,6 +268,41 @@ Screens:
                   Width: =Parent.TemplateWidth - 90
                   X: =70
                   Y: =8
+            # N/A is its own target, never a cycle through the row tap: excluding a
+            # task must be a deliberate act, and it demands a reason. Without the
+            # reason this becomes a second rubber-stamp route -- mark everything
+            # N/A, sign off -- which is exactly what the gate exists to prevent.
+            - lblTaskNA:
+                Control: Label@2.5.1
+                Properties:
+                  Text: =If(ThisItem.NotApplicable, "undo", "N/A")
+                  Color: =RGBA(107, 114, 128, 1)
+                  Font: =Font.'Open Sans'
+                  FontWeight: =FontWeight.Semibold
+                  Size: =12
+                  Align: =Align.Center
+                  OnSelect: |
+                    =If(
+                        gblAssignment.InstallerSignOff,
+                        Notify(
+                            "This sub-phase is signed off. Tap Reopen to make changes.",
+                            NotificationType.Warning
+                        ),
+                        ThisItem.NotApplicable,
+                        Patch(
+                            Tasks,
+                            ThisItem,
+                            { NotApplicable: false, Note: "", CompletedOn: Blank() }
+                        );
+                        Set(gblTasksDirty, true),
+                        Set(gblNATask, ThisItem);
+                        Set(gblNAReason, "");
+                        Set(gblNAOpen, true)
+                    )
+                  Height: =44
+                  Width: =54
+                  X: =Parent.TemplateWidth - 62
+                  Y: =16
             - recTaskSeparator:
                 Control: Rectangle@2.3.0
                 Properties:
@@ -283,17 +353,22 @@ Screens:
               =If(
                   gblAssignment.InstallerSignOff,
                   RGBA(75, 85, 99, 1),
-                  CountRows(galTasks.AllItems) > 0
-                      && CountRows(Filter(galTasks.AllItems, Complete = true)) = CountRows(galTasks.AllItems),
-                  RGBA(15, 118, 110, 1),
-                  RGBA(180, 83, 9, 1)
+                  CountRows(Filter(galTasks.AllItems, Complete = false, NotApplicable = false)) > 0,
+                  RGBA(156, 163, 175, 1),
+                  RGBA(15, 118, 110, 1)
               )
             OnSelect: |
-              =Set(
-                  gblConfirmMode,
-                  If(gblAssignment.InstallerSignOff, "reopen", "signoff")
-              );
-              Set(gblConfirmOpen, true)
+              =If(
+                  gblAssignment.InstallerSignOff,
+                  Set(gblConfirmMode, "reopen"); Set(gblConfirmOpen, true),
+                  CountRows(Filter(galTasks.AllItems, Complete = false, NotApplicable = false)) > 0,
+                  Notify(
+                      Text(CountRows(Filter(galTasks.AllItems, Complete = false, NotApplicable = false)))
+                          & " tasks still to do. Mark them done or N/A to sign off.",
+                      NotificationType.Warning
+                  ),
+                  Set(gblConfirmMode, "signoff"); Set(gblConfirmOpen, true)
+              )
             Height: =52
             Width: =Parent.Width - 214
             X: =198
@@ -305,10 +380,10 @@ Screens:
               =If(
                   gblAssignment.InstallerSignOff,
                   "Reopen",
-                  CountRows(Filter(galTasks.AllItems, Complete = true)) = CountRows(galTasks.AllItems),
-                  "Sign off",
-                  "Sign off " & Text(CountRows(Filter(galTasks.AllItems, Complete = true)))
-                      & "/" & Text(CountRows(galTasks.AllItems))
+                  CountRows(Filter(galTasks.AllItems, Complete = false, NotApplicable = false)) > 0,
+                  Text(CountRows(Filter(galTasks.AllItems, Complete = false, NotApplicable = false)))
+                      & " left to do",
+                  "Sign off"
               )
             Color: =RGBA(255, 255, 255, 1)
             Font: =Font.'Open Sans'
@@ -474,11 +549,14 @@ Screens:
                           gblTasksDirty,
                           'D2-TaskTickBatch'.Run(
                               gblAssignment.ID,
-                              Concat(
+                              "[" & Concat(
                                   galTasks.AllItems,
-                                  Text(ID) & ":" & If(Complete, "1", "0"),
+                                  "{""id"":" & Text(ID)
+                                      & ",""s"":""" & If(Complete, "d", NotApplicable, "n", "t")
+                                      & """,""r"":""" & Substitute(Coalesce(Note, ""), """", "'")
+                                      & """}",
                                   ","
-                              ),
+                              ) & "]",
                               CountRows(galTasks.AllItems),
                               CountRows(Filter(galTasks.AllItems, Complete = true)),
                               gblCurrentUser.userPrincipalName
@@ -529,3 +607,131 @@ Screens:
             X: =Parent.Width - 40 - ((Parent.Width - 104) / 2)
             Y: =(Parent.Height / 2) + 62
             Visible: =gblConfirmOpen
+      # ---------------------------------------------------------------- N/A prompt
+      # The reason is REQUIRED. Without it, "mark everything N/A then sign off"
+      # is a second rubber-stamp route and the gate is worth nothing.
+      - recNAScrim:
+          Control: Rectangle@2.3.0
+          Properties:
+            Fill: =RGBA(17, 24, 39, 0.55)
+            OnSelect: =Set(gblNAOpen, false)
+            Height: =Parent.Height
+            Width: =Parent.Width
+            X: =0
+            Y: =0
+            Visible: =gblNAOpen
+      - recNACard:
+          Control: Rectangle@2.3.0
+          Properties:
+            Fill: =RGBA(255, 255, 255, 1)
+            Height: =230
+            Width: =Parent.Width - 48
+            X: =24
+            Y: =(Parent.Height / 2) - 115
+            Visible: =gblNAOpen
+      - lblNATitle:
+          Control: Label@2.5.1
+          Properties:
+            Text: ="Why does this not apply?"
+            Color: =RGBA(17, 24, 39, 1)
+            Font: =Font.'Open Sans'
+            FontWeight: =FontWeight.Semibold
+            Size: =16
+            Height: =30
+            Width: =Parent.Width - 80
+            X: =40
+            Y: =(Parent.Height / 2) - 99
+            Visible: =gblNAOpen
+      - lblNATask:
+          Control: Label@2.5.1
+          Properties:
+            Text: =gblNATask.Title
+            Color: =RGBA(75, 85, 99, 1)
+            Font: =Font.'Open Sans'
+            Size: =13
+            Height: =36
+            Width: =Parent.Width - 80
+            X: =40
+            Y: =(Parent.Height / 2) - 68
+            Visible: =gblNAOpen
+      - txtNAReason:
+          Control: Classic/TextInput@2.3.2
+          Properties:
+            Default: =""
+            HintText: ="e.g. no spa on this pool"
+            Font: =Font.'Open Sans'
+            Size: =13
+            BorderColor: =RGBA(209, 213, 219, 1)
+            HoverBorderColor: =RGBA(209, 213, 219, 1)
+            HoverFill: =RGBA(255, 255, 255, 1)
+            Height: =46
+            Width: =Parent.Width - 80
+            X: =40
+            Y: =(Parent.Height / 2) - 26
+            Visible: =gblNAOpen
+      - recNACancel:
+          Control: Rectangle@2.3.0
+          Properties:
+            Fill: =RGBA(229, 231, 235, 1)
+            OnSelect: =Set(gblNAOpen, false)
+            Height: =44
+            Width: =(Parent.Width - 104) / 2
+            X: =40
+            Y: =(Parent.Height / 2) + 40
+            Visible: =gblNAOpen
+      - lblNACancel:
+          Control: Label@2.5.1
+          Properties:
+            Text: ="Cancel"
+            Color: =RGBA(55, 65, 81, 1)
+            Font: =Font.'Open Sans'
+            FontWeight: =FontWeight.Semibold
+            Size: =14
+            Align: =Align.Center
+            OnSelect: =Select(recNACancel)
+            Height: =44
+            Width: =(Parent.Width - 104) / 2
+            X: =40
+            Y: =(Parent.Height / 2) + 40
+            Visible: =gblNAOpen
+      - recNAGo:
+          Control: Rectangle@2.3.0
+          Properties:
+            Fill: =If(Len(Trim(txtNAReason.Text)) = 0, RGBA(209, 213, 219, 1), RGBA(180, 83, 9, 1))
+            OnSelect: |
+              =If(
+                  Len(Trim(txtNAReason.Text)) = 0,
+                  Notify("Give a short reason first.", NotificationType.Warning),
+                  Patch(
+                      Tasks,
+                      gblNATask,
+                      {
+                          NotApplicable: true,
+                          Complete: false,
+                          Note: Trim(txtNAReason.Text),
+                          CompletedOn: Now()
+                      }
+                  );
+                  Set(gblTasksDirty, true);
+                  Set(gblNAOpen, false)
+              )
+            Height: =44
+            Width: =(Parent.Width - 104) / 2
+            X: =Parent.Width - 40 - ((Parent.Width - 104) / 2)
+            Y: =(Parent.Height / 2) + 40
+            Visible: =gblNAOpen
+      - lblNAGo:
+          Control: Label@2.5.1
+          Properties:
+            Text: ="Mark N/A"
+            Color: =RGBA(255, 255, 255, 1)
+            Font: =Font.'Open Sans'
+            FontWeight: =FontWeight.Semibold
+            Size: =14
+            Align: =Align.Center
+            OnSelect: =Select(recNAGo)
+            Height: =44
+            Width: =(Parent.Width - 104) / 2
+            X: =Parent.Width - 40 - ((Parent.Width - 104) / 2)
+            Y: =(Parent.Height / 2) + 40
+            Visible: =gblNAOpen
