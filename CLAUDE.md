@@ -591,34 +591,48 @@ The third-party risk is gone, but **the production risk is not** — this is sti
 
 `canvas-app/mirror-provision.js` is retained as the authoritative live-schema capture (more accurate than the obsolete `D2-Provision-Lists.ps1`) but is **not needed** for this build.
 
-**`Patch()` NEVER PERSISTS TO SHAREPOINT FROM THIS CANVAS APP. All writes must go through a
-flow using SP REST MERGE. Proven 2026-09-07.**
+**`Patch()` DOES work from the canvas app. CORRECTED 2026-09-07 — an earlier entry here said
+the opposite in strong terms and was wrong.**
 
-This is the single most expensive thing to not know. `Patch` updates the app's in-memory copy,
-**raises no error**, and the write never reaches SharePoint. The UI therefore looks completely
-correct — ticks appear, counters move — while the list is unchanged. It cost most of a session
-because every symptom pointed somewhere else.
+Proof: with the app freshly published, one task row was tapped and nothing else — no Back, no
+sign-off. Task 142 came back from SharePoint with `Complete=true` and
+`CompletedOn=2026-09-07T14:29:35`, while the tick flow's most recent run was still 13:05:12.
+Nothing but the app's own `Patch` could have written it. Two earlier writes (tasks 139 and 140,
+at 14:23:58 and 14:24:11) show the same signature.
 
-Proof: a clean single-tap test left all six Tasks rows on assignment 25 at `Complete=False` with
-`CompletedOn=None`, and `Assignments.TasksComplete` unchanged, while the Back button *did*
-navigate and `IfError`/`Notify` raised nothing. Confirmed on both `Tasks` and `Assignments`.
+**Why the earlier conclusion looked airtight, and why it was wrong.** A clean single-tap test had
+left every Tasks row at `Complete=False` with no error raised, which is genuinely what a dropped
+write looks like. But that test ran while two other faults were live and unknown: a stale Studio
+tab was silently reverting deploys, so the published build was not the one being reasoned about,
+and `Classic/CheckBox` OnCheck never fired, so in some builds no write was ever attempted. The
+most likely direct cause is that the app's SharePoint connection had not yet been consented for
+writes — the "Allow D2 Sign-off to access your data?" prompt granting Read *and Write* was
+accepted partway through this sequence.
 
-**Sign-off worked all along for exactly one reason: it goes through Flow 2, which writes via
-`Send an HTTP request to SharePoint` with `X-HTTP-Method: MERGE`.** CLAUDE.md predicted this
-before the app existed — *"Use SP REST MERGE, which validates only the fields named in the body.
-This will also hit the canvas app unless it writes via MERGE."* It was right.
+**The lesson is about method, not Power Apps.** Three faults were in play at once and each masked
+the others, so a single clean-looking experiment produced a confident wrong answer. When several
+things are broken, an experiment only proves something if every *other* variable is known-good —
+and here the build under test was not even known to be the build deployed. Re-verify a
+load-bearing negative before building a workaround on top of it.
 
-Consequences for anything built later:
+**What this means in practice:**
 
-- **Never add a `Patch(<SharePointList>, ...)` expecting it to save.** Route the write through a
-  flow. `D2 - Task Tick Batch` is the working pattern to copy.
-- A local `Patch` is still fine, and is used deliberately, for **UI state only** — the row tap
-  patches the local record so the tick renders instantly, and the flow does the real write when
-  the crew lead leaves the screen.
-- **Batch the writes.** One flow call per screen exit, never one per tick: a real pool is 295
-  tasks. Send the whole list rather than a delta — it is ~6 rows per sub-phase, and it makes the
-  call idempotent, so a retry after a dropped connection cannot half-apply.
-- **Verify writes by reading the list, never by looking at the app.** The UI is not evidence.
+- `Patch(<SharePointList>, ThisItem, {...})` is a valid way to write, and is what the task rows
+  use. It persists immediately, per tap.
+- **`D2 - Task Tick Batch` is retained anyway** and is not dead weight: it still writes the
+  `TasksTotal` / `TasksComplete` counters on the Assignment in the same call, and sending the
+  whole task list keeps that write idempotent. Sign-off calls it first for exactly that reason.
+- **Flow 2 must still be used for sign-off**, because `InstallerSignOffBy` is a Person column and
+  cannot be set by email through the connector — it needs the numeric site-user id from
+  `ensureuser`. That has nothing to do with whether `Patch` works.
+
+**OPEN — the counters are a cache and can go stale.** `TasksComplete` is written only when the
+crew lead leaves the screen or signs off, while individual ticks persist immediately. A crew lead
+who ticks and then closes the app strands the counter behind the rows: live right now, assignment
+25 reads `TasksComplete=3` against six completed Tasks rows. Tasks are the source of truth and the
+counter is a denormalisation, so the clean fix is to have the **nightly reconciliation flow
+recompute counters from the Tasks list** rather than to write the counter on every tick — which
+would burn a Flow 3 run per tick, 295 per pool. Not yet built.
 
 **`Classic/*` control events do not fire in this app. Confirmed twice, 2026-09-06/07.**
 
