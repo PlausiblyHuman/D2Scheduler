@@ -5,9 +5,10 @@
 This gets the YAML into the tenant. It does NOT finish the job on its own -- a
 manual Studio save is required afterwards, for the reason set out below.
 
-Steps: parse every *.pa.yaml as a syntax gate, pack Src/*.pa.yaml into an
-.msapp, export the D2BuildScheduler solution, swap the packed .msapp in, and
-re-import the solution.
+Steps: parse every *.pa.yaml as a syntax gate, check modal overlays are
+declared last as a z-order gate, pack Src/*.pa.yaml into an .msapp, export the
+D2BuildScheduler solution, swap the packed .msapp in, and re-import the
+solution.
 
 Why the swap works: customizations.xml references the app by path
 (<DocumentUri>/CanvasApps/..._DocumentUri.msapp</DocumentUri>) with no hash or
@@ -104,6 +105,23 @@ for f in sorted(glob.glob(os.path.join(SRC, 'Src', '*.pa.yaml'))):
 if failed:
     sys.exit('Fix the YAML above before deploying.')
 print('YAML syntax gate passed.')
+
+# Z-order gate. Declaration order IS z-order in a .pa.yaml screen and later
+# paints on top, so a modal overlay declared above a gallery is rendered
+# underneath it -- correct formulas, correct Studio preview, broken app. It
+# cost a session to find by eye because the only way to see it is to play the
+# app, which costs a manual Studio save first. check_zorder.py reads the rule
+# off the screens instead. See its docstring for the defect it was written
+# against.
+sys.path.insert(0, os.path.join(ROOT, 'canvas-app'))
+import check_zorder
+zproblems = check_zorder.gate()
+if zproblems:
+    print('Z-ORDER FAIL')
+    for zp in zproblems:
+        print('  ' + zp)
+    sys.exit('Fix the z-order above before deploying.')
+print('Z-order gate passed.')
 
 run('pac', 'canvas', 'pack', '--sources', SRC, '--msapp', PACKED,
     '--layout', 'SourceCode', '--overwrite')

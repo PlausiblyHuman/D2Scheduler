@@ -114,6 +114,114 @@ Screens:
             X: =16
             Y: =99
             Visible: =gblIsProxy
+      # galToday is declared BEFORE the picker overlay on purpose. Declaration
+      # order is z-order in a .pa.yaml screen and later paints on top, so with
+      # the gallery last it rendered straight over the scrim and the picker
+      # card. Every overlay control must stay below this line.
+      - galToday:
+          Control: Gallery@2.15.0
+          Variant: BrowseLayout_Vertical_TwoTextOneImageVariant_ver5.0
+          Properties:
+            Items: |
+              =If(
+                  IsBlank(gblCrewFilter),
+                  Filter(
+                      Assignments,
+                      ScheduledStart <= gblToday,
+                      ScheduledFinish >= gblToday,
+                      NotApplicable = false
+                  ),
+                  Filter(
+                      Assignments,
+                      ScheduledStart <= gblToday,
+                      ScheduledFinish >= gblToday,
+                      NotApplicable = false,
+                      Crew = gblCrewFilter
+                  )
+              )
+            OnSelect: |
+              =Set(gblAssignment, galToday.Selected);
+              Navigate(scr_Tasks, ScreenTransition.Cover)
+            TemplateSize: =96
+            BorderColor: =RGBA(0, 18, 107, 1)
+            Height: =Parent.Height - 92 - If(gblIsProxy, 52, 0)
+            Width: =Parent.Width
+            X: =0
+            Y: =92 + If(gblIsProxy, 52, 0)
+          Children:
+            - lblRowTitle:
+                Control: Label@2.5.1
+                Properties:
+                  Text: =ThisItem.SubPhaseNumber & "  " & ThisItem.SubPhaseName
+                  Color: =RGBA(17, 24, 39, 1)
+                  Font: =Font.'Open Sans'
+                  FontWeight: =FontWeight.Semibold
+                  Size: =15
+                  OnSelect: =Select(Parent)
+                  PaddingLeft: =0
+                  Height: =28
+                  Width: =Parent.TemplateWidth - 80
+                  X: =16
+                  Y: =12
+            - lblRowJob:
+                Control: Label@2.5.1
+                Properties:
+                  Text: =ThisItem.Job.Value
+                  Color: =RGBA(75, 85, 99, 1)
+                  Font: =Font.'Open Sans'
+                  Size: =12
+                  OnSelect: =Select(Parent)
+                  PaddingLeft: =0
+                  Height: =22
+                  Width: =Parent.TemplateWidth - 80
+                  X: =16
+                  Y: =40
+            - lblRowMeta:
+                Control: Label@2.5.1
+                Properties:
+                  Text: |
+                    =Coalesce(LookUp(Crews, CrewID = ThisItem.Crew, Title), ThisItem.Crew, "Unassigned")
+                     & "   "
+                     & Text(Coalesce(ThisItem.TasksComplete, 0)) & "/"
+                     & Text(Coalesce(ThisItem.TasksTotal, 0)) & " tasks"
+                     & If(ThisItem.InstallerSignOff, "   SIGNED OFF", "")
+                  Color: =If(ThisItem.InstallerSignOff, RGBA(15, 118, 110, 1), RGBA(107, 114, 128, 1))
+                  Font: =Font.'Open Sans'
+                  Size: =12
+                  OnSelect: =Select(Parent)
+                  PaddingLeft: =0
+                  Height: =22
+                  Width: =Parent.TemplateWidth - 80
+                  X: =16
+                  Y: =62
+            - icoRowNext:
+                Control: Classic/Icon@2.5.0
+                Properties:
+                  Icon: =Icon.ChevronRight
+                  Color: =RGBA(166, 166, 166, 1)
+                  BorderColor: =RGBA(0, 0, 0, 1)
+                  DisabledBorderColor: =RGBA(56, 56, 56, 1)
+                  DisabledColor: =RGBA(119, 119, 119, 1)
+                  OnSelect: =Select(Parent)
+                  PaddingBottom: =16
+                  PaddingLeft: =16
+                  PaddingRight: =16
+                  PaddingTop: =16
+                  Height: =50
+                  Width: =50
+                  X: =Parent.TemplateWidth - Self.Width - 12
+                  Y: =(Parent.TemplateHeight / 2) - (Self.Height / 2)
+            - recRowSeparator:
+                Control: Rectangle@2.3.0
+                Properties:
+                  Fill: =RGBA(229, 231, 235, 1)
+                  BorderColor: =RGBA(0, 18, 107, 1)
+                  OnSelect: =Select(Parent)
+                  Height: =1
+                  Width: =Parent.TemplateWidth
+                  X: =0
+                  Y: =Parent.TemplateHeight - 1
+
       # Picker overlay, same Visible-bound pattern as the sign-off confirmation.
       - recCrewScrim:
           Control: Rectangle@2.3.0
@@ -223,106 +331,3 @@ Screens:
                   Width: =Parent.TemplateWidth
                   X: =0
                   Y: =4
-      - galToday:
-          Control: Gallery@2.15.0
-          Variant: BrowseLayout_Vertical_TwoTextOneImageVariant_ver5.0
-          Properties:
-            Items: |
-              =If(
-                  IsBlank(gblCrewFilter),
-                  Filter(
-                      Assignments,
-                      ScheduledStart <= gblToday,
-                      ScheduledFinish >= gblToday,
-                      NotApplicable = false
-                  ),
-                  Filter(
-                      Assignments,
-                      ScheduledStart <= gblToday,
-                      ScheduledFinish >= gblToday,
-                      NotApplicable = false,
-                      Crew = gblCrewFilter
-                  )
-              )
-            OnSelect: |
-              =Set(gblAssignment, galToday.Selected);
-              Navigate(scr_Tasks, ScreenTransition.Cover)
-            TemplateSize: =96
-            BorderColor: =RGBA(0, 18, 107, 1)
-            Height: =Parent.Height - 92 - If(gblIsProxy, 52, 0)
-            Width: =Parent.Width
-            X: =0
-            Y: =92 + If(gblIsProxy, 52, 0)
-          Children:
-            - lblRowTitle:
-                Control: Label@2.5.1
-                Properties:
-                  Text: =ThisItem.SubPhaseNumber & "  " & ThisItem.SubPhaseName
-                  Color: =RGBA(17, 24, 39, 1)
-                  Font: =Font.'Open Sans'
-                  FontWeight: =FontWeight.Semibold
-                  Size: =15
-                  OnSelect: =Select(Parent)
-                  PaddingLeft: =0
-                  Height: =28
-                  Width: =Parent.TemplateWidth - 80
-                  X: =16
-                  Y: =12
-            - lblRowJob:
-                Control: Label@2.5.1
-                Properties:
-                  Text: =ThisItem.Job.Value
-                  Color: =RGBA(75, 85, 99, 1)
-                  Font: =Font.'Open Sans'
-                  Size: =12
-                  OnSelect: =Select(Parent)
-                  PaddingLeft: =0
-                  Height: =22
-                  Width: =Parent.TemplateWidth - 80
-                  X: =16
-                  Y: =40
-            - lblRowMeta:
-                Control: Label@2.5.1
-                Properties:
-                  Text: |
-                    =Coalesce(LookUp(Crews, CrewID = ThisItem.Crew, Title), ThisItem.Crew, "Unassigned")
-                     & "   "
-                     & Text(Coalesce(ThisItem.TasksComplete, 0)) & "/"
-                     & Text(Coalesce(ThisItem.TasksTotal, 0)) & " tasks"
-                     & If(ThisItem.InstallerSignOff, "   SIGNED OFF", "")
-                  Color: =If(ThisItem.InstallerSignOff, RGBA(15, 118, 110, 1), RGBA(107, 114, 128, 1))
-                  Font: =Font.'Open Sans'
-                  Size: =12
-                  OnSelect: =Select(Parent)
-                  PaddingLeft: =0
-                  Height: =22
-                  Width: =Parent.TemplateWidth - 80
-                  X: =16
-                  Y: =62
-            - icoRowNext:
-                Control: Classic/Icon@2.5.0
-                Properties:
-                  Icon: =Icon.ChevronRight
-                  Color: =RGBA(166, 166, 166, 1)
-                  BorderColor: =RGBA(0, 0, 0, 1)
-                  DisabledBorderColor: =RGBA(56, 56, 56, 1)
-                  DisabledColor: =RGBA(119, 119, 119, 1)
-                  OnSelect: =Select(Parent)
-                  PaddingBottom: =16
-                  PaddingLeft: =16
-                  PaddingRight: =16
-                  PaddingTop: =16
-                  Height: =50
-                  Width: =50
-                  X: =Parent.TemplateWidth - Self.Width - 12
-                  Y: =(Parent.TemplateHeight / 2) - (Self.Height / 2)
-            - recRowSeparator:
-                Control: Rectangle@2.3.0
-                Properties:
-                  Fill: =RGBA(229, 231, 235, 1)
-                  BorderColor: =RGBA(0, 18, 107, 1)
-                  OnSelect: =Select(Parent)
-                  Height: =1
-                  Width: =Parent.TemplateWidth
-                  X: =0
-                  Y: =Parent.TemplateHeight - 1
