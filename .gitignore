@@ -76,3 +76,13 @@ canvas-app/verify/
 canvas-app/solution-export/
 canvas-app/msapp/test-authored.msapp
 canvas-app/msapp/D2-Sign-off-authored.msapp
+
+# Canvas app: throwaway verification downloads and Studio round-trip captures.
+# The authored source is canvas-app/src/ (Src/*.pa.yaml + the .msapr residual).
+# Everything below is a re-downloadable snapshot used to prove a deploy landed.
+canvas-app/verify*/
+canvas-app/studio-sync*/
+canvas-app/msapp/
+canvas-app/solution-export/
+canvas-app/solution/
+*.msapp

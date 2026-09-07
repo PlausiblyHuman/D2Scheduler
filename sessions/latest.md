@@ -1,82 +1,79 @@
-# 2026-09-06a — Week 2 closed, canvas app unblocked, headless build loop proven
+# 2026-09-07a — Phase C complete, office surface built, weeks replaced by phases
 
-Spans 2026-09-05 into 09-06. Opened as "close out Week 2", became "Week 3 is buildable and
-here is the loop". Five commits, `12e8e99` through `21e7680`.
+Spans 2026-09-06 into 09-07. Opened as "continue dev", became the session that finished the
+field app, found and built the missing office surface, automated the deploy loop, and retired
+week numbering. 25 commits, `2257db3` through the restructure.
 
 ## What landed
 
-**Week 2 closed.** Reviewed the rendered summary output rather than run status, which is how
-three defects surfaced in flows that had been green since they were built:
+**Phase C (field app) is complete and verified against live data.** Today's work → open a
+sub-phase → tick tasks → save → sign off, with the sign-off attributed to a real person.
+Assignment 25 reads `InstallerSignOff=True`, `InstallerSignOffBy="D2 Bot"`,
+`WorkDate=2026-09-06`, and its task rows carry `CompletedOn` timestamps matching the flow run to
+the second. Also built: sign-off **locking**, a recorded **Reopen** that appends who and when to
+`SignOffNotes`, the **PM-proxy crew picker**, and the **Notes** field.
 
-- **Weekly compliance counted work that had not finished yet.** A Friday 15:00 run with a
-  Saturday `weekEnd` scored Friday and Saturday work as outstanding. It named
-  `D2-1001 · 2.2 Steel Installation` as oldest outstanding while it was still two days from
-  finishing. Same data now reports a true **33%**, not a false 22%.
-- Neither summary set `$orderby`, so tables came out in list-ID order.
-- The daily footer overstated its own compliance window by a day.
+**Flow 2 now writes `InstallerSignOffBy`** — the blocker carried in from 2026-09-06a. Sixth
+trigger parameter plus an `ensureuser` lookup, because a Person column cannot be set by email.
 
-Fixed headless, published, verified by manual runs with the rendered HTML pulled back into
-`flows/testdata/`. All six flows re-exported.
+**Three new flows**, all created and published headlessly: `D2 - Task Tick Batch`,
+`D2 - Reopen Sign-off`, and `D2 - Counter Reconciliation` (nightly, repairs `TasksComplete` drift;
+first run fixed 6 rows, second fixed 0).
 
-**M365 F1 does not include Power Apps or Power Automate.** CLAUDE.md had it as the ~$190/yr
-frontline option with "seeded Power Apps + Teams". A crew lead on F1 could not open the app.
-Business Basic is the verified floor, not a preference. Caught the day before the licensing
-conversation with Don.
+**The office surface never existed.** Phase A specified seven SharePoint views and its exit gate
+was ticked claiming "all views show correct filters". Every list had only `All Items`. Built and
+verified by *rendering* each one, since a view accepts invalid CAML at creation and fails only
+when opened. Phase F training walks Don and both PMs through those views.
 
-**Canvas app prerequisites cleared.** `Crews.LeadEmail` placeholders removed (all seven field
-crews held the same unmatchable external UPN, which made the app look correct while showing
-everyone Saul's work). 252 Tasks rows backfilled from the browser tool's template — the seed
-had created **zero**, so 38 of 43 assignments had nothing to tick and the app's core screen
-could not have been built. Now 282 tasks across all 43, counts matching their counters.
+**Don's daily view.** He asked where his crews are and what they are doing. The 06:30 summary now
+leads with "Where crews are today", ordered by crew, with site addresses; plus a "Today by Crew"
+view for ad-hoc checks.
 
-**Headless canvas build loop proven end to end.** A Today screen authored entirely in YAML,
-deployed by CLI, rendering live SharePoint data. `python canvas-app/deploy.py` runs it:
-pack → solution export → swap the `.msapp` in the zip → solution import → Studio publish.
-Connections survive because they live in the `.msapr` residual, not the YAML.
+**The Studio publish is automated.** Deploy → drive Studio → publish → verify now runs with no
+human step, proven twice as a full round trip. Shane is out of the publish path.
 
-**Week 3 formula review** — nine findings in `canvas-app/formula-review.md`, two of them
-design gaps rather than formula bugs.
+**Weeks replaced by phases A–G.** ~104 references across 9 documents; zero `Week N` remain.
 
 ## Decisions made
 
-- **Ryan is off the build; the canvas app stays with Stratirus.** The handoff contract becomes
-  internal build guidance, and its §6a production-safety rules now bind us.
-- **Build headless in YAML**, accepting that Microsoft documents it as unsupported. The
-  fallback is cheap: the Power Fx is identical either way, so a break costs only time.
-  Git Integration remains the supported alternative and is worth evaluating.
-- **Business Basic, ~7 seats.** Lead with *identities*, not SKUs — no crew-lead account exists
-  in the tenant at all, and that has lead time upstream of Week 4.
-- **The nightly browser-tool → Lists sync is descoped from the pilot**, on the record. It does
-  not exist, was in no runbook, and nothing was tracking it. Week 4 loads one pool by REST.
-- **Teams deferred to post-pilot.** Its one material use case evaporated when F1 turned out
-  not to include Power Apps.
-- **TEST-900x stays** until just before the pilot; it is the only realistic test volume.
-- **`cleanup.js` now removes Harrison `D2-1001` too**, which is no more real than the TEST
-  rows. That disposes of three tracked defects at once.
-- **`DurationDays` means work days**, not the inclusive calendar span.
-- Flow 3 **stopped** for the build.
+- **Sign-off locks the task list; a recorded Reopen is the only way back.** Shane's call, from a
+  real case: a PM walk-through finds work signed off that clearly was not done.
+- **Batch deploys.** Every publish costs a manual step, so accumulate changes rather than
+  deploying per fix. Saved as a standing preference.
+- **Prefer CLI/MCP over the browser**, using the browser only where it would otherwise need
+  Shane. Large flow edits now go through the Dataverse workflows API with files on disk.
+- **Keep A–F on the existing AzDo Epic letters** rather than renumbering; G is additive. Phase D
+  widened to hold both orphaned workstreams.
+- **Git Integration is ruled out** — it needs Managed Environments, which is premium-only, the
+  same wall that killed Dataverse.
+
+## Four wrong conclusions, corrected
+
+Worth recording because three were caught by Shane, not by me.
+
+1. **"Patch() never persists"** — wrong, and I built a flow around it. Three faults were live at
+   once (a stale Studio tab reverting deploys, `Classic/*` events not firing, and writes not yet
+   consented) and each masked the others. Re-verify a load-bearing negative before building a
+   workaround on it.
+2. **"The headless loop works"** — verified in Studio, which is the one client that cannot detect
+   the bug. The player was serving old screens.
+3. **Delegation direction backwards** in formula-review findings 6/7 — `.Value` delegates,
+   `.Id` does not.
+4. **`AssignmentId`** is the REST field name; the connector returns `Assignment` + `Assignment#Id`.
+   The first Counter Reconciliation run reported a confident "43 checked, 0 repaired" that was in
+   fact a total mismatch. Fourth instance of assuming a field name instead of reading one.
 
 ## Open / blocked on
 
-- **Flow 2 never writes `InstallerSignOffBy`, so every sign-off is anonymous.** The staging
-  contract claimed otherwise. Needs a sixth trigger parameter and a site-user lookup, since a
-  Person column cannot be set by email. **Blocked on `az login`** — the `pac` sign-in revoked
-  the token tenant-wide.
-- **The spec has no PM-proxy path**, and `LeadEmail` is empty by design, so every user is a
-  proxy today. Permanently required for the four `Unlimited` subcontractor crews.
-- **Delegation**: `Tasks` is at 282 rows against a 500 default. One real pool is 295. Once
-  breached, tasks vanish silently from the sign-off screen.
-- **Wednesday with Don**: seven identities, Business Basic, PM on the first real pool, the 11
-  Unassigned sub-phases and the 10 unmapped trades.
-- Flow 3 gating still unresolved; needed before the app writes at volume.
-- Commercial basis for this project is still recorded nowhere.
+- **Phase D3 is the critical path and has not been asked for.** ~7 crew-lead identities (none
+  exist in the tenant), ~7 Business Basic seats, a real PM on the first pool, 10 unmapped trades,
+  11 Unassigned sub-phases. All human-gated, all upstream of the pilot.
+- Summary recipients still internal — flip to Don once `TEST-900x` is cleared.
+- Event-Driven Reconciliation trigger is a no-op; it is STOPPED and needs a decision before restart.
+- Crew picker and reopen wording are published but no human has looked at them.
+- The browser tool → Lists sync still does not exist (Phase G).
 
 ## Next action
 
-Build the Tasks screen (282 real rows now exist), then the sign-off screen, then the proxy
-picker. Fix Flow 2's `InstallerSignOffBy` first if `az login` is available, because it is
-broken independently of the app.
-
-**Rule to adopt before the app can write:** deploying untested Power Fx into the live client
-tenant is acceptable only while the app is read-only. Write-path changes get tested against a
-`TEST-900x` row, never Harrison.
+Draft the Phase D3 ask for David and Don — the identities and seats. It is the whole critical
+path, it is the one thing Stratirus cannot unblock, and nothing else moves until it starts.
