@@ -59,6 +59,7 @@
   const assignmentCard = {
     $schema: 'https://developer.microsoft.com/json-schemas/sp/v2/row-formatting.schema.json',
     hideColumnHeader: true,
+    hideSelection: true,
     rowFormatter: {
       elmType: 'div',
       style: {
@@ -130,6 +131,7 @@
   const taskRow = {
     $schema: 'https://developer.microsoft.com/json-schemas/sp/v2/row-formatting.schema.json',
     hideColumnHeader: true,
+    hideSelection: true,
     rowFormatter: {
       elmType: 'div',
       style: { 'display': 'flex', 'align-items': 'center', 'gap': '10px',
