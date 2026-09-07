@@ -412,6 +412,51 @@ Studio and the *old* ones in the player, with no error anywhere.
 is genuinely dirty. Loading YAML for display does not mark it dirty, so Publish re-publishes
 the previous version indefinitely. Two full Save+Publish rounds changed nothing.
 
+**The dirty Studio save is IRREDUCIBLE. Re-tested from scratch 2026-09-07 and confirmed — do
+not spend another cycle looking for a headless publish.**
+
+Shane's hypothesis was that the pixel nudge had never actually been necessary, and that a stale
+open Studio tab had been corrupting every test. It was a good hypothesis: every earlier test did
+have Studio open, and a stale tab demonstrably *can* revert a deploy. The two explanations fit
+the evidence equally well and had never been separated. They have now.
+
+**A headless publish endpoint EXISTS and returns 200:**
+
+```
+POST https://api.powerapps.com/providers/Microsoft.PowerApps/apps/{appId}/publish?api-version=2017-05-01
+```
+
+(App id for D2 Sign-off is `6bad1fae-7f3b-42d7-a63f-48a63e1e8771`. `api-version=2016-11-01` is
+rejected with `UnsupportedApiVersion` — the route is real, only the version was wrong, which is
+what makes this look promising right up until you test it.)
+
+**It does not work.** Deploying and then publishing purely by API, with Studio never opened,
+left the player serving the old version. `lastPublishTime` stayed `null`, the app kept reporting
+*"A new version of this app is coming. We'll let you know when it's available."*, and a normal
+Studio Edit + Publish with no control nudge **silently failed**. Only the 1px move + Ctrl+S +
+Publish made the new version live.
+
+So the constraint is not publishing and not a stale tab. It is that **only a Studio save compiles
+the YAML into the control model the player reads**, exactly as originally diagnosed. Both the
+stale-tab rule above and this one are real and independent.
+
+**Consequence — BATCH THE WORK. Shane's standing request, 2026-09-07.** Every deploy costs him a
+manual Studio dance, so do not deploy one change at a time. Accumulate a coherent set of changes,
+deploy once, and ask for one publish. Ask for a publish only when a batch is genuinely ready to
+test or when a test is actually blocked on it.
+
+Two things that force an *extra* Studio visit, so plan them in advance rather than discovering
+them one at a time:
+
+- **Attaching a flow to the app** can only be done in Studio, and the app cannot reference a flow
+  in Power Fx until it is attached.
+- **Changing a flow's trigger signature** invalidates the app's cached copy of it, so adding a
+  parameter to an existing flow needs a remove-and-re-add in Studio. Think the parameter list
+  through before creating a flow the app will call.
+
+Capture new control vocabulary in the same visit for the same reason — dropping a control in
+Studio once to read the YAML it generates is cheap when bundled, expensive as its own trip.
+
 **CLOSE Studio before deploying, and open it fresh afterwards.** Studio holds the app in
 memory from the moment the tab is opened. If a tab is already open when `deploy.py` runs, the
 subsequent Ctrl+S writes that **stale** in-memory model back, silently reverting the deploy —
