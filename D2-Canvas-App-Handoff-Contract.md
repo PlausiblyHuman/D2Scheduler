@@ -7,22 +7,22 @@
 > app is still being built in a live client tenant on a shared credential. Read "you" as
 > "whoever is building this", not as Ryan.
 
-**Originally for:** Ryan Meyer, picking up the Week 3 canvas app build
+**Originally for:** Ryan Meyer, picking up the Phase C canvas app build
 **From:** Shane Talbot / Stratirus
 **Date:** 2026-09-04 (reversed 2026-09-05)
-**Status of the rest of the build:** Weeks 1–2 complete. All 7 SharePoint lists provisioned and
+**Status of the rest of the build:** Phases A–B complete. All 7 SharePoint lists provisioned and
 seeded; all 5 Power Automate flows built, published and verified end-to-end.
 
 This document is the set of invariants the app must honour. It is deliberately short and
-prescriptive. `D2-Week-3-Canvas-App-Spec.md` has the screen-by-screen build steps; **this file
-wins wherever the two disagree**, because the spec was written before Weeks 1–2 surfaced the
+prescriptive. `D2-Phase-C-Field-App-Spec.md` has the screen-by-screen build steps; **this file
+wins wherever the two disagree**, because the spec was written before Phases A–B surfaced the
 defects below.
 
 ---
 
 ## 0. Read this first — three bugs already found in production
 
-All three shipped in flows, were diagnosed against live data, and are fixed there. The Week 3
+All three shipped in flows, were diagnosed against live data, and are fixed there. The Phase C
 spec still contains the first two. Do not reproduce them.
 
 ### 0.1 `Crew` is a Text column, not a Lookup or Choice
@@ -36,7 +36,7 @@ InvalidTemplate: property 'Value' cannot be selected.
 Property selection is not supported on values of type 'String'.
 ```
 
-The Week 3 spec's `App.OnStart` currently reads `Crew.Value = ...`. **That is wrong twice over
+The Phase C spec's `App.OnStart` currently reads `Crew.Value = ...`. **That is wrong twice over
 — see 0.2 for the second half.**
 
 Note the nuance: `Tasks.Assignment` **is** a genuine Lookup, so `Assignment.Value` on the Tasks
@@ -83,7 +83,7 @@ already DateOnly. What matters is the wall-clock time a value is stored at:
 | `2026-09-02T00:00:00Z` (midnight **UTC**) | `2026-09-01` | **wrong, one day early** |
 | `2026-09-05T05:00:00Z` (midnight **Central**) | `2026-09-05` | correct |
 
-Week 1 seeding wrote midnight UTC and every date in the system was a day early — which silently
+Phase A seeding wrote midnight UTC and every date in the system was a day early — which silently
 **inverted the work week**, since Flow 1 checks Work Calendar for non-work days. It would have
 terminated on Saturdays and dispatched on Sundays. Fixed 2026-09-03.
 
@@ -146,7 +146,7 @@ so that remains true.
 ## 3. Writes — use the Sign-off Intake flow, do not Patch Assignments
 
 `Sub-phase Assignments` has **four Required columns** (`Locked`, `NotApplicable`, `PMSignOff`,
-`DurationDays`). Week 1 seeded them NULL via REST, which bypasses required-field validation —
+`DurationDays`). Phase A seeded them NULL via REST, which bypasses required-field validation —
 the SharePoint form and the Power Apps connector do not. A `Patch()` against an Assignment will
 fight this.
 
@@ -231,20 +231,20 @@ This is live. D2's real flows are running against these lists right now. Five ru
 
 `Harrison Residence` / `D2-1001` is **not a real pool.** It is the demo job hardcoded in your
 own browser prototype (`pool-scheduler.html`, `newJob('Harrison Residence','1420 Camino Real','Thousand Oaks','CA','91360')`),
-carried into SharePoint verbatim during Week 1 seeding. Assignments 1–5 hang off it.
+carried into SharePoint verbatim during Phase A seeding. Assignments 1–5 hang off it.
 
 So production currently holds only demo data (`D2-1001`, 5 assignments, 30 tasks) and test data
 (`TEST-9001`/`TEST-9002`, 38 assignments, ids 6–43). **Both are fair game to test against** —
 the `TEST-900x` rows are the better choice simply because there are more of them and they were
 generated at realistic volume from the real 46 sub-phase template.
 
-**Delete nothing, though.** The TEST rows are scheduled for removal just before the Week 4
+**Delete nothing, though.** The TEST rows are scheduled for removal just before the Phase E
 pilot and that is tracked separately; the demo rows are what several flows have been verified
 against. If you need a clean row, add one rather than repurposing an existing one — and set all
 four required columns (`Locked`, `NotApplicable`, `PMSignOff`, `DurationDays`) at creation or
 the list form will refuse later edits to it.
 
-The first *real* pool arrives in Week 4.
+The first *real* pool arrives in Phase E.
 
 **2. Stop Flows 3 and 4 before any bulk write to Assignments.** Flow 3's trigger condition is a
 proven no-op — the SharePoint `GetOnUpdatedItems` trigger emits no `@odata.oldValue`, so
@@ -276,7 +276,7 @@ changed — the real per-crew UPNs are a tracked work item.
 
 ## 7. Exit gate
 
-From the Week 3 runbook, unchanged:
+From the Phase C runbook, unchanged:
 
 > A crew lead ticks 6 tasks and signs off from a phone in **under 60 seconds**; the work date
 > defaults correctly to today and is overridable.
@@ -290,7 +290,7 @@ Plus one addition from §2:
 
 ## 7a. Three more defects — CONFIRMED against live production schema 2026-09-04
 
-All three were verified by reading the live lists, not inferred. All three are in the Week 3
+All three were verified by reading the live lists, not inferred. All three are in the Phase C
 spec. The first two are now corrected in that file; the third is corrected in the formula but
 worth understanding.
 
@@ -355,7 +355,7 @@ should probably not offer `unassigned` or `office` as sign-off targets.
 
 - `CLAUDE.md` — durable project orientation; the Known bugs section carries the full history of
   every defect summarised above, with the run IDs and evidence.
-- `D2-Week-2-Automations-Runbook.md` — how the five flows fit together.
+- `D2-Phase-B-Automations-Runbook.md` — how the five flows fit together.
 - `flows/definitions/` — the live flow definitions, including Sign-off Intake.
 
 If something here contradicts your memory of the original Rev C/D design, trust this document.

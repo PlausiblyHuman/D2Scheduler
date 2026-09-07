@@ -1,4 +1,4 @@
-# D2 Week 1 build runbook — SharePoint foundation
+# D2 Phase A build runbook — SharePoint foundation
 
 **Prereq:** Phase 1 verifications complete (all three green or fallback decisions made).
 **Time budget:** ~25 hours (~5 hrs/day × 5 days). Actual site provisioning is fast; the tedious part is column definitions.
@@ -228,7 +228,7 @@ Every list → List settings → Permissions for this list → **Stop inheriting
 | Crews | Full Control | Contribute | Read | Read |
 | Work Calendar | Full Control | Contribute | Read | Read |
 
-Note on `Sub-phase Tasks`: crew leads *do* need to write to this list (task completion), but the write happens through the canvas app calling a flow. Grant Contribute at the list level but restrict actual edits via canvas-app column bindings — no direct list editing from crew-lead browsers. Verify in Week 3 pilot.
+Note on `Sub-phase Tasks`: crew leads *do* need to write to this list (task completion), but the write happens through the canvas app calling a flow. Grant Contribute at the list level but restrict actual edits via canvas-app column bindings — no direct list editing from crew-lead browsers. Verify in Phase C pilot.
 
 ---
 
@@ -270,7 +270,7 @@ Run once. Add US federal holidays manually via Grid view (10 rows).
 
 From `data/crew-trades.csv`. Grid paste after resolving Crew and Trade lookups by CrewID / TradeCode. If lookups don't resolve on paste (SharePoint sometimes needs the display value), you'll need to convert IDs — use a small Automate flow to look up and create.
 
-### Step 17 — Verify Week 1 exit gate
+### Step 17 — Verify Phase A exit gate
 
 Open each list, confirm:
 
@@ -294,7 +294,7 @@ Open each list, confirm:
 
 **Test the Skill Coverage query:** open Trades list → click on the "Steel / Rebar" row → the "Related items" pane should show any Crew-Trades rows referencing that trade. If it does, the lookup wiring is correct and Ryan-Claude's concern about killing this query pattern is proven addressed.
 
-**If any check fails, do not proceed to Week 2 automations.** Fix in Week 1 or extend by half a day.
+**If any check fails, do not proceed to Phase B automations.** Fix in Phase A or extend by half a day.
 
 ---
 
@@ -308,6 +308,6 @@ Open each list, confirm:
 
 ---
 
-## What Week 2 starts with
+## What Phase B starts with
 
-Every column and permission in place. Week 2's Automate flows write into this schema — if anything is misspelled or wrong-typed, Week 2 gets ugly. Extra 30 minutes of Week 1 verification saves days in Week 2.
+Every column and permission in place. Phase B's Automate flows write into this schema — if anything is misspelled or wrong-typed, Phase B gets ugly. Extra 30 minutes of Phase A verification saves days in Phase B.

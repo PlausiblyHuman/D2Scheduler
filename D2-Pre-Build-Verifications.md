@@ -1,4 +1,4 @@
-# D2 Phase 1 verifications — runbook
+# D2 pre-build verifications — runbook
 
 Three checks that unblock everything else in Rev D. Total time ~15 minutes.
 Use your D2 tenant service account (not your Stratirus account).
@@ -115,7 +115,7 @@ Sharing: [Green / opened up]
 Polling: [avg ~X minutes across N tests]
 ```
 
-I'll finalize the SOW numbers with Ken and Rev D §07's detection-window language, then we're clear for Week 1 kickoff.
+I'll finalize the SOW numbers with Ken and Rev D §07's detection-window language, then we're clear for Phase A kickoff.
 
 ---
 

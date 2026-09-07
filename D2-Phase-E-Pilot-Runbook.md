@@ -1,9 +1,9 @@
-# D2 Week 4 pilot runbook — parallel run
+# D2 Phase E pilot runbook — parallel run
 
 **Purpose:** Prove the Lists system produces the same operational output as the browser tool for one real pool over one full workweek. Exit gate: zero unexplained divergence.
-**Prereq:** Weeks 1–3 complete. All six lists, five flows, and the canvas app are live. Phase 1 verifications green.
+**Prereq:** Phases A–C complete. All six lists, five flows, and the canvas app are live. Phase 1 verifications green.
 **Time budget:** ~15 hours across the week — most of it is watching, not building.
-**Framing:** This is validation, not development. If we're writing new flows or fixing broken schemas, we regressed and need to go back to Week 2 or 3.
+**Framing:** This is validation, not development. If we're writing new flows or fixing broken schemas, we regressed and need to go back to Phase B or 3.
 
 ---
 
@@ -18,7 +18,7 @@ Pick one active pool that meets all four:
 3. **No exceptional complexity** — not a remodel, not an add-on, not a client with unusual demands. Something whose sub-phases match the standard template cleanly.
 4. **Trades used this week are all mapped** — check the 10-unmapped-trades list. If the pool needs Retaining Walls or Veneer this week and Don hasn't answered the mapping question, pick a different pool.
 
-Recommendation: coordinate with David on selection Monday morning of week 4 — he knows the current job board.
+Recommendation: coordinate with David on selection Monday morning of Phase E — he knows the current job board.
 
 ### Prep artifacts
 
@@ -54,7 +54,7 @@ Two paths, pick one:
 2. Run manually
 3. Verify the correct rows landed
 
-If the export flow is untested by Week 4, use the manual path. Do NOT extend Week 3 into Week 4 to build the export flow — save that for post-cutover.
+If the export flow is untested by Phase E, use the manual path. Do NOT extend Phase C into Phase E to build the export flow — save that for post-cutover.
 
 ### Step 3 — Set up the divergence log
 
@@ -70,7 +70,7 @@ Create a SharePoint list on the d2-scheduler site:
 | BrowserToolState | Multi-line text |
 | ListsState | Multi-line text |
 | RootCause | Choice: Unknown / Timing / Bug in flow / Bug in canvas app / User error / Data model mismatch |
-| Resolution | Choice: Fixed in-week / Deferred to Week 5 / Accepted variance |
+| Resolution | Choice: Fixed in-week / Deferred to Phase F / Accepted variance |
 | Notes | Multi-line text |
 
 Only Shane and the pilot PM write to this list. Everyone can read.
@@ -210,13 +210,13 @@ If any of these happen during the pilot, stop and huddle before continuing:
 - More than 5 false-positive collision alert emails (indicates trigger condition or filter logic is broken)
 - Crew lead refuses to keep using the app
 
-None of these are Week 5 blockers by default, but they need explicit "here's the plan" resolution before cutover.
+None of these are Phase F blockers by default, but they need explicit "here's the plan" resolution before cutover.
 
 ---
 
-## Week 4 exit gate
+## Phase E exit gate
 
-Verify all before proceeding to Week 5:
+Verify all before proceeding to Phase F:
 
 - ✅ Full workweek completed with the pilot pool in parallel
 - ✅ Divergence log has entries but all are classified with root cause
@@ -227,9 +227,9 @@ Verify all before proceeding to Week 5:
 - ✅ Daily PDF Summary landed in Don's inbox every workday
 - ✅ No P0 canvas app or flow bugs remain open
 
-**If the exit gate is green, we cut over in Week 5.** If not, extend the pilot for a second week with the same pool or add a second pool to shake out the specific failure mode.
+**If the exit gate is green, we cut over in Phase F.** If not, extend the pilot for a second week with the same pool or add a second pool to shake out the specific failure mode.
 
-**A failed pilot is not a failed project.** It's Week 4 doing its job. Escalate to David + Don with a specific "here's what we found, here's the fix, here's when we go live" note — not a "the plan is broken" note.
+**A failed pilot is not a failed project.** It's Phase E doing its job. Escalate to David + Don with a specific "here's what we found, here's the fix, here's when we go live" note — not a "the plan is broken" note.
 
 ---
 
@@ -238,11 +238,11 @@ Verify all before proceeding to Week 5:
 - **PM edits Lists directly to "help" during the pilot.** Discourage. Every direct edit undermines the parallel-run comparison. If the PM sees a Lists error and wants to fix it, log it first.
 - **Weekend gap.** Days 1–5 run Mon–Fri. Saturday is a normal work day for D2 crews but the pilot check cadence should still hit Saturday morning. Sunday is genuine skip.
 - **Timezone confusion.** Verify all comparison points use Pacific. The browser tool uses local device time; Lists stores UTC. A 1-day-off divergence is almost always a timezone issue in a query filter.
-- **Sample size of one pool.** A clean pilot doesn't prove the system handles all edge cases. Cutover in Week 5 puts more pools in and will surface things the pilot didn't. Plan for that in Week 5's on-call schedule.
+- **Sample size of one pool.** A clean pilot doesn't prove the system handles all edge cases. Cutover in Phase F puts more pools in and will surface things the pilot didn't. Plan for that in Phase F's on-call schedule.
 - **The browser tool's Auto-Schedule can drift, and nothing reconciles it.** There is no export, so a mid-week Auto-Schedule run silently diverges the browser tool from Lists for good. Coordinate: the PM does not re-run Auto-Schedule during the pilot week without notifying you first.
 
 ---
 
-## What Week 5 starts with
+## What Phase F starts with
 
-A validated system on one pool. Week 5 is scaling up — every other active pool loaded, all crew leads trained, browser tool moves to planner-only role. If the pilot found any surface defects (canvas app polish, flow tuning, permission adjustments), Week 5 Day 1 is when those land, before the go-live traffic hits.
+A validated system on one pool. Phase F is scaling up — every other active pool loaded, all crew leads trained, browser tool moves to planner-only role. If the pilot found any surface defects (canvas app polish, flow tuning, permission adjustments), Phase F Day 1 is when those land, before the go-live traffic hits.

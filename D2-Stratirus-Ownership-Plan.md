@@ -19,7 +19,7 @@ Non-technical setup so we can build with authority, not permission.
 | Absorb the D2-Build-Scheduler repo into a Stratirus-owned location (SharePoint / OneDrive / Git — pick one) | Shane | 15 min | Rev D delivery |
 | Confirm Ken's SOW template reflects Option A scope, not the original Dataverse plan | Shane + Ken | 30 min | SOW send to D2 |
 | Send SOW to David + Don for signature | Shane | 10 min | Formal work start |
-| Rotate any admin grants in D2's tenant to Stratirus service accounts (you have them; verify they're the ones being used, not Ryan's personal ones) | Shane | 20 min | Week 1 build |
+| Rotate any admin grants in D2's tenant to Stratirus service accounts (you have them; verify they're the ones being used, not Ryan's personal ones) | Shane | 20 min | Phase A build |
 | Post the current Rev C spec, cost model, and patched browser tool to a Stratirus-side project workspace | Shane | 10 min | Internal reference |
 
 **Total Phase 0: ~90 minutes over 1–2 days.**
@@ -28,7 +28,7 @@ Non-technical setup so we can build with authority, not permission.
 
 ## Phase 1 — Pre-build verification (this week or next)
 
-Three technical checks that must land before Week 1 build starts. All are cheap; all are load-bearing.
+Three technical checks that must land before Phase A build starts. All are cheap; all are load-bearing.
 
 | Check | Method | Owner | Est. time | If it fails |
 |---|---|---|---|---|
@@ -70,11 +70,17 @@ Changes to bake in:
 
 ---
 
-## Phase 3 — Build (5 weeks)
+## Phase 3 — Build
+
+> **Two numbering schemes are in play — do not conflate them.**
+> The **Phase 0–4** headings in this document are *engagement stages* (ownership transition,
+> verification, spec, build, post-deployment). The **Phase A–G** letters are the *build
+> breakdown* and match the AzDo Epics. This section, engagement Phase 3, contains build phases
+> A through G. Week numbering was retired on 2026-09-07 — see the phase table in `CLAUDE.md`.
 
 Standard Rev C weekly cadence with Rev D adjustments folded in. Each week has an exit gate we don't cross without.
 
-### Week 1 — Foundation (Aug 25 – Aug 29 target)
+### Phase A — Foundation (Aug 25 – Aug 29 target)
 - SharePoint site provisioning
 - 6 lists with all columns (added d2_crew_trades back per Rev D #1)
 - Choice columns, indexed columns, uniqueness enforcement on JobNumber and CrewID
@@ -83,7 +89,7 @@ Standard Rev C weekly cadence with Rev D adjustments folded in. Each week has an
 - **Exit gate:** PM opens Assignments list, sees all columns, JobNumber uniqueness enforced. Test insert into `d2_crew_day` equivalent (once we have the composite key emulation flow — actually not a Lists thing; skip this Dataverse-era gate for now).
 - **Bounded by:** effort. *Actual: completed 2026-08-25 in a single session against this 25 hr / 5 day estimate.*
 
-### Week 2 — Automations core (Sep 1 – Sep 5)
+### Phase B — Automations core (Sep 1 – Sep 5)
 - Daily Dispatch + Reminders flow (6 AM Mon–Sat)
 - Event-Driven Reconciliation flow with trigger conditions (per Rev D #3)
 - Nightly Reconciliation flow (11 PM safety net)
@@ -91,7 +97,7 @@ Standard Rev C weekly cadence with Rev D adjustments folded in. Each week has an
 - **Exit gate:** Test edit that creates a double-book posts to Ops channel within the measured polling window; dispatch email lands at 6 AM the next morning
 - **Bounded by:** discovery. *Actual: ~11 sessions over 10 days. The time went to auth dead ends and bug discovery, not authoring.*
 
-### Week 3 — Canvas app + intake (Sep 8 – Sep 12)
+### Phase C — Canvas app + intake (Sep 8 – Sep 12)
 - Power Apps canvas app for crew-lead sign-off + task-tick
 - WorkDate field with today-default and manual override (per Rev D #2)
 - Sign-off Intake flow triggered by canvas app
@@ -100,14 +106,14 @@ Standard Rev C weekly cadence with Rev D adjustments folded in. Each week has an
 - **Exit gate:** crew lead ticks 6 tasks + signs off from phone in under 60 seconds; work-date defaults correctly and is overridable
 - **Bounded by:** effort + discovery. The only remaining phase where compression is possible, so all slack must be taken here.
 
-### Week 4 — Pilot (Sep 15 – Sep 19)
+### Phase E — Pilot (Sep 15 – Sep 19)
 - Pick one live pool. Run through Lists in parallel with browser tool. PM commits schedule in browser tool → nightly export → Lists is the source of truth for execution. Crew lead uses canvas app for sign-off.
 - Daily standup: any divergence between browser tool and Lists? Any conflict alert we didn't expect? Any crew-lead friction?
-- Log every issue. Fix in-week or defer to Week 5.
+- Log every issue. Fix in-week or defer to Phase F.
 - **Exit gate:** one full week with zero divergence between browser tool and Lists; crew lead reports canvas app is usable
 - **Bounded by:** CALENDAR. Needs a real work week of real pools to elapse. Cannot be compressed.
 
-### Week 5 — Cutover + training (Sep 22 – Sep 26)
+### Phase F — Cutover + training (Sep 22 – Sep 26)
 - Group training session for 5 office users (~1 hour)
 - Short session per crew lead or group (~30 min)
 - Handoff documentation for D2's own reference
@@ -119,7 +125,7 @@ Standard Rev C weekly cadence with Rev D adjustments folded in. Each week has an
 > ### Estimates restructured 2026-09-04 — read this before quoting any number above
 >
 > **The hour figures were written for human developers and do not describe this build.** Observed pace with
-> Claude Code assisting: Week 1's 25 hr / 5 day estimate completed in **one session**; Week 2's 22 hr estimate
+> Claude Code assisting: Phase A's 25 hr / 5 day estimate completed in **one session**; Phase B's 22 hr estimate
 > took **~11 sessions over 10 days**, but almost none of that was authoring — it was PnP/m365 auth dead ends,
 > the `api.flow.microsoft.com` REST wall, the draft-row mechanism, the `az rest` encoding trap, and three
 > production bugs found by verification.
@@ -163,14 +169,14 @@ Fold into the standard Stratirus 3-year retainer.
 ## Critical path
 
 ```
-Phase 0 (ownership) → Phase 1 (verifications) → Phase 2 (Rev D spec) → Week 1 build
+Phase 0 (ownership) → Phase 1 (verifications) → Phase 2 (Rev D spec) → Phase A build
         ~90 min              ~30 min              ~90 min             ~25 hrs
 ```
 
-**Best case:** ownership + verifications this week, Rev D by end of week, Week 1 build starts Monday Aug 25, go-live Sep 26.
+**Best case:** ownership + verifications this week, Rev D by end of week, Phase A build starts Monday Aug 25, go-live Sep 26.
 
 **Blockers that could slip this:**
-- Don doesn't answer the trades + PM-bucket questions → Week 1 can still start, but §04 data model migration for real pools waits
+- Don doesn't answer the trades + PM-bucket questions → Phase A can still start, but §04 data model migration for real pools waits
 - D2 M365 SKU verification fails → Phase 2 has to accept Forms fallback, spec changes materially
 - Polling interval verification comes back at 5 minutes → §07 language changes but nothing else stops
 

@@ -1,7 +1,7 @@
-# D2 Week 5 build runbook — cutover, training, and go-live
+# D2 Phase F build runbook — cutover, training, and go-live
 
 **Purpose:** Load every remaining active pool into Lists, train 5 office users + 10 crew leads, retire the browser tool as system of record, and stand up on-call for the first 3 business days.
-**Prereq:** Week 4 pilot exit gate green. All divergences from pilot classified and resolved or explicitly accepted.
+**Prereq:** Phase E pilot exit gate green. All divergences from pilot classified and resolved or explicitly accepted.
 **Time budget:** ~15 hours across the week, front-loaded (Day 1–3 do the heavy work).
 **Cutover framing:** Not a Big Bang. Browser tool stays live, in a demoted role — it becomes the planner-only tool the PM uses to lay out schedules; Lists becomes the source of truth for execution.
 
@@ -11,7 +11,7 @@
 
 ### Step 1 — Close out any deferred pilot fixes
 
-Every divergence from Week 4 with resolution "Deferred to Week 5" gets addressed today. If any is a canvas-app formula fix or a flow logic tune, ship it before proceeding.
+Every divergence from Phase E with resolution "Deferred to Phase F" gets addressed today. If any is a canvas-app formula fix or a flow logic tune, ship it before proceeding.
 
 Post-fix, re-verify the pilot pool for one more morning check. If clean, proceed.
 
@@ -23,7 +23,7 @@ Realistic count for D2 at any given time: 8-15 active pools.
 
 ### Step 3 — Migrate remaining pools
 
-Two paths, same as Week 4 Day 0:
+Two paths, same as Phase E Day 0:
 
 **Preferred — browser-tool export flow (if it works):**
 1. Run the export flow, no filter this time — pulls all active pools
@@ -33,7 +33,7 @@ Two paths, same as Week 4 Day 0:
 **Manual fallback:**
 1. Export browser tool state (Backup button) → JSON
 2. Convert JSON to CSV rows using a helper script (Python one-liner or Power Automate flow)
-3. Grid-paste each list per the Week 1 seed-data runbook, but scoped to new pools only
+3. Grid-paste each list per the Phase A seed-data runbook, but scoped to new pools only
 
 Estimate: 90 min via export flow, 3-4 hrs manual.
 
@@ -302,7 +302,7 @@ Individual issues rarely need full rollback. Common partial:
 
 ---
 
-## Week 5 exit gate
+## Phase F exit gate
 
 Verify all before handing off to the standard retainer:
 

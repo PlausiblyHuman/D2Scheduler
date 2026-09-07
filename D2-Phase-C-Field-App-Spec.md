@@ -1,8 +1,8 @@
-# D2 Week 3 build runbook — Power Apps canvas app
+# D2 Phase C build runbook — Power Apps canvas app
 
 > ### ⚠ Read `D2-Canvas-App-Handoff-Contract.md` before building
 >
-> This spec was written **before** the Weeks 1–2 build, which found three production defects and
+> This spec was written **before** the Phases A–B build, which found three production defects and
 > one missing requirement. Corrections applied to this file on 2026-09-04:
 >
 > - `App.OnStart` — was `Crew.Value = gblCurrentCrew.Title`, which is wrong twice over.
@@ -19,7 +19,7 @@
 > The contract wins wherever it disagrees with this file.
 
 **App name:** `D2 Sign-Off`
-**Prereq:** Weeks 1–2 complete. All **7** SharePoint lists exist and populated. Sign-off Intake flow (Flow 2) is callable.
+**Prereq:** Phases A–B complete. All **7** SharePoint lists exist and populated. Sign-off Intake flow (Flow 2) is callable.
 **Time budget:** ~28 hours. Bulk of it in Days 1–3 on the four screens; Days 4–5 on device testing + polish.
 **Working account:** D2 tenant service account with Power Apps standard rights + Contribute on the lists.
 **Runtime:** Power Apps Mobile app (iOS + Android) — crew leads install from App Store / Play Store, sign in with their D2 M365 account, pin the app.
@@ -54,7 +54,7 @@ Add these under **Data** in the Power Apps studio left rail:
 1. **SharePoint** connector — pointed at `https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler`
    - Add: `Assignments`, `Tasks`, `Crews`, `Jobs`
 2. **Office 365 Users** connector — for resolving the signed-in user's identity
-3. **D2 — Sign-off Intake** flow (from Week 2 Flow 2) — via **Power Automate** left rail → **Add flow**
+3. **D2 — Sign-off Intake** flow (from Phase B Flow 2) — via **Power Automate** left rail → **Add flow**
 
 ---
 
@@ -339,7 +339,7 @@ If(
 
 Notes on the expression:
 - `Confirm()` is a built-in Power Apps dialog primitive — no custom modal build needed.
-- `'D2-SignoffIntake'.Run(...)` calls the Week 2 Flow 2 with the exact parameter order defined in that flow's PowerApps V2 trigger. If parameter order in the flow changes, this call breaks — keep in sync.
+- `'D2-SignoffIntake'.Run(...)` calls the Phase B Flow 2 with the exact parameter order defined in that flow's PowerApps V2 trigger. If parameter order in the flow changes, this call breaks — keep in sync.
 - On success, clear inputs and navigate to confirmation. Setting `gblTodayAssignment` to Blank forces the Today screen's OnVisible re-query to run.
 
 ---
@@ -421,7 +421,7 @@ Below the main Job card on scr_Today, a horizontal-scroll gallery showing the la
 - Add a Gallery: `gal_Recent`
 - Items: `SortByColumns(Filter(Assignments, Crew = gblCurrentCrew.CrewID && InstallerSignOff = true), "InstallerSignOffOn", Descending)`
 - Template shows: JobNumber, sub-phase number, date signed
-- Optional for MVP — skip if Week 3 is running long.
+- Optional for MVP — skip if Phase C is running long.
 
 ---
 
@@ -478,20 +478,20 @@ Test cases:
 - **Date picker time-zone drift:** SharePoint stores UTC; Power Apps shows local. If dates are off by a day, wrap: `DateAdd(dp_WorkDate.SelectedDate, TimeZoneOffset(dp_WorkDate.SelectedDate), TimeUnit.Minutes)`.
 - **App won't load on a specific device:** likely a signed-out M365 session. Sign out and back in.
 
-### Step 15 — Week 3 exit gate
+### Step 15 — Phase C exit gate
 
-Verify all before proceeding to Week 4 pilot:
+Verify all before proceeding to Phase E pilot:
 
 - ✅ Crew lead opens app on phone, sees today's sub-phase within 3 seconds
 - ✅ Ticks 6 tasks, sees progress update, submits sign-off in under 60 seconds
 - ✅ Sign-off writes correctly to SharePoint (Assignment updated, Tasks updated)
-- ✅ Sign-off Intake flow (Week 2 Flow 2) runs successfully — verify in Power Automate portal
-- ✅ Event-Driven Reconciliation does NOT re-fire from the sign-off (Week 2 Flow 3 trigger condition holds)
+- ✅ Sign-off Intake flow (Phase B Flow 2) runs successfully — verify in Power Automate portal
+- ✅ Event-Driven Reconciliation does NOT re-fire from the sign-off (Phase B Flow 3 trigger condition holds)
 - ✅ WorkDate defaults to today, can be overridden
 - ✅ Notes optional and saved when entered
 - ✅ App works on at least 2 different crew-lead phones (iOS + Android)
 
-**If any check fails, do not proceed to Week 4.** Fix in-week or extend a day. Pilot week depends on all above being solid.
+**If any check fails, do not proceed to Phase E.** Fix in-week or extend a day. Pilot week depends on all above being solid.
 
 ---
 
@@ -506,6 +506,6 @@ Verify all before proceeding to Week 4 pilot:
 
 ---
 
-## What Week 4 pilot starts with
+## What Phase E pilot starts with
 
-A working canvas app on real crew-lead phones, calling a working sign-off intake flow, writing to a working SharePoint schema, triggering (or correctly not triggering) working reconciliation flows. If Week 3's exit gate is green, the pilot week is validation, not development.
+A working canvas app on real crew-lead phones, calling a working sign-off intake flow, writing to a working SharePoint schema, triggering (or correctly not triggering) working reconciliation flows. If Phase C's exit gate is green, the pilot week is validation, not development.

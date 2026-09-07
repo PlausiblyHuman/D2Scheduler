@@ -1,6 +1,6 @@
-# D2 Week 2 build runbook — Power Automate flows
+# D2 Phase B build runbook — Power Automate flows
 
-**Prereq:** Week 1 complete. All 6 lists exist with correct schemas and seed data loaded.
+**Prereq:** Phase A complete. All 6 lists exist with correct schemas and seed data loaded.
 **Time budget:** ~22 hours. Most of it in Days 1–3 on the reconciliation flow, which is the fiddliest.
 **Working account:** D2 tenant service account with `Power Automate` license (comes with seeded rights) and Contribute on all six lists.
 
@@ -9,7 +9,7 @@ Five flows to build, in this order. Each depends only on the lists and the flows
 | Order | Flow | Trigger | Complexity | Time |
 |---|---|---|---|---|
 | 1 | Daily Dispatch + Reminders | Scheduled 6 AM Mon–Sat | Medium | 5 hrs |
-| 2 | Sign-off Intake | HTTP request from canvas app (Week 3 caller, but build shell now) | Low | 2 hrs |
+| 2 | Sign-off Intake | HTTP request from canvas app (Phase C caller, but build shell now) | Low | 2 hrs |
 | 3 | Event-Driven Reconciliation | SharePoint item created/modified on Assignments | High — trigger condition + polling floor | 6 hrs |
 | 4 | Nightly Reconciliation | Scheduled 11 PM daily | Medium | 4 hrs |
 | 5 | Daily + Weekly PDF Summary | Scheduled 6:30 AM daily + Fri 3 PM | Medium | 5 hrs |
@@ -119,7 +119,7 @@ The `Crew` list has a `Members` person column, but crew leads aren't necessarily
 - **Simpler:** add a `LeadEmail` single-line-text column to the Crews list. Manual, one-time entry per crew. Flow reads it directly.
 - **Cleaner:** designate one specific member of each crew as the "lead" via a `Lead` person column on Crews. Flow resolves the email from the person object.
 
-Go with **LeadEmail** for Week 2 speed; migrate to Lead person column post-cutover if it becomes a maintenance headache.
+Go with **LeadEmail** for Phase B speed; migrate to Lead person column post-cutover if it becomes a maintenance headache.
 
 #### Test
 
@@ -133,7 +133,7 @@ Go with **LeadEmail** for Week 2 speed; migrate to Lead person column post-cutov
 
 ### Flow 2 — Sign-off Intake (shell)
 
-**Purpose:** Called from the canvas app in Week 3 to write installer sign-off onto an Assignment. Build the shell now so Week 3 has a callable endpoint.
+**Purpose:** Called from the canvas app in Phase C to write installer sign-off onto an Assignment. Build the shell now so Phase C has a callable endpoint.
 
 #### Create the flow
 
@@ -183,7 +183,7 @@ Go with **LeadEmail** for Week 2 speed; migrate to Lead person column post-cutov
   - `Status` (Text) = `Success`
   - `AssignmentTitle` (Text) = `body('Get_item')?['Title']`
 
-Test with a manual run once the canvas app is calling it in Week 3.
+Test with a manual run once the canvas app is calling it in Phase C.
 
 ---
 
@@ -351,7 +351,7 @@ This requires expanding each Assignment's date range into per-day rows. Cleanest
 
 #### Test
 
-Run manually after Week 1's data is loaded. Should return 0 conflicts on a clean seed. Then manually create a conflict (double-book Devon on two overlapping days) and re-run — should catch it and post.
+Run manually after Phase A's data is loaded. Should return 0 conflicts on a clean seed. Then manually create a conflict (double-book Devon on two overlapping days) and re-run — should catch it and post.
 
 ---
 
@@ -361,7 +361,7 @@ Run manually after Week 1's data is loaded. Should return 0 conflicts on a clean
 
 #### Two flows or one?
 
-Two, for simplicity — one daily, one weekly. Reuse the same "build HTML summary" child flow if you want DRY, but for Week 2 velocity just build them as separate flows.
+Two, for simplicity — one daily, one weekly. Reuse the same "build HTML summary" child flow if you want DRY, but for Phase B velocity just build them as separate flows.
 
 **Daily PDF Flow:**
 
@@ -420,9 +420,9 @@ Run manually. Confirm PDF renders and reaches Don's inbox + Ownership channel.
 
 ---
 
-## Week 2 exit gate
+## Phase B exit gate
 
-Verify all six before proceeding to Week 3:
+Verify all six before proceeding to Phase C:
 
 - ✅ Dry-run of Daily Dispatch at 6 AM posts one email + one Teams message per active crew
 - ✅ Test edit that creates a double-book on Sub-phase Assignments posts to Ops channel within the measured polling window (from Phase 1)
@@ -431,7 +431,7 @@ Verify all six before proceeding to Week 3:
 - ✅ Manual run of Nightly Reconciliation on a manually-injected conflict catches it and posts to Ops
 - ✅ Daily and Weekly PDF flows produce a rendered PDF that lands in Don's inbox + Ownership Teams channel
 
-**If any check fails, do not proceed to Week 3.** Debug in Week 2 or extend by half a day. The canvas app in Week 3 depends on all five flows being solid.
+**If any check fails, do not proceed to Phase C.** Debug in Phase B or extend by half a day. The canvas app in Phase C depends on all five flows being solid.
 
 ---
 
@@ -448,6 +448,6 @@ Verify all six before proceeding to Week 3:
 
 ---
 
-## What Week 3 starts with
+## What Phase C starts with
 
-Five working flows. The canvas app in Week 3 calls Flow 2 (Sign-off Intake); the app doesn't have to know about the other four. Reconciliation, dispatch, and PDF summary run in the background. When the app publishes and a crew lead signs off, sign-off intake fires, Assignment gets updated, and the next morning's dispatch reflects it. That's the whole feedback loop.
+Five working flows. The canvas app in Phase C calls Flow 2 (Sign-off Intake); the app doesn't have to know about the other four. Reconciliation, dispatch, and PDF summary run in the background. When the app publishes and a crew lead signs off, sign-off intake fires, Assignment gets updated, and the next morning's dispatch reflects it. That's the whole feedback loop.

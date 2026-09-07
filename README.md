@@ -16,7 +16,7 @@ SharePoint Lists + Power Automate + Power Apps canvas on D2's existing Microsoft
 
 - **`CLAUDE.md`** — durable orientation for any Claude session working in this repo. Read first.
 - **`D2-Option-A-Lists-Deployment-Plan-RevD.docx`** — authoritative design spec
-- **`D2-Week-1-Build-Runbook.md`** through **`D2-Week-5-Cutover-Runbook.md`** — build week by week
+- **`D2-Phase-A-Foundation-Runbook.md`** through **`D2-Phase-F-Cutover-Runbook.md`** — build week by week
 - **`patched-tool/`** — browser scheduler (permanent PM planner role) with determinism fix + oracle test harness
 - **`seed-data/`** — SharePoint-import-ready CSVs for reference data
 - **`sessions/`** — dated session logs
