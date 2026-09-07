@@ -1,79 +1,80 @@
-# 2026-09-07a — Phase C complete, office surface built, weeks replaced by phases
+# 2026-09-07b — sign-off gate, Flow 3 fixed, phases replace weeks, skills extracted
 
-Spans 2026-09-06 into 09-07. Opened as "continue dev", became the session that finished the
-field app, found and built the missing office surface, automated the deploy loop, and retired
-week numbering. 25 commits, `2257db3` through the restructure.
+Continues 2026-09-07a in the same day. Where the first half finished the app, this half closed the
+last defect, rebuilt the project's structure, and lifted the platform lessons out of the repo.
 
 ## What landed
 
-**Phase C (field app) is complete and verified against live data.** Today's work → open a
-sub-phase → tick tasks → save → sign off, with the sign-off attributed to a real person.
-Assignment 25 reads `InstallerSignOff=True`, `InstallerSignOffBy="D2 Bot"`,
-`WorkDate=2026-09-06`, and its task rows carry `CompletedOn` timestamps matching the flow run to
-the second. Also built: sign-off **locking**, a recorded **Reopen** that appends who and when to
-`SignOffNotes`, the **PM-proxy crew picker**, and the **Notes** field.
+**Every known defect is now closed.**
 
-**Flow 2 now writes `InstallerSignOffBy`** — the blocker carried in from 2026-09-06a. Sixth
-trigger parameter plus an `ensureuser` lookup, because a Person column cannot be set by email.
+**Sign-off gate — Done / N/A / to do.** Don's objection was never ceremony; it was someone glossing
+a clean checklist with "yep, all done". Sign-off is now blocked until every task is resolved. A
+bare block would have been worse — a crew lead who cannot close at 5 of 6 ticks the sixth falsely,
+turning an honest number into a dishonest one carrying their name. **N/A with a mandatory reason**
+is what makes the gate fair, and the mandatory part is load-bearing: without it, "mark everything
+N/A then sign off" is just a second rubber-stamp route.
 
-**Three new flows**, all created and published headlessly: `D2 - Task Tick Batch`,
-`D2 - Reopen Sign-off`, and `D2 - Counter Reconciliation` (nightly, repairs `TasksComplete` drift;
-first run fixed 6 rows, second fixed 0).
+**Flow 3 fixed and STARTED.** Its trigger condition referenced `@odata.oldValue`, which
+`GetOnUpdatedItems` never emits, so it fired on every edit. Replaced with **version-history
+comparison** — the only option that adds no writes and so cannot re-trigger the flow it guards.
+Verified both directions. Double-booking detection is live for the first time since 2026-09-05.
 
-**The office surface never existed.** Phase A specified seven SharePoint views and its exit gate
-was ticked claiming "all views show correct filters". Every list had only `All Items`. Built and
-verified by *rendering* each one, since a view accepts invalid CAML at creation and fails only
-when opened. Phase F training walks Don and both PMs through those views.
+**Office surface + Don's daily view** (from 09-07a, completed here): eight SharePoint views that
+had never been built despite the Phase A exit gate claiming otherwise, and a daily summary that now
+leads with "Where crews are today" including site addresses.
 
-**Don's daily view.** He asked where his crews are and what they are doing. The 06:30 summary now
-leads with "Where crews are today", ordered by crew, with site addresses; plus a "Today by Crew"
-view for ad-hoc checks.
+**Weeks replaced by phases A–G.** ~104 references across 9 documents. Weeks measured elapsed time,
+which had almost no relationship to the work, and two whole workstreams had no week and were lost
+because of it — the office surface and the client prerequisites. Both now live in **Phase D**,
+which runs alongside A–C and gates E.
 
-**The Studio publish is automated.** Deploy → drive Studio → publish → verify now runs with no
-human step, proven twice as a full round trip. Shane is out of the publish path.
+**Two portable skills extracted** to `~/.claude/skills`: `powerapps-canvas-alm` and
+`power-automate-flow-mechanics`, both built RED-GREEN-REFACTOR with baseline subagents. Now under
+git.
 
-**Weeks replaced by phases A–G.** ~104 references across 9 documents; zero `Week N` remain.
+**Pool generator** (`tools/add_pool.py`) — plans a whole pool from the 46-sub-phase template with
+all four business rules enforced. Produces a clean 295-task, 87%-done plan. Writer not built.
 
 ## Decisions made
 
-- **Sign-off locks the task list; a recorded Reopen is the only way back.** Shane's call, from a
-  real case: a PM walk-through finds work signed off that clearly was not done.
-- **Batch deploys.** Every publish costs a manual step, so accumulate changes rather than
-  deploying per fix. Saved as a standing preference.
-- **Prefer CLI/MCP over the browser**, using the browser only where it would otherwise need
-  Shane. Large flow edits now go through the Dataverse workflows API with files on disk.
-- **Keep A–F on the existing AzDo Epic letters** rather than renumbering; G is additive. Phase D
-  widened to hold both orphaned workstreams.
-- **Git Integration is ruled out** — it needs Managed Environments, which is premium-only, the
-  same wall that killed Dataverse.
+- **Sign-off blocks on unresolved tasks; N/A requires a reason.** Don should be fine with it.
+- **Per-task attribution is not the goal** — Shane: *"who completed the work is unimportant; who
+  signed off on the completed work is more important."* No per-task signature ceremony.
+- **Flow 3 = version-history comparison**, not a flag column or shadow columns, both of which add
+  writes to the list whose writes are the problem.
+- **Phases keep the A–F letters already used by the AzDo Epics**; G is additive.
+- **Cody Campbell and Emon Alexander are the two PMs** — the stakeholder list had lumped six office
+  staff together.
+- **Skills are user-level, not repo-level**, so platform lessons travel to the next project.
 
-## Four wrong conclusions, corrected
+## Corrections to my own earlier work
 
-Worth recording because three were caught by Shane, not by me.
+- `Classic/*` events "do not fire" was written as a platform law; it is two instances in one app,
+  and `DisplayMode` / z-order / user-interaction-only must be ruled out first.
+- `AssignmentId` was described as simply wrong; it is correct server-side in `$filter`, and wrong
+  only as a key in connector *output*.
+- A clean-context subagent contradicted both. Testing a skill inside the repo that produced it is
+  structurally unreliable, because `CLAUDE.md` loads into every subagent.
 
-1. **"Patch() never persists"** — wrong, and I built a flow around it. Three faults were live at
-   once (a stale Studio tab reverting deploys, `Classic/*` events not firing, and writes not yet
-   consented) and each masked the others. Re-verify a load-bearing negative before building a
-   workaround on it.
-2. **"The headless loop works"** — verified in Studio, which is the one client that cannot detect
-   the bug. The player was serving old screens.
-3. **Delegation direction backwards** in formula-review findings 6/7 — `.Value` delegates,
-   `.Id` does not.
-4. **`AssignmentId`** is the REST field name; the connector returns `Assignment` + `Assignment#Id`.
-   The first Counter Reconciliation run reported a confident "43 checked, 0 repaired" that was in
-   fact a total mismatch. Fourth instance of assuming a field name instead of reading one.
+## Near miss
+
+Reading Flow 3 via `az rest` emitted *"Unable to encode the output with cp1252"* and silently
+discarded the `⚠ — → –` glyphs the flow carries. Patching from that capture would have stripped
+them from the live flow. CLAUDE.md documents this exact trap and it still nearly landed.
 
 ## Open / blocked on
 
-- **Phase D3 is the critical path and has not been asked for.** ~7 crew-lead identities (none
-  exist in the tenant), ~7 Business Basic seats, a real PM on the first pool, 10 unmapped trades,
-  11 Unassigned sub-phases. All human-gated, all upstream of the pilot.
-- Summary recipients still internal — flip to Don once `TEST-900x` is cleared.
-- Event-Driven Reconciliation trigger is a no-op; it is STOPPED and needs a decision before restart.
-- Crew picker and reopen wording are published but no human has looked at them.
-- The browser tool → Lists sync still does not exist (Phase G).
+- **Phase D3 remains the critical path and has still not been asked for** — ~7 crew-lead
+  identities, seats, a real PM, the trade mapping.
+- Pool writer: the plan exists but nothing writes it. 13KB has to reach the browser, which is the
+  only authenticated SharePoint write path — decide the transport before building the clumsy version.
+- "Signed off with N/A" visibility view for Don.
+- App icon and splash are still default.
+- `~/.claude/skills` is a git repo with no remote — see next action.
 
 ## Next action
 
-Draft the Phase D3 ask for David and Don — the identities and seats. It is the whole critical
-path, it is the one thing Stratirus cannot unblock, and nothing else moves until it starts.
+**Rewrite the D2 Build Scheduler SharePoint site** so it looks professional and leads with what the
+system does, aimed at Don and David first, then Cody and Emon. Detail and audience notes are in
+CLAUDE.md under "NEXT SESSION". Do not describe the browser-tool sync or Teams channels — neither
+exists.

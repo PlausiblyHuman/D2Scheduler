@@ -16,7 +16,7 @@ Site URL: `https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler` (site
 
 - **Stratirus owner:** Shane Talbot (stalbot@stratirus.com)
 - **Client owners at D2:** David Taylor (david@d2pools.com), Don Borgeson (don@d2pools.com) — both on Business Premium
-- **Client office/PM:** Amy Stevens, Carolyn Morris, Cody Campbell, Daniel Morris, Emon Alexander, Tyler Huisman — all on Business Standard
+- **Client PMs (the two who actually run jobs):** **Cody Campbell** and **Emon Alexander** (confirmed by Shane 2026-09-07). Other office staff on Business Standard — Amy Stevens, Carolyn Morris, Daniel Morris, Tyler Huisman — use the system but are not PMs. This matters for `Jobs.ProjectManager`, for who receives double-booking alerts, and for who the office surface is designed around.
 - **Field crew leads (~10):** currently unlicensed. **DECIDED 2026-09-04 — canvas app, not Forms.** Shane's call: "MS Forms will not cut it." Requires Business Basic ($6/user/mo, ~$720/yr for 10) added for them. Business Basic also gives them a real D2 mailbox, which `Crews.LeadEmail` and Flow 1's dispatch both depend on — the seats are the price of the crew being on the system at all, not just of one app. See "Crew-lead licensing" under Known bugs for the reasoning and the open procurement question.
 - **Prior builder:** Ryan Meyer (Tennetech). **Stratirus is owned by Tennetech**; Ryan owns both companies and both Power Platform environments. This handoff was an internal brand reshuffle, not a vendor transition — so there is no IP, provenance or cross-vendor question about which environment work is built in. **Updated 2026-09-05 — Ryan is OFF the build again; the canvas app stays with Stratirus.** This reverses the 2026-09-04 decision to hand Phase C to him. `D2-Canvas-App-Handoff-Contract.md` is therefore no longer a handoff document: read it as **internal build guidance**, and note that its §6a production-safety rules now bind *us*, not a third party. They are still load-bearing, because the app is still being built in the live client tenant.
 
@@ -908,6 +908,24 @@ to the second.
 
 Screens built in `canvas-app/src/Src/`: `Screen1` (today's work) and `scr_Tasks` (task tick,
 work-date picker, confirm overlay, sign-off).
+
+**NEXT SESSION — rewrite the D2 Build Scheduler SharePoint site (Shane, 2026-09-07).** The site
+at `https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler` is still the default team-site
+template. It is the first thing the client sees and it currently looks like scaffolding.
+
+**Audience, in priority order:** **Don Borgeson** and **David Taylor** (owners — they want to know
+the job is under control, not how it works), then **Cody Campbell** and **Emon Alexander** (the two
+PMs — they need to *do* things: find today's work, spot what is late, fix a crew clash).
+
+Design it around what each group actually needs on landing, not around the lists:
+
+- Owners: where crews are today, sign-off compliance, what is slipping. Mostly a read.
+- PMs: the views built 2026-09-07 — Today by Crew, This Week by Crew, Unassigned, Sign-off
+  Overdue, Late-Starting Jobs — surfaced as obvious entry points rather than buried in a
+  Views dropdown.
+
+Do **not** describe mechanisms that do not exist. There is no browser-tool sync and there are no
+Teams channels; the Phase F training docs had to be corrected for exactly that on 2026-09-07.
 
 **Still open on the app:**
 
