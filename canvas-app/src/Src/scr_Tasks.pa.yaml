@@ -40,20 +40,26 @@ Screens:
               =IfError(
                   If(
                       !IsBlank(gblAssignment) && gblTasksDirty,
-                      Patch(
-                          Assignments,
-                          gblAssignment,
-                          {
-                              TasksTotal: CountRows(galTasks.AllItems),
-                              TasksComplete: CountRows(Filter(galTasks.AllItems, Complete = true))
-                          }
+                      'D2-TaskTickBatch'.Run(
+                          gblAssignment.ID,
+                          Concat(
+                              galTasks.AllItems,
+                              Text(ID) & ":" & If(Complete, "1", "0"),
+                              ","
+                          ),
+                          CountRows(galTasks.AllItems),
+                          CountRows(Filter(galTasks.AllItems, Complete = true)),
+                          gblCurrentUser.userPrincipalName
                       )
                   ),
                   Notify(
-                      "Counter write failed: " & FirstError.Message,
+                      "Could not save ticks: " & FirstError.Message,
                       NotificationType.Error
                   )
               );
+              Set(gblTasksDirty, false);
+              Refresh(Tasks);
+              Refresh(Assignments);
               Navigate(Screen1, ScreenTransition.UnCover)
             Height: =34
             Width: =110
@@ -156,19 +162,13 @@ Screens:
                   SortOrder.Ascending
               )
             OnSelect: |
-              =IfError(
-                  Patch(
-                      Tasks,
-                      ThisItem,
-                      {
-                          Complete: !ThisItem.Complete,
-                          CompletedOn: If(!ThisItem.Complete, Now(), Blank())
-                      }
-                  ),
-                  Notify(
-                      "Tick failed: " & FirstError.Message,
-                      NotificationType.Error
-                  )
+              =Patch(
+                  Tasks,
+                  ThisItem,
+                  {
+                      Complete: !ThisItem.Complete,
+                      CompletedOn: If(!ThisItem.Complete, Now(), Blank())
+                  }
               );
               Set(gblTasksDirty, true)
             TemplateSize: =76
@@ -397,6 +397,20 @@ Screens:
             Fill: =RGBA(15, 118, 110, 1)
             OnSelect: |
               =IfError(
+                  If(
+                      gblTasksDirty,
+                      'D2-TaskTickBatch'.Run(
+                          gblAssignment.ID,
+                          Concat(
+                              galTasks.AllItems,
+                              Text(ID) & ":" & If(Complete, "1", "0"),
+                              ","
+                          ),
+                          CountRows(galTasks.AllItems),
+                          CountRows(Filter(galTasks.AllItems, Complete = true)),
+                          gblCurrentUser.userPrincipalName
+                      )
+                  );
                   Set(
                       gblIntakeResponse,
                       'D2-Sign-offIntake'.Run(
