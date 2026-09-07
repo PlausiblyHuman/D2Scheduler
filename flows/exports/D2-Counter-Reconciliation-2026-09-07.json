@@ -1,7 +1,7 @@
 {
  "displayName": "D2 - Counter Reconciliation",
- "flowId": "68182f5f-c9aa-f111-aaab-6045bd0196b3",
- "workflowEntityId": "68182f5f-c9aa-f111-aaab-6045bd0196b3",
+ "flowId": "291fa9d9-caaa-f111-aaac-6045bd0195dd",
+ "workflowEntityId": "291fa9d9-caaa-f111-aaac-6045bd0195dd",
  "state": "Started",
  "exportedUtc": "2026-09-07",
  "definition": {
@@ -98,7 +98,7 @@
       "type": "Query",
       "inputs": {
        "from": "@body('Get_all_tasks')?['value']",
-       "where": "@equals(item()?['AssignmentId'], items('Apply_to_each_assignment')?['ID'])"
+       "where": "@equals(item()?['Assignment']?['Id'], items('Apply_to_each_assignment')?['ID'])"
       }
      },
      "Filter_done": {

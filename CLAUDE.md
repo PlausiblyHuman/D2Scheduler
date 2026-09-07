@@ -626,13 +626,40 @@ load-bearing negative before building a workaround on top of it.
   cannot be set by email through the connector — it needs the numeric site-user id from
   `ensureuser`. That has nothing to do with whether `Patch` works.
 
-**OPEN — the counters are a cache and can go stale.** `TasksComplete` is written only when the
-crew lead leaves the screen or signs off, while individual ticks persist immediately. A crew lead
-who ticks and then closes the app strands the counter behind the rows: live right now, assignment
-25 reads `TasksComplete=3` against six completed Tasks rows. Tasks are the source of truth and the
-counter is a denormalisation, so the clean fix is to have the **nightly reconciliation flow
-recompute counters from the Tasks list** rather than to write the counter on every tick — which
-would burn a Flow 3 run per tick, 295 per pool. Not yet built.
+**RESOLVED 2026-09-07 — the counters are a cache, and a nightly sweep now repairs them.**
+`TasksComplete` is written only when the crew lead leaves the task screen or signs off, while
+individual ticks persist per tap, so closing the app mid-edit strands the counter behind the rows.
+That matters because Don's summary emails score compliance from the counters, not from the Tasks
+list. Fixed by `D2 - Counter Reconciliation` rather than by writing the counter on every tick,
+which would burn a Flow 3 run per tick — 295 per pool.
+
+The first run repaired six rows and found more than expected: **four Harrison rows had NULL
+counters**, not merely stale ones, which would have rendered blank in the summaries. It also
+corrected Assignment 1's long-standing 6/6-against-unticked-rows divergence to 0/6. Note that
+disposes of the deliberately-kept "app must cope with disagreeing counters" test case — the app
+was observed coping with exactly that state beforehand, so nothing was lost.
+
+**The SharePoint connector returns a lookup as `Assignment` + `Assignment#Id`, NOT `AssignmentId`.
+Cost a build cycle 2026-09-07.**
+
+`AssignmentId` is the **REST** field name — it is what `cleanup.js` uses and it is correct there.
+The **connector** returns something different:
+
+```json
+"Assignment":     {"@odata.type": "...SPListExpandedReference", "Id": 1, "Value": "D2-1001 · 2.1 Rebar Delivery"},
+"Assignment#Id":  1
+```
+
+A `Filter array` on `item()?['AssignmentId']` therefore matches **nothing**, silently — every
+group comes back empty and any guard on "did we find rows" skips the work. The first Counter
+Reconciliation run reported a confident `43 assignments checked, 282 tasks scanned, 0 repaired`,
+which looks like a clean bill of health and was in fact a total mismatch. Use
+`item()?['Assignment']?['Id']`.
+
+This is the **fourth** time this project has lost time to assuming a field or join name instead of
+reading it — after `Crews.Title` vs `CrewID`, `Assignments.Job.Value` vs `JobNumber`, and the
+`Crew` lookup-vs-text confusion. **Read the shape from a real payload before writing the
+expression**; a run's action outputs are the cheapest way to do that.
 
 **`Classic/*` control events do not fire in this app. Confirmed twice, 2026-09-06/07.**
 
@@ -698,6 +725,7 @@ target, which matters when the user is wearing work gloves.
 | 4 | Nightly Reconciliation | Started | **DONE — built and both tests passed 2026-09-03.** Created fully headless (no designer). Clean sweep = 0 conflicts, no email; seeded double-book caught and emailed. |
 | 5 | Daily + Weekly Summary | Started | **DONE.** Built 2026-09-03 as two flows, HTML body not PDF. **Content reviewed 2026-09-05 and three defects fixed** — weekly compliance counted unfinished work, neither table was sorted, daily footer off by one. Re-verified by manual run. |
 | 6 | Task Tick Batch | Started | **NEW 2026-09-07, verified end to end.** `D2 - Task Tick Batch`, flowId `e8843056-53aa-f111-aaab-6045bd0196b3`. PowerAppV2 trigger `(AssignmentID, TaskUpdates, TasksTotal, TasksComplete, SignedByEmail)`. Resolves the site user once via `ensureuser`, MERGEs each task from a comma-separated `taskId:flag` list, then MERGEs the assignment counters. **This exists because Patch() does not work from the canvas app — see the Patch entry under Known bugs.** |
+| 7 | Counter Reconciliation | Started | **NEW 2026-09-07, verified.** `D2 - Counter Reconciliation`, flowId `291fa9d9-caaa-f111-aaac-6045bd0195dd`. Nightly 05:30 Central, an hour ahead of the daily summary so Don's compliance figures are always computed from repaired counters. Recomputes `TasksTotal`/`TasksComplete` from the Tasks list and MERGEs **only rows that drifted**, so a clean night writes nothing. First run repaired 6 rows; the immediate second run repaired 0. |
 
 **Week 2 close-out completed 2026-09-05:** summary previews reviewed (three defects found and fixed, see Flow 5 below), Flow 5 recipients deliberately left internal, and all six flows re-exported to `flows/exports/`.
 
