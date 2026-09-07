@@ -440,6 +440,25 @@ So the constraint is not publishing and not a stale tab. It is that **only a Stu
 the YAML into the control model the player reads**, exactly as originally diagnosed. Both the
 stale-tab rule above and this one are real and independent.
 
+**REFINED 2026-09-07 after a second experiment — the blocker is VERSION CREATION, not compiling.**
+
+The compiled control model stores every formula as a plain string in `Rules[].InvariantScript`,
+so a formula change can be written directly into `Controls/*.json` inside the `.msapr`, keeping
+the YAML in sync, and packed with no Studio compile. That was tested: the edit was confirmed
+present in the packed `.msapp`, the solution imported, and the app was published by API (HTTP
+200). **The player still served the old version**, showing the same *"A new version of this app
+is coming"* banner.
+
+So Studio's unique contribution is not compilation. It is that **only a Studio save produces an
+app version the player will serve.** A solution import changes the app document without creating
+a servable version, and the publish API then publishes the newest *saved* version, which is still
+the old one. This also explains why a Studio Publish with no control nudge silently does nothing:
+there is no new saved version to publish.
+
+Practical upshot is unchanged, and now understood rather than merely observed: **deploy, then
+Studio nudge + Ctrl+S + Publish.** Do not try to route around it by pre-compiling, by patching
+`Controls/*.json`, or by calling the publish API. All three were tested and none works.
+
 **Consequence — BATCH THE WORK. Shane's standing request, 2026-09-07.** Every deploy costs him a
 manual Studio dance, so do not deploy one change at a time. Accumulate a coherent set of changes,
 deploy once, and ask for one publish. Ask for a publish only when a batch is genuinely ready to

@@ -1,0 +1,469 @@
+# ************************************************************************************************
+# Warning: YAML source code for Canvas Apps should only be used to review changes made within Power Apps Studio and for minor edits (Preview).
+# Use the maker portal to create and edit your Power Apps.
+# 
+# The schema file for Canvas Apps is available at https://go.microsoft.com/fwlink/?linkid=2304907
+# 
+# For more information, visit https://go.microsoft.com/fwlink/?linkid=2292623
+# ************************************************************************************************
+Screens:
+  scr_Tasks:
+    Properties:
+      Fill: =RGBA(246, 247, 249, 1)
+      LoadingSpinnerColor: =RGBA(56, 96, 178, 1)
+      OnVisible: =Set(gblTasksDirty, false)
+    Children:
+      - recTasksHeader:
+          Control: Rectangle@2.3.0
+          Properties:
+            Fill: =RGBA(11, 110, 120, 1)
+            Height: =92
+            Width: =Parent.Width
+      - lblTasksBack:
+          Control: Label@2.5.1
+          Properties:
+            Color: =RGBA(214, 240, 242, 1)
+            Font: =Font.'Open Sans'
+            FontWeight: =FontWeight.Semibold
+            Height: =34
+            OnSelect: |
+              =IfError(
+                  If(
+                      !IsBlank(gblAssignment) && gblTasksDirty,
+                      'D2-TaskTickBatch'.Run(
+                          gblAssignment.ID,
+                          Concat(
+                              galTasks.AllItems,
+                              Text(ID) & ":" & If(Complete, "1", "0"),
+                              ","
+                          ),
+                          CountRows(galTasks.AllItems),
+                          CountRows(Filter(galTasks.AllItems, Complete = true)),
+                          gblCurrentUser.userPrincipalName
+                      )
+                  ),
+                  Notify(
+                      "Could not save ticks: " & FirstError.Message,
+                      NotificationType.Error
+                  )
+              );
+              Set(gblTasksDirty, false);
+              Refresh(Tasks);
+              Refresh(Assignments);
+              Navigate(Screen1, ScreenTransition.UnCover)
+            Text: ="<<<  Back"
+            Width: =110
+            X: =14
+            Y: =10
+      - lblTasksTitle:
+          Control: Label@2.5.1
+          Properties:
+            Color: =RGBA(255, 255, 255, 1)
+            Font: =Font.'Open Sans'
+            FontWeight: =FontWeight.Semibold
+            Height: =28
+            Size: =18
+            Text: |
+              ="Sign off: " & gblAssignment.SubPhaseNumber
+            Width: =Parent.Width - 32
+            X: =16
+            Y: =42
+      - lblTasksSub:
+          Control: Label@2.5.1
+          Properties:
+            Color: =RGBA(214, 240, 242, 1)
+            Font: =Font.'Open Sans'
+            Height: =22
+            Size: =12
+            Text: =gblAssignment.SubPhaseName
+            Width: =Parent.Width - 32
+            X: =16
+            Y: =70
+      - recProgressBar:
+          Control: Rectangle@2.3.0
+          Properties:
+            Fill: =RGBA(255, 255, 255, 1)
+            Height: =44
+            Width: =Parent.Width
+            Y: =92
+      - lblTasksProgress:
+          Control: Label@2.5.1
+          Properties:
+            Color: |
+              =If(
+                  CountRows(galTasks.AllItems) > 0
+                      && CountRows(Filter(galTasks.AllItems, Complete = true)) = CountRows(galTasks.AllItems),
+                  RGBA(15, 118, 110, 1),
+                  RGBA(107, 114, 128, 1)
+              )
+            Font: =Font.'Open Sans'
+            FontWeight: =FontWeight.Semibold
+            Height: =44
+            Text: |
+              =Text(CountRows(Filter(galTasks.AllItems, Complete = true)))
+               & " of "
+               & Text(CountRows(galTasks.AllItems))
+               & " tasks done"
+               & If(gblAssignment.InstallerSignOff, "     SIGNED OFF - LOCKED", "")
+            Width: =Parent.Width - 32
+            X: =16
+            Y: =92
+      - lblTasksEmpty:
+          Control: Label@2.5.1
+          Properties:
+            Align: =Align.Center
+            Color: =RGBA(107, 114, 128, 1)
+            Font: =Font.'Open Sans'
+            Size: =15
+            Text: ="No tasks on this sub-phase."
+            Visible: =CountRows(galTasks.AllItems) = 0
+            Width: =Parent.Width
+            Y: =184
+      - galTasks:
+          Control: Gallery@2.15.0
+          Variant: BrowseLayout_Vertical_TwoTextOneImageVariant_ver5.0
+          Properties:
+            BorderColor: =RGBA(0, 18, 107, 1)
+            Height: =Parent.Height - 136 - 132
+            Items: |
+              =Sort(
+                  Filter(
+                      Filter(Tasks, Assignment.Value = gblAssignment.Title),
+                      Assignment.Id = gblAssignment.ID
+                  ),
+                  Sequence,
+                  SortOrder.Ascending
+              )
+            OnSelect: |
+              =If(
+                  gblAssignment.InstallerSignOff,
+                  Notify(
+                      "This sub-phase is signed off. Tap Reopen to make changes.",
+                      NotificationType.Warning
+                  ),
+                  Patch(
+                      Tasks,
+                      ThisItem,
+                      {
+                          Complete: !ThisItem.Complete,
+                          CompletedOn: If(!ThisItem.Complete, Now(), Blank())
+                      }
+                  );
+                  Set(gblTasksDirty, true)
+              )
+            TemplateSize: =76
+            Width: =Parent.Width
+            Y: =136
+          Children:
+            - recTaskBox:
+                Control: Rectangle@2.3.0
+                Properties:
+                  BorderColor: =If(ThisItem.Complete, RGBA(15, 118, 110, 1), RGBA(156, 163, 175, 1))
+                  BorderThickness: =2
+                  Fill: =If(ThisItem.Complete, RGBA(15, 118, 110, 1), RGBA(255, 255, 255, 1))
+                  Height: =30
+                  OnSelect: =Select(Parent)
+                  Width: =30
+                  X: =20
+                  Y: =23
+            - icoTaskCheck:
+                Control: Classic/Icon@2.5.0
+                Properties:
+                  BorderColor: =RGBA(0, 0, 0, 1)
+                  Color: =RGBA(255, 255, 255, 1)
+                  DisabledBorderColor: =RGBA(56, 56, 56, 1)
+                  DisabledColor: =RGBA(119, 119, 119, 1)
+                  Height: =30
+                  Icon: =Icon.Check
+                  OnSelect: =Select(Parent)
+                  PaddingBottom: =6
+                  PaddingLeft: =6
+                  PaddingRight: =6
+                  PaddingTop: =6
+                  Visible: =ThisItem.Complete
+                  Width: =30
+                  X: =20
+                  Y: =23
+            - lblTaskName:
+                Control: Label@2.5.1
+                Properties:
+                  Color: =If(ThisItem.Complete, RGBA(107, 114, 128, 1), RGBA(17, 24, 39, 1))
+                  Font: =Font.'Open Sans'
+                  Height: =60
+                  OnSelect: =Select(Parent)
+                  PaddingLeft: =0
+                  Size: =15
+                  Text: =ThisItem.Title
+                  Width: =Parent.TemplateWidth - 90
+                  X: =70
+                  Y: =8
+            - recTaskSeparator:
+                Control: Rectangle@2.3.0
+                Properties:
+                  BorderColor: =RGBA(0, 18, 107, 1)
+                  Fill: =RGBA(229, 231, 235, 1)
+                  Height: =1
+                  OnSelect: =Select(Parent)
+                  Width: =Parent.TemplateWidth
+                  Y: =Parent.TemplateHeight - 1
+      - recSignOffBar:
+          Control: Rectangle@2.3.0
+          Properties:
+            Fill: =RGBA(255, 255, 255, 1)
+            Height: =132
+            Width: =Parent.Width
+            Y: =Parent.Height - 132
+      - lblWorkDateCaption:
+          Control: Label@2.5.1
+          Properties:
+            Color: =RGBA(107, 114, 128, 1)
+            Font: =Font.'Open Sans'
+            Height: =20
+            Size: =11
+            Text: ="Work date"
+            Width: =120
+            X: =16
+            Y: =Parent.Height - 126
+      - dpWorkDate:
+          Control: Classic/DatePicker@2.6.0
+          Properties:
+            DefaultDate: =gblToday
+            Font: =Font.'Open Sans'
+            Size: =13
+            Width: =170
+            X: =16
+            Y: =Parent.Height - 106
+      - recSignOffBtn:
+          Control: Rectangle@2.3.0
+          Properties:
+            Fill: |
+              =If(
+                  gblAssignment.InstallerSignOff,
+                  RGBA(75, 85, 99, 1),
+                  CountRows(galTasks.AllItems) > 0
+                      && CountRows(Filter(galTasks.AllItems, Complete = true)) = CountRows(galTasks.AllItems),
+                  RGBA(15, 118, 110, 1),
+                  RGBA(180, 83, 9, 1)
+              )
+            Height: =52
+            OnSelect: |
+              =Set(
+                  gblConfirmMode,
+                  If(gblAssignment.InstallerSignOff, "reopen", "signoff")
+              );
+              Set(gblConfirmOpen, true)
+            Width: =Parent.Width - 214
+            X: =198
+            Y: =Parent.Height - 110
+      - lblSignOffBtn:
+          Control: Label@2.5.1
+          Properties:
+            Align: =Align.Center
+            Color: =RGBA(255, 255, 255, 1)
+            Font: =Font.'Open Sans'
+            FontWeight: =FontWeight.Semibold
+            Height: =52
+            OnSelect: =Select(recSignOffBtn)
+            Size: =15
+            Text: |
+              =If(
+                  gblAssignment.InstallerSignOff,
+                  "Reopen",
+                  CountRows(Filter(galTasks.AllItems, Complete = true)) = CountRows(galTasks.AllItems),
+                  "Sign off",
+                  "Sign off " & Text(CountRows(Filter(galTasks.AllItems, Complete = true)))
+                      & "/" & Text(CountRows(galTasks.AllItems))
+              )
+            Width: =Parent.Width - 214
+            X: =198
+            Y: =Parent.Height - 110
+      - recConfirmScrim:
+          Control: Rectangle@2.3.0
+          Properties:
+            Fill: =RGBA(17, 24, 39, 0.55)
+            Height: =Parent.Height
+            OnSelect: =Set(gblConfirmOpen, false)
+            Visible: =gblConfirmOpen
+            Width: =Parent.Width
+      - recConfirmCard:
+          Control: Rectangle@2.3.0
+          Properties:
+            Fill: =RGBA(255, 255, 255, 1)
+            Height: =300
+            Visible: =gblConfirmOpen
+            Width: =Parent.Width - 48
+            X: =24
+            Y: =(Parent.Height / 2) - 150
+      - lblConfirmTitle:
+          Control: Label@2.5.1
+          Properties:
+            Color: =RGBA(17, 24, 39, 1)
+            Font: =Font.'Open Sans'
+            FontWeight: =FontWeight.Semibold
+            Height: =30
+            Size: =17
+            Text: |
+              =If(
+                  gblConfirmMode = "reopen",
+                  "Reopen this sign-off?",
+                  CountRows(Filter(galTasks.AllItems, Complete = false)) > 0,
+                  "You have unticked tasks",
+                  "Confirm sign-off"
+              )
+            Visible: =gblConfirmOpen
+            Width: =Parent.Width - 80
+            X: =40
+            Y: =(Parent.Height / 2) - 134
+      - lblConfirmBody:
+          Control: Label@2.5.1
+          Properties:
+            Color: =RGBA(75, 85, 99, 1)
+            Font: =Font.'Open Sans'
+            Height: =62
+            Text: |
+              =If(
+                  gblConfirmMode = "reopen",
+                  "This clears the sign-off so tasks can be edited again. Your name and the time are added to the sub-phase notes.",
+                  Text(CountRows(Filter(galTasks.AllItems, Complete = true)))
+                      & " of "
+                      & Text(CountRows(galTasks.AllItems))
+                      & " tasks ticked. Signing off records your name against this sub-phase for "
+                      & Text(dpWorkDate.SelectedDate, "ddd mm/dd")
+                      & "."
+              )
+            Visible: =gblConfirmOpen
+            Width: =Parent.Width - 80
+            X: =40
+            Y: =(Parent.Height / 2) - 100
+      - lblNotesCaption:
+          Control: Label@2.5.1
+          Properties:
+            Color: =RGBA(107, 114, 128, 1)
+            Font: =Font.'Open Sans'
+            Height: =18
+            Size: =11
+            Text: ="Notes (optional)"
+            Visible: =gblConfirmOpen && gblConfirmMode <> "reopen"
+            Width: =Parent.Width - 80
+            X: =40
+            Y: =(Parent.Height / 2) - 36
+      - txtNotes:
+          Control: Classic/TextInput@2.3.2
+          Properties:
+            BorderColor: =RGBA(209, 213, 219, 1)
+            Default: =""
+            Font: =Font.'Open Sans'
+            Height: =54
+            HintText: ="Anything worth recording"
+            HoverBorderColor: =RGBA(209, 213, 219, 1)
+            HoverFill: =RGBA(255, 255, 255, 1)
+            Visible: =gblConfirmOpen && gblConfirmMode <> "reopen"
+            Width: =Parent.Width - 80
+            X: =40
+            Y: =(Parent.Height / 2) - 16
+      - recConfirmCancel:
+          Control: Rectangle@2.3.0
+          Properties:
+            Fill: =RGBA(229, 231, 235, 1)
+            Height: =48
+            OnSelect: =Set(gblConfirmOpen, false)
+            Visible: =gblConfirmOpen
+            Width: =(Parent.Width - 104) / 2
+            X: =40
+            Y: =(Parent.Height / 2) + 62
+      - lblConfirmCancel:
+          Control: Label@2.5.1
+          Properties:
+            Align: =Align.Center
+            Color: =RGBA(55, 65, 81, 1)
+            Font: =Font.'Open Sans'
+            FontWeight: =FontWeight.Semibold
+            Height: =48
+            OnSelect: =Select(recConfirmCancel)
+            Size: =14
+            Text: ="Cancel"
+            Visible: =gblConfirmOpen
+            Width: =(Parent.Width - 104) / 2
+            X: =40
+            Y: =(Parent.Height / 2) + 62
+      - recConfirmGo:
+          Control: Rectangle@2.3.0
+          Properties:
+            Fill: =If(gblConfirmMode = "reopen", RGBA(180, 83, 9, 1), RGBA(15, 118, 110, 1))
+            Height: =48
+            OnSelect: |
+              =If(
+                  gblConfirmMode = "reopen",
+                  IfError(
+                      'D2-ReopenSign-off'.Run(
+                          gblAssignment.ID,
+                          gblCurrentUser.userPrincipalName
+                      );
+                      Set(gblConfirmOpen, false);
+                      Refresh(Assignments);
+                      Set(gblAssignment, LookUp(Assignments, ID = gblAssignment.ID));
+                      Notify("Sign-off reopened", NotificationType.Success),
+                      Notify(
+                          "Reopen failed: " & FirstError.Message,
+                          NotificationType.Error
+                      )
+                  ),
+                  IfError(
+                      If(
+                          gblTasksDirty,
+                          'D2-TaskTickBatch'.Run(
+                              gblAssignment.ID,
+                              Concat(
+                                  galTasks.AllItems,
+                                  Text(ID) & ":" & If(Complete, "1", "0"),
+                                  ","
+                              ),
+                              CountRows(galTasks.AllItems),
+                              CountRows(Filter(galTasks.AllItems, Complete = true)),
+                              gblCurrentUser.userPrincipalName
+                          )
+                      );
+                      Set(
+                          gblIntakeResponse,
+                          'D2-Sign-offIntake'.Run(
+                              gblAssignment.ID,
+                              Text(Year(dpWorkDate.SelectedDate))
+                                  & "-" & Right("0" & Text(Month(dpWorkDate.SelectedDate)), 2)
+                                  & "-" & Right("0" & Text(Day(dpWorkDate.SelectedDate)), 2),
+                              txtNotes.Text,
+                              CountRows(galTasks.AllItems),
+                              CountRows(Filter(galTasks.AllItems, Complete = true)),
+                              gblCurrentUser.userPrincipalName
+                          )
+                      );
+                      Set(gblConfirmOpen, false);
+                      Set(gblTasksDirty, false);
+                      Refresh(Tasks);
+                      Refresh(Assignments);
+                      Notify("Signed off", NotificationType.Success);
+                      Navigate(Screen1, ScreenTransition.UnCover),
+                      Notify(
+                          "Sign-off failed: " & FirstError.Message,
+                          NotificationType.Error
+                      )
+                  )
+              )
+            Visible: =gblConfirmOpen
+            Width: =(Parent.Width - 104) / 2
+            X: =Parent.Width - 40 - ((Parent.Width - 104) / 2)
+            Y: =(Parent.Height / 2) + 62
+      - lblConfirmGo:
+          Control: Label@2.5.1
+          Properties:
+            Align: =Align.Center
+            Color: =RGBA(255, 255, 255, 1)
+            Font: =Font.'Open Sans'
+            FontWeight: =FontWeight.Semibold
+            Height: =48
+            OnSelect: =Select(recConfirmGo)
+            Size: =14
+            Text: =If(gblConfirmMode = "reopen", "Reopen", "Sign off")
+            Visible: =gblConfirmOpen
+            Width: =(Parent.Width - 104) / 2
+            X: =Parent.Width - 40 - ((Parent.Width - 104) / 2)
+            Y: =(Parent.Height / 2) + 62
