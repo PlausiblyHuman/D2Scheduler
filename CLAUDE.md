@@ -440,6 +440,54 @@ So the constraint is not publishing and not a stale tab. It is that **only a Stu
 the YAML into the control model the player reads**, exactly as originally diagnosed. Both the
 stale-tab rule above and this one are real and independent.
 
+**THE STUDIO DANCE IS NOW AUTOMATED. Proven end to end 2026-09-07 — Claude can publish the canvas
+app with no human step.**
+
+The save is still required (everything below still holds), but it no longer has to be Shane. The
+whole Studio UI is exposed in the accessibility tree, so `chrome-devtools` can drive it. A full
+round trip was proven twice: deploy a marker, publish it, see it in the player; deploy its
+removal, publish, see it gone.
+
+**Procedure** (chrome-devtools MCP, attached to a browser signed in as `stratirus@d2pools.com`):
+
+1. `python canvas-app/deploy.py`
+2. `navigate_page` to
+   `https://make.powerapps.com/e/<env>/canvas/?action=edit&app-id=%2Fproviders%2FMicrosoft.PowerApps%2Fapps%2F6bad1fae-7f3b-42d7-a63f-48a63e1e8771`
+3. `wait_for` a control name from the tree, e.g. `["lblHeaderTitle"]`. Waiting on `"Tree view"`
+   is **not** enough — it appears while Studio is still showing "Getting things ready".
+4. Dismiss the "Welcome to Power Apps Studio" dialog if present. Tick *Don't show me this again*
+   first; it has been ticked, so it should not reappear.
+5. Click the control's **treeitem**, then click a canvas element (`generic "Double click to edit
+   text"`). **Both clicks are needed** — selecting in the tree leaves focus on the tree, where
+   arrow keys navigate the tree instead of nudging the control.
+6. `press_key` `ArrowDown`, then `ArrowUp`. 1px down and back: dirty, net zero.
+7. **Verify it actually dirtied** before saving: in a snapshot, `menuitem "Undo (Ctrl+Z)"` loses
+   its `disabled` attribute. If it is still disabled, step 5 failed and the save will be a no-op.
+8. `press_key` `Control+s`.
+9. Confirm the save via the **iframe's document title**, which becomes
+   `"D2 Sign-off - Saved (Unpublished) - Power Apps"`. `wait_for` matches visible text only, so
+   waiting on `"Saved (Unpublished)"` **times out even though the save succeeded** — take a
+   snapshot and read the `RootWebArea` title instead.
+10. Click Publish. It is `button "Publish"` or `menuitem "Publish (Ctrl+Shift+P)"` depending on
+    window width, so match on the word rather than the role.
+11. `wait_for` `["Publish this version"]`, click that button.
+12. `wait_for` `["Publish successful", "is now available to everyone"]`.
+
+**Verifying in the player needs a cache-bypassing reload.** Navigating to
+`https://apps.powerapps.com/play/e/<env>/a/<appId>` right after publishing still shows the OLD
+build plus *"A new version of this app is coming"*. `navigate_page` with `type: "reload"` and
+`ignoreCache: true` then shows the new one. **That banner means stale cache, not a failed
+publish** — it wasted real time before this was understood.
+
+**The one human dependency left is authentication.** `chrome-devtools` attaches to a browser
+instance with no session, and it must be signed in **as `stratirus@d2pools.com`**, not
+`stalbot@stratirus.com` — the same wrong-account trap as `az`, `pac` and `Add-PowerAppsAccount`.
+Shane signs in once; the session then persists for the browser's lifetime. When it lapses, the
+Studio URL lands on `login.microsoftonline.com` and he has to sign in again.
+
+**Do not let this reduce batching.** Automation makes a publish cheap for Shane, not free for the
+tenant: every publish is a real version in a live client environment. Keep batching changes.
+
 **REFINED 2026-09-07 after a second experiment — the blocker is VERSION CREATION, not compiling.**
 
 The compiled control model stores every formula as a plain string in `Rules[].InvariantScript`,
