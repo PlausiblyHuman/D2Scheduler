@@ -13,4 +13,5 @@ App:
       =Set(gblCurrentUser, Office365Users.MyProfileV2());
       Set(gblCurrentCrew, LookUp(Crews, LeadEmail = gblCurrentUser.userPrincipalName));
       Set(gblIsProxy, IsBlank(gblCurrentCrew));
-      Set(gblToday, Today())
+      Set(gblToday, Today());
+      Set(gblCrewFilter, If(IsBlank(gblCurrentCrew), "", gblCurrentCrew.CrewID))

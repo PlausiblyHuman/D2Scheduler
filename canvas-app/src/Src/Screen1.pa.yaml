@@ -35,7 +35,14 @@ Screens:
       - lblHeaderSub:
           Control: Label@2.5.1
           Properties:
-            Text: =Text(gblToday, "ddd mm/dd") & If(gblIsProxy, "  -  office view", "  -  " & gblCurrentCrew.Title)
+            Text: |
+              =Text(gblToday, "ddd mm/dd")
+               & If(
+                   gblIsProxy,
+                   "  -  office view" & If(IsBlank(gblCrewFilter), "  -  all crews",
+                       "  -  " & Coalesce(LookUp(Crews, CrewID = gblCrewFilter, Title), gblCrewFilter)),
+                   "  -  " & gblCurrentCrew.Title
+               )
             Color: =RGBA(214, 240, 242, 1)
             Font: =Font.'Open Sans'
             Size: =12
@@ -54,28 +61,198 @@ Screens:
             Height: =40
             Width: =Parent.Width
             X: =0
-            Y: =140
+            Y: =160 + If(gblIsProxy, 52, 0)
             Visible: =CountRows(galToday.AllItems) = 0
+      # ---------------------------------------------------------------- crew filter
+      # PM-proxy path. The four Unlimited subcontractor crews (george, armondo,
+      # stl, brothers) have no M365 seat BY DESIGN and can never sign off for
+      # themselves, so somebody in the office always signs on their behalf. That
+      # makes this mandatory, not a convenience.
+      #
+      # Only shown to proxies. A crew lead is pinned to their own crew by
+      # App.OnStart and cannot switch, so they can never sign off as another crew.
+      - recCrewBar:
+          Control: Rectangle@2.3.0
+          Properties:
+            Fill: =RGBA(236, 246, 247, 1)
+            Height: =52
+            Width: =Parent.Width
+            X: =0
+            Y: =92
+            Visible: =gblIsProxy
+      - recCrewPick:
+          Control: Rectangle@2.3.0
+          Properties:
+            Fill: =RGBA(255, 255, 255, 1)
+            BorderColor: =RGBA(11, 110, 120, 1)
+            BorderThickness: =1
+            OnSelect: =Set(gblCrewPickerOpen, true)
+            Height: =38
+            Width: =Parent.Width - 32
+            X: =16
+            Y: =99
+            Visible: =gblIsProxy
+      - lblCrewPick:
+          Control: Label@2.5.1
+          Properties:
+            Text: |
+              ="Showing:  "
+               & If(
+                   IsBlank(gblCrewFilter),
+                   "All crews",
+                   Coalesce(LookUp(Crews, CrewID = gblCrewFilter, Title), gblCrewFilter)
+               )
+               & "      (tap to change)"
+            Color: =RGBA(11, 110, 120, 1)
+            Font: =Font.'Open Sans'
+            FontWeight: =FontWeight.Semibold
+            Size: =12
+            OnSelect: =Select(recCrewPick)
+            PaddingLeft: =12
+            Height: =38
+            Width: =Parent.Width - 32
+            X: =16
+            Y: =99
+            Visible: =gblIsProxy
+      # Picker overlay, same Visible-bound pattern as the sign-off confirmation.
+      - recCrewScrim:
+          Control: Rectangle@2.3.0
+          Properties:
+            Fill: =RGBA(17, 24, 39, 0.55)
+            OnSelect: =Set(gblCrewPickerOpen, false)
+            Height: =Parent.Height
+            Width: =Parent.Width
+            X: =0
+            Y: =0
+            Visible: =gblCrewPickerOpen
+      - recCrewCard:
+          Control: Rectangle@2.3.0
+          Properties:
+            Fill: =RGBA(255, 255, 255, 1)
+            Height: =Min(Parent.Height - 120, 120 + (CountRows(galCrewList.AllItems) * 52))
+            Width: =Parent.Width - 48
+            X: =24
+            Y: =60
+            Visible: =gblCrewPickerOpen
+      - lblCrewCardTitle:
+          Control: Label@2.5.1
+          Properties:
+            Text: ="Whose work do you want to see?"
+            Color: =RGBA(17, 24, 39, 1)
+            Font: =Font.'Open Sans'
+            FontWeight: =FontWeight.Semibold
+            Size: =16
+            Height: =32
+            Width: =Parent.Width - 80
+            X: =40
+            Y: =76
+            Visible: =gblCrewPickerOpen
+      - recCrewAll:
+          Control: Rectangle@2.3.0
+          Properties:
+            Fill: =If(IsBlank(gblCrewFilter), RGBA(11, 110, 120, 1), RGBA(243, 244, 246, 1))
+            OnSelect: |
+              =Set(gblCrewFilter, "");
+              Set(gblCrewPickerOpen, false)
+            Height: =44
+            Width: =Parent.Width - 80
+            X: =40
+            Y: =116
+            Visible: =gblCrewPickerOpen
+      - lblCrewAll:
+          Control: Label@2.5.1
+          Properties:
+            Text: ="All crews"
+            Color: =If(IsBlank(gblCrewFilter), RGBA(255, 255, 255, 1), RGBA(17, 24, 39, 1))
+            Font: =Font.'Open Sans'
+            FontWeight: =FontWeight.Semibold
+            Size: =14
+            OnSelect: =Select(recCrewAll)
+            PaddingLeft: =12
+            Height: =44
+            Width: =Parent.Width - 80
+            X: =40
+            Y: =116
+            Visible: =gblCrewPickerOpen
+      # Only crews that actually have work today, so the office is not scrolling
+      # past 14 crews to find the 3 that matter.
+      - galCrewList:
+          Control: Gallery@2.15.0
+          Variant: BrowseLayout_Vertical_TwoTextOneImageVariant_ver5.0
+          Properties:
+            Items: |
+              =Distinct(
+                  Filter(
+                      Assignments,
+                      ScheduledStart <= gblToday,
+                      ScheduledFinish >= gblToday,
+                      NotApplicable = false
+                  ),
+                  Crew
+              )
+            TemplateSize: =52
+            BorderColor: =RGBA(0, 18, 107, 1)
+            Height: =Min(Parent.Height - 300, CountRows(galCrewList.AllItems) * 52)
+            Width: =Parent.Width - 80
+            X: =40
+            Y: =172
+            Visible: =gblCrewPickerOpen
+          Children:
+            - recCrewRow:
+                Control: Rectangle@2.3.0
+                Properties:
+                  Fill: =If(gblCrewFilter = ThisItem.Value, RGBA(11, 110, 120, 1), RGBA(243, 244, 246, 1))
+                  OnSelect: |
+                    =Set(gblCrewFilter, ThisItem.Value);
+                    Set(gblCrewPickerOpen, false)
+                  Height: =44
+                  Width: =Parent.TemplateWidth
+                  X: =0
+                  Y: =4
+            - lblCrewRow:
+                Control: Label@2.5.1
+                Properties:
+                  Text: =Coalesce(LookUp(Crews, CrewID = ThisItem.Value, Title), ThisItem.Value)
+                  Color: =If(gblCrewFilter = ThisItem.Value, RGBA(255, 255, 255, 1), RGBA(17, 24, 39, 1))
+                  Font: =Font.'Open Sans'
+                  FontWeight: =FontWeight.Semibold
+                  Size: =14
+                  OnSelect: =Select(recCrewRow)
+                  PaddingLeft: =12
+                  Height: =44
+                  Width: =Parent.TemplateWidth
+                  X: =0
+                  Y: =4
       - galToday:
           Control: Gallery@2.15.0
           Variant: BrowseLayout_Vertical_TwoTextOneImageVariant_ver5.0
           Properties:
             Items: |
-              =Filter(
-                  Assignments,
-                  ScheduledStart <= gblToday,
-                  ScheduledFinish >= gblToday,
-                  NotApplicable = false
+              =If(
+                  IsBlank(gblCrewFilter),
+                  Filter(
+                      Assignments,
+                      ScheduledStart <= gblToday,
+                      ScheduledFinish >= gblToday,
+                      NotApplicable = false
+                  ),
+                  Filter(
+                      Assignments,
+                      ScheduledStart <= gblToday,
+                      ScheduledFinish >= gblToday,
+                      NotApplicable = false,
+                      Crew = gblCrewFilter
+                  )
               )
             OnSelect: |
               =Set(gblAssignment, galToday.Selected);
               Navigate(scr_Tasks, ScreenTransition.Cover)
             TemplateSize: =96
             BorderColor: =RGBA(0, 18, 107, 1)
-            Height: =Parent.Height - 92
+            Height: =Parent.Height - 92 - If(gblIsProxy, 52, 0)
             Width: =Parent.Width
             X: =0
-            Y: =92
+            Y: =92 + If(gblIsProxy, 52, 0)
           Children:
             - lblRowTitle:
                 Control: Label@2.5.1

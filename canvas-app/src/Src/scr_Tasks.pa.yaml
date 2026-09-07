@@ -349,7 +349,7 @@ Screens:
             Text: |
               =If(
                   gblConfirmMode = "reopen",
-                  "Reopen this sign-off?",
+                  "Reopen " & gblAssignment.SubPhaseNumber & "?",
                   CountRows(Filter(galTasks.AllItems, Complete = false)) > 0,
                   "You have unticked tasks",
                   "Confirm sign-off"
@@ -369,7 +369,7 @@ Screens:
             Text: |
               =If(
                   gblConfirmMode = "reopen",
-                  "This clears the sign-off so tasks can be edited again. Your name and the time are added to the sub-phase notes.",
+                  "This reopens the whole sub-phase """ & gblAssignment.SubPhaseName & """, not a single task. Tasks become editable again, and your name and the time are added to the sub-phase notes.",
                   Text(CountRows(Filter(galTasks.AllItems, Complete = true)))
                       & " of "
                       & Text(CountRows(galTasks.AllItems))
