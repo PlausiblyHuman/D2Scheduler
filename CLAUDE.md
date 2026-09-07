@@ -243,6 +243,25 @@ cost**, so slack can only be taken out of the build phases, and there is none le
 
 ## Known bugs and gotchas
 
+**THE ONE RULE THIS PROJECT KEEPS RELEARNING: capture platform payloads, never hand-author them.**
+Every expensive hour in this build has come from writing a shape the platform accepts only in one
+exact form, and getting it slightly wrong. The tell is always the same — the write SUCCEEDS
+(200/201/204) and the thing renders blank or does nothing, so the failure surfaces only when a
+human opens it. Confirmed instances: canvas control vocabulary (PA2108/PA2109), SharePoint view
+CAML, SharePoint JSON formatters, Hero and Quick links web part JSON, and the modern Calendar
+view. On 2026-09-07 alone the same mistake was made three times in one session against this
+already-written rule.
+
+The working method, in order: **read the shape off a real payload** (a run's action outputs, an
+existing working example on the same site, or `get_flow`); if none exists, **create the thing once
+in the UI and capture what the platform wrote**; only then script it. And **verify by opening the
+result**, never by the status code.
+
+Corollary for automation: when a UI control refuses two attempts at automated input, stop and hand
+it to a human rather than trying a third. The Studio icon field cost real time and ended in a
+discarded edit.
+
+
 **RESOLVED — SharePoint provisioning via Claude Chrome + REST-from-page.** All PnP and m365 CLI auth attempts fail on a fresh box:
 - PnP.PowerShell `-Interactive` / `-DeviceLogin` (both v2.4.0 pinned and latest) → not-supported / threading bug / unable-to-connect
 - m365 CLI v11 → requires BYO Entra appId at first login (chicken-and-egg)
@@ -601,9 +620,13 @@ them one at a time:
 
 - **Attaching a flow to the app** can only be done in Studio, and the app cannot reference a flow
   in Power Fx until it is attached.
-- **Changing a flow's trigger signature** invalidates the app's cached copy of it, so adding a
-  parameter to an existing flow needs a remove-and-re-add in Studio. Think the parameter list
-  through before creating a flow the app will call.
+- **Changing a flow's trigger signature** invalidates the app's cached copy of it. Studio's
+  Power Automate pane offers **Edit / Refresh / Remove from app** on each flow, and **Refresh
+  alone fixes it** — a remove-and-re-add is NOT needed. (This entry previously claimed it was;
+  corrected 2026-09-07 after adding a third parameter to `D2 - Reopen Sign-off`: App checker went
+  from Formulas (3) to (2), clearing `Invalid number of arguments: received 3, expected 2` on
+  `recConfirmGo.OnSelect`.) Refresh also marks the document saved by itself, so the 1px nudge is
+  unnecessary on that trip.
 
 Capture new control vocabulary in the same visit for the same reason — dropping a control in
 Studio once to read the YAML it generates is cheap when bundled, expensive as its own trip.
@@ -847,6 +870,27 @@ Practical consequence for the task list: ticking is done by tapping the **row** 
 `OnSelect`), not a checkbox. That is also the better design — the whole 76px row is the touch
 target, which matters when the user is wearing work gloves.
 
+**Declaration order in a `.pa.yaml` screen IS z-order, and LATER paints on top. Cost a
+session 2026-09-07.** `_EditorState.pa.yaml` carries no z-index, so file order is the only thing
+deciding what covers what. Studio's tree view lists **topmost first**, i.e. the exact reverse of
+the file — a useful cross-check. A modal overlay declared *above* a gallery renders *underneath*
+it: valid YAML, correct formulas, correct Studio preview, broken app. That is how the PM-proxy
+crew picker shipped invisible behind `galToday`.
+
+`canvas-app/check_zorder.py` gates this and runs inside `deploy.py`. The rule it enforces: a
+full-screen scrim opens an overlay group, and every control declared after it must be gated by
+the same global. Worth having because this class is invisible anywhere except a running player,
+and reaching one costs a deploy plus a Studio save and publish.
+
+**The app icon and tile colour CANNOT be set by API.** `PATCH api.powerapps.com/.../apps/{id}`
+returns 400 `InvalidAppPatchDefinition`: *"Only the following properties may be edited with PATCH:
+ConnectionReferences, EntityReferences, AuthorizationReferences, DatabaseReferences, EmbeddedApp,
+SourceControl"*. Studio → Settings → General is the only route, and its **"Icon background fill"
+textbox does not accept automated keystrokes** — fill/type append or are silently ignored, and a
+mangled value is committed to the in-memory document. Treat setting the icon as a manual human
+step. (Live app metadata is untouched until a save, so a bad edit is discarded by navigating away
+without saving — verified.)
+
 **Canvas-app schema traps — all CONFIRMED against live lists 2026-09-04, all were in the Phase C spec:**
 
 - **The lists are named `Assignments` and `Tasks`**, not `Sub-phase Assignments` / `Sub-phase Tasks`. The spec had the wrong names in 11 places; Power Apps binds a data source by list Title, so every reference would have failed. Fixed.
@@ -909,42 +953,104 @@ to the second.
 Screens built in `canvas-app/src/Src/`: `Screen1` (today's work) and `scr_Tasks` (task tick,
 work-date picker, confirm overlay, sign-off).
 
-**NEXT SESSION — rewrite the D2 Build Scheduler SharePoint site (Shane, 2026-09-07).** The site
-at `https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler` is still the default team-site
-template. It is the first thing the client sees and it currently looks like scaffolding.
+**THE SHAREPOINT SITE WAS REWRITTEN 2026-09-07 — that task is DONE.** It was the untouched
+Microsoft project-management template, with three web parts literally titled `[Sample content]`
+over stock photography. It is now a launchpad: a short intro with the field-app link, the LIVE
+`Today by Crew` view rendered on the page itself, and an indexed set of links to the other seven
+views. Theme, logo, description and welcome page are set. `ProjectHome.aspx` and both empty
+template lists are deleted.
 
-**Audience, in priority order:** **Don Borgeson** and **David Taylor** (owners — they want to know
-the job is under control, not how it works), then **Cody Campbell** and **Emon Alexander** (the two
-PMs — they need to *do* things: find today's work, spot what is late, fix a crew clash).
+Everything is scripted and committed under `sharepoint/` — `provision-views.js`,
+`format-views.js`, `build-home-page.js`, `brand-site.js`, `make-site-logo.py`. Re-running any of
+them reproduces the tenant state.
 
-Design it around what each group actually needs on landing, not around the lists:
+**Brand colours are MEASURED, not chosen** — read from d2pools.com computed styles weighted by
+painted area: navy `#082544`, green `#0B594B`, cream `#F6F3ED`, Poppins + Source Sans Pro. The
+site theme, the list-view cards and the canvas app now share one palette. SharePoint will not
+load Poppins, so the brand cue is colour, logo and restraint.
 
-- Owners: where crews are today, sign-off compliance, what is slipping. Mostly a read.
-- PMs: the views built 2026-09-07 — Today by Crew, This Week by Crew, Unassigned, Sign-off
-  Overdue, Late-Starting Jobs — surfaced as obvious entry points rather than buried in a
-  Views dropdown.
+**No header photography, and that is a LICENSING decision.** The hero images on d2pools.com are
+licensed Getty stock (`GettyImages-134108091`, `-1364656744`, `-521154563`). D2 licensed those
+for their marketing site; that does not extend to copying them into their tenant. The logo is
+different in kind — D2's own mark, on D2's own intranet — and is composited onto navy by
+`make-site-logo.py` because the published mark is white on transparent and invisible on
+SharePoint's white header. A real header photo must come from D2's own project photography.
 
-Do **not** describe mechanisms that do not exist. There is no browser-tool sync and there are no
-Teams channels; the Phase F training docs had to be corrected for exactly that on 2026-09-07.
+---
 
-**Still open on the app:**
+## NEXT SESSION — two tasks (Shane, 2026-09-07)
 
-- **Reopen action + locking tasks after sign-off** — decided 2026-09-06 (see Business rules),
-  not yet built. Now unblocked: writes must go through a flow, so this is an addition to
-  `D2 - Task Tick Batch`, not a new mechanism.
-- **PM-proxy picker** — the spec's remaining structural gap, and mandatory regardless of
-  licensing because the four `Unlimited` subcontractor crews can never sign off for themselves.
-- **Notes field** — deferred. There is no verified YAML control name for a text input or a
-  button, and guessing control vocabulary is what PA2109/PA1001 punish. Capture one from Studio
-  before building it. `Notes` is currently sent to Flow 2 as `""`.
+### 1. Calendar / schedule visualisation, because Gantt is unavailable
+
+**Gantt is genuinely not available and cannot be engineered around at this licensing tier.**
+Microsoft's modern view compatibility checklist lists *"The View is either a Calendar or Gantt
+type and is not Modern compatible"* as a detection whose only recommendation is to send feedback.
+A real Gantt needs SPFx, which needs an app catalog and a build toolchain — reintroducing the
+premium cost that ruled out Dataverse.
+
+**A modern Calendar view cannot be usefully created by REST.** Creating one with
+`ViewType2: 'MODERNCALENDAR'` returns **201**, appears in the view bar with a calendar icon, and
+**renders completely blank** because the date-field mappings are not supplied. Worse, while it is
+the active view it **disables the "Add view" button**, so it also blocks the UI route to fixing
+itself. Tried and deleted 2026-09-07. Create it through the **UI** and then capture what
+SharePoint wrote — the same discipline the canvas control vocabulary needs.
+
+Alternatives, ranked by value for effort:
+
+1. **Surface the browser tool.** `pool-scheduler.html` already IS a working Gantt and is simply
+   not reachable from SharePoint. Put it in a document library and link it from the launchpad.
+   Cheapest real Gantt by a wide margin.
+2. **Schedule-bar column via JSON formatting.** A per-row proportional bar across a fixed date
+   window, inside the existing list views. Reads like a Gantt row, sorts and filters like a list.
+   Buildable with the same technique already used in `format-views.js`.
+3. **Modern Calendar view**, created via the UI and captured.
+4. Canvas app timeline screen — real effort, Power Fx is a poor fit for drawing timelines.
+5. Power BI — good, but David and Don explicitly declined dashboards and it adds licensing.
+
+### 2. New pool deployment — the biggest remaining hole
+
+**There is still no user-facing way to create a pool, and this is the highest-value gap in the
+system.** Shane asked directly: *"Where does a user go to generate a new pool build without
+entering task-per-task and assigning it?"* The honest answer is nowhere.
+
+What exists now:
+- `tools/add_pool.py` — **plans** a complete pool (1 Job, 46 Assignments, ~295 Tasks, all four
+  business rules enforced, crews and dates assigned). Writes nothing.
+- `tools/write-pool.js` — **applies** a plan. Added 2026-09-07; before that the writer was
+  referenced by add_pool.py's docstring but did not exist, so there was no path at all from a
+  plan into SharePoint. Resumable, idempotent, reads the plan from Site Assets, verified end to
+  end against the live tenant.
+
+**That is plumbing, not the answer.** A PM cannot run either. The real deliverable is a **New
+Pool form plus a flow**: a PM enters job number, name, address and start date; a flow reads the
+46-sub-phase template and generates every assignment and task with dates and crews. `add_pool.py`
+already contains exactly that logic in Python — the work is porting it into Power Automate, and
+it is a genuine build rather than an afternoon.
+
+Sequencing note: **stop Flow 3 before any bulk write and restart after.** 46 assignment inserts
+otherwise fire 46 reconciliation runs.
+
+**Still open on the app** (list corrected 2026-09-07 — four entries here were stale and claimed
+built features were missing):
+
+- **PM-proxy picker — BUILT** (commit dd4d882). Crew picker on Screen1, proxies only.
+- **Reopen action + task locking — BUILT AND VERIFIED.** Sign-off locks the rows, the button
+  becomes Reopen, and `D2 - Reopen Sign-off` records who, when, who had signed, and now an
+  optional reason.
+- **Notes field — BUILT.** `Classic/TextInput@2.3.2` is verified vocabulary. It is shown in both
+  sign-off and reopen modes, with the caption switching on `gblConfirmMode`.
+- **Flow 3 — STARTED, not stopped.** Its trigger condition was fixed to version-history
+  comparison on 2026-09-07 and it is running. The old warning here said it was stopped and must
+  not be restarted; that is no longer true. It still fires on every Assignments edit that changes
+  Crew or the dates, so **stop it before a bulk write** (`write-pool.js` needs this) and restart
+  after.
+- **App icon and splash — still Power Apps defaults.** Cannot be set by API; see the canvas
+  section. Needs a human in Studio.
 - **`Crews.LeadEmail` still empty** — client-gated on the crew-lead identities existing. Until
   then every user is a proxy and the header reads "office view".
-- **Gate Flow 3 before the app writes at volume** — its trigger condition is a proven no-op, so
-  every Assignments write burns a run. Flow 3 is currently STOPPED, which is why this has not
-  bitten; it must not be restarted casually while the app is writing.
 - **TEST-900x stays** until just before the pilot, deliberately — it is the only realistic test
-  volume the canvas app has.
-- **Office SharePoint views: BUILT 2026-09-07.** See the office-surface entry below.
+  volume the canvas app has. Note the landing page now shows it, so the SITE IS INTERNAL-ONLY
+  until either real data lands or the test data goes.
 
 **Reading and writing SharePoint headlessly — two routes, both now proven.** The old note that
 this was impossible without a live browser session is superseded.
@@ -964,6 +1070,47 @@ this was impossible without a live browser session is superseded.
    Note `select` and `filter` are **not** valid WDL expression functions — use `Query`
    (Filter array) actions instead — and the SharePoint `GetItems` operation rejects `$select`
    outright with `WorkflowOperationParametersExtraParameter`.
+
+**Assignments gained a calculated column `WeekMonday` on 2026-09-07 — a live schema change.**
+
+    = [ScheduledStart] - WEEKDAY([ScheduledStart], 2) + 1
+
+the Monday of the row's own week. It exists because **CAML has no start-of-week primitive** — the
+documented children of `<Value>` are ListProperty, Month, Now, Today, UserID and XML, and there is
+no `<Week/>` — so a Mon–Sat window cannot be written as a static filter on a date column.
+`This Week by Crew` now filters `WeekMonday <= [Today] AND WeekMonday >= [Today]-6`, which selects
+exactly the current Mon–Sun week; no work starts on a Sunday, so in practice that is Mon–Sat. It
+previously filtered `ScheduledStart` within `[Today]..[Today]+7`, a rolling seven days that on a
+Thursday showed Thursday to next Thursday. Derived from the row alone and never from `[Today]`,
+because a calculated column referencing `[Today]` only recalculates when the item is edited.
+
+**All eight views are now `Paged=true`.** They were stored `RowLimit=100, Paged=false`, which in
+SharePoint means "return 100 and stop" — no next control, no indication anything is missing.
+`Incomplete Tasks` was showing 100 of 184.
+
+**All eight views carry a JSON card formatter** (`sharepoint/format-views.js`): status pill,
+progress bar, colour-coded left border on Assignments; tick / strikethrough on Tasks. Two things
+that are load-bearing and were learned by looking at the rendered result:
+`width`/`box-sizing`/`align-items` on the root, without which SharePoint shrink-wraps the card and
+centres it as a narrow floating block; and `hideSelection: true`, without which SharePoint's own
+selection gutter draws a second indicator next to yours.
+
+**Hero and Quick links web parts do NOT bind `serverProcessedContent` when a page is written via
+list-item MERGE.** They store correctly, they mount, and they render as nothing — titles and URLs
+live under keys like `content[0].link` and `items[0].sourceItem.url` which are persisted but never
+applied. Use **Text web parts** (controlType 4, plain HTML inline in `data-sp-rte`, no binding), or
+build Hero/Quick links in the page editor UI and capture `CanvasContent1` back. Also ruled out:
+`hideWebPartWhenEmpty:false`, GUID tile ids, and the modern Pages API `SavePageAsDraft`, which
+rejects HTML in `CanvasContent1` outright. Hero is additionally image-driven — `color` is a tint
+behind an image, not a standalone flat tile.
+
+**The page editor takes a coauthoring lock that 423s every write.** It is NOT a checkout —
+`CheckOutType` reads 2 (None) and `UndoCheckOut` also 423s, and 40s of retries does not clear it.
+`POST /_api/sitepages/pages(<id>)/discardPage` clears it.
+
+**The List web part height is FIXED, with no auto-size.** `webpartHeightKey` 6 left a large gap on
+a three-row day, 1 clipped those three rows to two; settled on 2. No value is right for every row
+count.
 
 **The office surface is SharePoint VIEWS, not an app — and they were missing until 2026-09-07.**
 

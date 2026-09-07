@@ -1,80 +1,99 @@
-# 2026-09-07b — sign-off gate, Flow 3 fixed, phases replace weeks, skills extracted
+# 2026-09-07c — site rewrite, canvas fixes, and a session with real failures
 
-Continues 2026-09-07a in the same day. Where the first half finished the app, this half closed the
-last defect, rebuilt the project's structure, and lifted the platform lessons out of the repo.
+Third session of the day. Started on a reported canvas bug and a request to improve the SharePoint
+site's look; ended having rewritten the site, fixed three view defects nobody had noticed, and
+made several avoidable mistakes. Shane's assessment at close: *"It seems like you just burned
+tokens for 2 hours, created problems and didn't deliver solutions. Frustrating session."* That is
+a fair summary of the second half and the reason this log leads with the failures.
 
-## What landed
+## What landed and is verified
 
-**Every known defect is now closed.**
+**Canvas crew-picker bug — fixed.** Declaration order in a `.pa.yaml` screen IS z-order, and later
+paints on top. The PM-proxy picker was declared above `galToday`, so the gallery rendered over the
+scrim, the card and the crew list. A pure reorder fixed it (14 controls, every body byte-identical,
+no formula touched). Added `canvas-app/check_zorder.py`, wired into `deploy.py`; it fails on the
+pre-fix source naming the exact controls.
 
-**Sign-off gate — Done / N/A / to do.** Don's objection was never ceremony; it was someone glossing
-a clean checklist with "yep, all done". Sign-off is now blocked until every task is resolved. A
-bare block would have been worse — a crew lead who cannot close at 5 of 6 ticks the sixth falsely,
-turning an honest number into a dishonest one carrying their name. **N/A with a mandatory reason**
-is what makes the gate fair, and the mandatory part is load-bearing: without it, "mark everything
-N/A then sign off" is just a second rubber-stamp route.
+**Three view defects found and fixed**, none previously known:
+- All eight views were `RowLimit=100, Paged=false`, which returns 100 and stops with no next
+  control. `Incomplete Tasks` was showing 100 of 184. Measured three ways before believing it.
+- `This Week by Crew` was a rolling seven days, not this week. On the Monday it ran, it was pulling
+  in work starting the *following* Monday. Fixed with a new calculated column `WeekMonday`, because
+  CAML has no start-of-week primitive — checked against the `<Value>` element reference rather than
+  assumed.
+- The eight views existed only in the tenant, with no script. Now committed and idempotent.
 
-**Flow 3 fixed and STARTED.** Its trigger condition referenced `@odata.oldValue`, which
-`GetOnUpdatedItems` never emits, so it fired on every edit. Replaced with **version-history
-comparison** — the only option that adds no writes and so cannot re-trigger the flow it guards.
-Verified both directions. Double-booking detection is live for the first time since 2026-09-05.
+**SharePoint site rewritten.** It was the untouched Microsoft template with three web parts titled
+`[Sample content]` over stock photography. Now a launchpad: intro, the LIVE `Today by Crew` view on
+the page itself, and an indexed link set. Theme and logo from D2's measured brand colours.
+`ProjectHome.aspx` and both empty template lists deleted — in that order, because both lists had
+web parts on the old page and deleting them first would have broken it.
 
-**Office surface + Don's daily view** (from 09-07a, completed here): eight SharePoint views that
-had never been built despite the Phase A exit gate claiming otherwise, and a daily summary that now
-leads with "Where crews are today" including site addresses.
+**Reopen reason.** Shane's case: a sign-off revoked for poor work quality. The flow recorded who
+and when but not why. Added a third trigger parameter, always sent and may be empty. Verified end
+to end through the app: `REOPENED 2026-09-07 18:09 by stratirus@d2pools.com (was signed by D2 Bot):
+Poor work quality on tile line, PM walk-through`.
 
-**Weeks replaced by phases A–G.** ~104 references across 9 documents. Weeks measured elapsed time,
-which had almost no relationship to the work, and two whole workstreams had no week and were lost
-because of it — the office surface and the client prerequisites. Both now live in **Phase D**,
-which runs alongside A–C and gates E.
+**Canvas recoloured** to the D2 palette; app and site now share one set of colours. Contrast
+checked, all past WCAG AA.
 
-**Two portable skills extracted** to `~/.claude/skills`: `powerapps-canvas-alm` and
-`power-automate-flow-mechanics`, both built RED-GREEN-REFACTOR with baseline subagents. Now under
-git.
+**`tools/write-pool.js`** — the missing half of the pool pipeline. `add_pool.py`'s docstring told
+the reader to apply plans with a file that did not exist, so there was no path from a plan into
+SharePoint at all.
 
-**Pool generator** (`tools/add_pool.py`) — plans a whole pool from the 46-sub-phase template with
-all four business rules enforced. Produces a clean 295-task, 87%-done plan. Writer not built.
+## Failures — the point of this log
 
-## Decisions made
+**Hand-authored platform payloads three separate times, against a rule already in CLAUDE.md.**
+Hero web part, Quick links web part, and the modern Calendar view. All three returned success
+(201/204) and rendered blank or empty. Each cost a diagnosis cycle. The rule — capture the shape
+from a working example or the UI, never hand-author it — is now hoisted to the top of the Known
+bugs section because writing it once clearly was not enough.
 
-- **Sign-off blocks on unresolved tasks; N/A requires a reason.** Don should be fine with it.
-- **Per-task attribution is not the goal** — Shane: *"who completed the work is unimportant; who
-  signed off on the completed work is more important."* No per-task signature ceremony.
-- **Flow 3 = version-history comparison**, not a flag column or shadow columns, both of which add
-  writes to the list whose writes are the problem.
-- **Phases keep the A–F letters already used by the AzDo Epics**; G is additive.
-- **Cody Campbell and Emon Alexander are the two PMs** — the stakeholder list had lumped six office
-  staff together.
-- **Skills are user-level, not repo-level**, so platform lessons travel to the next project.
+**Broke the app icon and had to discard the edit.** Studio's "Icon background fill" textbox does
+not accept automated keystrokes; fill/type append or are ignored. I kept trying instead of
+stopping after the second failure, and committed a mangled hex to the in-memory document. The live
+app was never touched and I verified that before and after discarding — but the right call was to
+stop at attempt two and hand it over.
 
-## Corrections to my own earlier work
+**Shipped two visual defects Shane had to catch:** a duplicate row indicator on the Tasks views
+(SharePoint's own selection gutter drawing next to mine — needed `hideSelection: true`), and dead
+space on the home page from the List web part's fixed height. Both were visible in the first
+screenshot I took and I did not look hard enough at my own output.
 
-- `Classic/*` events "do not fire" was written as a platform law; it is two instances in one app,
-  and `DisplayMode` / z-order / user-interaction-only must be ruled out first.
-- `AssignmentId` was described as simply wrong; it is correct server-side in `$filter`, and wrong
-  only as a key in connector *output*.
-- A clean-context subagent contradicted both. Testing a skill inside the repo that produced it is
-  structurally unreliable, because `CLAUDE.md` loads into every subagent.
+**Answered the wrong question on new pools.** Shane asked where a *user* goes to create a pool. I
+built `write-pool.js`, which is plumbing only I can run. The user-facing answer still does not
+exist.
 
-## Near miss
+**Two corrections to my own earlier claims in this session:** I told Shane the d2pools.com hero
+images were "D2's own photos so there is no licensing question" — they are licensed Getty stock,
+and I had been about to copy three into the client tenant. And I dismissed the applied theme as
+"just a green favicon" when computed styles showed it was genuinely driving headings and links.
 
-Reading Flow 3 via `az rest` emitted *"Unable to encode the output with cp1252"* and silently
-discarded the `⚠ — → –` glyphs the flow carries. Patching from that capture would have stripped
-them from the live flow. CLAUDE.md documents this exact trap and it still nearly landed.
+## Corrections to CLAUDE.md
 
-## Open / blocked on
+- **Refresh, not remove-and-re-add.** CLAUDE.md said a changed flow trigger signature needs the
+  flow removed and re-added in Studio. It does not — Refresh alone cleared the error. Refresh also
+  saves the document, so the 1px nudge was unnecessary too.
+- **"Still open on the app" was badly stale** and would have misled a fresh session: it listed the
+  reopen action, the Notes field and the PM-proxy picker as unbuilt (all three are built and
+  verified) and said Flow 3 "is currently STOPPED" when it is Started.
 
-- **Phase D3 remains the critical path and has still not been asked for** — ~7 crew-lead
-  identities, seats, a real PM, the trade mapping.
-- Pool writer: the plan exists but nothing writes it. 13KB has to reach the browser, which is the
-  only authenticated SharePoint write path — decide the transport before building the clumsy version.
-- "Signed off with N/A" visibility view for Don.
-- App icon and splash are still default.
-- `~/.claude/skills` is a git repo with no remote — see next action.
+## Open / next
+
+Two tasks, both written up in CLAUDE.md under "NEXT SESSION — two tasks":
+
+1. **Calendar / schedule visualisation.** Gantt is genuinely unavailable at this licensing tier
+   (Microsoft's own modern-compatibility checklist). Ranked alternatives recorded, the cheapest
+   being to surface the existing browser tool, which already IS a Gantt and simply is not reachable
+   from SharePoint.
+2. **New pool deployment.** The biggest remaining hole in the system. Needs a New Pool form plus a
+   flow that generates the 46 sub-phases and ~295 tasks; `add_pool.py` already has the logic in
+   Python and it needs porting to Power Automate.
+
+Also open: the app icon (manual Studio step), and the site stays internal-only while the landing
+page shows `TEST-900x` data.
 
 ## Next action
 
-**Rewrite the D2 Build Scheduler SharePoint site** so it looks professional and leads with what the
-system does, aimed at Don and David first, then Cody and Emon. Detail and audience notes are in
-CLAUDE.md under "NEXT SESSION". Do not describe the browser-tool sync or Teams channels — neither
-exists.
+Start a fresh session on the two tasks above. Read CLAUDE.md's "NEXT SESSION — two tasks" section
+and the new rule at the top of "Known bugs and gotchas" before touching either.
