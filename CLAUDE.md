@@ -412,6 +412,16 @@ Studio and the *old* ones in the player, with no error anywhere.
 is genuinely dirty. Loading YAML for display does not mark it dirty, so Publish re-publishes
 the previous version indefinitely. Two full Save+Publish rounds changed nothing.
 
+**CLOSE Studio before deploying, and open it fresh afterwards.** Studio holds the app in
+memory from the moment the tab is opened. If a tab is already open when `deploy.py` runs, the
+subsequent Ctrl+S writes that **stale** in-memory model back, silently reverting the deploy —
+no warning, no conflict, no error. Observed 2026-09-07: a deploy wiring the app to a new flow
+was reverted this way, and the only symptom was that the flow had zero runs. The published YAML
+still carried the previous version of the formula.
+
+**Verify a deploy landed by reading the published YAML, not by assuming**, e.g.
+`pac canvas download` then check the formula is present — that check is what caught this.
+
 **The working deploy sequence — the Studio step is mandatory, not a validation nicety:**
 
 ```

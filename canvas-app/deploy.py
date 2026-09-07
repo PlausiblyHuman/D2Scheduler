@@ -34,11 +34,21 @@ serves the OLD screens in the player, silently, with no error anywhere. Studio
 only writes a new published version when the document actually changed, so
 Publish on its own re-publishes the previous version forever.
 
-Verify by PLAYING the app. Do NOT verify with `pac canvas download` -- it
-returns the artifact this script imported regardless of Studio activity
-(apparently the solution component, not the live published document), so it
-will happily confirm a change the player is not serving. That mistake is how
-this loop was originally recorded as working when it was not.
+Verifying, and the distinction matters -- both halves were learned the hard way:
+
+  * BEFORE a Studio save, `pac canvas download` just hands back the artifact
+    this script imported. It will happily "confirm" a change the player is not
+    serving. Believing it is how this loop was first recorded as working when
+    it was not.
+  * AFTER a Studio save it is trustworthy, and it is the ONLY way to see which
+    formulas Studio actually kept. A downloaded msapp with no packed.json was
+    re-serialized by Studio; read Src/*.pa.yaml out of it and grep for the
+    formula you deployed. That check caught a deploy silently reverted by a
+    stale Studio tab, which nothing else would have shown.
+
+  So: PLAY the app to prove runtime behaviour, and download-then-grep to prove
+  the formula survived. A flow that records zero runs is the classic symptom of
+  a change that never made it in.
 
 First play after a rebuild prompts for connection consent (SharePoint +
 Office 365 Users). Until Allow is clicked the galleries are empty.
@@ -120,6 +130,11 @@ run('pac', 'solution', 'import', '--path', PATCH,
 print("""
 Imported -- but the player is still serving the OLD screens until you do this:
 
+  0. CLOSE any open Studio tab for this app FIRST, then open it fresh.
+     Studio holds the app in memory from when the tab was opened. If a tab
+     was already open when this script ran, its stale copy silently
+     OVERWRITES this deploy on save. Observed 2026-09-07: a wiring change
+     was reverted exactly this way, with no warning anywhere.
   1. Open "%s" in Power Apps Studio (Edit).
   2. Select any control, press Down arrow then Up arrow (1px move and back).
      Without this the document is not dirty and Publish is a no-op.
