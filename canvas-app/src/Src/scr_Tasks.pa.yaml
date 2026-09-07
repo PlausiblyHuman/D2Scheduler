@@ -30,12 +30,12 @@ Screens:
       - lblTasksBack:
           Control: Label@2.5.1
           Properties:
-            Text: ="Back"
-            Color: =RGBA(255, 255, 255, 1)
+            Text: ="<<<  Back"
+            Color: =RGBA(214, 240, 242, 1)
             Font: =Font.'Open Sans'
             FontWeight: =FontWeight.Semibold
-            Size: =14
-            Align: =Align.Center
+            Size: =13
+            Align: =Align.Left
             OnSelect: |
               =IfError(
                   If(
@@ -55,10 +55,10 @@ Screens:
                   )
               );
               Navigate(Screen1, ScreenTransition.UnCover)
-            Height: =40
-            Width: =60
-            X: =8
-            Y: =26
+            Height: =34
+            Width: =110
+            X: =14
+            Y: =10
       - lblTasksTitle:
           Control: Label@2.5.1
           Properties:
@@ -70,10 +70,10 @@ Screens:
             Font: =Font.'Open Sans'
             FontWeight: =FontWeight.Semibold
             Size: =18
-            Height: =32
-            Width: =Parent.Width - 68
-            X: =56
-            Y: =14
+            Height: =28
+            Width: =Parent.Width - 32
+            X: =16
+            Y: =42
       - lblTasksSub:
           Control: Label@2.5.1
           Properties:
@@ -81,10 +81,10 @@ Screens:
             Color: =RGBA(214, 240, 242, 1)
             Font: =Font.'Open Sans'
             Size: =12
-            Height: =24
-            Width: =Parent.Width - 68
-            X: =56
-            Y: =48
+            Height: =22
+            Width: =Parent.Width - 32
+            X: =16
+            Y: =70
       - recProgressBar:
           Control: Rectangle@2.3.0
           Properties:
