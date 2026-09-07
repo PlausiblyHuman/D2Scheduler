@@ -828,15 +828,74 @@ work-date picker, confirm overlay, sign-off).
   bitten; it must not be restarted casually while the app is writing.
 - **TEST-900x stays** until just before the pilot, deliberately — it is the only realistic test
   volume the canvas app has.
-- **DELETE `D2 - TEMP diag read (delete me)`** (flowId `862a6a23-30aa-f111-aaab-6045bd0196b3`)
-  before the pilot. It is a scratch flow that reads Tasks + Assignments for one hard-coded
-  assignment id and reports via a deliberately-failing Terminate. Harmless (recurrence starts
-  2027, reads only) and genuinely useful — it is the only headless way to read SharePoint in this
-  project, since the `az` SharePoint token 401s and `chrome-devtools` needs a live browser
-  session. Its `Report` action is broken (`select` is not a valid WDL function); read the run's
-  action outputs instead via
-  `https://api.flow.microsoft.com/providers/Microsoft.ProcessSimple/environments/{env}/flows/{flow}/runs/{run}/actions?api-version=2016-11-01`,
-  then fetch each `outputsLink` (SAS-signed, needs no auth header).
+- **Office SharePoint views: BUILT 2026-09-07.** See the office-surface entry below.
+
+**Reading and writing SharePoint headlessly — two routes, both now proven.** The old note that
+this was impossible without a live browser session is superseded.
+
+1. **Browser REST from the page (preferred for bulk).** Navigate the `chrome-devtools` browser to
+   `https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler` — SSO carries over from a
+   Power Apps sign-in — then `evaluate_script` with a digest from `/_api/contextinfo`. This is
+   how the seven views were created: ~50 REST calls in two script calls. Return a compact summary
+   from the script, not raw payloads, or the token cost is severe.
+2. **A throwaway Power Automate flow (no browser needed).** A Recurrence-triggered flow with
+   `Send an HTTP request to SharePoint` actions, run via `run_flow`, then read its action outputs
+   from
+   `https://api.flow.microsoft.com/providers/Microsoft.ProcessSimple/environments/{env}/flows/{flow}/runs/{run}/actions?api-version=2016-11-01`
+   and fetch each `outputsLink` (SAS-signed, needs no auth header). Slower to set up, but needs no
+   human sign-in at all. Delete the flow afterwards.
+
+   Note `select` and `filter` are **not** valid WDL expression functions — use `Query`
+   (Filter array) actions instead — and the SharePoint `GetItems` operation rejects `$select`
+   outright with `WorkflowOperationParametersExtraParameter`.
+
+**The office surface is SharePoint VIEWS, not an app — and they were missing until 2026-09-07.**
+
+Worth stating plainly, because "the canvas app" is easy to mistake for the whole system. The
+design splits four audiences across four surfaces, and only one of them is the app:
+
+| Need | Surface | Status |
+|---|---|---|
+| Planning / scheduling | the browser tool `pool-scheduler.html` | exists, unchanged, PM-only |
+| Office day-to-day | **SharePoint list views** | built 2026-09-07 |
+| Ownership visibility | daily + weekly HTML summary emails | built, Week 2 |
+| Field sign-off | the canvas app | built, Week 3 |
+
+**Dashboards are a declined requirement, not a gap** — David and Don accepted daily/weekly email
+summaries and explicitly did not want Power BI.
+
+The Week 1 runbook specified seven views and its exit gate claimed "all views show correct
+filters". **None of them existed.** Every list had only the default `All Items`, so the office
+training in Week 5 Day 2 — which walks Don, both PMs and Amy through "Views drop-down > This Week
+by Crew" — would have opened a flat ungrouped list of every assignment ever. Built and verified by
+rendering each one (a view can be created with invalid CAML and fail only when opened, so
+`RenderListDataAsStream` is the real test, not a 201 on create):
+
+| List | View | Rows at build |
+|---|---|---|
+| Assignments | All Assignments (group by Job) | 43 |
+| Assignments | This Week by Crew | 8 |
+| Assignments | Unassigned | 0 |
+| Assignments | Sign-off Overdue (group by Crew) | 12 |
+| Assignments | Late-Starting Jobs (group by Job) | 14 |
+| Tasks | All Tasks (by Assignment) | paged |
+| Tasks | Incomplete Tasks | paged |
+
+Two deviations from the runbook, both deliberate:
+
+- **`Unassigned` also matches `Crew = 'unassigned'`,** not just blank. The browser tool models
+  `unassigned` as a real pseudo-crew, so filtering only on blank would have missed the actual
+  unassigned work. Currently 0 rows because the seed always sets a crew.
+- **`Incomplete for Today` was built as `Incomplete Tasks`.** The spec wanted it filtered by the
+  parent assignment's dates, but CAML cannot filter a view on a lookup's *other* columns without
+  a join. Filter is `Complete = No`, grouped by Assignment.
+
+**OPEN — Week 5 training materials describe two mechanisms that do not exist.** The office quick
+reference and PM workflow docs in `D2-Week-5-Cutover-Runbook.md` still tell PMs that "the nightly
+export pushes to Lists at 11 PM" and point them at "Field Dispatch" and "Ownership" Teams
+channels. The nightly sync was **descoped from the pilot** and the Teams channels were **deferred
+post-pilot** — both deliberate decisions whose training copy was never updated. Fix before anyone
+is trained on it, or three of the mechanisms Don is shown will not be real.
 
 **TEMPORARY TEST DATA IS LIVE ON THE D2 TENANT — remove before the pilot.** Seeded 2026-09-03 so Flows 4 and 5 could be judged against realistic volume rather than 5 rows.
 
