@@ -20,6 +20,14 @@
  * Pass RECREATE = true to delete and rebuild them, which is what you want after
  * editing a definition here.
  *
+ * PAGING: every view is Paged=true. They were originally stored RowLimit=100 with
+ * Paged=FALSE, which in SharePoint means "return 100 and stop" rather than "100 per
+ * page". Measured on the live list: Incomplete Tasks returned 100 rows with NO next
+ * link against a true count of 184, and All Tasks (by Assignment) capped at 100 of
+ * 282. Nothing indicated rows were missing -- the list simply appeared to end. The
+ * Assignments views were under the cap at 43 rows but share the setting and would
+ * have started truncating at roughly three pools.
+ *
  * NOTE a view can be created with invalid CAML and fail only when a human opens
  * it, so a 201 on create proves nothing. This script renders every view through
  * RenderListDataAsStream afterwards and reports the row count, which is the real
@@ -35,7 +43,10 @@
   const get = async u => (await fetch(u, { headers: H, credentials: 'include' })).json();
   const q = s => s.replace(/'/g, "''");
 
-  const RECREATE = false;   // true = drop and rebuild every view defined here
+  // Existing views are RECONCILED IN PLACE rather than dropped and rebuilt.
+  // Recreating would mint a new view GUID, and the Phase D site launchpad links
+  // at these views, so in-place keeps those links valid. It also means this
+  // script is a "make it so" reconciler: edit a definition above, re-run, done.
 
   const VIEWS = [
       {
@@ -53,7 +64,7 @@
               "TasksTotal"
           ],
           "rowLimit": 100,
-          "paged": false,
+          "paged": true,
           "query": "<GroupBy Collapse=\"FALSE\"><FieldRef Name=\"Job\" /></GroupBy><OrderBy><FieldRef Name=\"ScheduledStart\" Ascending=\"TRUE\" /></OrderBy>"
       },
       {
@@ -70,7 +81,7 @@
               "TasksTotal"
           ],
           "rowLimit": 100,
-          "paged": false,
+          "paged": true,
           "query": "<Where><And><Geq><FieldRef Name=\"ScheduledStart\" /><Value Type=\"DateTime\"><Today /></Value></Geq><Leq><FieldRef Name=\"ScheduledStart\" /><Value Type=\"DateTime\"><Today OffsetDays=\"7\" /></Value></Leq></And></Where><GroupBy Collapse=\"FALSE\"><FieldRef Name=\"Crew\" /></GroupBy><OrderBy><FieldRef Name=\"ScheduledStart\" Ascending=\"TRUE\" /></OrderBy>"
       },
       {
@@ -86,7 +97,7 @@
               "Crew"
           ],
           "rowLimit": 100,
-          "paged": false,
+          "paged": true,
           "query": "<Where><And><Or><Or><IsNull><FieldRef Name=\"Crew\" /></IsNull><Eq><FieldRef Name=\"Crew\" /><Value Type=\"Text\" /></Eq></Or><Eq><FieldRef Name=\"Crew\" /><Value Type=\"Text\">unassigned</Value></Eq></Or><IsNotNull><FieldRef Name=\"Trade\" /></IsNotNull></And></Where><OrderBy><FieldRef Name=\"ScheduledStart\" Ascending=\"TRUE\" /></OrderBy>"
       },
       {
@@ -102,7 +113,7 @@
               "InstallerSignOff"
           ],
           "rowLimit": 100,
-          "paged": false,
+          "paged": true,
           "query": "<Where><And><Lt><FieldRef Name=\"ScheduledFinish\" /><Value Type=\"DateTime\"><Today /></Value></Lt><Eq><FieldRef Name=\"InstallerSignOff\" /><Value Type=\"Integer\">0</Value></Eq></And></Where><GroupBy Collapse=\"FALSE\"><FieldRef Name=\"Crew\" /></GroupBy><OrderBy><FieldRef Name=\"ScheduledFinish\" Ascending=\"TRUE\" /></OrderBy>"
       },
       {
@@ -118,7 +129,7 @@
               "InstallerSignOff"
           ],
           "rowLimit": 100,
-          "paged": false,
+          "paged": true,
           "query": "<Where><And><Lt><FieldRef Name=\"ScheduledStart\" /><Value Type=\"DateTime\"><Today /></Value></Lt><Eq><FieldRef Name=\"InstallerSignOff\" /><Value Type=\"Integer\">0</Value></Eq></And></Where><GroupBy Collapse=\"FALSE\"><FieldRef Name=\"Job\" /></GroupBy><OrderBy><FieldRef Name=\"ScheduledStart\" Ascending=\"TRUE\" /></OrderBy>"
       },
       {
@@ -135,7 +146,7 @@
               "InstallerSignOff"
           ],
           "rowLimit": 200,
-          "paged": false,
+          "paged": true,
           "query": "<Where><And><Leq><FieldRef Name=\"ScheduledStart\" /><Value Type=\"DateTime\"><Today /></Value></Leq><Geq><FieldRef Name=\"ScheduledFinish\" /><Value Type=\"DateTime\"><Today /></Value></Geq></And></Where><GroupBy Collapse=\"FALSE\"><FieldRef Name=\"Crew\" /></GroupBy><OrderBy><FieldRef Name=\"Title\" Ascending=\"TRUE\" /></OrderBy>"
       },
       {
@@ -149,7 +160,7 @@
               "CompletedOn"
           ],
           "rowLimit": 100,
-          "paged": false,
+          "paged": true,
           "query": "<GroupBy Collapse=\"TRUE\"><FieldRef Name=\"Assignment\" /></GroupBy><OrderBy><FieldRef Name=\"Sequence\" Ascending=\"TRUE\" /></OrderBy>"
       },
       {
@@ -163,7 +174,7 @@
               "CompletedOn"
           ],
           "rowLimit": 100,
-          "paged": false,
+          "paged": true,
           "query": "<Where><Eq><FieldRef Name=\"Complete\" /><Value Type=\"Integer\">0</Value></Eq></Where><GroupBy Collapse=\"TRUE\"><FieldRef Name=\"Assignment\" /></GroupBy><OrderBy><FieldRef Name=\"Sequence\" Ascending=\"TRUE\" /></OrderBy>"
       }
   ];
@@ -174,15 +185,38 @@
     const existing = await get(`${base}/views?$select=Title,Id`);
     const hit = (existing.d.results || []).find(x => x.Title === v.title);
 
-    if (hit && !RECREATE) {
-      results.push({ list: v.list, view: v.title, action: 'kept' });
-      continue;
-    }
-    if (hit && RECREATE) {
-      await fetch(`${base}/views('${hit.Id}')`, {
+    if (hit) {
+      const cur = await get(`${base}/views('${hit.Id}')?$select=ViewQuery,RowLimit,Paged`);
+      const drift = [];
+      if (cur.d.ViewQuery !== v.query) drift.push('ViewQuery');
+      if (cur.d.RowLimit !== v.rowLimit) drift.push('RowLimit');
+      if (cur.d.Paged !== v.paged) drift.push('Paged');
+
+      const curFields = await get(`${base}/views('${hit.Id}')/viewfields`);
+      const have = curFields.d.Items.results;
+      const fieldsDrift = JSON.stringify(have) !== JSON.stringify(v.viewFields);
+      if (fieldsDrift) drift.push('ViewFields');
+
+      if (!drift.length) {
+        results.push({ list: v.list, view: v.title, action: 'already correct', id: hit.Id });
+        continue;
+      }
+      const upd = await fetch(`${base}/views('${hit.Id}')`, {
         method: 'POST', credentials: 'include',
-        headers: { ...HD, 'IF-MATCH': '*', 'X-HTTP-Method': 'DELETE' }
-      });
+        headers: { ...HD, 'IF-MATCH': '*', 'X-HTTP-Method': 'MERGE' },
+        body: JSON.stringify({ __metadata: { type: 'SP.View' },
+                               ViewQuery: v.query, RowLimit: v.rowLimit, Paged: v.paged }) });
+      if (fieldsDrift) {
+        await fetch(`${base}/views('${hit.Id}')/viewfields/removeallviewfields`,
+          { method: 'POST', credentials: 'include', headers: HD });
+        for (const f of v.viewFields) {
+          await fetch(`${base}/views('${hit.Id}')/viewfields/addviewfield('${q(f)}')`,
+            { method: 'POST', credentials: 'include', headers: HD });
+        }
+      }
+      results.push({ list: v.list, view: v.title, action: 'updated ' + drift.join('+'),
+                     status: upd.status, id: hit.Id });
+      continue;
     }
 
     // ViewFields cannot be set in the create payload -- the view is created first,
