@@ -59,20 +59,27 @@ Two short docs to hand out (or share as SharePoint pages on the d2-scheduler sit
 
 ```
 Where do I go?
-  All schedules: [SharePoint site] > Sub-phase Assignments
-  This week's dispatch: Field Dispatch Teams channel
-  Ownership dashboard: Ownership Teams channel + daily PDF in Don's email
+  All schedules: [SharePoint site] > Assignments
+  Today's dispatch: crew leads get it by EMAIL at 6:00 AM, Mon-Sat
+  Ownership summary: daily email 6:30 AM Mon-Sat, weekly Friday 3:00 PM
+
+  There are no Teams channels. Everything arrives by email.
 
 How do I …
+  See where my crews are today?
+    Views drop-down > "Today by Crew" — grouped by crew, with the site address
   See what my crews are doing this week?
     Views drop-down > "This Week by Crew"
   Reassign a sub-phase to a different crew?
     Open the sub-phase row, click the Crew field, pick a new crew, save.
-    You'll see a conflict alert in the Ops channel within a minute if the new crew is already booked.
+    If the new crew is already booked that day, the job's PM gets a
+    double-booking alert by email.
   See what's late or unassigned?
     Views: "Sign-off Overdue" and "Unassigned"
   Change a job's dates?
-    Open Jobs list > click the job > edit StartDate. Ripple through Sub-phase Assignments manually or run the browser tool's Auto-Schedule and re-export.
+    Open Jobs list > click the job > edit StartDate, then update the affected
+    rows in Assignments. Changing dates in the browser tool does NOT reach
+    SharePoint — see the PM workflow sheet.
 
 When something's weird
   Text Shane at [phone]. Don't fix it yourself if you're not sure what broke.
@@ -84,21 +91,29 @@ When something's weird
 Every Monday morning
   1. Check the "Late-Starting Jobs" view — anything slipping?
   2. Check the "Unassigned" view — any sub-phases without a crew?
-  3. Skim the Field Dispatch Teams channel — did dispatch go out this morning?
+  3. Check your inbox for the 6:30 AM summary — did dispatch go out?
+
+READ THIS FIRST — the browser tool does NOT sync to SharePoint
+  There is no automatic export. Anything you change in pool-scheduler.html
+  stays there. SharePoint is the source of truth for everything the crews
+  and the sign-off system see.
 
 Every time you plan or re-plan
-  1. Do the planning in the browser tool (pool-scheduler.html) — this is unchanged
-  2. When schedule is committed, the nightly export pushes to Lists at 11 PM
-  3. Verify Tuesday morning that Lists reflects your Monday changes
+  1. Plan a NEW pool in the browser tool as before, then tell Stratirus —
+     we load it into SharePoint for you.
+  2. For changes to a pool that is already live (a date shift, a crew swap),
+     edit SharePoint directly. That is what the crews' app reads.
+  3. If you also keep the browser tool up to date for your own planning,
+     treat that as your notes, not as the system of record.
 
 Every time a customer or crew calls with a change
-  1. Update the browser tool first (source of truth for planning)
-  2. Or, for small tweaks (a date shift, a crew swap), update Lists directly — but note it and update the browser tool by end of week
+  1. Update SharePoint — that is what dispatch and sign-off read tomorrow morning
+  2. Update the browser tool too if you use it for forward planning
 
-Conflict alerts in Ops channel
+Double-booking alerts by email
   Someone (probably you or the other PM) just created a double-book.
-  Fix it in the same list that fired the alert. The alert tells you which
-  two Assignments overlap.
+  The alert goes to the job's PM and names the two Assignments that overlap.
+  Fix it in SharePoint.
 ```
 
 ### Step 6 — Office training session
@@ -111,7 +126,7 @@ Group session, 60 minutes, on Teams or in person if the office is on-site.
 
 1. **What changed and why (10 min):** two-slide framing — "we moved the source of truth for execution from your browser to SharePoint; planning stays where it is; dispatch and sign-off is now automatic; the browser tool didn't go away, it got demoted to planner-only."
 2. **Live walk-through of the SharePoint views (15 min):** open All Assignments, This Week by Crew, Unassigned, Sign-off Overdue. Group by, filter, drill into one sub-phase.
-3. **Live edit demo (10 min):** reassign a sub-phase to a different crew in Lists, watch the Ops channel alert appear within a minute if it collides.
+3. **Live edit demo (10 min):** reassign a sub-phase to a different crew in Lists, watch the double-booking alert email reach the job's PM within a minute if it collides.
 4. **The PM's weekly rhythm (10 min):** walk through the PM workflow doc.
 5. **When to text Shane vs when to fix themselves (5 min):** any structural change (columns, permissions, new pools) is Stratirus. Anything that's "wrong data in a row" is fair game to fix.
 6. **Q&A (10 min).**
@@ -216,7 +231,7 @@ Concretely:
 
 1. Take a final backup of the browser tool state — save as `pre-cutover-final-[date].json`
 2. Rename the browser tool's HTML file locally to `pool-scheduler-PLANNER-ONLY.html` and update any pinned shortcut. Optional: add a banner at the top of the file: "PLANNING ONLY — execution state lives in SharePoint Lists".
-3. Confirm the nightly export flow is scheduled correctly — this is now what keeps Lists in sync with the browser tool's planning changes
+3. Confirm the office understands there is NO browser-tool sync — SharePoint is edited directly for live pools, and Stratirus loads new pools. The sync flow does not exist and was descoped from the pilot deliberately.
 4. Document the demotion in the divergence log as `Day 4 cutover: browser tool → planner-only role`
 
 ### Step 13 — Verify go-live state
@@ -230,7 +245,7 @@ Before end of day Thursday:
 - ✅ Cutover comms sent (Step 11)
 - ✅ Daily Dispatch flow scheduled and last-tested green
 - ✅ Sign-off Intake, Event + Nightly Reconciliation, PDF Summary flows all green in run history
-- ✅ Ops Teams channel has no unresolved false-positive alerts
+- ✅ No unresolved false-positive double-booking alert emails
 - ✅ Rollback plan (below) is documented and reachable
 
 ---
@@ -271,7 +286,7 @@ If something breaks badly Friday-through-Monday post-cutover, the rollback is fa
 
 1. Rename `pool-scheduler-PLANNER-ONLY.html` back to `pool-scheduler.html`
 2. Restore the pre-cutover backup: `Restore` button → pick `pre-cutover-final-[date].json`
-3. Post note in Field Teams channel: "Temporarily reverting to browser tool for schedule of record while we fix an issue. Continue signing off using paper forms as before. More by [time]."
+3. Email the crew leads and the office: "Temporarily reverting to browser tool for schedule of record while we fix an issue. Continue signing off using paper forms as before. More by [time]."
 4. Text Don + David: heads-up call
 5. Diagnose in Lists side without pressure
 

@@ -284,6 +284,14 @@ Open each list, confirm:
 - ✅ Permission groups exist, list-level inheritance broken and per-list permissions set
 - ✅ Teams channels created with SharePoint tabs pointing at correct views
 
+> **CORRECTION 2026-09-07 — two of the checks above were ticked but never done.**
+> The lists were provisioned and seeded correctly, but **no views existed** on any list
+> (every one had only the default `All Items`) until they were built on 2026-09-07, and
+> **no Teams channels were ever created** — Teams was later deferred post-pilot and every
+> flow delivers by email instead. Left in place as the historical record; do not read the
+> ticks as evidence. The lesson is that an exit gate is only worth what it was actually
+> checked against.
+
 **Test the Skill Coverage query:** open Trades list → click on the "Steel / Rebar" row → the "Related items" pane should show any Crew-Trades rows referencing that trade. If it does, the lookup wiring is correct and Ryan-Claude's concern about killing this query pattern is proven addressed.
 
 **If any check fails, do not proceed to Week 2 automations.** Fix in Week 1 or extend by half a day.

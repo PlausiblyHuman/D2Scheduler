@@ -107,8 +107,8 @@ Every workday morning, ~15 min. This is the actual pilot.
 ### During the day
 
 **Watch for:**
-- Ops Teams channel alerts from the Event-Driven Reconciliation flow — any false-positive collisions? Any real collisions that fired correctly?
-- Sign-off confirmations arriving in the Ownership channel (from Daily PDF)
+- Double-booking alert emails from the Event-Driven Reconciliation flow (they go to the job's PM) — any false positives? Any real collisions that fired correctly?
+- Sign-off compliance in the 6:30 AM daily summary email
 - Any texts from the crew lead about app friction
 
 **Don't touch:**
@@ -130,7 +130,7 @@ Log any anomalies.
 
 ### Type A — Timing (usually not a real divergence)
 
-Browser tool updated at 8:15 AM by the PM, Lists nightly export hasn't run yet, morning check at 8 AM catches the delta.
+Browser tool updated at 8:15 AM by the PM and never reaches Lists at all — there is no export. The morning check catches the delta; the fix is to make the same edit in Lists.
 
 **Diagnosis:** Verify with a second check at 8:45 AM. If the Lists state now matches, it was timing.
 
@@ -150,7 +150,7 @@ Crew lead signed off in the app, but Assignments still shows `InstallerSignOff =
 
 ### Type C — Double-book alert but no double-book exists
 
-Ops channel got a collision alert, but reviewing the two Assignments shows they don't actually overlap.
+A double-booking alert email arrived, but reviewing the two Assignments shows they don't actually overlap.
 
 **Diagnosis:**
 1. Read the alert's payload — which two Assignment IDs did it flag?
@@ -207,7 +207,7 @@ If any of these happen during the pilot, stop and huddle before continuing:
 - Same divergence type occurs 3+ times in a week
 - Any Type B (sign-off not propagating) — this is the core of the whole system
 - Any P0 canvas app bug that requires a re-publish
-- Ops channel gets more than 5 false-positive collision alerts (indicates trigger condition or filter logic is broken)
+- More than 5 false-positive collision alert emails (indicates trigger condition or filter logic is broken)
 - Crew lead refuses to keep using the app
 
 None of these are Week 5 blockers by default, but they need explicit "here's the plan" resolution before cutover.
@@ -239,7 +239,7 @@ Verify all before proceeding to Week 5:
 - **Weekend gap.** Days 1–5 run Mon–Fri. Saturday is a normal work day for D2 crews but the pilot check cadence should still hit Saturday morning. Sunday is genuine skip.
 - **Timezone confusion.** Verify all comparison points use Pacific. The browser tool uses local device time; Lists stores UTC. A 1-day-off divergence is almost always a timezone issue in a query filter.
 - **Sample size of one pool.** A clean pilot doesn't prove the system handles all edge cases. Cutover in Week 5 puts more pools in and will surface things the pilot didn't. Plan for that in Week 5's on-call schedule.
-- **The browser tool's Auto-Schedule can drift.** If the pilot pool's sub-phases get reassigned mid-week by a browser-tool Auto-Schedule run, Lists won't reflect that until next nightly export. Coordinate: PM doesn't re-run Auto-Schedule during the pilot week without notifying you first.
+- **The browser tool's Auto-Schedule can drift, and nothing reconciles it.** There is no export, so a mid-week Auto-Schedule run silently diverges the browser tool from Lists for good. Coordinate: the PM does not re-run Auto-Schedule during the pilot week without notifying you first.
 
 ---
 
