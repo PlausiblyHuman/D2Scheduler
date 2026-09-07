@@ -758,8 +758,10 @@ was observed coping with exactly that state beforehand, so nothing was lost.
 **The SharePoint connector returns a lookup as `Assignment` + `Assignment#Id`, NOT `AssignmentId`.
 Cost a build cycle 2026-09-07.**
 
-`AssignmentId` is the **REST** field name — it is what `cleanup.js` uses and it is correct there.
-The **connector** returns something different:
+`AssignmentId` is the **REST/OData** name. It is correct in `cleanup.js`, **and** it is correct in
+a server-side `$filter=AssignmentId eq 14` — which is cheaper than pulling rows and using a
+Filter array, and is the better option where it fits. What it is *not* is a key in the
+connector's **output**, which is where the mistake was made. The connector returns:
 
 ```json
 "Assignment":     {"@odata.type": "...SPListExpandedReference", "Id": 1, "Value": "D2-1001 · 2.1 Rebar Delivery"},
@@ -777,7 +779,19 @@ reading it — after `Crews.Title` vs `CrewID`, `Assignments.Job.Value` vs `JobN
 `Crew` lookup-vs-text confusion. **Read the shape from a real payload before writing the
 expression**; a run's action outputs are the cheapest way to do that.
 
-**`Classic/*` control events do not fire in this app. Confirmed twice, 2026-09-06/07.**
+**`Classic/*` control events did not fire in this app — but check the ordinary causes FIRST.
+Refined 2026-09-07 after a clean-context check challenged the original wording.**
+
+The standard reasons a handler does not fire, in order: `DisplayMode` is `View`/`Disabled`;
+**z-order** — the topmost control under the tap consumes it, so a transparent or full-bleed
+control over a row swallows that row's `OnSelect`; and `OnCheck`/`OnChange` fire on **user
+interaction only**, not when `Default` changes or `Reset()` runs. Rule those out before blaming
+the control type.
+
+They were ruled out here. The checkbox failure was observed on a build that predated the
+full-screen confirm scrim, and the Back button was fixed by swapping `Classic/Icon` for a `Label`
+**while leaving the scrim in place** — if z-order were the cause, the Label would have failed too.
+So the observation stands, but it is two instances in one app, not a platform law:
 
 The controls render correctly, and Studio round-trips their event properties verbatim, but the
 handlers never run:
