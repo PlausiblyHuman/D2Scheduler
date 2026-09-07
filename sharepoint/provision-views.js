@@ -20,6 +20,28 @@
  * Pass RECREATE = true to delete and rebuild them, which is what you want after
  * editing a definition here.
  *
+ * WEEK WINDOW: "This Week by Crew" filters on the calculated column
+ * Assignments.WeekMonday, NOT on ScheduledStart directly. CAML has no
+ * start-of-week primitive -- the documented children of <Value> are
+ * ListProperty, Month, Now, Today, UserID and XML, and there is no <Week/> --
+ * so "Monday to Saturday of the current week" cannot be written as a static
+ * filter on a date column at all. It was originally ScheduledStart within
+ * [Today]..[Today]+7, which is a rolling seven days, so on a Thursday the view
+ * showed Thursday to next Thursday under the name "This Week". That disagreed
+ * with the weekly summary flow, which scores Mon-Sat.
+ *
+ * WeekMonday = ScheduledStart - WEEKDAY(ScheduledStart,2) + 1, the Monday of the
+ * row's own week, derived from the row alone and never from [Today] -- a
+ * calculated column referencing [Today] only recalculates when the item is
+ * edited, which is the standard SharePoint stale-value trap.
+ *
+ * The filter WeekMonday <= [Today] AND WeekMonday >= [Today]-6 then selects
+ * exactly the current Mon-Sun week. With Today = M + d for d in 0..6:
+ *   current week  (WM = M)    M <= M+d and M >= M+d-6      both hold for all d
+ *   previous week (WM = M-7)  needs d <= -1                never holds
+ *   next week     (WM = M+7)  needs d >= 7                 never holds
+ * No work starts on a Sunday (business rule 4), so in practice this is Mon-Sat.
+ *
  * PAGING: every view is Paged=true. They were originally stored RowLimit=100 with
  * Paged=FALSE, which in SharePoint means "return 100 and stop" rather than "100 per
  * page". Measured on the live list: Incomplete Tasks returned 100 rows with NO next
@@ -82,7 +104,7 @@
           ],
           "rowLimit": 100,
           "paged": true,
-          "query": "<Where><And><Geq><FieldRef Name=\"ScheduledStart\" /><Value Type=\"DateTime\"><Today /></Value></Geq><Leq><FieldRef Name=\"ScheduledStart\" /><Value Type=\"DateTime\"><Today OffsetDays=\"7\" /></Value></Leq></And></Where><GroupBy Collapse=\"FALSE\"><FieldRef Name=\"Crew\" /></GroupBy><OrderBy><FieldRef Name=\"ScheduledStart\" Ascending=\"TRUE\" /></OrderBy>"
+          "query": "<Where><And><Leq><FieldRef Name=\"WeekMonday\" /><Value Type=\"DateTime\"><Today /></Value></Leq><Geq><FieldRef Name=\"WeekMonday\" /><Value Type=\"DateTime\"><Today OffsetDays=\"-6\" /></Value></Geq></And></Where><GroupBy Collapse=\"FALSE\"><FieldRef Name=\"Crew\" /></GroupBy><OrderBy><FieldRef Name=\"ScheduledStart\" Ascending=\"TRUE\" /></OrderBy>"
       },
       {
           "list": "Assignments",
@@ -179,7 +201,33 @@
       }
   ];
 
+  // PREREQUISITE: the calculated column "This Week by Crew" filters on. Created
+  // here rather than assumed, because a fresh list without it would leave that
+  // view rendering empty with no error -- the exact silent-failure mode this
+  // whole file exists to stop.
   const results = [];
+  {
+    const abase = `${site}/_api/web/lists/GetByTitle('Assignments')`;
+    const have = await get(abase + "/fields?$select=InternalName&$filter=InternalName eq 'WeekMonday'");
+    if (have.d.results.length) {
+      results.push({ list: 'Assignments', view: '(field) WeekMonday', action: 'already correct' });
+    } else {
+      const schema = '<Field Type="Calculated" DisplayName="WeekMonday" Name="WeekMonday" '
+        + 'ResultType="DateTime" Format="DateOnly" Hidden="FALSE" Required="FALSE">'
+        + '<Formula>=[ScheduledStart]-WEEKDAY([ScheduledStart],2)+1</Formula>'
+        + '<FieldRefs><FieldRef Name="ScheduledStart"/></FieldRefs></Field>';
+      const fr = await fetch(abase + '/fields/CreateFieldAsXml', {
+        method: 'POST', credentials: 'include', headers: HD,
+        body: JSON.stringify({ parameters: {
+          __metadata: { type: 'SP.XmlSchemaFieldCreationInformation' },
+          SchemaXml: schema,
+          Options: 8            // AddFieldInternalNameHint; deliberately NOT added to any view
+        } }) });
+      results.push({ list: 'Assignments', view: '(field) WeekMonday',
+                     action: fr.ok ? 'created' : 'CREATE FAILED ' + fr.status });
+    }
+  }
+
   for (const v of VIEWS) {
     const base = `${site}/_api/web/lists/GetByTitle('${q(v.list)}')`;
     const existing = await get(`${base}/views?$select=Title,Id`);
@@ -254,6 +302,7 @@
   // creation and only throws here.
   for (const r of results) {
     const v = VIEWS.find(x => x.list === r.list && x.title === r.view);
+    if (!v) continue;                      // the WeekMonday field row, nothing to render
     try {
       const res = await fetch(
         `${site}/_api/web/lists/GetByTitle('${q(v.list)}')/RenderListDataAsStream`,
