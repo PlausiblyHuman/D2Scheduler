@@ -9,7 +9,7 @@
 Screens:
   scr_Tasks:
     Properties:
-      LoadingSpinnerColor: =RGBA(56, 96, 178, 1)
+      LoadingSpinnerColor: =RGBA(11, 89, 75, 1)
       Fill: =RGBA(246, 247, 249, 1)
       # Nothing ticked this visit means nothing to write back. Without this the
       # Back button would Patch counters onto any row merely opened to look at,
@@ -19,7 +19,7 @@ Screens:
       - recTasksHeader:
           Control: Rectangle@2.3.0
           Properties:
-            Fill: =RGBA(11, 110, 120, 1)
+            Fill: =RGBA(8, 37, 68, 1)
             Height: =92
             Width: =Parent.Width
             X: =0
@@ -31,7 +31,7 @@ Screens:
           Control: Label@2.5.1
           Properties:
             Text: ="<<<  Back"
-            Color: =RGBA(214, 240, 242, 1)
+            Color: =RGBA(199, 211, 224, 1)
             Font: =Font.'Open Sans'
             FontWeight: =FontWeight.Semibold
             Size: =13
@@ -87,7 +87,7 @@ Screens:
           Control: Label@2.5.1
           Properties:
             Text: =gblAssignment.SubPhaseName
-            Color: =RGBA(214, 240, 242, 1)
+            Color: =RGBA(199, 211, 224, 1)
             Font: =Font.'Open Sans'
             Size: =12
             Height: =22
@@ -125,7 +125,7 @@ Screens:
               =If(
                   CountRows(galTasks.AllItems) > 0
                       && CountRows(Filter(galTasks.AllItems, Complete = true)) = CountRows(galTasks.AllItems),
-                  RGBA(15, 118, 110, 1),
+                  RGBA(11, 89, 75, 1),
                   RGBA(107, 114, 128, 1)
               )
             Font: =Font.'Open Sans'
@@ -210,13 +210,13 @@ Screens:
                 Properties:
                   Fill: |
                     =If(
-                        ThisItem.Complete, RGBA(15, 118, 110, 1),
+                        ThisItem.Complete, RGBA(11, 89, 75, 1),
                         ThisItem.NotApplicable, RGBA(156, 163, 175, 1),
                         RGBA(255, 255, 255, 1)
                     )
                   BorderColor: |
                     =If(
-                        ThisItem.Complete, RGBA(15, 118, 110, 1),
+                        ThisItem.Complete, RGBA(11, 89, 75, 1),
                         ThisItem.NotApplicable, RGBA(156, 163, 175, 1),
                         RGBA(156, 163, 175, 1)
                     )
@@ -355,7 +355,7 @@ Screens:
                   RGBA(75, 85, 99, 1),
                   CountRows(Filter(galTasks.AllItems, Complete = false, NotApplicable = false)) > 0,
                   RGBA(156, 163, 175, 1),
-                  RGBA(15, 118, 110, 1)
+                  RGBA(11, 89, 75, 1)
               )
             OnSelect: |
               =If(
@@ -466,7 +466,12 @@ Screens:
       - lblNotesCaption:
           Control: Label@2.5.1
           Properties:
-            Text: ="Notes (optional)"
+            Text: |
+              =If(
+                  gblConfirmMode = "reopen",
+                  "Why is this being reopened? (optional)",
+                  "Notes (optional)"
+              )
             Color: =RGBA(107, 114, 128, 1)
             Font: =Font.'Open Sans'
             Size: =11
@@ -474,12 +479,17 @@ Screens:
             Width: =Parent.Width - 80
             X: =40
             Y: =(Parent.Height / 2) - 36
-            Visible: =gblConfirmOpen && gblConfirmMode <> "reopen"
+            Visible: =gblConfirmOpen
       - txtNotes:
           Control: Classic/TextInput@2.3.2
           Properties:
             Default: =""
-            HintText: ="Anything worth recording"
+            HintText: |
+              =If(
+                  gblConfirmMode = "reopen",
+                  "e.g. tile line not to standard",
+                  "Anything worth recording"
+              )
             Font: =Font.'Open Sans'
             Size: =13
             BorderColor: =RGBA(209, 213, 219, 1)
@@ -489,7 +499,7 @@ Screens:
             Width: =Parent.Width - 80
             X: =40
             Y: =(Parent.Height / 2) - 16
-            Visible: =gblConfirmOpen && gblConfirmMode <> "reopen"
+            Visible: =gblConfirmOpen
       - recConfirmCancel:
           Control: Rectangle@2.3.0
           Properties:
@@ -526,14 +536,15 @@ Screens:
       - recConfirmGo:
           Control: Rectangle@2.3.0
           Properties:
-            Fill: =If(gblConfirmMode = "reopen", RGBA(180, 83, 9, 1), RGBA(15, 118, 110, 1))
+            Fill: =If(gblConfirmMode = "reopen", RGBA(180, 83, 9, 1), RGBA(11, 89, 75, 1))
             OnSelect: |
               =If(
                   gblConfirmMode = "reopen",
                   IfError(
                       'D2-ReopenSign-off'.Run(
                           gblAssignment.ID,
-                          gblCurrentUser.userPrincipalName
+                          gblCurrentUser.userPrincipalName,
+                          Coalesce(txtNotes.Text, "")
                       );
                       Set(gblConfirmOpen, false);
                       Refresh(Assignments);
