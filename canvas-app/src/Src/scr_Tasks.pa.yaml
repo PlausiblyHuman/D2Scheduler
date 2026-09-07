@@ -107,6 +107,7 @@ Screens:
                & " of "
                & Text(CountRows(galTasks.AllItems))
                & " tasks done"
+               & If(gblAssignment.InstallerSignOff, "     SIGNED OFF - LOCKED", "")
             Color: |
               =If(
                   CountRows(galTasks.AllItems) > 0
@@ -162,15 +163,22 @@ Screens:
                   SortOrder.Ascending
               )
             OnSelect: |
-              =Patch(
-                  Tasks,
-                  ThisItem,
-                  {
-                      Complete: !ThisItem.Complete,
-                      CompletedOn: If(!ThisItem.Complete, Now(), Blank())
-                  }
-              );
-              Set(gblTasksDirty, true)
+              =If(
+                  gblAssignment.InstallerSignOff,
+                  Notify(
+                      "This sub-phase is signed off. Tap Reopen to make changes.",
+                      NotificationType.Warning
+                  ),
+                  Patch(
+                      Tasks,
+                      ThisItem,
+                      {
+                          Complete: !ThisItem.Complete,
+                          CompletedOn: If(!ThisItem.Complete, Now(), Blank())
+                      }
+                  );
+                  Set(gblTasksDirty, true)
+              )
             TemplateSize: =76
             BorderColor: =RGBA(0, 18, 107, 1)
             Height: =Parent.Height - 136 - 132
@@ -237,7 +245,6 @@ Screens:
                   Y: =Parent.TemplateHeight - 1
 
       # ---------------------------------------------------------------- sign-off bar
-      # Docked to the bottom so it stays reachable one-handed on a phone.
       - recSignOffBar:
           Control: Rectangle@2.3.0
           Properties:
@@ -267,19 +274,26 @@ Screens:
             Width: =170
             X: =16
             Y: =Parent.Height - 106
-      # Amber while tasks are outstanding, teal when the sub-phase is complete.
-      # A partial sign-off is legitimate, so this warns rather than blocks.
+      # Teal when every task is ticked, amber for a partial sign-off (allowed,
+      # but flagged), grey once signed off, when the action becomes Reopen.
       - recSignOffBtn:
           Control: Rectangle@2.3.0
           Properties:
             Fill: |
               =If(
+                  gblAssignment.InstallerSignOff,
+                  RGBA(75, 85, 99, 1),
                   CountRows(galTasks.AllItems) > 0
                       && CountRows(Filter(galTasks.AllItems, Complete = true)) = CountRows(galTasks.AllItems),
                   RGBA(15, 118, 110, 1),
                   RGBA(180, 83, 9, 1)
               )
-            OnSelect: =Set(gblConfirmOpen, true)
+            OnSelect: |
+              =Set(
+                  gblConfirmMode,
+                  If(gblAssignment.InstallerSignOff, "reopen", "signoff")
+              );
+              Set(gblConfirmOpen, true)
             Height: =52
             Width: =Parent.Width - 214
             X: =198
@@ -289,6 +303,8 @@ Screens:
           Properties:
             Text: |
               =If(
+                  gblAssignment.InstallerSignOff,
+                  "Reopen",
                   CountRows(Filter(galTasks.AllItems, Complete = true)) = CountRows(galTasks.AllItems),
                   "Sign off",
                   "Sign off " & Text(CountRows(Filter(galTasks.AllItems, Complete = true)))
@@ -299,14 +315,15 @@ Screens:
             FontWeight: =FontWeight.Semibold
             Size: =15
             Align: =Align.Center
-            OnSelect: =Set(gblConfirmOpen, true)
+            OnSelect: =Select(recSignOffBtn)
             Height: =52
             Width: =Parent.Width - 214
             X: =198
             Y: =Parent.Height - 110
       # ---------------------------------------------------------------- confirm overlay
-      # Power Fx has no Confirm() function (formula-review finding 3), so the
-      # "sign off anyway?" step is a Visible-bound overlay rather than a dialog.
+      # Power Fx has no Confirm() function (formula-review finding 3), so both
+      # the "sign off anyway?" step and the reopen confirmation are one
+      # Visible-bound overlay, switched by gblConfirmMode.
       - recConfirmScrim:
           Control: Rectangle@2.3.0
           Properties:
@@ -321,16 +338,18 @@ Screens:
           Control: Rectangle@2.3.0
           Properties:
             Fill: =RGBA(255, 255, 255, 1)
-            Height: =230
+            Height: =300
             Width: =Parent.Width - 48
             X: =24
-            Y: =(Parent.Height / 2) - 115
+            Y: =(Parent.Height / 2) - 150
             Visible: =gblConfirmOpen
       - lblConfirmTitle:
           Control: Label@2.5.1
           Properties:
             Text: |
               =If(
+                  gblConfirmMode = "reopen",
+                  "Reopen this sign-off?",
                   CountRows(Filter(galTasks.AllItems, Complete = false)) > 0,
                   "You have unticked tasks",
                   "Confirm sign-off"
@@ -339,29 +358,63 @@ Screens:
             Font: =Font.'Open Sans'
             FontWeight: =FontWeight.Semibold
             Size: =17
-            Height: =32
+            Height: =30
             Width: =Parent.Width - 80
             X: =40
-            Y: =(Parent.Height / 2) - 99
+            Y: =(Parent.Height / 2) - 134
             Visible: =gblConfirmOpen
       - lblConfirmBody:
           Control: Label@2.5.1
           Properties:
             Text: |
-              =Text(CountRows(Filter(galTasks.AllItems, Complete = true)))
-               & " of "
-               & Text(CountRows(galTasks.AllItems))
-               & " tasks ticked. Signing off records your name against this sub-phase for "
-               & Text(dpWorkDate.SelectedDate, "ddd mm/dd")
-               & "."
+              =If(
+                  gblConfirmMode = "reopen",
+                  "This clears the sign-off so tasks can be edited again. Your name and the time are added to the sub-phase notes.",
+                  Text(CountRows(Filter(galTasks.AllItems, Complete = true)))
+                      & " of "
+                      & Text(CountRows(galTasks.AllItems))
+                      & " tasks ticked. Signing off records your name against this sub-phase for "
+                      & Text(dpWorkDate.SelectedDate, "ddd mm/dd")
+                      & "."
+              )
             Color: =RGBA(75, 85, 99, 1)
             Font: =Font.'Open Sans'
             Size: =13
-            Height: =76
+            Height: =62
             Width: =Parent.Width - 80
             X: =40
-            Y: =(Parent.Height / 2) - 63
+            Y: =(Parent.Height / 2) - 100
             Visible: =gblConfirmOpen
+      # Notes live here rather than on the task screen: this is where the crew
+      # lead already pauses, and it keeps the task list uncluttered. Read-only
+      # value, so Classic/TextInput is safe -- only Classic EVENT handlers fail.
+      - lblNotesCaption:
+          Control: Label@2.5.1
+          Properties:
+            Text: ="Notes (optional)"
+            Color: =RGBA(107, 114, 128, 1)
+            Font: =Font.'Open Sans'
+            Size: =11
+            Height: =18
+            Width: =Parent.Width - 80
+            X: =40
+            Y: =(Parent.Height / 2) - 36
+            Visible: =gblConfirmOpen && gblConfirmMode <> "reopen"
+      - txtNotes:
+          Control: Classic/TextInput@2.3.2
+          Properties:
+            Default: =""
+            HintText: ="Anything worth recording"
+            Font: =Font.'Open Sans'
+            Size: =13
+            BorderColor: =RGBA(209, 213, 219, 1)
+            HoverBorderColor: =RGBA(209, 213, 219, 1)
+            HoverFill: =RGBA(255, 255, 255, 1)
+            Height: =54
+            Width: =Parent.Width - 80
+            X: =40
+            Y: =(Parent.Height / 2) - 16
+            Visible: =gblConfirmOpen && gblConfirmMode <> "reopen"
       - recConfirmCancel:
           Control: Rectangle@2.3.0
           Properties:
@@ -370,7 +423,7 @@ Screens:
             Height: =48
             Width: =(Parent.Width - 104) / 2
             X: =40
-            Y: =(Parent.Height / 2) + 25
+            Y: =(Parent.Height / 2) + 62
             Visible: =gblConfirmOpen
       - lblConfirmCancel:
           Control: Label@2.5.1
@@ -381,68 +434,90 @@ Screens:
             FontWeight: =FontWeight.Semibold
             Size: =14
             Align: =Align.Center
-            OnSelect: =Set(gblConfirmOpen, false)
+            OnSelect: =Select(recConfirmCancel)
             Height: =48
             Width: =(Parent.Width - 104) / 2
             X: =40
-            Y: =(Parent.Height / 2) + 25
+            Y: =(Parent.Height / 2) + 62
             Visible: =gblConfirmOpen
       # WorkDate is built from parts rather than a format string. Power Fx Text()
       # only treats "mm" as month when no time part precedes it, and this project
       # already inverted its entire work week once by storing a DateOnly value at
       # midnight UTC. A bare yyyy-MM-dd string is the fixed convention.
+      #
+      # Sign-off flushes outstanding ticks FIRST. Without that a crew lead who
+      # ticks and signs off without pressing Back records "6 of 6" over rows that
+      # were never saved -- the divergence the Reopen rule exists to catch.
       - recConfirmGo:
           Control: Rectangle@2.3.0
           Properties:
-            Fill: =RGBA(15, 118, 110, 1)
+            Fill: =If(gblConfirmMode = "reopen", RGBA(180, 83, 9, 1), RGBA(15, 118, 110, 1))
             OnSelect: |
-              =IfError(
-                  If(
-                      gblTasksDirty,
-                      'D2-TaskTickBatch'.Run(
+              =If(
+                  gblConfirmMode = "reopen",
+                  IfError(
+                      'D2-ReopenSign-off'.Run(
                           gblAssignment.ID,
-                          Concat(
-                              galTasks.AllItems,
-                              Text(ID) & ":" & If(Complete, "1", "0"),
-                              ","
-                          ),
-                          CountRows(galTasks.AllItems),
-                          CountRows(Filter(galTasks.AllItems, Complete = true)),
                           gblCurrentUser.userPrincipalName
+                      );
+                      Set(gblConfirmOpen, false);
+                      Refresh(Assignments);
+                      Set(gblAssignment, LookUp(Assignments, ID = gblAssignment.ID));
+                      Notify("Sign-off reopened", NotificationType.Success),
+                      Notify(
+                          "Reopen failed: " & FirstError.Message,
+                          NotificationType.Error
                       )
-                  );
-                  Set(
-                      gblIntakeResponse,
-                      'D2-Sign-offIntake'.Run(
-                          gblAssignment.ID,
-                          Text(Year(dpWorkDate.SelectedDate))
-                              & "-" & Right("0" & Text(Month(dpWorkDate.SelectedDate)), 2)
-                              & "-" & Right("0" & Text(Day(dpWorkDate.SelectedDate)), 2),
-                          "",
-                          CountRows(galTasks.AllItems),
-                          CountRows(Filter(galTasks.AllItems, Complete = true)),
-                          gblCurrentUser.userPrincipalName
+                  ),
+                  IfError(
+                      If(
+                          gblTasksDirty,
+                          'D2-TaskTickBatch'.Run(
+                              gblAssignment.ID,
+                              Concat(
+                                  galTasks.AllItems,
+                                  Text(ID) & ":" & If(Complete, "1", "0"),
+                                  ","
+                              ),
+                              CountRows(galTasks.AllItems),
+                              CountRows(Filter(galTasks.AllItems, Complete = true)),
+                              gblCurrentUser.userPrincipalName
+                          )
+                      );
+                      Set(
+                          gblIntakeResponse,
+                          'D2-Sign-offIntake'.Run(
+                              gblAssignment.ID,
+                              Text(Year(dpWorkDate.SelectedDate))
+                                  & "-" & Right("0" & Text(Month(dpWorkDate.SelectedDate)), 2)
+                                  & "-" & Right("0" & Text(Day(dpWorkDate.SelectedDate)), 2),
+                              txtNotes.Text,
+                              CountRows(galTasks.AllItems),
+                              CountRows(Filter(galTasks.AllItems, Complete = true)),
+                              gblCurrentUser.userPrincipalName
+                          )
+                      );
+                      Set(gblConfirmOpen, false);
+                      Set(gblTasksDirty, false);
+                      Refresh(Tasks);
+                      Refresh(Assignments);
+                      Notify("Signed off", NotificationType.Success);
+                      Navigate(Screen1, ScreenTransition.UnCover),
+                      Notify(
+                          "Sign-off failed: " & FirstError.Message,
+                          NotificationType.Error
                       )
-                  );
-                  Set(gblConfirmOpen, false);
-                  Set(gblTasksDirty, false);
-                  Refresh(Assignments);
-                  Notify("Signed off", NotificationType.Success);
-                  Navigate(Screen1, ScreenTransition.UnCover),
-                  Notify(
-                      "Sign-off failed: " & FirstError.Message,
-                      NotificationType.Error
                   )
               )
             Height: =48
             Width: =(Parent.Width - 104) / 2
             X: =Parent.Width - 40 - ((Parent.Width - 104) / 2)
-            Y: =(Parent.Height / 2) + 25
+            Y: =(Parent.Height / 2) + 62
             Visible: =gblConfirmOpen
       - lblConfirmGo:
           Control: Label@2.5.1
           Properties:
-            Text: ="Sign off"
+            Text: =If(gblConfirmMode = "reopen", "Reopen", "Sign off")
             Color: =RGBA(255, 255, 255, 1)
             Font: =Font.'Open Sans'
             FontWeight: =FontWeight.Semibold
@@ -452,5 +527,5 @@ Screens:
             Height: =48
             Width: =(Parent.Width - 104) / 2
             X: =Parent.Width - 40 - ((Parent.Width - 104) / 2)
-            Y: =(Parent.Height / 2) + 25
+            Y: =(Parent.Height / 2) + 62
             Visible: =gblConfirmOpen
