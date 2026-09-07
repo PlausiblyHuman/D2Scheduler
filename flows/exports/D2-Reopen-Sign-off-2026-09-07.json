@@ -1,0 +1,147 @@
+{
+ "displayName": "D2 - Reopen Sign-off",
+ "flowId": "0f850a63-beaa-f111-aaac-6045bd0195dd",
+ "workflowEntityId": "0f850a63-beaa-f111-aaac-6045bd0195dd",
+ "state": "Started",
+ "exportedUtc": "2026-09-07",
+ "definition": {
+  "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+  "contentVersion": "undefined",
+  "parameters": {
+   "$authentication": {
+    "defaultValue": {},
+    "type": "SecureObject"
+   },
+   "$connections": {
+    "defaultValue": {},
+    "type": "Object"
+   }
+  },
+  "triggers": {
+   "manual": {
+    "type": "Request",
+    "kind": "PowerAppV2",
+    "inputs": {
+     "schema": {
+      "type": "object",
+      "properties": {
+       "number": {
+        "description": "Assignment list item id",
+        "title": "AssignmentID",
+        "type": "number",
+        "x-ms-content-hint": "NUMBER",
+        "x-ms-dynamically-added": true
+       },
+       "text": {
+        "description": "UPN of the person reopening",
+        "title": "ReopenedByEmail",
+        "type": "string",
+        "x-ms-content-hint": "TEXT",
+        "x-ms-dynamically-added": true
+       }
+      },
+      "required": [
+       "number",
+       "text"
+      ]
+     }
+    }
+   }
+  },
+  "actions": {
+   "Get_item": {
+    "runAfter": {},
+    "type": "OpenApiConnection",
+    "inputs": {
+     "parameters": {
+      "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+      "table": "49ef7006-d3fe-40a7-a52f-c4c18545bd35",
+      "id": "@triggerBody()?['number']"
+     },
+     "host": {
+      "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+      "operationId": "GetItem",
+      "connectionName": "shared_sharepointonline"
+     }
+    }
+   },
+   "Compose_notes": {
+    "runAfter": {
+     "Get_item": [
+      "Succeeded"
+     ]
+    },
+    "type": "Compose",
+    "inputs": "@concat(if(empty(coalesce(body('Get_item')?['SignOffNotes'], '')), '', concat(body('Get_item')?['SignOffNotes'], '  |  ')), 'REOPENED ', convertTimeZone(utcNow(), 'UTC', 'Central Standard Time', 'yyyy-MM-dd HH:mm'), ' by ', triggerBody()?['text'], if(equals(coalesce(body('Get_item')?['InstallerSignOff'], false), true), concat(' (was signed by ', coalesce(body('Get_item')?['InstallerSignOffBy']?['DisplayName'], 'unknown'), ')'), ''))"
+   },
+   "Reopen": {
+    "runAfter": {
+     "Compose_notes": [
+      "Succeeded"
+     ]
+    },
+    "type": "OpenApiConnection",
+    "inputs": {
+     "parameters": {
+      "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+      "parameters/method": "POST",
+      "parameters/uri": "_api/web/lists/GetByTitle('Assignments')/items(@{triggerBody()?['number']})",
+      "parameters/headers": {
+       "X-HTTP-Method": "MERGE",
+       "If-Match": "*",
+       "Content-Type": "application/json;odata=verbose",
+       "Accept": "application/json;odata=verbose"
+      },
+      "parameters/body": "@{string(setProperty(json('{\"__metadata\":{\"type\":\"SP.Data.AssignmentsListItem\"},\"InstallerSignOff\":false,\"InstallerSignOffOn\":null,\"InstallerSignOffById\":null}'), 'SignOffNotes', outputs('Compose_notes')))}"
+     },
+     "host": {
+      "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+      "operationId": "HttpRequest",
+      "connectionName": "shared_sharepointonline"
+     }
+    }
+   },
+   "Respond_to_a_Power_App_or_flow": {
+    "runAfter": {
+     "Reopen": [
+      "Succeeded"
+     ]
+    },
+    "type": "Response",
+    "kind": "PowerApp",
+    "inputs": {
+     "schema": {
+      "type": "object",
+      "properties": {
+       "status": {
+        "title": "Status",
+        "type": "string",
+        "x-ms-content-hint": "TEXT",
+        "x-ms-dynamically-added": true
+       }
+      },
+      "additionalProperties": {}
+     },
+     "statusCode": 200,
+     "body": {
+      "status": "Reopened"
+     }
+    }
+   }
+  }
+ },
+ "connectionReferences": {
+  "shared_sharepointonline": {
+   "connectionName": "shared-sharepointonl-20b83f29-d689-437e-b1ff-930f7bf3fda4",
+   "connectionReferenceLogicalName": "new_sharedsharepointonline_beb06",
+   "source": "Invoker",
+   "id": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+   "displayName": "SharePoint",
+   "iconUri": "https://static.powerapps.com/resource/ppcr/releases/v1.0.1813/1.0.1813.4769/sharepointonline/icon.png",
+   "brandColor": "",
+   "tier": "Standard",
+   "apiName": "sharepointonline",
+   "isProcessSimpleApiReferenceConversionAlreadyDone": false
+  }
+ }
+}

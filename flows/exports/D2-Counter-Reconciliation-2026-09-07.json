@@ -1,0 +1,237 @@
+{
+ "displayName": "D2 - Counter Reconciliation",
+ "flowId": "68182f5f-c9aa-f111-aaab-6045bd0196b3",
+ "workflowEntityId": "68182f5f-c9aa-f111-aaab-6045bd0196b3",
+ "state": "Started",
+ "exportedUtc": "2026-09-07",
+ "definition": {
+  "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+  "contentVersion": "undefined",
+  "parameters": {
+   "$authentication": {
+    "defaultValue": {},
+    "type": "SecureObject"
+   },
+   "$connections": {
+    "defaultValue": {},
+    "type": "Object"
+   }
+  },
+  "triggers": {
+   "Recurrence": {
+    "recurrence": {
+     "frequency": "Day",
+     "interval": 1,
+     "timeZone": "Central Standard Time",
+     "schedule": {
+      "hours": [
+       "5"
+      ],
+      "minutes": [
+       30
+      ]
+     },
+     "startTime": "2026-09-08T05:30:00"
+    },
+    "type": "Recurrence"
+   }
+  },
+  "actions": {
+   "Get_all_tasks": {
+    "runAfter": {},
+    "type": "OpenApiConnection",
+    "inputs": {
+     "parameters": {
+      "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+      "table": "22c45847-ff0d-417a-b53e-1ea018fbb6d3",
+      "$top": 5000
+     },
+     "host": {
+      "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+      "operationId": "GetItems",
+      "connectionName": "shared_sharepointonline"
+     }
+    }
+   },
+   "Get_all_assignments": {
+    "runAfter": {
+     "Get_all_tasks": [
+      "Succeeded"
+     ]
+    },
+    "type": "OpenApiConnection",
+    "inputs": {
+     "parameters": {
+      "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+      "table": "49ef7006-d3fe-40a7-a52f-c4c18545bd35",
+      "$top": 5000
+     },
+     "host": {
+      "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+      "operationId": "GetItems",
+      "connectionName": "shared_sharepointonline"
+     }
+    }
+   },
+   "Init_repaired": {
+    "runAfter": {
+     "Get_all_assignments": [
+      "Succeeded"
+     ]
+    },
+    "type": "InitializeVariable",
+    "inputs": {
+     "variables": [
+      {
+       "name": "repaired",
+       "type": "array",
+       "value": []
+      }
+     ]
+    }
+   },
+   "Apply_to_each_assignment": {
+    "foreach": "@body('Get_all_assignments')?['value']",
+    "actions": {
+     "Filter_tasks": {
+      "runAfter": {},
+      "type": "Query",
+      "inputs": {
+       "from": "@body('Get_all_tasks')?['value']",
+       "where": "@equals(item()?['AssignmentId'], items('Apply_to_each_assignment')?['ID'])"
+      }
+     },
+     "Filter_done": {
+      "runAfter": {
+       "Filter_tasks": [
+        "Succeeded"
+       ]
+      },
+      "type": "Query",
+      "inputs": {
+       "from": "@body('Filter_tasks')",
+       "where": "@equals(item()?['Complete'], true)"
+      }
+     },
+     "Condition_drifted": {
+      "actions": {
+       "Repair_counters": {
+        "runAfter": {},
+        "type": "OpenApiConnection",
+        "inputs": {
+         "parameters": {
+          "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+          "parameters/method": "POST",
+          "parameters/uri": "_api/web/lists/GetByTitle('Assignments')/items(@{items('Apply_to_each_assignment')?['ID']})",
+          "parameters/headers": {
+           "X-HTTP-Method": "MERGE",
+           "If-Match": "*",
+           "Content-Type": "application/json;odata=verbose",
+           "Accept": "application/json;odata=verbose"
+          },
+          "parameters/body": "{\"__metadata\":{\"type\":\"SP.Data.AssignmentsListItem\"},\"TasksTotal\":@{length(body('Filter_tasks'))},\"TasksComplete\":@{length(body('Filter_done'))}}"
+         },
+         "host": {
+          "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+          "operationId": "HttpRequest",
+          "connectionName": "shared_sharepointonline"
+         }
+        }
+       },
+       "Record_repair": {
+        "runAfter": {
+         "Repair_counters": [
+          "Succeeded"
+         ]
+        },
+        "type": "AppendToArrayVariable",
+        "inputs": {
+         "name": "repaired",
+         "value": "@{items('Apply_to_each_assignment')?['Title']}: @{int(coalesce(items('Apply_to_each_assignment')?['TasksComplete'], -1))}/@{int(coalesce(items('Apply_to_each_assignment')?['TasksTotal'], -1))} -> @{length(body('Filter_done'))}/@{length(body('Filter_tasks'))}"
+        }
+       }
+      },
+      "runAfter": {
+       "Filter_done": [
+        "Succeeded"
+       ]
+      },
+      "else": {
+       "actions": {}
+      },
+      "expression": {
+       "and": [
+        {
+         "greater": [
+          "@length(body('Filter_tasks'))",
+          0
+         ]
+        },
+        {
+         "or": [
+          {
+           "not": {
+            "equals": [
+             "@length(body('Filter_tasks'))",
+             "@int(coalesce(items('Apply_to_each_assignment')?['TasksTotal'], -1))"
+            ]
+           }
+          },
+          {
+           "not": {
+            "equals": [
+             "@length(body('Filter_done'))",
+             "@int(coalesce(items('Apply_to_each_assignment')?['TasksComplete'], -1))"
+            ]
+           }
+          }
+         ]
+        }
+       ]
+      },
+      "type": "If"
+     }
+    },
+    "runAfter": {
+     "Init_repaired": [
+      "Succeeded"
+     ]
+    },
+    "type": "Foreach",
+    "runtimeConfiguration": {
+     "concurrency": {
+      "repetitions": 1
+     }
+    }
+   },
+   "Summarise": {
+    "runAfter": {
+     "Apply_to_each_assignment": [
+      "Succeeded"
+     ]
+    },
+    "type": "Compose",
+    "inputs": {
+     "assignmentsChecked": "@length(body('Get_all_assignments')?['value'])",
+     "tasksScanned": "@length(body('Get_all_tasks')?['value'])",
+     "countersRepaired": "@length(variables('repaired'))",
+     "detail": "@variables('repaired')"
+    }
+   }
+  }
+ },
+ "connectionReferences": {
+  "shared_sharepointonline": {
+   "connectionName": "shared-sharepointonl-20b83f29-d689-437e-b1ff-930f7bf3fda4",
+   "connectionReferenceLogicalName": "new_sharedsharepointonline_beb06",
+   "source": "Embedded",
+   "id": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+   "displayName": "SharePoint",
+   "iconUri": "https://static.powerapps.com/resource/ppcr/releases/v1.0.1813/1.0.1813.4769/sharepointonline/icon.png",
+   "brandColor": "",
+   "tier": "Standard",
+   "apiName": "sharepointonline",
+   "isProcessSimpleApiReferenceConversionAlreadyDone": false
+  }
+ }
+}
