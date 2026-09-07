@@ -378,35 +378,40 @@ Re-verified end-to-end: Flow 1 now reads Assignment 2 as `2026-09-02..2026-09-05
 - Assignment **1** carries `InstallerSignOff = true` with note `"Chrome-driven test"` — a leftover from an earlier Sign-off Intake test.
 - Assignment **4** (`stl`) is scheduled `2026-09-06 → 09-07`, and 09-06 is a **Sunday**. This violates business rule 4 in the seed data itself; it was invisible while the calendar was off by one.
 
-**OPEN BUG — Flow 3's trigger condition is a no-op; `GetOnUpdatedItems` emits no `@odata.oldValue` properties. Found 2026-09-03 by exit-gate test 2.**
+**RESOLVED 2026-09-07 — Flow 3's trigger condition was a no-op; replaced with version-history
+comparison.** The Rev D §06 condition referenced `@odata.oldValue` properties that
+`GetOnUpdatedItems` **never emits**, so every clause compared against null, the condition always
+passed, and every edit to any Assignments row fired the flow — including every sign-off write, the
+exact quota burn the condition existed to prevent.
 
-The Rev D §06 trigger condition is:
+**The fix reads the row's own version history**, which is the only change-detection option that
+adds no writes and therefore cannot re-trigger the flow it guards:
 
 ```
-@or(not(equals(body/Crew, body/Crew@odata.oldValue)),
-    not(equals(body/ScheduledStart, body/ScheduledStart@odata.oldValue)),
-    not(equals(body/DurationDays, body/DurationDays@odata.oldValue)),
-    equals(body/Crew@odata.oldValue, null))
+GET _api/web/lists/GetByTitle('Assignments')/items(<id>)/versions
+    ?$top=2&$select=VersionLabel,Crew,ScheduledStart,ScheduledFinish
 ```
 
-**Empirically, the SharePoint `GetOnUpdatedItems` trigger body contains no `@odata.oldValue` keys whatsoever.** Verified on run `08584131498858558107493709439CU07`: the trigger payload held `ID`, `Crew`, `ScheduledStart`, `InstallerSignOff`, `SignOffNotes` and no `*@odata.oldValue` at all.
+`/versions` is **newest-first and INCLUDES the current version** — verified against the live list,
+not assumed — so `[0]` is what was just written and `[1]` is what it was before. The flow proceeds
+only if `Crew`, `ScheduledStart` or `ScheduledFinish` differ, or if fewer than two versions exist
+(a brand-new row must always reconcile). Otherwise a `Terminate` ends the run.
 
-Consequences, all following from every `oldValue` reference evaluating to null:
-- The fourth clause `equals(null, null)` is **always true**, so the condition always passes.
-- The first three are also true (`not(equals('harrison', null))`).
-- **Every edit to any Assignments row fires Flow 3**, including every sign-off write from Flow 2 — the precise quota burn the condition exists to prevent.
+Verified both directions on TEST row 25: a notes-only edit skipped at the gate
+(`Skip_non_scheduling_edit -> Succeeded`, everything downstream Skipped), and a `ScheduledFinish`
+change proceeded through `Get_touched_assignment`.
 
-**Test evidence:** a MERGE touching only `InstallerSignOff` + `SignOffNotes` on row 5 at 17:36:08 produced a Flow 3 run at 17:36:40. Exit-gate test 2 **fails**.
+Options deliberately rejected: a `SkipReconcile` flag and shadow columns both add a write to the
+very list whose writes are the problem, and reintroduce loop risk. Plain acceptance was viable on
+quota — batching ticks had already cut Assignments writes from ~295 per pool to a handful — but it
+does not fix **alert noise**, which is the real cost: the alert goes to the job's PM, and repeated
+alerts for a conflict they already know about train people to ignore alerts.
 
-**Severity is quota, not corruption.** Flow 3 only reads (`GetItem`/`GetItems`) and sends mail — it never writes to Assignments — so there is **no self-retriggering loop**. The costs are wasted runs on every sign-off and a duplicate double-book alert whenever a genuine conflict row is later signed off.
+**Dependency worth knowing: this relies on versioning staying enabled** on Assignments (currently
+on, 50-version limit). If versioning is turned off, `/versions` returns a single row and the flow
+falls back to reconciling every edit — degraded, not broken.
 
-**Not yet fixed — needs a design decision.** Options considered, none applied:
-1. Have Flow 2 set a `SkipReconcile` flag that Flow 3 checks and clears (adds a write, so re-check for loops).
-2. Store a last-reconciled copy of `Crew`/`ScheduledStart`/`DurationDays` on the row and compare in-flow.
-3. Drop the condition and gate cheaply inside the flow, accepting one run per edit.
-4. Find a SharePoint trigger variant that does populate `oldValue`.
-
-Until resolved, treat the Rev D §06 "trigger condition prevents self-firing" claim as **not achieved**, and do not rely on it when estimating flow-run consumption.
+**Flow 3 is now STARTED.** It was stopped throughout the Phase C build.
 
 The stale lookup-shape assumption in `D2-Phase-B-Automations-Runbook.md` has been corrected (L74, L80, the Flow 4 Select projection, and the "Common gotchas" entry that wrongly claimed `Crew` filters need `CrewId eq 3`). `sessions/2026-08-26a-daily-dispatch-handoff.md` (~L143, L151) still carries it and was deliberately left alone — session logs are historical record, not instructions.
 
