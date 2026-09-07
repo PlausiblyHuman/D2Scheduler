@@ -152,7 +152,10 @@
       isDocumentLibrary: false, selectedListId: ASSIGNMENTS,
       selectedListUrl: '/sites/D2BuildScheduler/Lists/Assignments',
       webRelativeListUrl: 'Lists/Assignments',
-      selectedViewId: VIEW_TODAY, webpartHeightKey: 6, hideCommandBar: true
+      selectedViewId: VIEW_TODAY, webpartHeightKey: 3, hideCommandBar: true
+      // height 3, not 6: the web part reserves a FIXED height, so a taller
+      // setting leaves a large empty gap above the link index on a quiet day.
+      // Three assignments is a normal day for D2, not a busy one.
     }
   };
 
