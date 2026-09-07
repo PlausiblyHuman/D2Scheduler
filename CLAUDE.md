@@ -546,6 +546,56 @@ The third-party risk is gone, but **the production risk is not** — this is sti
 
 `canvas-app/mirror-provision.js` is retained as the authoritative live-schema capture (more accurate than the obsolete `D2-Provision-Lists.ps1`) but is **not needed** for this build.
 
+**`Patch()` NEVER PERSISTS TO SHAREPOINT FROM THIS CANVAS APP. All writes must go through a
+flow using SP REST MERGE. Proven 2026-09-07.**
+
+This is the single most expensive thing to not know. `Patch` updates the app's in-memory copy,
+**raises no error**, and the write never reaches SharePoint. The UI therefore looks completely
+correct — ticks appear, counters move — while the list is unchanged. It cost most of a session
+because every symptom pointed somewhere else.
+
+Proof: a clean single-tap test left all six Tasks rows on assignment 25 at `Complete=False` with
+`CompletedOn=None`, and `Assignments.TasksComplete` unchanged, while the Back button *did*
+navigate and `IfError`/`Notify` raised nothing. Confirmed on both `Tasks` and `Assignments`.
+
+**Sign-off worked all along for exactly one reason: it goes through Flow 2, which writes via
+`Send an HTTP request to SharePoint` with `X-HTTP-Method: MERGE`.** CLAUDE.md predicted this
+before the app existed — *"Use SP REST MERGE, which validates only the fields named in the body.
+This will also hit the canvas app unless it writes via MERGE."* It was right.
+
+Consequences for anything built later:
+
+- **Never add a `Patch(<SharePointList>, ...)` expecting it to save.** Route the write through a
+  flow. `D2 - Task Tick Batch` is the working pattern to copy.
+- A local `Patch` is still fine, and is used deliberately, for **UI state only** — the row tap
+  patches the local record so the tick renders instantly, and the flow does the real write when
+  the crew lead leaves the screen.
+- **Batch the writes.** One flow call per screen exit, never one per tick: a real pool is 295
+  tasks. Send the whole list rather than a delta — it is ~6 rows per sub-phase, and it makes the
+  call idempotent, so a retry after a dropped connection cannot half-apply.
+- **Verify writes by reading the list, never by looking at the app.** The UI is not evidence.
+
+**`Classic/*` control events do not fire in this app. Confirmed twice, 2026-09-06/07.**
+
+The controls render correctly, and Studio round-trips their event properties verbatim, but the
+handlers never run:
+
+| Control | Event | Fires? |
+|---|---|---|
+| `Gallery` | `OnSelect` | yes |
+| `Rectangle`, `Label` | `OnSelect` | yes |
+| `Classic/CheckBox` | `OnCheck` / `OnUncheck` | **no** |
+| `Classic/Icon` | `OnSelect` | **no** |
+
+Both cost a diagnosis cycle. The checkbox looked like a failing write; the Back button looked
+like a broken formula. **Build anything interactive from `Gallery`, `Rectangle` or `Label`.**
+`Classic/*` is fine for display only — `Classic/Icon` is still used as the inert tick indicator,
+and `Classic/DatePicker` is read for its value, which works.
+
+Practical consequence for the task list: ticking is done by tapping the **row** (the gallery's
+`OnSelect`), not a checkbox. That is also the better design — the whole 76px row is the touch
+target, which matters when the user is wearing work gloves.
+
 **Canvas-app schema traps — all CONFIRMED against live lists 2026-09-04, all were in the Week 3 spec:**
 
 - **The lists are named `Assignments` and `Tasks`**, not `Sub-phase Assignments` / `Sub-phase Tasks`. The spec had the wrong names in 11 places; Power Apps binds a data source by list Title, so every reference would have failed. Fixed.
@@ -588,14 +638,51 @@ The third-party risk is gone, but **the production risk is not** — this is sti
 | 3 | Event-Driven Reconciliation | **STOPPED 2026-09-05** | **Deliberately stopped for the canvas-app build.** Detection works; gate test 2 FAILED. `CrewID` join fix applied + published; double-book correctly fired a High-importance alert with correct body. But the trigger condition is a **no-op** — `GetOnUpdatedItems` emits no `@odata.oldValue`, so every edit fires the flow. See Known bugs. |
 | 4 | Nightly Reconciliation | Started | **DONE — built and both tests passed 2026-09-03.** Created fully headless (no designer). Clean sweep = 0 conflicts, no email; seeded double-book caught and emailed. |
 | 5 | Daily + Weekly Summary | Started | **DONE.** Built 2026-09-03 as two flows, HTML body not PDF. **Content reviewed 2026-09-05 and three defects fixed** — weekly compliance counted unfinished work, neither table was sorted, daily footer off by one. Re-verified by manual run. |
+| 6 | Task Tick Batch | Started | **NEW 2026-09-07, verified end to end.** `D2 - Task Tick Batch`, flowId `e8843056-53aa-f111-aaab-6045bd0196b3`. PowerAppV2 trigger `(AssignmentID, TaskUpdates, TasksTotal, TasksComplete, SignedByEmail)`. Resolves the site user once via `ensureuser`, MERGEs each task from a comma-separated `taskId:flag` list, then MERGEs the assignment counters. **This exists because Patch() does not work from the canvas app — see the Patch entry under Known bugs.** |
 
 **Week 2 close-out completed 2026-09-05:** summary previews reviewed (three defects found and fixed, see Flow 5 below), Flow 5 recipients deliberately left internal, and all six flows re-exported to `flows/exports/`.
 
-**Immediate next action:** start the Week 3 canvas app per `D2-Week-3-Canvas-App-Spec.md`. Two things gate it and one is now sequenced:
+**Week 3 status 2026-09-07 — the core loop WORKS END TO END and is verified against live data.**
+Today's work -> open a sub-phase -> tick tasks -> save -> sign off, with the sign-off attributed
+to a real person. Both blockers carried in from 2026-09-06a are closed: Flow 2 writes
+`InstallerSignOffBy`, and the canvas deploy loop is understood, documented and demonstrably
+working.
 
-- **Gate Flow 3 before the app writes at volume** — its trigger condition is a proven no-op, so every Assignments write burns a run, and the app is going to write task counters. This moved from "low urgency" to "blocking" the moment we owned the app.
-- **`Crews.LeadEmail` still holds placeholder data** — all seven field crews carry the same non-existent external UPN, so the app's `LookUp` on current user cannot work until it is seeded with real UPNs. That needs the crew-lead accounts to exist, which is client-gated.
-- **TEST-900x stays** until just before the pilot, deliberately — it is the only realistic test volume the canvas app has.
+Proof, read from the lists rather than the UI (the UI misled us repeatedly — see the Patch entry
+under Known bugs): assignment 25 (`TEST-9002 · 2.1`) reads `InstallerSignOff=True`,
+`InstallerSignOffBy="D2 Bot"`, `WorkDate=2026-09-06`, `TasksComplete=3`, `TasksTotal=6`, and
+Tasks 137/138/141 carry `Complete=True` with `CompletedOn` timestamps matching the tick-flow run
+to the second.
+
+Screens built in `canvas-app/src/Src/`: `Screen1` (today's work) and `scr_Tasks` (task tick,
+work-date picker, confirm overlay, sign-off).
+
+**Still open on the app:**
+
+- **Reopen action + locking tasks after sign-off** — decided 2026-09-06 (see Business rules),
+  not yet built. Now unblocked: writes must go through a flow, so this is an addition to
+  `D2 - Task Tick Batch`, not a new mechanism.
+- **PM-proxy picker** — the spec's remaining structural gap, and mandatory regardless of
+  licensing because the four `Unlimited` subcontractor crews can never sign off for themselves.
+- **Notes field** — deferred. There is no verified YAML control name for a text input or a
+  button, and guessing control vocabulary is what PA2109/PA1001 punish. Capture one from Studio
+  before building it. `Notes` is currently sent to Flow 2 as `""`.
+- **`Crews.LeadEmail` still empty** — client-gated on the crew-lead identities existing. Until
+  then every user is a proxy and the header reads "office view".
+- **Gate Flow 3 before the app writes at volume** — its trigger condition is a proven no-op, so
+  every Assignments write burns a run. Flow 3 is currently STOPPED, which is why this has not
+  bitten; it must not be restarted casually while the app is writing.
+- **TEST-900x stays** until just before the pilot, deliberately — it is the only realistic test
+  volume the canvas app has.
+- **DELETE `D2 - TEMP diag read (delete me)`** (flowId `862a6a23-30aa-f111-aaab-6045bd0196b3`)
+  before the pilot. It is a scratch flow that reads Tasks + Assignments for one hard-coded
+  assignment id and reports via a deliberately-failing Terminate. Harmless (recurrence starts
+  2027, reads only) and genuinely useful — it is the only headless way to read SharePoint in this
+  project, since the `az` SharePoint token 401s and `chrome-devtools` needs a live browser
+  session. Its `Report` action is broken (`select` is not a valid WDL function); read the run's
+  action outputs instead via
+  `https://api.flow.microsoft.com/providers/Microsoft.ProcessSimple/environments/{env}/flows/{flow}/runs/{run}/actions?api-version=2016-11-01`,
+  then fetch each `outputsLink` (SAS-signed, needs no auth header).
 
 **TEMPORARY TEST DATA IS LIVE ON THE D2 TENANT — remove before the pilot.** Seeded 2026-09-03 so Flows 4 and 5 could be judged against realistic volume rather than 5 rows.
 
