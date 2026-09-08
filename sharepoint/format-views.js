@@ -55,8 +55,92 @@
     txtContent: text
   });
 
+  // ------------------------------------------------------------- timeline lane
+  // A Gantt-style lane of one cell per day across a fixed window centred on
+  // today. Every row renders the same 28 cells at the same widths, so bars line
+  // up across rows WITHOUT position:absolute -- which matters, because
+  // SharePoint sanitises style attributes against an allowlist and `position`
+  // is not something to bet a render on.
+  //
+  // The only platform primitive this relies on is Number() returning epoch
+  // milliseconds for a date field. Everything else is comparison arithmetic --
+  // no floor(), no ceiling(), no addDays(), none of which are safe to assume
+  // are in SharePoint's expression language.
+  //
+  // Cell d (days from today) paints when the row's span covers that day:
+  //     start  day index <= d    <=>   d       * 864e5 >= Number(start)  - Number(@now)
+  //     finish day index >= d    <=>   Number(finish) - Number(@now) > (d - 1) * 864e5
+  //
+  // NEVER WRITE `<` OR `&` IN A VIEW FORMATTER -- so no `<`, no `<=`, no `&&`.
+  // A view's CustomFormatter is persisted inside the view's XML schema and is
+  // NOT escaped on the way in, so the server hands the raw text to an XML parser
+  // and any character that is special in XML fails the whole MERGE with HTTP 500.
+  // Both were hit in turn on 2026-09-08, and neither message names the character
+  // actually at fault:
+  //
+  //   `<=`  ->  Name cannot begin with the '=' character, hexadecimal value
+  //             0x3D. Line 1, position 280.
+  //             (the parser sees `<` open a tag; it is complaining about the `=`
+  //             that follows, so this reads like a broken expression)
+  //   `&&`  ->  An error occurred while parsing EntityName. Line 1, position 3503.
+  //             (the parser sees `&` open an entity reference)
+  //
+  // The `<` case was confirmed by A/B: two formatters identical but for `<= 0`
+  // versus `0 >=`, the first 500s and the second 204s. The workarounds cost
+  // nothing -- flip the operands to use `>` / `>=`, and express AND as a nested
+  // `if` rather than `&&`. `>` is legal as raw text in XML content and is fine.
+  //
+  // The rest of this file predates the finding only because it happened never to
+  // need either character.
+  //
+  // Those hold at ANY time of day. Date-only fields are stored at local
+  // midnight (see CLAUDE.md's DateTime storage convention), so for today's date
+  // Number(date) - Number(@now) sits in (-864e5, 0] and both comparisons are
+  // unaffected by how far into the day it is. The one imprecision is the DST
+  // changeover, where local midnight shifts by an hour: a row viewed within an
+  // hour of midnight on the changeover date could paint one cell out. Two days
+  // a year, at midnight, on a decorative bar -- not worth complicating for.
+  const DAY = 86400000;
+  const BEFORE = 7, AFTER = 21, CELLS = BEFORE + AFTER;
+  const TRACK = '#eef1f5', GRID = '#d1d5db';
+
+  // reuses the card's own status logic so the bar cannot disagree with the
+  // left border and the pill
+  const barColour =
+    `if(${T('InstallerSignOff')}, '${GREEN}', if([$TasksComplete] > 0, '${AMBER}', '${GREY}'))`;
+
+  const dayCell = i => {
+    const d = i - BEFORE;
+    const afterStart = `${d * DAY} >= (Number([$ScheduledStart]) - Number(@now))`;
+    const beforeEnd = `(Number([$ScheduledFinish]) - Number(@now)) > ${(d - 1) * DAY}`;
+    const style = {
+      'width': (100 / CELLS).toFixed(4) + '%',
+      'height': '10px',
+      'flex-shrink': '0',
+      'box-sizing': 'border-box',
+      // nested if, not `&&` -- see the XML note above
+      'background-color':
+        `=if(${afterStart}, if(${beforeEnd}, ${barColour}, '${TRACK}'), '${TRACK}')`
+    };
+    // today gets a navy rule; every seventh cell a faint week gridline
+    if (d === 0) style['border-left'] = `2px solid ${NAVY}`;
+    else if (i % 7 === 0 && i !== 0) style['border-left'] = `1px solid ${GRID}`;
+    return { elmType: 'div', style };
+  };
+
+  const timelineLane = () => ({
+    elmType: 'div',
+    style: { 'display': 'flex', 'width': '100%', 'margin-top': '6px',
+             'border-radius': '2px', 'overflow': 'hidden' },
+    children: Array.from({ length: CELLS }, (_, i) => dayCell(i))
+  });
+
   // ---------------------------------------------------------------- Assignments
-  const assignmentCard = {
+  // `timeline` is opt-in per view: the lane earns its place on the whole-job
+  // views, where a month of sub-phases marching across the window is the point.
+  // On Today by Crew and This Week by Crew a 28-day window is mostly empty
+  // space around a short bar, so those keep the plain card.
+  const makeAssignmentCard = timeline => ({
     $schema: 'https://developer.microsoft.com/json-schemas/sp/v2/row-formatting.schema.json',
     hideColumnHeader: true,
     hideSelection: true,
@@ -122,10 +206,11 @@
             { elmType: 'span',
               style: { 'font-size': '11px', 'color': GREY },
               txtContent: "=[$TasksComplete] + ' / ' + [$TasksTotal] + ' tasks'" }
-          ] }
+          ] },
+        ...(timeline ? [timelineLane()] : [])
       ]
     }
-  };
+  });
 
   // ---------------------------------------------------------------------- Tasks
   const taskRow = {
@@ -156,13 +241,16 @@
     }
   };
 
+  const plainCard = makeAssignmentCard(false);
+  const timelineCard = makeAssignmentCard(true);
+
   const TARGETS = [
-    ['Assignments', 'All Assignments', assignmentCard],
-    ['Assignments', 'This Week by Crew', assignmentCard],
-    ['Assignments', 'Unassigned', assignmentCard],
-    ['Assignments', 'Sign-off Overdue', assignmentCard],
-    ['Assignments', 'Late-Starting Jobs', assignmentCard],
-    ['Assignments', 'Today by Crew', assignmentCard],
+    ['Assignments', 'All Assignments', timelineCard],
+    ['Assignments', 'This Week by Crew', plainCard],
+    ['Assignments', 'Unassigned', plainCard],
+    ['Assignments', 'Sign-off Overdue', plainCard],
+    ['Assignments', 'Late-Starting Jobs', timelineCard],
+    ['Assignments', 'Today by Crew', plainCard],
     ['Tasks', 'All Tasks (by Assignment)', taskRow],
     ['Tasks', 'Incomplete Tasks', taskRow]
   ];

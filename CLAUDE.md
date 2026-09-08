@@ -1051,7 +1051,32 @@ SharePoint's white header. A real header photo must come from D2's own project p
 
 ## NEXT SESSION: one task (Shane, 2026-09-07)
 
-### 1. Calendar / schedule visualisation, because Gantt is unavailable
+### ~~1. Calendar / schedule visualisation~~ (DONE 2026-09-08b)
+
+**RESOLVED as a timeline lane on the two whole-job views.** `All Assignments` and
+`Late-Starting Jobs` now render a Gantt-style bar per row: 28 day-cells across a fixed
+`today-7 .. today+21` window, painted in the row's status colour, with a navy rule on today and
+faint week gridlines. Every row draws the same 28 cells at the same widths, so bars align across
+rows without `position: absolute`, which SharePoint's style allowlist cannot be trusted to pass.
+The other four Assignments views keep the plain card, because a 28-day window is mostly empty
+space either side of a one-day bar.
+
+Built into `sharepoint/format-views.js` rather than a second script, deliberately: two scripts
+both MERGEing `CustomFormatter` on the same views would be last-writer-wins with no error.
+
+Verified by reading the rendered DOM, not the status code: 43 lanes on `All Assignments`, 15 on
+`Late-Starting Jobs`, 0 on `Today by Crew`, and for every sampled row the painted cells match the
+day indices computed independently from that row's own displayed dates, including rows clipped at
+the window edge and rows entirely outside it.
+
+**Option 1 below (surface the browser tool) is struck because it is not available.** The route was
+closed on 2026-09-07 by the New Pool spec and the ranked list was never updated: an HTML page in a
+document library IS the custom-script mechanism, modern sites block it by default, and the setting
+reverts within 24 hours. That applies to a read-only Gantt link exactly as it does to writing.
+
+The kept history below is still worth reading for the two routes that remain closed.
+
+### The original ranking, for the record
 
 **Gantt is genuinely not available and cannot be engineered around at this licensing tier.**
 Microsoft's modern view compatibility checklist lists *"The View is either a Calendar or Gantt
@@ -1068,13 +1093,11 @@ SharePoint wrote — the same discipline the canvas control vocabulary needs.
 
 Alternatives, ranked by value for effort:
 
-1. **Surface the browser tool.** `pool-scheduler.html` already IS a working Gantt and is simply
-   not reachable from SharePoint. Put it in a document library and link it from the launchpad.
-   Cheapest real Gantt by a wide margin.
-2. **Schedule-bar column via JSON formatting.** A per-row proportional bar across a fixed date
-   window, inside the existing list views. Reads like a Gantt row, sorts and filters like a list.
-   Buildable with the same technique already used in `format-views.js`.
-3. **Modern Calendar view**, created via the UI and captured.
+1. ~~**Surface the browser tool.**~~ **NOT AVAILABLE**, see above. Blocked on custom-script
+   policy, not on effort.
+2. **Schedule-bar column via JSON formatting.** **This is what was built.**
+3. **Modern Calendar view**, created via the UI and captured. Still open, still the way to do it
+   if a real calendar grid is wanted on top of the timeline lane.
 4. Canvas app timeline screen — real effort, Power Fx is a poor fit for drawing timelines.
 5. Power BI — good, but David and Don explicitly declined dashboards and it adds licensing.
 
@@ -1160,6 +1183,13 @@ previously filtered `ScheduledStart` within `[Today]..[Today]+7`, a rolling seve
 Thursday showed Thursday to next Thursday. Derived from the row alone and never from `[Today]`,
 because a calculated column referencing `[Today]` only recalculates when the item is edited.
 
+**`All Assignments` is the Assignments list's DEFAULT view as of 2026-09-08b.** It was `All Items`,
+the system view created with the list, which carries no formatter and no grouping. So every route
+into Assignments that does not name a view (the launchpad's own list link included) landed on a
+plain grey table, and none of the seven views built in Phase A was what anyone saw first. Set via
+`DefaultView: true` on the view; SharePoint unsets the previous default itself. Verified by opening
+`/Lists/Assignments/` bare and confirming it redirects to `All Assignments` and renders the cards.
+
 **All eight views are now `Paged=true`.** They were stored `RowLimit=100, Paged=false`, which in
 SharePoint means "return 100 and stop" — no next control, no indication anything is missing.
 `Incomplete Tasks` was showing 100 of 184.
@@ -1170,6 +1200,27 @@ that are load-bearing and were learned by looking at the rendered result:
 `width`/`box-sizing`/`align-items` on the root, without which SharePoint shrink-wraps the card and
 centres it as a narrow floating block; and `hideSelection: true`, without which SharePoint's own
 selection gutter draws a second indicator next to yours.
+
+**A view formatter may NOT contain a raw `<` or `&`. Found 2026-09-08 building the timeline
+lane.** A view's `CustomFormatter` is persisted inside the view's **XML** schema and is not
+escaped on the way in, so any character that is special in XML fails the entire MERGE with **HTTP
+500**. This bites the moment an expression needs `<=` or `&&`, which no formatter on this site had
+needed before. Neither error message names the character actually at fault:
+
+| In the expression | Server response |
+|---|---|
+| `<=` | `System.Xml.XmlException: Name cannot begin with the '=' character, hexadecimal value 0x3D. Line 1, position 280.` |
+| `&&` | `System.Xml.XmlException: An error occurred while parsing EntityName. Line 1, position 3503.` |
+
+The first names `=` and reads like a broken expression, because the parser saw `<` open a tag and
+is complaining about the next byte. The second is `&` opening an entity reference. Both were
+reproduced deliberately: two formatters identical but for `<= 0` versus `0 >=` return 500 and 204
+respectively.
+
+**Workarounds cost nothing.** Flip the operands so a comparison uses `>` or `>=`, and express AND
+as a nested `if` instead of `&&`. A raw `>` is legal as XML content and is fine. Note this is a
+500 at write time, so unlike bad CAML or a bad formatter body it does **not** silently render
+wrong later. It is the rare SharePoint failure that is loud.
 
 **Hero and Quick links web parts do NOT bind `serverProcessedContent` when a page is written via
 list-item MERGE.** They store correctly, they mount, and they render as nothing — titles and URLs
