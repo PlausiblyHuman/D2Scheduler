@@ -405,8 +405,8 @@
                   },
                   {
                     "equals": [
-                      "@triggerOutputs()?['body/OverrideSignedOff']",
-                      false
+                      "@not(equals(coalesce(triggerOutputs()?['body/OverrideSignedOff'], false), true))",
+                      true
                     ]
                   }
                 ]

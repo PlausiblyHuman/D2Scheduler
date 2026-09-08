@@ -213,14 +213,21 @@ model could not express, because it implied we were mid-Phase-C and on schedule.
 **Phase G — deferred backlog**, each deferred deliberately and on the record:
 
 - The **browser-tool → Lists nightly sync**. Does not exist, was in no runbook, and nothing was
-  tracking it. Descoped from the pilot 2026-09-05. Until it is built there is no automatic path
-  from a PM's plan to SharePoint: we load new pools by REST, and live pools are edited directly
-  in Lists.
+  tracking it. Descoped from the pilot 2026-09-05. A PM's plan still does not flow automatically
+  from the browser tool into SharePoint. **This is now partly superseded.** See "New pool
+  deployment" below: a PM can raise a New Pool Requests row and get a fully-scheduled pool
+  without any REST work by us. The gap that remains is the browser tool itself never writing
+  to Lists; live pools are still edited directly in Lists.
 - **Teams channels.** Deferred post-pilot 2026-09-05; every flow delivers by email instead.
 - **Photo capture** on a task or sign-off. Raised by Shane 2026-09-07, likely the highest-value
   addition after go-live for a warranty/QC trail. Needs a camera control, image storage, and an
   upload through a flow.
-- **The Event-Driven Reconciliation trigger fix.** Currently stopped.
+- **New Pool's accepted reconciliation cost.** `D2 - New Pool` does not stop Flow 3 around its own
+  46 inserts, so every real pool burns 92 Event-Driven Reconciliation runs (46 from
+  `Create_assignment`, 46 more from `Merge_task_total`). The second 46 terminate cheaply at the
+  version-history gate, so this is accepted rather than fixed. If alert volume ever makes it worth
+  closing, add a `SuppressReconcile` boolean set in the same `Create item` call and one clause in
+  Flow 3's gate.
 
 ---
 
@@ -925,13 +932,17 @@ without saving — verified.)
 **`D2 - New Pool` / `D2 - Delete Pool` build: new platform constraints found 2026-09-07/08, all
 reproduced. None of the three below is caught by `validate_flow`:**
 
-- **Logic Apps forbids `Terminate` nested inside a `Foreach`.** Fails at save/validate, not at
-  run time.
+- **Logic Apps forbids `Terminate` nested inside ANY loop: `Until` as well as `Foreach`.** Fails
+  at save/validate, not at run time.
 - **`runAfter` is container-scoped.** An action cannot declare `runAfter` on something in a
   different `Scope`, `If`, or `Foreach`; the cross-scope dependency has to be dropped and the
   ordering re-expressed inside the shared container instead.
-- **`InitializeVariable` cannot nest inside a `Scope`.** All variable initialization has to sit
-  at the top level of the flow, before any scope that uses it.
+- **`InitializeVariable` cannot nest inside ANY container, not just a `Scope`: an `If` rejects
+  it too.** All variable initialization has to sit at the top level of the flow, before any
+  container that uses it. Confirmed against the live tenant 2026-09-08: a `clientdata` PATCH of a
+  `New Pool` revision that nested nine `InitializeVariable` actions inside a `Scope` was rejected
+  with `InvalidVariableInitialization` naming the `Scope` by name, the same failure mode already
+  known for `If`.
 
 Two more, unrelated to nesting:
 
@@ -940,9 +951,14 @@ Two more, unrelated to nesting:
   null trade column, and reading the shape off that sample produced a confident, wrong
   conclusion that the column did not exist at all. Pull a row known to have the field populated
   before concluding a column is missing.
-- **A `Delete Pool Requests` row created by REST with a blank `Title` is invisible to the
-  `GetOnNewItems` trigger and sits at `Requested` forever.** Not reachable through the list form,
-  which enforces `Title` as Required; this only happens to rows written directly via REST.
+- **Observed three times, mechanism unexplained: a `Delete Pool Requests` row created by REST
+  with a blank `Title` sat at `Requested` forever** (ids 8, 10, 12), while blank-`Title` rows are
+  never reachable through the list form, which enforces `Title` as Required; this only happens
+  via the direct-REST bypass. The flow itself was also republished (`clientdata` PATCH +
+  `PublishXml`) several times during the same task, which is an untested alternative
+  explanation for the trigger missing those rows and was never ruled out. Do not treat "blank
+  `Title` is invisible to `GetOnNewItems`" as a settled platform fact until that variable is
+  isolated.
 
 **Concurrent sessions against this shared production tenant are real, not theoretical.** During
 this build, two Assignments rows were modified outside this session's own activity (id 4 at
@@ -955,7 +971,7 @@ the same time, and a surprising row is not automatically a bug in this session's
 
 ## How to run it
 
-**Phase A complete — all 7 SharePoint lists provisioned and seeded on the D2 tenant** as of 2026-08-25. Rev D week-by-week runbooks are in repo root (`D2-Phase-A-Foundation-Runbook.md` through `D2-Phase-F-Cutover-Runbook.md`).
+**Phase A complete: the original 7 SharePoint lists provisioned and seeded on the D2 tenant** as of 2026-08-25. Rev D week-by-week runbooks are in repo root (`D2-Phase-A-Foundation-Runbook.md` through `D2-Phase-F-Cutover-Runbook.md`). Four more lists (`New Pool Requests`, `Delete Pool Requests`, `Sub-phase Template`, `Task Template`) were added later for the New Pool / Delete Pool feature, not as part of Phase A. The table below is current deployed state, not a Phase A inventory.
 
 **Deployed state (D2BuildScheduler site):**
 
@@ -968,8 +984,8 @@ the same time, and a surprising row is not automatically a bug in this session's
 | Crews | 14 (subcontractor patch applied) | `45e9ff1f-bf36-4ab5-929d-25ab9a80d460` |
 | Crew-Trades | 51 | (see viewlsts.aspx) |
 | Work Calendar | 62 (52 Sundays + 10 US federal holidays) | (see viewlsts.aspx) |
-| New Pool Requests | 6 (audit trail of pool-creation requests, incl. build-time tests) | `13331a5e-ea8e-4ab2-9276-db5b4f4d46bf` |
-| Delete Pool Requests | 10 (audit trail of deletions; row 13 `TEST-8888` is a deliberate smoke test, left `Refused`) | `b1ea3db6-7870-4648-80c2-7fe8414ecfd7` |
+| New Pool Requests | 0 (cleared 2026-09-08 of build-time test rows; this is a client-facing operational log, not a place for our test litter) | `13331a5e-ea8e-4ab2-9276-db5b4f4d46bf` |
+| Delete Pool Requests | 0 (cleared 2026-09-08, same reason) | `b1ea3db6-7870-4648-80c2-7fe8414ecfd7` |
 | Sub-phase Template | 46 (one row per sub-phase; read by `D2 - New Pool`) | `453e7cd5-f84a-4e2a-9372-73f26019e3f0` |
 | Task Template | 295 (one row per task across the 46 sub-phases) | `61824add-8eaa-4b1b-aed7-a202204bf9f5` |
 
@@ -988,7 +1004,7 @@ which belongs to a separate estimator workload and is deliberately not documente
 | 6 | Task Tick Batch | Started | **NEW 2026-09-07, verified end to end.** `D2 - Task Tick Batch`, flowId `e8843056-53aa-f111-aaab-6045bd0196b3`. PowerAppV2 trigger `(AssignmentID, TaskUpdates, TasksTotal, TasksComplete, SignedByEmail)`. Resolves the site user once via `ensureuser`, MERGEs each task from a comma-separated `taskId:flag` list, then MERGEs the assignment counters. **This exists because Patch() does not work from the canvas app — see the Patch entry under Known bugs.** |
 | 7 | Counter Reconciliation | Started | **NEW 2026-09-07, verified.** `D2 - Counter Reconciliation`, flowId `291fa9d9-caaa-f111-aaac-6045bd0195dd`. Nightly 05:30 Central, an hour ahead of the daily summary so Don's compliance figures are always computed from repaired counters. Recomputes `TasksTotal`/`TasksComplete` from the Tasks list and MERGEs **only rows that drifted**, so a clean night writes nothing. First run repaired 6 rows; the immediate second run repaired 0. |
 | 8 | Reopen Sign-off | Started | **Built 2026-09-07, verified.** `D2 - Reopen Sign-off`, flowId `0f850a63-beaa-f111-aaac-6045bd0195dd`. PowerAppV2 trigger. Clears `InstallerSignOff` and appends who reopened, when, who had signed, and an optional reason to `SignOffNotes`. Was already live but had never been added to this table. |
-| 9 | New Pool | Started | **NEW 2026-09-08, verified.** `D2 - New Pool`, flowId `02905018-4f41-e05a-d140-74e2afc82052` (Dataverse workflowid `d782ee70-2fab-f111-aaab-6045bd0196b3`). Triggered by a new row in **New Pool Requests** (`ProjectManager` is a required field on that list). Reads the 46-row **Sub-phase Template** and 295-row **Task Template** and generates a full pool: one Job, 46 Assignments, ~295 Tasks. See NEXT SESSION for the platform constraints found building it. |
+| 9 | New Pool | Started | **NEW 2026-09-08, verified.** `D2 - New Pool`, flowId `02905018-4f41-e05a-d140-74e2afc82052` (Dataverse workflowid `d782ee70-2fab-f111-aaab-6045bd0196b3`). Triggered by a new row in **New Pool Requests** (`ProjectManager` is a required field on that list). Reads the 46-row **Sub-phase Template** and 295-row **Task Template** and generates a full pool: one Job, 46 Assignments, ~295 Tasks. See Known bugs and gotchas for the platform constraints found building it. |
 | 10 | Delete Pool | Started | **NEW 2026-09-08, verified.** `D2 - Delete Pool`, flowId `995099f4-76e6-8bc0-89ef-9fd3557138ce` (Dataverse workflowid `83064f1f-47ab-f111-aaac-6045bd0195dd`). Triggered by a new row in **Delete Pool Requests**. Removes a pool's Tasks, Assignments and Job. |
 
 **Phase B close-out completed 2026-09-05:** summary previews reviewed (three defects found and fixed, see Flow 5 below), Flow 5 recipients deliberately left internal, and all six flows then existing re-exported to `flows/exports/`. Flows 8-10 above postdate Phase B close-out and were added by later work.
@@ -1033,7 +1049,7 @@ SharePoint's white header. A real header photo must come from D2's own project p
 
 ---
 
-## NEXT SESSION — two tasks (Shane, 2026-09-07)
+## NEXT SESSION: one task (Shane, 2026-09-07)
 
 ### 1. Calendar / schedule visualisation, because Gantt is unavailable
 
@@ -1078,12 +1094,17 @@ loading several pools at once or for us directly, but a PM never runs either now
 the user-facing path.
 
 **`D2 - New Pool` does NOT stop Flow 3 around its own 46 inserts, confirmed by reading the
-published definition, not assumed.** Every real pool created through the form therefore burns 46
-Event-Driven Reconciliation runs. Accepted deliberately for now (see the deferred backlog below);
-if the alert volume becomes a real problem, add a `SuppressReconcile` boolean set in the same
-`Create item` call and one clause in Flow 3's version-history gate, which adds no extra write. For
-`tools/write-pool.js` (the separate bulk tool, still ours to run by hand): **stop Flow 3 before
-any bulk write and restart after.**
+published definition, not assumed.** Every real pool created through the form therefore burns
+**92** Event-Driven Reconciliation runs, not 46: one per `Create_assignment` insert (a brand-new
+row always reconciles, per the version-history gate) plus one more per `Merge_task_total` MERGE
+on the same Assignment. The `Merge_task_total` runs terminate cheaply at
+`Skip_non_scheduling_edit`, because that MERGE only ever touches `TasksTotal`/`TasksComplete`,
+never `Crew`, `ScheduledStart` or `ScheduledFinish`, so this is accepted, not a defect, but the
+real number is 92, not 46. See the Phase G bullet above ("New Pool's accepted reconciliation
+cost") if alert volume ever makes this worth closing; if it does, add a `SuppressReconcile`
+boolean set in the same `Create item` call and one clause in Flow 3's version-history gate, which
+adds no extra write. For `tools/write-pool.js` (the separate bulk tool, still ours to run by
+hand): **stop Flow 3 before any bulk write and restart after.**
 
 **Still open on the app** (list corrected 2026-09-07 — four entries here were stale and claimed
 built features were missing):
@@ -1234,6 +1255,16 @@ Generated by `flows/testdata/generate-seed.py` from the real 46 sub-phase templa
 **Gap found 2026-09-05: the generator's rule-4 check does not cover the whole span.** `TEST-9002 · 2.1 Engineering Review by PM` is scheduled `2026-09-05 → 09-07`, crossing Sunday 09-06 — the same defect class as Assignment 4 in the original seed. It looks like only the start date is tested for Sunday, not every day in the range. Harmless in test data, but **do not reuse this generator for real scheduling without fixing the span check.** It became visible only once the summaries started rendering day names.
 
 **To remove:** stop Flows 3 and 4, run `flows/testdata/cleanup.js` in the browser console on the site, restart the flows. Idempotent; reports what remains. The manifest of exactly what was created is `flows/testdata/seeded-ids.json`.
+
+**`New Pool Requests` and `Delete Pool Requests` were separately cleared 2026-09-08.** Both
+lists had accumulated build-time test rows (`Guard Test`, `Plan Test Alpha/Bravo/Charlie`,
+`Sunday Start Test`, `TEST-9999`, `TEST-8888`, `PROBE-BLANK-CONFIRM`, and the `TEST-91xx` runs
+from the New Pool build), and a PM opening either list on day one would have seen our test litter
+in what is meant to read as a client-facing operational log. Both lists are now empty by direct
+REST delete. **`cleanup.js` does not know about these two lists.** It was written before they
+existed and only touches Jobs/Assignments/Tasks. Any future test rows in `New Pool Requests` or
+`Delete Pool Requests` must be cleared by hand (or `cleanup.js` extended) rather than assumed
+covered.
 
 **`cleanup.js` was extended 2026-09-05 and now removes the Harrison demo job too.** `D2-1001` is no more real than `TEST-900x` — it is the browser prototype's hardcoded demo job and Assignments 1-5 hang off it, so leaving it means going live with demo data in a client tenant. Deleting it also disposes of three separately-tracked defects for free: Assignment 1's stale `"Chrome-driven test"` sign-off, Assignment 4's Sunday start, and the D2 Bot placeholder in `Jobs.ProjectManager`. **Do not spend effort fixing those three; they are being deleted.**
 

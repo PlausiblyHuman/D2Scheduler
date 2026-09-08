@@ -267,10 +267,12 @@ failure part way through leaves a partial pool.
   the failure most likely to happen and the most annoying to clean up.
 - On a partial failure the `Result` names the last sub-phase created, so recovery
   is "delete the job and its children, fix the cause, resubmit" rather than a
-  hunt. Recovery stays a Stratirus job for now via the existing `cleanup.js`
-  pattern. Giving PMs a delete-pool button is deliberately out of scope: it is
-  the most destructive thing in the system and it should not arrive in the same
-  change as the first thing that creates data.
+  hunt. **This was written when giving PMs a delete-pool button was deliberately
+  out of scope, for exactly the reason above: it is the most destructive thing
+  in the system and should not arrive in the same change as the first thing
+  that creates data. Shane reversed that call the same day** (see "Deleting a
+  pool" below), so recovery is now a PM action through `D2 - Delete Pool`, not
+  a Stratirus job via `cleanup.js`.
 
 ## Known consequence: Flow 3 fires 46 times per pool
 
@@ -338,8 +340,12 @@ signature failure here.
 - A start date on a Sunday is advanced to Monday rather than rejected.
 
 **Cleanup**
-- Both test pools removed through the existing `cleanup.js` path, extended to
-  take a job number.
+- Both test pools removed through `D2 - Delete Pool` (see "Deleting a pool"
+  below), not through `cleanup.js`. `cleanup.js` was never extended to take a
+  job number: that plan was correctly dropped once the delete flow existed and
+  superseded it. `cleanup.js` still only knows about Jobs/Assignments/Tasks
+  seeded by the test-data generator, not `New Pool Requests` or
+  `Delete Pool Requests` rows.
 
 ---
 
