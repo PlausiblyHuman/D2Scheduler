@@ -1,7 +1,7 @@
 {
   "properties": {
     "displayName": "D2 - New Pool",
-    "state": "Stopped",
+    "state": "Started",
     "definition": {
       "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
       "contentVersion": "1.0.0.0",
@@ -238,9 +238,379 @@
             }
           }
         },
-        "Set_status_done": {
+        "Get_subphase_template": {
           "runAfter": {
             "Create_job": [
+              "Succeeded"
+            ]
+          },
+          "type": "OpenApiConnection",
+          "inputs": {
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+              "operationId": "GetItems",
+              "connectionName": "shared_sharepointonline"
+            },
+            "parameters": {
+              "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+              "table": "453e7cd5-f84a-4e2a-9372-73f26019e3f0",
+              "$orderby": "Sequence asc",
+              "$top": 100
+            }
+          }
+        },
+        "Get_task_template": {
+          "runAfter": {
+            "Get_subphase_template": [
+              "Succeeded"
+            ]
+          },
+          "type": "OpenApiConnection",
+          "inputs": {
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+              "operationId": "GetItems",
+              "connectionName": "shared_sharepointonline"
+            },
+            "parameters": {
+              "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+              "table": "61824add-8eaa-4b1b-aed7-a202204bf9f5",
+              "$top": 500
+            }
+          }
+        },
+        "Get_work_calendar": {
+          "runAfter": {
+            "Get_task_template": [
+              "Succeeded"
+            ]
+          },
+          "type": "OpenApiConnection",
+          "inputs": {
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+              "operationId": "GetItems",
+              "connectionName": "shared_sharepointonline"
+            },
+            "parameters": {
+              "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+              "table": "d36758cf-9d27-4342-84e4-817f8dcfa2ba",
+              "$top": 500
+            }
+          }
+        },
+        "Select_nonWork": {
+          "runAfter": {
+            "Get_work_calendar": [
+              "Succeeded"
+            ]
+          },
+          "type": "Select",
+          "inputs": {
+            "from": "@outputs('Get_work_calendar')?['body/value']",
+            "select": "@formatDateTime(item()?['Date'], 'yyyy-MM-dd')"
+          }
+        },
+        "Init_nonWork": {
+          "runAfter": {
+            "Select_nonWork": [
+              "Succeeded"
+            ]
+          },
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "nonWork",
+                "type": "array",
+                "value": "@body('Select_nonWork')"
+              }
+            ]
+          }
+        },
+        "Init_cursor": {
+          "runAfter": {
+            "Init_nonWork": [
+              "Succeeded"
+            ]
+          },
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "cursor",
+                "type": "string",
+                "value": "@{formatDateTime(triggerOutputs()?['body/StartDate'],'yyyy-MM-dd')}"
+              }
+            ]
+          }
+        },
+        "Init_daysTaken": {
+          "runAfter": {
+            "Init_cursor": [
+              "Succeeded"
+            ]
+          },
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "daysTaken",
+                "type": "integer",
+                "value": 0
+              }
+            ]
+          }
+        },
+        "Init_spanStart": {
+          "runAfter": {
+            "Init_daysTaken": [
+              "Succeeded"
+            ]
+          },
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "spanStart",
+                "type": "string",
+                "value": ""
+              }
+            ]
+          }
+        },
+        "Init_spanFinish": {
+          "runAfter": {
+            "Init_spanStart": [
+              "Succeeded"
+            ]
+          },
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "spanFinish",
+                "type": "string",
+                "value": ""
+              }
+            ]
+          }
+        },
+        "Init_dayOffset": {
+          "runAfter": {
+            "Init_spanFinish": [
+              "Succeeded"
+            ]
+          },
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "dayOffset",
+                "type": "integer",
+                "value": 0
+              }
+            ]
+          }
+        },
+        "Apply_to_each_subphase": {
+          "runAfter": {
+            "Init_dayOffset": [
+              "Succeeded"
+            ]
+          },
+          "type": "Foreach",
+          "foreach": "@outputs('Get_subphase_template')?['body/value']",
+          "runtimeConfiguration": {
+            "concurrency": {
+              "repetitions": 1
+            }
+          },
+          "actions": {
+            "Reset_daysTaken": {
+              "runAfter": {},
+              "type": "SetVariable",
+              "inputs": {
+                "name": "daysTaken",
+                "value": 0
+              }
+            },
+            "Reset_spanStart": {
+              "runAfter": {
+                "Reset_daysTaken": [
+                  "Succeeded"
+                ]
+              },
+              "type": "SetVariable",
+              "inputs": {
+                "name": "spanStart",
+                "value": ""
+              }
+            },
+            "Reset_spanFinish": {
+              "runAfter": {
+                "Reset_spanStart": [
+                  "Succeeded"
+                ]
+              },
+              "type": "SetVariable",
+              "inputs": {
+                "name": "spanFinish",
+                "value": ""
+              }
+            },
+            "Reset_dayOffset": {
+              "runAfter": {
+                "Reset_spanFinish": [
+                  "Succeeded"
+                ]
+              },
+              "type": "SetVariable",
+              "inputs": {
+                "name": "dayOffset",
+                "value": -1
+              }
+            },
+            "Do_until_span_complete": {
+              "runAfter": {
+                "Reset_dayOffset": [
+                  "Succeeded"
+                ]
+              },
+              "type": "Until",
+              "expression": "@greaterOrEquals(variables('daysTaken'), int(items('Apply_to_each_subphase')?['DurationDays']))",
+              "limit": {
+                "count": 90,
+                "timeout": "PT1H"
+              },
+              "actions": {
+                "Increment_dayOffset": {
+                  "runAfter": {},
+                  "type": "IncrementVariable",
+                  "inputs": {
+                    "name": "dayOffset",
+                    "value": 1
+                  }
+                },
+                "Compose_current_date": {
+                  "runAfter": {
+                    "Increment_dayOffset": [
+                      "Succeeded"
+                    ]
+                  },
+                  "type": "Compose",
+                  "inputs": "@formatDateTime(addDays(variables('cursor'), variables('dayOffset')), 'yyyy-MM-dd')"
+                },
+                "Condition_is_work_day": {
+                  "runAfter": {
+                    "Compose_current_date": [
+                      "Succeeded"
+                    ]
+                  },
+                  "type": "If",
+                  "expression": {
+                    "equals": [
+                      "@and(not(equals(dayOfWeek(outputs('Compose_current_date')), 0)), not(contains(variables('nonWork'), outputs('Compose_current_date'))))",
+                      true
+                    ]
+                  },
+                  "actions": {
+                    "Increment_daysTaken": {
+                      "runAfter": {},
+                      "type": "IncrementVariable",
+                      "inputs": {
+                        "name": "daysTaken",
+                        "value": 1
+                      }
+                    },
+                    "Condition_first_day": {
+                      "runAfter": {
+                        "Increment_daysTaken": [
+                          "Succeeded"
+                        ]
+                      },
+                      "type": "If",
+                      "expression": {
+                        "equals": [
+                          "@variables('daysTaken')",
+                          1
+                        ]
+                      },
+                      "actions": {
+                        "Set_spanStart": {
+                          "runAfter": {},
+                          "type": "SetVariable",
+                          "inputs": {
+                            "name": "spanStart",
+                            "value": "@{outputs('Compose_current_date')}"
+                          }
+                        }
+                      },
+                      "else": {
+                        "actions": {}
+                      }
+                    },
+                    "Set_spanFinish": {
+                      "runAfter": {
+                        "Condition_first_day": [
+                          "Succeeded"
+                        ]
+                      },
+                      "type": "SetVariable",
+                      "inputs": {
+                        "name": "spanFinish",
+                        "value": "@{outputs('Compose_current_date')}"
+                      }
+                    }
+                  },
+                  "else": {
+                    "actions": {}
+                  }
+                }
+              }
+            },
+            "Create_assignment": {
+              "runAfter": {
+                "Do_until_span_complete": [
+                  "Succeeded"
+                ]
+              },
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                  "operationId": "HttpRequest",
+                  "connectionName": "shared_sharepointonline"
+                },
+                "parameters": {
+                  "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+                  "parameters/method": "POST",
+                  "parameters/uri": "_api/web/lists/GetByTitle('Assignments')/items",
+                  "parameters/headers": {
+                    "Content-Type": "application/json;odata=verbose",
+                    "Accept": "application/json;odata=verbose"
+                  },
+                  "parameters/body": "{\"__metadata\":{\"type\":\"SP.Data.AssignmentsListItem\"},\"Title\":\"@{concat(triggerOutputs()?['body/JobNumber'], ' · ', items('Apply_to_each_subphase')?['SubPhaseNumber'], ' ', items('Apply_to_each_subphase')?['Title'])}\",\"JobId\":@{body('Create_job')?['d']?['Id']},\"SubPhaseNumber\":\"@{items('Apply_to_each_subphase')?['SubPhaseNumber']}\",\"SubPhaseName\":\"@{items('Apply_to_each_subphase')?['Title']}\",\"Sequence\":@{items('Apply_to_each_subphase')?['Sequence']},\"TradeId\":@{coalesce(items('Apply_to_each_subphase')?['Trade']?['Id'], 'null')},\"Crew\":\"@{if(triggerOutputs()?['body/AssignDefaultCrews'], coalesce(items('Apply_to_each_subphase')?['DefaultCrew'],'unassigned'), 'unassigned')}\",\"ScheduledStart\":\"@{variables('spanStart')}\",\"ScheduledFinish\":\"@{variables('spanFinish')}\",\"DurationDays\":@{items('Apply_to_each_subphase')?['DurationDays']},\"Locked\":false,\"NotApplicable\":false,\"PMSignOff\":false,\"InstallerSignOff\":false,\"TasksComplete\":0,\"TasksTotal\":0}"
+                }
+              }
+            },
+            "Set_cursor_next": {
+              "runAfter": {
+                "Create_assignment": [
+                  "Succeeded"
+                ]
+              },
+              "type": "SetVariable",
+              "inputs": {
+                "name": "cursor",
+                "value": "@{formatDateTime(addDays(variables('spanFinish'), 1), 'yyyy-MM-dd')}"
+              }
+            }
+          }
+        },
+        "Set_status_done": {
+          "runAfter": {
+            "Apply_to_each_subphase": [
               "Succeeded"
             ]
           },
@@ -270,9 +640,15 @@
     "connectionReferences": {
       "shared_sharepointonline": {
         "connectionName": "shared-sharepointonl-20b83f29-d689-437e-b1ff-930f7bf3fda4",
+        "connectionReferenceLogicalName": "new_sharedsharepointonline_beb06",
         "source": "Embedded",
         "id": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
-        "tier": "Standard"
+        "displayName": "SharePoint",
+        "iconUri": "https://static.powerapps.com/resource/ppcr/releases/v1.0.1813/1.0.1813.4769/sharepointonline/icon.png",
+        "brandColor": "",
+        "tier": "Standard",
+        "apiName": "sharepointonline",
+        "isProcessSimpleApiReferenceConversionAlreadyDone": false
       }
     }
   }
