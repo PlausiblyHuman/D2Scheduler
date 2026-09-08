@@ -325,7 +325,11 @@ def extract_array(marker):
     raise ValueError(marker)
 
 TPL = json.loads(extract_array('SEED_TEMPLATE'))
-SECTIONS = [(s['num'], s['name'], s.get('skill'), s.get('days', 2), s.get('tasks', []))
+# `days` may be absent (defaults to 2) but a present-and-null value is a
+# template defect, so it is passed through as-is to be caught by validation
+# rather than silently becoming 2.
+SECTIONS = [(s['num'], s['name'], s.get('skill'),
+             s['days'] if 'days' in s else 2, s.get('tasks', []))
             for ph in TPL for s in ph['sections']]
 
 live = json.load(io.open(LIVE, encoding='utf-8'))
@@ -356,16 +360,19 @@ for seq, (num, name, skill, days, tasks) in enumerate(SECTIONS, start=1):
         crew = min(pool, key=lambda c: (load[c], c)) if pool else 'unassigned'
         if crew != 'unassigned':
             load[crew] += 1
+    # Store the RAW duration. Do not clamp here: clamping before validation
+    # makes the `days < 1` gate below unreachable, so a bad template duration
+    # would be silently coerced instead of refused.
     subphases.append({'num': num, 'name': name, 'skill': skill, 'tradeCode': trade_code,
-                      'defaultCrew': crew, 'days': max(1, days), 'seq': seq,
+                      'defaultCrew': crew, 'days': days, 'seq': seq,
                       'candidates': cands, 'tasks': tasks})
 
 errs = []
 for s in subphases:
     if s['defaultCrew'] not in crews:
         errs.append('UNKNOWN CREW %s on %s' % (s['defaultCrew'], s['num']))
-    if s['days'] < 1:
-        errs.append('BAD DURATION on %s' % s['num'])
+    if not isinstance(s['days'], int) or s['days'] < 1:
+        errs.append('BAD DURATION %r on %s (must be an integer >= 1 work day)' % (s['days'], s['num']))
     # A tradeCode absent from the live Trades list leaves Trade null on every
     # assignment built from this row, silently. That is the exact class of
     # failure that has cost this project four build cycles, so refuse instead.
