@@ -1,0 +1,515 @@
+{
+  "properties": {
+    "displayName": "D2 - Delete Pool",
+    "state": "Started",
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        },
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        }
+      },
+      "triggers": {
+        "When_an_item_is_created": {
+          "type": "OpenApiConnection",
+          "splitOn": "@triggerOutputs()?['body/value']",
+          "recurrence": {
+            "frequency": "Minute",
+            "interval": 1
+          },
+          "inputs": {
+            "host": {
+              "connectionName": "shared_sharepointonline",
+              "operationId": "GetOnNewItems",
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+            },
+            "parameters": {
+              "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+              "table": "b1ea3db6-7870-4648-80c2-7fe8414ecfd7"
+            },
+            "authentication": "@parameters('$authentication')"
+          }
+        }
+      },
+      "actions": {
+        "Set_status_deleting": {
+          "runAfter": {},
+          "type": "OpenApiConnection",
+          "inputs": {
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+              "operationId": "HttpRequest",
+              "connectionName": "shared_sharepointonline"
+            },
+            "parameters": {
+              "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+              "parameters/method": "POST",
+              "parameters/uri": "_api/web/lists/GetByTitle('Delete Pool Requests')/items(@{triggerOutputs()?['body/ID']})",
+              "parameters/headers": {
+                "X-HTTP-Method": "MERGE",
+                "If-Match": "*",
+                "Content-Type": "application/json;odata=verbose",
+                "Accept": "application/json;odata=verbose"
+              },
+              "parameters/body": "{\"__metadata\":{\"type\":\"SP.Data.Delete_x0020_Pool_x0020_RequestsListItem\"},\"Status\":\"Deleting\"}"
+            }
+          }
+        },
+        "Condition_confirm_matches": {
+          "runAfter": {
+            "Set_status_deleting": [
+              "Succeeded"
+            ]
+          },
+          "type": "If",
+          "expression": {
+            "not": [
+              {
+                "equals": [
+                  "@trim(coalesce(triggerOutputs()?['body/ConfirmJobNumber'], ''))",
+                  "@trim(coalesce(triggerOutputs()?['body/Title'], ''))"
+                ]
+              }
+            ]
+          },
+          "actions": {
+            "Set_status_refused_confirm": {
+              "runAfter": {},
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                  "operationId": "HttpRequest",
+                  "connectionName": "shared_sharepointonline"
+                },
+                "parameters": {
+                  "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+                  "parameters/method": "POST",
+                  "parameters/uri": "_api/web/lists/GetByTitle('Delete Pool Requests')/items(@{triggerOutputs()?['body/ID']})",
+                  "parameters/headers": {
+                    "X-HTTP-Method": "MERGE",
+                    "If-Match": "*",
+                    "Content-Type": "application/json;odata=verbose",
+                    "Accept": "application/json;odata=verbose"
+                  },
+                  "parameters/body": "{\"__metadata\":{\"type\":\"SP.Data.Delete_x0020_Pool_x0020_RequestsListItem\"},\"Status\":\"Refused\",\"Result\":\"Refused: confirmation did not match.\"}"
+                }
+              }
+            },
+            "Terminate_refused_confirm": {
+              "runAfter": {
+                "Set_status_refused_confirm": [
+                  "Succeeded"
+                ]
+              },
+              "type": "Terminate",
+              "inputs": {
+                "runStatus": "Succeeded"
+              }
+            }
+          },
+          "else": {
+            "actions": {}
+          }
+        },
+        "Get_job": {
+          "runAfter": {
+            "Condition_confirm_matches": [
+              "Succeeded"
+            ]
+          },
+          "type": "OpenApiConnection",
+          "inputs": {
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+              "operationId": "GetItems",
+              "connectionName": "shared_sharepointonline"
+            },
+            "parameters": {
+              "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+              "table": "ee0ecabf-2f11-458d-a9ea-641f76d10cc3",
+              "$filter": "JobNumber eq '@{trim(triggerOutputs()?['body/Title'])}'",
+              "$top": 1
+            }
+          }
+        },
+        "Condition_job_missing": {
+          "runAfter": {
+            "Get_job": [
+              "Succeeded"
+            ]
+          },
+          "type": "If",
+          "expression": {
+            "equals": [
+              "@length(outputs('Get_job')?['body/value'])",
+              0
+            ]
+          },
+          "actions": {
+            "Set_status_refused_missing": {
+              "runAfter": {},
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                  "operationId": "HttpRequest",
+                  "connectionName": "shared_sharepointonline"
+                },
+                "parameters": {
+                  "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+                  "parameters/method": "POST",
+                  "parameters/uri": "_api/web/lists/GetByTitle('Delete Pool Requests')/items(@{triggerOutputs()?['body/ID']})",
+                  "parameters/headers": {
+                    "X-HTTP-Method": "MERGE",
+                    "If-Match": "*",
+                    "Content-Type": "application/json;odata=verbose",
+                    "Accept": "application/json;odata=verbose"
+                  },
+                  "parameters/body": "{\"__metadata\":{\"type\":\"SP.Data.Delete_x0020_Pool_x0020_RequestsListItem\"},\"Status\":\"Refused\",\"Result\":\"Refused: no job with that number.\"}"
+                }
+              }
+            },
+            "Terminate_refused_missing": {
+              "runAfter": {
+                "Set_status_refused_missing": [
+                  "Succeeded"
+                ]
+              },
+              "type": "Terminate",
+              "inputs": {
+                "runStatus": "Succeeded"
+              }
+            }
+          },
+          "else": {
+            "actions": {}
+          }
+        },
+        "Get_assignments": {
+          "runAfter": {
+            "Condition_job_missing": [
+              "Succeeded"
+            ]
+          },
+          "type": "OpenApiConnection",
+          "inputs": {
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+              "operationId": "GetItems",
+              "connectionName": "shared_sharepointonline"
+            },
+            "parameters": {
+              "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+              "table": "49ef7006-d3fe-40a7-a52f-c4c18545bd35",
+              "$filter": "JobId eq @{first(outputs('Get_job')?['body/value'])?['ID']}",
+              "$top": 200
+            }
+          }
+        },
+        "Filter_signed_off": {
+          "runAfter": {
+            "Get_assignments": [
+              "Succeeded"
+            ]
+          },
+          "type": "Query",
+          "inputs": {
+            "from": "@outputs('Get_assignments')?['body/value']",
+            "where": "@equals(item()?['InstallerSignOff'], true)"
+          }
+        },
+        "Condition_signed_off": {
+          "runAfter": {
+            "Filter_signed_off": [
+              "Succeeded"
+            ]
+          },
+          "type": "If",
+          "expression": {
+            "and": [
+              {
+                "greater": [
+                  "@length(body('Filter_signed_off'))",
+                  0
+                ]
+              },
+              {
+                "equals": [
+                  "@triggerOutputs()?['body/OverrideSignedOff']",
+                  false
+                ]
+              }
+            ]
+          },
+          "actions": {
+            "Set_status_refused_signedoff": {
+              "runAfter": {},
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                  "operationId": "HttpRequest",
+                  "connectionName": "shared_sharepointonline"
+                },
+                "parameters": {
+                  "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+                  "parameters/method": "POST",
+                  "parameters/uri": "_api/web/lists/GetByTitle('Delete Pool Requests')/items(@{triggerOutputs()?['body/ID']})",
+                  "parameters/headers": {
+                    "X-HTTP-Method": "MERGE",
+                    "If-Match": "*",
+                    "Content-Type": "application/json;odata=verbose",
+                    "Accept": "application/json;odata=verbose"
+                  },
+                  "parameters/body": "{\"__metadata\":{\"type\":\"SP.Data.Delete_x0020_Pool_x0020_RequestsListItem\"},\"Status\":\"Refused\",\"Result\":\"@{concat('Refused: ', string(length(body('Filter_signed_off'))), ' sub-phase(s) are signed off. Tick Override Signed Off to delete anyway.')}\"}"
+                }
+              }
+            },
+            "Terminate_refused_signedoff": {
+              "runAfter": {
+                "Set_status_refused_signedoff": [
+                  "Succeeded"
+                ]
+              },
+              "type": "Terminate",
+              "inputs": {
+                "runStatus": "Succeeded"
+              }
+            }
+          },
+          "else": {
+            "actions": {}
+          }
+        },
+        "Init_taskCount": {
+          "runAfter": {
+            "Condition_signed_off": [
+              "Succeeded"
+            ]
+          },
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "taskCount",
+                "type": "integer",
+                "value": 0
+              }
+            ]
+          }
+        },
+        "Apply_to_each_assignment": {
+          "runAfter": {
+            "Init_taskCount": [
+              "Succeeded"
+            ]
+          },
+          "type": "Foreach",
+          "foreach": "@outputs('Get_assignments')?['body/value']",
+          "runtimeConfiguration": {
+            "concurrency": {
+              "repetitions": 1
+            }
+          },
+          "actions": {
+            "Get_tasks_for_assignment": {
+              "runAfter": {},
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                  "operationId": "GetItems",
+                  "connectionName": "shared_sharepointonline"
+                },
+                "parameters": {
+                  "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+                  "table": "22c45847-ff0d-417a-b53e-1ea018fbb6d3",
+                  "$filter": "AssignmentId eq @{items('Apply_to_each_assignment')?['ID']}",
+                  "$top": 200
+                }
+              }
+            },
+            "Increment_taskCount": {
+              "runAfter": {
+                "Get_tasks_for_assignment": [
+                  "Succeeded"
+                ]
+              },
+              "type": "IncrementVariable",
+              "inputs": {
+                "name": "taskCount",
+                "value": "@length(outputs('Get_tasks_for_assignment')?['body/value'])"
+              }
+            },
+            "Apply_to_each_task": {
+              "runAfter": {
+                "Increment_taskCount": [
+                  "Succeeded"
+                ]
+              },
+              "type": "Foreach",
+              "foreach": "@outputs('Get_tasks_for_assignment')?['body/value']",
+              "actions": {
+                "Delete_task": {
+                  "runAfter": {},
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "host": {
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                      "operationId": "HttpRequest",
+                      "connectionName": "shared_sharepointonline"
+                    },
+                    "parameters": {
+                      "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+                      "parameters/method": "DELETE",
+                      "parameters/uri": "_api/web/lists/GetByTitle('Tasks')/items(@{items('Apply_to_each_task')?['ID']})",
+                      "parameters/headers": {
+                        "If-Match": "*"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "Delete_assignment": {
+              "runAfter": {
+                "Apply_to_each_task": [
+                  "Succeeded"
+                ]
+              },
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                  "operationId": "HttpRequest",
+                  "connectionName": "shared_sharepointonline"
+                },
+                "parameters": {
+                  "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+                  "parameters/method": "DELETE",
+                  "parameters/uri": "_api/web/lists/GetByTitle('Assignments')/items(@{items('Apply_to_each_assignment')?['ID']})",
+                  "parameters/headers": {
+                    "If-Match": "*"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "Delete_job": {
+          "runAfter": {
+            "Apply_to_each_assignment": [
+              "Succeeded"
+            ]
+          },
+          "type": "OpenApiConnection",
+          "inputs": {
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+              "operationId": "HttpRequest",
+              "connectionName": "shared_sharepointonline"
+            },
+            "parameters": {
+              "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+              "parameters/method": "DELETE",
+              "parameters/uri": "_api/web/lists/GetByTitle('Jobs')/items(@{first(outputs('Get_job')?['body/value'])?['ID']})",
+              "parameters/headers": {
+                "If-Match": "*"
+              }
+            }
+          }
+        },
+        "Compose_result": {
+          "runAfter": {
+            "Delete_job": [
+              "Succeeded"
+            ]
+          },
+          "type": "Compose",
+          "inputs": "@concat('Deleted ', triggerOutputs()?['body/Title'], ' \u00b7 ', first(outputs('Get_job')?['body/value'])?['Title'], ': ', string(length(outputs('Get_assignments')?['body/value'])), ' sub-phase(s), ', string(variables('taskCount')), ' task(s) removed.')"
+        },
+        "Set_status_done": {
+          "runAfter": {
+            "Compose_result": [
+              "Succeeded"
+            ]
+          },
+          "type": "OpenApiConnection",
+          "inputs": {
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+              "operationId": "HttpRequest",
+              "connectionName": "shared_sharepointonline"
+            },
+            "parameters": {
+              "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+              "parameters/method": "POST",
+              "parameters/uri": "_api/web/lists/GetByTitle('Delete Pool Requests')/items(@{triggerOutputs()?['body/ID']})",
+              "parameters/headers": {
+                "X-HTTP-Method": "MERGE",
+                "If-Match": "*",
+                "Content-Type": "application/json;odata=verbose",
+                "Accept": "application/json;odata=verbose"
+              },
+              "parameters/body": "{\"__metadata\":{\"type\":\"SP.Data.Delete_x0020_Pool_x0020_RequestsListItem\"},\"Status\":\"Done\",\"Result\":\"@{outputs('Compose_result')}\"}"
+            }
+          }
+        },
+        "Send_result_email": {
+          "runAfter": {
+            "Set_status_done": [
+              "Succeeded"
+            ]
+          },
+          "type": "OpenApiConnection",
+          "inputs": {
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+              "operationId": "SendEmailV2",
+              "connectionName": "shared_office365"
+            },
+            "parameters": {
+              "emailMessage/To": "@{coalesce(triggerOutputs()?['body/Author']?['Email'], '')};@{coalesce(first(outputs('Get_job')?['body/value'])?['ProjectManager']?['Email'], '')}",
+              "emailMessage/Subject": "Pool Deleted: @{triggerOutputs()?['body/Title']}",
+              "emailMessage/Body": "<p>@{outputs('Compose_result')}</p><p>Reason: @{triggerOutputs()?['body/Reason']}</p>",
+              "emailMessage/Importance": "High"
+            }
+          }
+        }
+      }
+    },
+    "connectionReferences": {
+      "shared_sharepointonline": {
+        "connectionName": "shared-sharepointonl-20b83f29-d689-437e-b1ff-930f7bf3fda4",
+        "connectionReferenceLogicalName": "new_sharedsharepointonline_beb06",
+        "source": "Embedded",
+        "id": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+        "displayName": "SharePoint",
+        "iconUri": "https://static.powerapps.com/resource/ppcr/releases/v1.0.1813/1.0.1813.4769/sharepointonline/icon.png",
+        "brandColor": "",
+        "tier": "Standard",
+        "apiName": "sharepointonline",
+        "isProcessSimpleApiReferenceConversionAlreadyDone": false
+      },
+      "shared_office365": {
+        "connectionName": "shared-office365-0bc14d33-bf94-4439-bdbc-d600759333d5",
+        "connectionReferenceLogicalName": "new_sharedoffice365_4d59e",
+        "source": "Embedded",
+        "id": "/providers/Microsoft.PowerApps/apis/shared_office365",
+        "displayName": "Office 365 Outlook",
+        "iconUri": "https://static.powerapps.com/resource/ppcr/releases/v1.0.1819/1.0.1819.4795/office365/icon.png",
+        "brandColor": "#0078D4",
+        "tier": "Standard",
+        "apiName": "office365",
+        "isProcessSimpleApiReferenceConversionAlreadyDone": false
+      }
+    }
+  }
+}
