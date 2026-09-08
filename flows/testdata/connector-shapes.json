@@ -1,0 +1,444 @@
+{
+  "_captured": "2026-09-07",
+  "_purpose": "Real SharePoint connector output shapes, captured via a throwaway flow (ZZ - TEMP shape capture, deleted after capture) run against the live D2 Automation environment. Task 4 of the New Pool Deployment plan. Do NOT guess connector field names from REST field names -- they differ.",
+  "_flow_run": {
+    "flowId": "d5ecd562-2cab-f111-aaac-6045bd0195dd",
+    "runId": "08584127725640115449050794278CU05",
+    "status": "Succeeded"
+  },
+  "Sub-phase Template": {
+    "action": "Get_subphase_template_items",
+    "raw_action_output_body": {
+      "@odata.nextLink": "https://2710a01b-6cfa-e820-b338-2286f2649300.07.common.usa002.azure-apihub.net/apim/sharepointonline/shared-sharepointonl-20b83f29-d689-437e-b1ff-930f7bf3fda4/datasets/https%253A%252F%252Fnetorgft15040037.sharepoint.com%252Fsites%252FD2BuildScheduler/tables/Sub-phase%2520Template/items?$top=2&$skiptoken=Paged%3dTRUE%26p_ID%3d2%26RootFolder%3d%252fsites%252fD2BuildScheduler%252fLists%252fSubphase%2520Template",
+      "value": [
+        {
+          "@odata.etag": "\"1\"",
+          "ItemInternalId": "1",
+          "ID": 1,
+          "Title": "Sales to Production Handoff",
+          "SubPhaseNumber": "0.0",
+          "Sequence": 1.0,
+          "DurationDays": 2.0,
+          "DefaultCrew": "office",
+          "Modified": "2026-09-08T02:15:56Z",
+          "Created": "2026-09-08T02:15:56Z",
+          "Author": {
+            "@odata.type": "#Microsoft.Azure.Connectors.SharePoint.SPListExpandedUser",
+            "Claims": "i:0#.f|membership|stratirus@d2pools.com",
+            "DisplayName": "D2 Bot",
+            "Email": "d2bot@d2pools.com",
+            "Picture": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler/_layouts/15/UserPhoto.aspx?Size=L&AccountName=d2bot@d2pools.com",
+            "Department": null,
+            "JobTitle": null
+          },
+          "Author#Claims": "i:0#.f|membership|stratirus@d2pools.com",
+          "Editor": {
+            "@odata.type": "#Microsoft.Azure.Connectors.SharePoint.SPListExpandedUser",
+            "Claims": "i:0#.f|membership|stratirus@d2pools.com",
+            "DisplayName": "D2 Bot",
+            "Email": "d2bot@d2pools.com",
+            "Picture": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler/_layouts/15/UserPhoto.aspx?Size=L&AccountName=d2bot@d2pools.com",
+            "Department": null,
+            "JobTitle": null
+          },
+          "Editor#Claims": "i:0#.f|membership|stratirus@d2pools.com",
+          "{Identifier}": "Lists%252fSubphase%2bTemplate%252f1_.000",
+          "{IsFolder}": false,
+          "{Thumbnail}": {
+            "Large": null,
+            "Medium": null,
+            "Small": null
+          },
+          "{Link}": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler/_layouts/15/listform.aspx?PageType=4&ListId=453e7cd5%2Df84a%2D4e2a%2D9372%2D73f26019e3f0&ID=1&ContentTypeID=0x01004DF04F67322C924CBFE92B742E1D2392",
+          "{Name}": "Sales to Production Handoff",
+          "{FilenameWithExtension}": "Sales to Production Handoff",
+          "{Path}": "Lists/Subphase Template/",
+          "{FullPath}": "Lists/Subphase Template/1_.000",
+          "{ContentType}": {
+            "@odata.type": "#Microsoft.Azure.Connectors.SharePoint.SPListExpandedContentType",
+            "Id": "0x01004DF04F67322C924CBFE92B742E1D2392",
+            "Name": "Item"
+          },
+          "{ContentType}#Id": "0x01004DF04F67322C924CBFE92B742E1D2392",
+          "{HasAttachments}": false,
+          "{VersionNumber}": "1.0"
+        },
+        {
+          "@odata.etag": "\"1\"",
+          "ItemInternalId": "2",
+          "ID": 2,
+          "Title": "Pre-Construction Back Office Admin",
+          "SubPhaseNumber": "1.0",
+          "Sequence": 2.0,
+          "DurationDays": 2.0,
+          "DefaultCrew": "office",
+          "Modified": "2026-09-08T02:15:56Z",
+          "Created": "2026-09-08T02:15:56Z",
+          "Author": {
+            "@odata.type": "#Microsoft.Azure.Connectors.SharePoint.SPListExpandedUser",
+            "Claims": "i:0#.f|membership|stratirus@d2pools.com",
+            "DisplayName": "D2 Bot",
+            "Email": "d2bot@d2pools.com",
+            "Picture": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler/_layouts/15/UserPhoto.aspx?Size=L&AccountName=d2bot@d2pools.com",
+            "Department": null,
+            "JobTitle": null
+          },
+          "Author#Claims": "i:0#.f|membership|stratirus@d2pools.com",
+          "Editor": {
+            "@odata.type": "#Microsoft.Azure.Connectors.SharePoint.SPListExpandedUser",
+            "Claims": "i:0#.f|membership|stratirus@d2pools.com",
+            "DisplayName": "D2 Bot",
+            "Email": "d2bot@d2pools.com",
+            "Picture": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler/_layouts/15/UserPhoto.aspx?Size=L&AccountName=d2bot@d2pools.com",
+            "Department": null,
+            "JobTitle": null
+          },
+          "Editor#Claims": "i:0#.f|membership|stratirus@d2pools.com",
+          "{Identifier}": "Lists%252fSubphase%2bTemplate%252f2_.000",
+          "{IsFolder}": false,
+          "{Thumbnail}": {
+            "Large": null,
+            "Medium": null,
+            "Small": null
+          },
+          "{Link}": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler/_layouts/15/listform.aspx?PageType=4&ListId=453e7cd5%2Df84a%2D4e2a%2D9372%2D73f26019e3f0&ID=2&ContentTypeID=0x01004DF04F67322C924CBFE92B742E1D2392",
+          "{Name}": "Pre-Construction Back Office Admin",
+          "{FilenameWithExtension}": "Pre-Construction Back Office Admin",
+          "{Path}": "Lists/Subphase Template/",
+          "{FullPath}": "Lists/Subphase Template/2_.000",
+          "{ContentType}": {
+            "@odata.type": "#Microsoft.Azure.Connectors.SharePoint.SPListExpandedContentType",
+            "Id": "0x01004DF04F67322C924CBFE92B742E1D2392",
+            "Name": "Item"
+          },
+          "{ContentType}#Id": "0x01004DF04F67322C924CBFE92B742E1D2392",
+          "{HasAttachments}": false,
+          "{VersionNumber}": "1.0"
+        }
+      ]
+    },
+    "observed_keys_on_row": [
+      "@odata.etag",
+      "Author",
+      "Author#Claims",
+      "Created",
+      "DefaultCrew",
+      "DurationDays",
+      "Editor",
+      "Editor#Claims",
+      "ID",
+      "ItemInternalId",
+      "Modified",
+      "Sequence",
+      "SubPhaseNumber",
+      "Title",
+      "{ContentType}",
+      "{ContentType}#Id",
+      "{FilenameWithExtension}",
+      "{FullPath}",
+      "{HasAttachments}",
+      "{Identifier}",
+      "{IsFolder}",
+      "{Link}",
+      "{Name}",
+      "{Path}",
+      "{Thumbnail}",
+      "{VersionNumber}"
+    ]
+  },
+  "Task Template": {
+    "action": "Get_task_template_items",
+    "raw_action_output_body": {
+      "@odata.nextLink": "https://2710a01b-6cfa-e820-b338-2286f2649300.07.common.usa002.azure-apihub.net/apim/sharepointonline/shared-sharepointonl-20b83f29-d689-437e-b1ff-930f7bf3fda4/datasets/https%253A%252F%252Fnetorgft15040037.sharepoint.com%252Fsites%252FD2BuildScheduler/tables/Task%2520Template/items?$top=2&$skiptoken=Paged%3dTRUE%26p_ID%3d2%26RootFolder%3d%252fsites%252fD2BuildScheduler%252fLists%252fTask%2520Template",
+      "value": [
+        {
+          "@odata.etag": "\"1\"",
+          "ItemInternalId": "1",
+          "ID": 1,
+          "Title": "Contract review",
+          "SubPhase": {
+            "@odata.type": "#Microsoft.Azure.Connectors.SharePoint.SPListExpandedReference",
+            "Id": 1,
+            "Value": "Sales to Production Handoff"
+          },
+          "SubPhase#Id": 1,
+          "Sequence": 1.0,
+          "Modified": "2026-09-08T02:16:06Z",
+          "Created": "2026-09-08T02:16:06Z",
+          "Author": {
+            "@odata.type": "#Microsoft.Azure.Connectors.SharePoint.SPListExpandedUser",
+            "Claims": "i:0#.f|membership|stratirus@d2pools.com",
+            "DisplayName": "D2 Bot",
+            "Email": "d2bot@d2pools.com",
+            "Picture": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler/_layouts/15/UserPhoto.aspx?Size=L&AccountName=d2bot@d2pools.com",
+            "Department": null,
+            "JobTitle": null
+          },
+          "Author#Claims": "i:0#.f|membership|stratirus@d2pools.com",
+          "Editor": {
+            "@odata.type": "#Microsoft.Azure.Connectors.SharePoint.SPListExpandedUser",
+            "Claims": "i:0#.f|membership|stratirus@d2pools.com",
+            "DisplayName": "D2 Bot",
+            "Email": "d2bot@d2pools.com",
+            "Picture": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler/_layouts/15/UserPhoto.aspx?Size=L&AccountName=d2bot@d2pools.com",
+            "Department": null,
+            "JobTitle": null
+          },
+          "Editor#Claims": "i:0#.f|membership|stratirus@d2pools.com",
+          "{Identifier}": "Lists%252fTask%2bTemplate%252f1_.000",
+          "{IsFolder}": false,
+          "{Thumbnail}": {
+            "Large": null,
+            "Medium": null,
+            "Small": null
+          },
+          "{Link}": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler/_layouts/15/listform.aspx?PageType=4&ListId=61824add%2D8eaa%2D4b1b%2Daed7%2Da202204bf9f5&ID=1&ContentTypeID=0x010052EE7F14411D6947BB586DDDFDFA8CFA",
+          "{Name}": "Contract review",
+          "{FilenameWithExtension}": "Contract review",
+          "{Path}": "Lists/Task Template/",
+          "{FullPath}": "Lists/Task Template/1_.000",
+          "{ContentType}": {
+            "@odata.type": "#Microsoft.Azure.Connectors.SharePoint.SPListExpandedContentType",
+            "Id": "0x010052EE7F14411D6947BB586DDDFDFA8CFA",
+            "Name": "Item"
+          },
+          "{ContentType}#Id": "0x010052EE7F14411D6947BB586DDDFDFA8CFA",
+          "{HasAttachments}": false,
+          "{VersionNumber}": "1.0"
+        },
+        {
+          "@odata.etag": "\"1\"",
+          "ItemInternalId": "2",
+          "ID": 2,
+          "Title": "Signed",
+          "SubPhase": {
+            "@odata.type": "#Microsoft.Azure.Connectors.SharePoint.SPListExpandedReference",
+            "Id": 1,
+            "Value": "Sales to Production Handoff"
+          },
+          "SubPhase#Id": 1,
+          "Sequence": 2.0,
+          "Modified": "2026-09-08T02:16:06Z",
+          "Created": "2026-09-08T02:16:06Z",
+          "Author": {
+            "@odata.type": "#Microsoft.Azure.Connectors.SharePoint.SPListExpandedUser",
+            "Claims": "i:0#.f|membership|stratirus@d2pools.com",
+            "DisplayName": "D2 Bot",
+            "Email": "d2bot@d2pools.com",
+            "Picture": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler/_layouts/15/UserPhoto.aspx?Size=L&AccountName=d2bot@d2pools.com",
+            "Department": null,
+            "JobTitle": null
+          },
+          "Author#Claims": "i:0#.f|membership|stratirus@d2pools.com",
+          "Editor": {
+            "@odata.type": "#Microsoft.Azure.Connectors.SharePoint.SPListExpandedUser",
+            "Claims": "i:0#.f|membership|stratirus@d2pools.com",
+            "DisplayName": "D2 Bot",
+            "Email": "d2bot@d2pools.com",
+            "Picture": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler/_layouts/15/UserPhoto.aspx?Size=L&AccountName=d2bot@d2pools.com",
+            "Department": null,
+            "JobTitle": null
+          },
+          "Editor#Claims": "i:0#.f|membership|stratirus@d2pools.com",
+          "{Identifier}": "Lists%252fTask%2bTemplate%252f2_.000",
+          "{IsFolder}": false,
+          "{Thumbnail}": {
+            "Large": null,
+            "Medium": null,
+            "Small": null
+          },
+          "{Link}": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler/_layouts/15/listform.aspx?PageType=4&ListId=61824add%2D8eaa%2D4b1b%2Daed7%2Da202204bf9f5&ID=2&ContentTypeID=0x010052EE7F14411D6947BB586DDDFDFA8CFA",
+          "{Name}": "Signed",
+          "{FilenameWithExtension}": "Signed",
+          "{Path}": "Lists/Task Template/",
+          "{FullPath}": "Lists/Task Template/2_.000",
+          "{ContentType}": {
+            "@odata.type": "#Microsoft.Azure.Connectors.SharePoint.SPListExpandedContentType",
+            "Id": "0x010052EE7F14411D6947BB586DDDFDFA8CFA",
+            "Name": "Item"
+          },
+          "{ContentType}#Id": "0x010052EE7F14411D6947BB586DDDFDFA8CFA",
+          "{HasAttachments}": false,
+          "{VersionNumber}": "1.0"
+        }
+      ]
+    },
+    "observed_keys_on_row": [
+      "@odata.etag",
+      "Author",
+      "Author#Claims",
+      "Created",
+      "Editor",
+      "Editor#Claims",
+      "ID",
+      "ItemInternalId",
+      "Modified",
+      "Sequence",
+      "SubPhase",
+      "SubPhase#Id",
+      "Title",
+      "{ContentType}",
+      "{ContentType}#Id",
+      "{FilenameWithExtension}",
+      "{FullPath}",
+      "{HasAttachments}",
+      "{Identifier}",
+      "{IsFolder}",
+      "{Link}",
+      "{Name}",
+      "{Path}",
+      "{Thumbnail}",
+      "{VersionNumber}"
+    ]
+  },
+  "Work Calendar": {
+    "action": "Get_work_calendar_items",
+    "raw_action_output_body": {
+      "@odata.nextLink": "https://2710a01b-6cfa-e820-b338-2286f2649300.07.common.usa002.azure-apihub.net/apim/sharepointonline/shared-sharepointonl-20b83f29-d689-437e-b1ff-930f7bf3fda4/datasets/https%253A%252F%252Fnetorgft15040037.sharepoint.com%252Fsites%252FD2BuildScheduler/tables/Work%2520Calendar/items?$top=2&$skiptoken=Paged%3dTRUE%26p_ID%3d2%26RootFolder%3d%252fsites%252fD2BuildScheduler%252fLists%252fWork%2520Calendar",
+      "value": [
+        {
+          "@odata.etag": "\"2\"",
+          "ItemInternalId": "1",
+          "ID": 1,
+          "Title": "Sunday \u00b7 2026-08-30",
+          "Date": "2026-08-30",
+          "Reason": {
+            "@odata.type": "#Microsoft.Azure.Connectors.SharePoint.SPListExpandedReference",
+            "Id": 0,
+            "Value": "Sunday"
+          },
+          "Reason#Id": 0,
+          "Modified": "2026-09-03T17:53:24Z",
+          "Created": "2026-08-25T19:25:22Z",
+          "Author": {
+            "@odata.type": "#Microsoft.Azure.Connectors.SharePoint.SPListExpandedUser",
+            "Claims": "i:0#.f|membership|stratirus@d2pools.com",
+            "DisplayName": "D2 Bot",
+            "Email": "d2bot@d2pools.com",
+            "Picture": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler/_layouts/15/UserPhoto.aspx?Size=L&AccountName=d2bot@d2pools.com",
+            "Department": null,
+            "JobTitle": null
+          },
+          "Author#Claims": "i:0#.f|membership|stratirus@d2pools.com",
+          "Editor": {
+            "@odata.type": "#Microsoft.Azure.Connectors.SharePoint.SPListExpandedUser",
+            "Claims": "i:0#.f|membership|stratirus@d2pools.com",
+            "DisplayName": "D2 Bot",
+            "Email": "d2bot@d2pools.com",
+            "Picture": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler/_layouts/15/UserPhoto.aspx?Size=L&AccountName=d2bot@d2pools.com",
+            "Department": null,
+            "JobTitle": null
+          },
+          "Editor#Claims": "i:0#.f|membership|stratirus@d2pools.com",
+          "{Identifier}": "Lists%252fWork%2bCalendar%252f1_.000",
+          "{IsFolder}": false,
+          "{Thumbnail}": {
+            "Large": null,
+            "Medium": null,
+            "Small": null
+          },
+          "{Link}": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler/_layouts/15/listform.aspx?PageType=4&ListId=d36758cf%2D9d27%2D4342%2D84e4%2D817f8dcfa2ba&ID=1&ContentTypeID=0x0100C89738033631FE46B619B65B2AC05DB9",
+          "{Name}": "Sunday \u00b7 2026-08-30",
+          "{FilenameWithExtension}": "Sunday \u00b7 2026-08-30",
+          "{Path}": "Lists/Work Calendar/",
+          "{FullPath}": "Lists/Work Calendar/1_.000",
+          "{ContentType}": {
+            "@odata.type": "#Microsoft.Azure.Connectors.SharePoint.SPListExpandedContentType",
+            "Id": "0x0100C89738033631FE46B619B65B2AC05DB9",
+            "Name": "Item"
+          },
+          "{ContentType}#Id": "0x0100C89738033631FE46B619B65B2AC05DB9",
+          "{HasAttachments}": false,
+          "{VersionNumber}": "2.0"
+        },
+        {
+          "@odata.etag": "\"2\"",
+          "ItemInternalId": "2",
+          "ID": 2,
+          "Title": "Sunday \u00b7 2026-09-06",
+          "Date": "2026-09-06",
+          "Reason": {
+            "@odata.type": "#Microsoft.Azure.Connectors.SharePoint.SPListExpandedReference",
+            "Id": 0,
+            "Value": "Sunday"
+          },
+          "Reason#Id": 0,
+          "Modified": "2026-09-03T17:53:08Z",
+          "Created": "2026-08-25T19:25:22Z",
+          "Author": {
+            "@odata.type": "#Microsoft.Azure.Connectors.SharePoint.SPListExpandedUser",
+            "Claims": "i:0#.f|membership|stratirus@d2pools.com",
+            "DisplayName": "D2 Bot",
+            "Email": "d2bot@d2pools.com",
+            "Picture": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler/_layouts/15/UserPhoto.aspx?Size=L&AccountName=d2bot@d2pools.com",
+            "Department": null,
+            "JobTitle": null
+          },
+          "Author#Claims": "i:0#.f|membership|stratirus@d2pools.com",
+          "Editor": {
+            "@odata.type": "#Microsoft.Azure.Connectors.SharePoint.SPListExpandedUser",
+            "Claims": "i:0#.f|membership|stratirus@d2pools.com",
+            "DisplayName": "D2 Bot",
+            "Email": "d2bot@d2pools.com",
+            "Picture": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler/_layouts/15/UserPhoto.aspx?Size=L&AccountName=d2bot@d2pools.com",
+            "Department": null,
+            "JobTitle": null
+          },
+          "Editor#Claims": "i:0#.f|membership|stratirus@d2pools.com",
+          "{Identifier}": "Lists%252fWork%2bCalendar%252f2_.000",
+          "{IsFolder}": false,
+          "{Thumbnail}": {
+            "Large": null,
+            "Medium": null,
+            "Small": null
+          },
+          "{Link}": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler/_layouts/15/listform.aspx?PageType=4&ListId=d36758cf%2D9d27%2D4342%2D84e4%2D817f8dcfa2ba&ID=2&ContentTypeID=0x0100C89738033631FE46B619B65B2AC05DB9",
+          "{Name}": "Sunday \u00b7 2026-09-06",
+          "{FilenameWithExtension}": "Sunday \u00b7 2026-09-06",
+          "{Path}": "Lists/Work Calendar/",
+          "{FullPath}": "Lists/Work Calendar/2_.000",
+          "{ContentType}": {
+            "@odata.type": "#Microsoft.Azure.Connectors.SharePoint.SPListExpandedContentType",
+            "Id": "0x0100C89738033631FE46B619B65B2AC05DB9",
+            "Name": "Item"
+          },
+          "{ContentType}#Id": "0x0100C89738033631FE46B619B65B2AC05DB9",
+          "{HasAttachments}": false,
+          "{VersionNumber}": "2.0"
+        }
+      ]
+    },
+    "observed_keys_on_row": [
+      "@odata.etag",
+      "Author",
+      "Author#Claims",
+      "Created",
+      "Date",
+      "Editor",
+      "Editor#Claims",
+      "ID",
+      "ItemInternalId",
+      "Modified",
+      "Reason",
+      "Reason#Id",
+      "Title",
+      "{ContentType}",
+      "{ContentType}#Id",
+      "{FilenameWithExtension}",
+      "{FullPath}",
+      "{HasAttachments}",
+      "{Identifier}",
+      "{IsFolder}",
+      "{Link}",
+      "{Name}",
+      "{Path}",
+      "{Thumbnail}",
+      "{VersionNumber}"
+    ]
+  },
+  "FINDINGS": {
+    "sub_phase_template_trade_reference": "NOT PRESENT. The live \"Sub-phase Template\" list has NO Trade or TradeId column at all -- the connector row carries only Title, SubPhaseNumber, Sequence, DurationDays, DefaultCrew (plus system fields). The expected shape (Trade object + Trade#Id sibling) does NOT hold because the field does not exist on this list. Any downstream flow (Tasks 5-7) that assumes a Trade lookup on Sub-phase Template must either add that column first or source trade-per-subphase from elsewhere (e.g. Crew-Trades intersect, or DefaultCrew).",
+    "task_template_subphase_reference": "CONFIRMED. Task Template rows carry SubPhase as {\"@odata.type\":\"#Microsoft.Azure.Connectors.SharePoint.SPListExpandedReference\",\"Id\":<int>,\"Value\":\"<title>\"} plus a sibling scalar \"SubPhase#Id\":<int>. Matches the expected shape exactly. Use item()?['SubPhase#Id'] or item()?['SubPhase']?['Id'] to join -- never Title/Value.",
+    "work_calendar_date_column": "Key is \"Date\", a bare date-only string with no time component, e.g. \"2026-08-30\" (matches the DateOnly storage convention already documented in CLAUDE.md). Work Calendar rows also carry a \"Reason\" lookup ({Id, Value} + sibling \"Reason#Id\") that was not called out in the brief but is present and follows the same lookup-reference pattern as SubPhase."
+  }
+}
