@@ -61,9 +61,72 @@
             }
           }
         },
-        "Condition_confirm_matches": {
+        "Condition_missing_fields": {
           "runAfter": {
             "Set_status_deleting": [
+              "Succeeded"
+            ]
+          },
+          "type": "If",
+          "expression": {
+            "or": [
+              {
+                "equals": [
+                  "@empty(trim(coalesce(triggerOutputs()?['body/Title'], '')))",
+                  true
+                ]
+              },
+              {
+                "equals": [
+                  "@empty(trim(coalesce(triggerOutputs()?['body/ConfirmJobNumber'], '')))",
+                  true
+                ]
+              }
+            ]
+          },
+          "actions": {
+            "Set_status_refused_blank": {
+              "runAfter": {},
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                  "operationId": "HttpRequest",
+                  "connectionName": "shared_sharepointonline"
+                },
+                "parameters": {
+                  "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+                  "parameters/method": "POST",
+                  "parameters/uri": "_api/web/lists/GetByTitle('Delete Pool Requests')/items(@{triggerOutputs()?['body/ID']})",
+                  "parameters/headers": {
+                    "X-HTTP-Method": "MERGE",
+                    "If-Match": "*",
+                    "Content-Type": "application/json;odata=verbose",
+                    "Accept": "application/json;odata=verbose"
+                  },
+                  "parameters/body": "{\"__metadata\":{\"type\":\"SP.Data.Delete_x0020_Pool_x0020_RequestsListItem\"},\"Status\":\"Refused\",\"Result\":\"Refused: job number and confirmation are both required.\"}"
+                }
+              }
+            },
+            "Terminate_refused_blank": {
+              "runAfter": {
+                "Set_status_refused_blank": [
+                  "Succeeded"
+                ]
+              },
+              "type": "Terminate",
+              "inputs": {
+                "runStatus": "Succeeded"
+              }
+            }
+          },
+          "else": {
+            "actions": {}
+          }
+        },
+        "Condition_confirm_matches": {
+          "runAfter": {
+            "Condition_missing_fields": [
               "Succeeded"
             ]
           },
@@ -192,6 +255,15 @@
             "actions": {}
           }
         },
+        "Compose_recipients": {
+          "runAfter": {
+            "Condition_job_missing": [
+              "Succeeded"
+            ]
+          },
+          "type": "Compose",
+          "inputs": "@if(and(not(equals(coalesce(triggerOutputs()?['body/Author']?['Email'], ''), '')), not(equals(coalesce(first(outputs('Get_job')?['body/value'])?['ProjectManager']?['Email'], ''), ''))), concat(triggerOutputs()?['body/Author']?['Email'], ';', first(outputs('Get_job')?['body/value'])?['ProjectManager']?['Email']), if(not(equals(coalesce(triggerOutputs()?['body/Author']?['Email'], ''), '')), triggerOutputs()?['body/Author']?['Email'], coalesce(first(outputs('Get_job')?['body/value'])?['ProjectManager']?['Email'], '')))"
+        },
         "Get_assignments": {
           "runAfter": {
             "Condition_job_missing": [
@@ -213,9 +285,62 @@
             }
           }
         },
-        "Filter_signed_off": {
+        "Condition_assignments_truncated": {
           "runAfter": {
             "Get_assignments": [
+              "Succeeded"
+            ]
+          },
+          "type": "If",
+          "expression": {
+            "greaterOrEquals": [
+              "@length(outputs('Get_assignments')?['body/value'])",
+              200
+            ]
+          },
+          "actions": {
+            "Set_status_refused_truncated_assignments": {
+              "runAfter": {},
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                  "operationId": "HttpRequest",
+                  "connectionName": "shared_sharepointonline"
+                },
+                "parameters": {
+                  "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+                  "parameters/method": "POST",
+                  "parameters/uri": "_api/web/lists/GetByTitle('Delete Pool Requests')/items(@{triggerOutputs()?['body/ID']})",
+                  "parameters/headers": {
+                    "X-HTTP-Method": "MERGE",
+                    "If-Match": "*",
+                    "Content-Type": "application/json;odata=verbose",
+                    "Accept": "application/json;odata=verbose"
+                  },
+                  "parameters/body": "{\"__metadata\":{\"type\":\"SP.Data.Delete_x0020_Pool_x0020_RequestsListItem\"},\"Status\":\"Refused\",\"Result\":\"Refused: assignment count hit the 200-row read limit, so this pool cannot be safely verified. Escalate.\"}"
+                }
+              }
+            },
+            "Terminate_refused_truncated_assignments": {
+              "runAfter": {
+                "Set_status_refused_truncated_assignments": [
+                  "Succeeded"
+                ]
+              },
+              "type": "Terminate",
+              "inputs": {
+                "runStatus": "Succeeded"
+              }
+            }
+          },
+          "else": {
+            "actions": {}
+          }
+        },
+        "Filter_signed_off": {
+          "runAfter": {
+            "Condition_assignments_truncated": [
               "Succeeded"
             ]
           },
@@ -288,9 +413,143 @@
             "actions": {}
           }
         },
-        "Init_taskCount": {
+        "Init_truncatedAssignmentId": {
           "runAfter": {
             "Condition_signed_off": [
+              "Succeeded"
+            ]
+          },
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "truncatedAssignmentId",
+                "type": "string",
+                "value": ""
+              }
+            ]
+          }
+        },
+        "Precheck_task_truncation": {
+          "runAfter": {
+            "Init_truncatedAssignmentId": [
+              "Succeeded"
+            ]
+          },
+          "type": "Foreach",
+          "foreach": "@outputs('Get_assignments')?['body/value']",
+          "runtimeConfiguration": {
+            "concurrency": {
+              "repetitions": 1
+            }
+          },
+          "actions": {
+            "Get_tasks_precheck": {
+              "runAfter": {},
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                  "operationId": "GetItems",
+                  "connectionName": "shared_sharepointonline"
+                },
+                "parameters": {
+                  "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+                  "table": "22c45847-ff0d-417a-b53e-1ea018fbb6d3",
+                  "$filter": "AssignmentId eq @{items('Precheck_task_truncation')?['ID']}",
+                  "$top": 200
+                }
+              }
+            },
+            "Condition_precheck_hit": {
+              "runAfter": {
+                "Get_tasks_precheck": [
+                  "Succeeded"
+                ]
+              },
+              "type": "If",
+              "expression": {
+                "greaterOrEquals": [
+                  "@length(outputs('Get_tasks_precheck')?['body/value'])",
+                  200
+                ]
+              },
+              "actions": {
+                "Set_truncatedAssignmentId": {
+                  "runAfter": {},
+                  "type": "SetVariable",
+                  "inputs": {
+                    "name": "truncatedAssignmentId",
+                    "value": "@{string(items('Precheck_task_truncation')?['ID'])}"
+                  }
+                }
+              },
+              "else": {
+                "actions": {}
+              }
+            }
+          }
+        },
+        "Condition_truncation_found": {
+          "runAfter": {
+            "Precheck_task_truncation": [
+              "Succeeded"
+            ]
+          },
+          "type": "If",
+          "expression": {
+            "not": [
+              {
+                "equals": [
+                  "@variables('truncatedAssignmentId')",
+                  ""
+                ]
+              }
+            ]
+          },
+          "actions": {
+            "Set_status_refused_truncated_tasks": {
+              "runAfter": {},
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                  "operationId": "HttpRequest",
+                  "connectionName": "shared_sharepointonline"
+                },
+                "parameters": {
+                  "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+                  "parameters/method": "POST",
+                  "parameters/uri": "_api/web/lists/GetByTitle('Delete Pool Requests')/items(@{triggerOutputs()?['body/ID']})",
+                  "parameters/headers": {
+                    "X-HTTP-Method": "MERGE",
+                    "If-Match": "*",
+                    "Content-Type": "application/json;odata=verbose",
+                    "Accept": "application/json;odata=verbose"
+                  },
+                  "parameters/body": "{\"__metadata\":{\"type\":\"SP.Data.Delete_x0020_Pool_x0020_RequestsListItem\"},\"Status\":\"Refused\",\"Result\":\"@{concat('Refused: task count for assignment ', variables('truncatedAssignmentId'), ' hit the 200-row read limit, so this pool cannot be safely verified. Escalate.')}\"}"
+                }
+              }
+            },
+            "Terminate_refused_truncated_tasks": {
+              "runAfter": {
+                "Set_status_refused_truncated_tasks": [
+                  "Succeeded"
+                ]
+              },
+              "type": "Terminate",
+              "inputs": {
+                "runStatus": "Succeeded"
+              }
+            }
+          },
+          "else": {
+            "actions": {}
+          }
+        },
+        "Init_taskCount": {
+          "runAfter": {
+            "Condition_truncation_found": [
               "Succeeded"
             ]
           },
@@ -466,6 +725,9 @@
           "runAfter": {
             "Set_status_done": [
               "Succeeded"
+            ],
+            "Compose_recipients": [
+              "Succeeded"
             ]
           },
           "type": "OpenApiConnection",
@@ -476,11 +738,83 @@
               "connectionName": "shared_office365"
             },
             "parameters": {
-              "emailMessage/To": "@{coalesce(triggerOutputs()?['body/Author']?['Email'], '')};@{coalesce(first(outputs('Get_job')?['body/value'])?['ProjectManager']?['Email'], '')}",
+              "emailMessage/To": "@{outputs('Compose_recipients')}",
               "emailMessage/Subject": "Pool Deleted: @{triggerOutputs()?['body/Title']}",
               "emailMessage/Body": "<p>@{outputs('Compose_result')}</p><p>Reason: @{triggerOutputs()?['body/Reason']}</p>",
               "emailMessage/Importance": "High"
             }
+          }
+        },
+        "Compose_failure_message": {
+          "runAfter": {
+            "Apply_to_each_assignment": [
+              "Failed",
+              "TimedOut"
+            ]
+          },
+          "type": "Compose",
+          "inputs": "@concat('Failed: deletion of ', triggerOutputs()?['body/Title'], ' (', first(outputs('Get_job')?['body/value'])?['Title'], ') was interrupted partway through and is INCOMPLETE. Some tasks and/or sub-phases may already be deleted while others remain. Do not resubmit \u2014 escalate for manual verification.')"
+        },
+        "Set_status_failed_partial": {
+          "runAfter": {
+            "Compose_failure_message": [
+              "Succeeded"
+            ]
+          },
+          "type": "OpenApiConnection",
+          "inputs": {
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+              "operationId": "HttpRequest",
+              "connectionName": "shared_sharepointonline"
+            },
+            "parameters": {
+              "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+              "parameters/method": "POST",
+              "parameters/uri": "_api/web/lists/GetByTitle('Delete Pool Requests')/items(@{triggerOutputs()?['body/ID']})",
+              "parameters/headers": {
+                "X-HTTP-Method": "MERGE",
+                "If-Match": "*",
+                "Content-Type": "application/json;odata=verbose",
+                "Accept": "application/json;odata=verbose"
+              },
+              "parameters/body": "{\"__metadata\":{\"type\":\"SP.Data.Delete_x0020_Pool_x0020_RequestsListItem\"},\"Status\":\"Failed\",\"Result\":\"@{outputs('Compose_failure_message')}\"}"
+            }
+          }
+        },
+        "Send_failure_email": {
+          "runAfter": {
+            "Set_status_failed_partial": [
+              "Succeeded"
+            ],
+            "Compose_recipients": [
+              "Succeeded"
+            ]
+          },
+          "type": "OpenApiConnection",
+          "inputs": {
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+              "operationId": "SendEmailV2",
+              "connectionName": "shared_office365"
+            },
+            "parameters": {
+              "emailMessage/To": "@{outputs('Compose_recipients')}",
+              "emailMessage/Subject": "URGENT \u2014 Pool deletion INCOMPLETE: @{triggerOutputs()?['body/Title']}",
+              "emailMessage/Body": "<p>@{outputs('Compose_failure_message')}</p>",
+              "emailMessage/Importance": "High"
+            }
+          }
+        },
+        "Terminate_failed_partial": {
+          "runAfter": {
+            "Send_failure_email": [
+              "Succeeded"
+            ]
+          },
+          "type": "Terminate",
+          "inputs": {
+            "runStatus": "Failed"
           }
         }
       }
