@@ -793,6 +793,30 @@ Sign in as **`stratirus@d2pools.com`**. Verify with `pac env list`, which must s
 
 The third-party risk is gone, but **the production risk is not** — this is still a live client tenant and still a shared credential. The safety rules are in `D2-Canvas-App-Handoff-Contract.md` §6a and remain load-bearing: never touch Assignments 1–5 or `D2-1001` (use the `TEST-900x` rows, and do **not** delete them — that removal is sequenced for just before the pilot); stop Flows 3 and 4 before bulk writes, because Flow 3's no-op trigger means every Assignments edit burns a run; calling Flow 2 writes real sign-off data; everything logs as D2 Bot so there is no individual attribution; and do not edit the five published flows in the designer.
 
+**AMENDED 2026-09-08b by Shane — the tenant is not yet operationally live, and the caution above
+should be read in that light.** His words: *"I am literally the only person with access and
+getting notifications. It's not really production yet, so we can move, edit and tweak what we need
+to get it right."*
+
+What that releases: batching changes purely to avoid tenant churn, hesitating to edit a published
+flow, hesitating to stop or restart a flow, and treating alert emails as something to protect
+people from. Nobody at D2 is receiving anything yet. Move.
+
+What it does NOT release, because the reason was never "it is production":
+
+- **Verification discipline stays.** This platform's whole failure signature is a write that
+  returns 200/201/204 and does nothing, or renders blank, or matches no rows. That is a property
+  of SharePoint and Power Automate, not of who is watching. Read the shape off a real payload,
+  and verify by opening the result.
+- **Expensive-to-recreate data stays protected.** The 46-row Sub-phase Template, the 295-row Task
+  Template and the Work Calendar are hand-built or seeded once. Losing them costs real time, not
+  reputation.
+- **Batching canvas deploys stays**, for a different reason: every deploy costs Shane a manual
+  Studio save. That is his time, not tenant risk.
+
+This changes again the moment a real pool or a real crew lead is in the system. Revisit at
+Phase E.
+
 `canvas-app/mirror-provision.js` is retained as the authoritative live-schema capture (more accurate than the obsolete `D2-Provision-Lists.ps1`) but is **not needed** for this build.
 
 **`Patch()` DOES work from the canvas app. CORRECTED 2026-09-07 — an earlier entry here said

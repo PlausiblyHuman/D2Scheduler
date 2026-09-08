@@ -152,10 +152,15 @@ the sub-phase that moved.
      either date actually changes. Move the cursor to the first working day after `finish`.
 7. Write one `Result` summary: rows moved, rows skipped and why, and the new finish date for the
    pool.
-8. **When the job is `Active`**, run a single conflict sweep for it and send at most one email.
-   Skip the sweep entirely when the job is `Planned` or `On Hold`, because Part 1 makes those
-   pools invisible to conflict detection and sweeping them here would contradict that. A pool
-   picks up its first conflict check when the PM commits it.
+8. **Run a single conflict sweep for the job whatever its status**, and put the result in
+   `Result` and in the completion email to the requester. **Send a conflict ALERT email only when
+   the job is `Active`.**
+
+   The distinction that matters is not Active versus Planned, it is an alert versus a report.
+   Part 1 keeps non-Active pools out of conflict *alerting* because repeated alerts train people
+   to ignore alerts. A PM scheduling a pool still wants to know it collides with an existing pool
+   on three days, at the moment they are choosing the dates. That is information they asked for,
+   not an interruption.
 9. Set `Status = Done`, or `Failed` with the reason, and email the requester either way.
 
 **`DurationDays` is work days, never the inclusive calendar span.** Only the endpoints must be
@@ -257,8 +262,10 @@ must end at `Failed` with an email in every path.
 
 ## Open questions
 
-- **Does reflow need to run on `On Hold` pools?** Assumed yes, since a paused pool is exactly the
-  one whose dates need moving before it restarts. Nothing in the design prevents it.
-- **Should committing a pool to `Active` trigger an automatic conflict sweep?** It would catch
-  collisions at the moment they start to matter. Left out for now to keep the commit a plain field
-  edit with no side effects.
+- ~~Does reflow need to run on `On Hold` pools?~~ **Confirmed yes by Shane, 2026-09-08b.** A
+  paused pool is exactly the one whose dates need moving before it restarts.
+- ~~Should committing a pool to `Active` trigger an automatic conflict sweep?~~ **Decided
+  2026-09-08b: no.** It would need a new flow triggered on Jobs updates, with its own
+  trigger-condition gate to stop it firing on every edit to every job, which is the defect Flow 3
+  spent a session fixing. The nightly sweep already bounds the exposure to one night, and the
+  reflow now reports conflicts at scheduling time, which is earlier than commit anyway.
