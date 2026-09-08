@@ -1,0 +1,924 @@
+{
+  "subphases": [
+    {
+      "num": "0.0",
+      "name": "Sales to Production Handoff",
+      "skill": "@office",
+      "tradeCode": null,
+      "defaultCrew": "office",
+      "days": 2,
+      "seq": 1,
+      "candidates": [],
+      "tasks": [
+        "Contract review",
+        "Signed",
+        "Change orders process",
+        "Draw schedule",
+        "Design verification",
+        "Approved Construction Plans",
+        "Pools Dimensions Verified",
+        "Spa Dimensions Verified",
+        "Feature locations",
+        "Equipment specifications approved",
+        "Material Selections Approved",
+        "Selections",
+        "Start ordering Materials as needed?",
+        "Budget verification",
+        "Permit submission",
+        "Procurement planning",
+        "HOA Submittals to Client"
+      ]
+    },
+    {
+      "num": "1.0",
+      "name": "Pre-Construction Back Office Admin",
+      "skill": "@office",
+      "tradeCode": null,
+      "defaultCrew": "office",
+      "days": 2,
+      "seq": 2,
+      "candidates": [],
+      "tasks": [
+        "Survey Submitted",
+        "Survey completed",
+        "Fence Location Verified",
+        "Equipment Pad Verified",
+        "Permits",
+        "Permit Obtained",
+        "Electric Permit",
+        "HOA Approval",
+        "811 Utilities Submission",
+        "Order Shell if Fiberglass to meet schedule",
+        "Plan View",
+        "Dig Sheet",
+        "PortaPotty Submitted",
+        "Delivered",
+        "HOA Submission Document",
+        "Site Inspection prior to Permit/Codes",
+        "Permit Downloaded/Printed/shared",
+        "D2 Pool Sign in the Yard",
+        "Contruction Tote for supplies onsite"
+      ]
+    },
+    {
+      "num": "1.1",
+      "name": "Pre-Construction Verification - HANDOVER FROM OFFICE TO FIELD PM",
+      "skill": "@office",
+      "tradeCode": null,
+      "defaultCrew": "office",
+      "days": 2,
+      "seq": 3,
+      "candidates": [],
+      "tasks": [
+        "Client Meeting - SEE FORM FOR AGENDA FINAL CLIENT SIGH OFF",
+        "Review Selections",
+        "PM Assigned/Introduced",
+        "Vendor Schedule",
+        "Materials Procured/Handoff to Admin/Backoffice",
+        "Contract scope review",
+        "Plan revision verification",
+        "Easement review",
+        "Property access review",
+        "PreCon Meeting PM and Dig Team>digsheet/plan view"
+      ]
+    },
+    {
+      "num": "1.2",
+      "name": "Site Preparation",
+      "skill": "demolition",
+      "tradeCode": "demolition",
+      "defaultCrew": "campos",
+      "days": 2,
+      "seq": 4,
+      "candidates": [
+        "campos"
+      ],
+      "tasks": [
+        "Construction Entrance and Curb Protection",
+        "Identify Site Obstacles",
+        "Site Prep and Demo (existing fence etc)",
+        "Security Fence",
+        "Silt Fence installed",
+        "Landscaping protection",
+        "Staging area designation",
+        "Material delivery planning",
+        "Neighbor notification as needed"
+      ]
+    },
+    {
+      "num": "1.3",
+      "name": "Pool Layout",
+      "skill": "dig",
+      "tradeCode": "dig",
+      "defaultCrew": "guillermo",
+      "days": 2,
+      "seq": 5,
+      "candidates": [
+        "guillermo",
+        "harrison",
+        "saul",
+        "stl"
+      ],
+      "tasks": [
+        "Benchmark establishment",
+        "Stake Perimeter",
+        "House-to-pool measurements",
+        "Setback verification",
+        "Elevation verification",
+        "Feature layout (spa, tanning ledge, fire features, water features",
+        "Auto Cover Layout",
+        "Equipment location confirmation"
+      ]
+    },
+    {
+      "num": "1.4",
+      "name": "Pre-Dig Quality Check",
+      "skill": "@unassigned",
+      "tradeCode": null,
+      "defaultCrew": "unassigned",
+      "days": 2,
+      "seq": 6,
+      "candidates": [],
+      "tasks": [
+        "Layout sign-off",
+        "Dig depth calculations",
+        "Dig Sheet and Plan View OnSite to Excavation Team",
+        "Soil condition review",
+        "Overdig requirements",
+        "Dewatering assessment",
+        "Hauloff Coordination"
+      ]
+    },
+    {
+      "num": "1.5",
+      "name": "Excavation Operations",
+      "skill": "dig",
+      "tradeCode": "dig",
+      "defaultCrew": "harrison",
+      "days": 2,
+      "seq": 7,
+      "candidates": [
+        "guillermo",
+        "harrison",
+        "saul",
+        "stl"
+      ],
+      "tasks": [
+        "Dig supervision",
+        "Evacuate Shell",
+        "Evacuate Spa",
+        "Evacuate benches",
+        "Evacuate Steps",
+        "Evacuate Plumbing and Electrical trenches",
+        "Shelf and bench measurements",
+        "Transition slope verification",
+        "Deep-end depth verification",
+        "Water Feature(s) verification",
+        "Equipment Pad Verification"
+      ]
+    },
+    {
+      "num": "1.6",
+      "name": "Post-Excavation Review",
+      "skill": "@unassigned",
+      "tradeCode": null,
+      "defaultCrew": "unassigned",
+      "days": 2,
+      "seq": 8,
+      "candidates": [],
+      "tasks": [
+        "Excavation dimension check",
+        "Evacuation Shape",
+        "Verify Overdig",
+        "Soil stability inspection",
+        "Soil pile management",
+        "Haul-off verification",
+        "Evacuation Images obtained",
+        "Excavation acceptance sign-off by PM"
+      ]
+    },
+    {
+      "num": "2.1",
+      "name": "Engineering Review by PM",
+      "skill": "@office",
+      "tradeCode": null,
+      "defaultCrew": "office",
+      "days": 2,
+      "seq": 9,
+      "candidates": [],
+      "tasks": [
+        "Structural plan review",
+        "Engineering Details",
+        "Rebar schedule review",
+        "Beam requirement review",
+        "Specialty feature reinforcement review",
+        "Spa wall reinforcement verification"
+      ]
+    },
+    {
+      "num": "2.2",
+      "name": "Steel Installation and Forms",
+      "skill": "rebar",
+      "tradeCode": "rebar",
+      "defaultCrew": "harrison",
+      "days": 2,
+      "seq": 10,
+      "candidates": [
+        "harrison",
+        "stl"
+      ],
+      "tasks": [
+        "Radius formation",
+        "Beam construction",
+        "Floor steel placement",
+        "Wall steel placement",
+        "Step reinforcement",
+        "Spa Reinforcement",
+        "Bench reinforcement"
+      ]
+    },
+    {
+      "num": "2.3",
+      "name": "Bond Beam Preparation",
+      "skill": "rebar",
+      "tradeCode": "rebar",
+      "defaultCrew": "harrison",
+      "days": 2,
+      "seq": 11,
+      "candidates": [
+        "harrison",
+        "stl"
+      ],
+      "tasks": [
+        "Bonding Wire",
+        "Bond Steel Cage",
+        "Beam width verification",
+        "Beam height verification",
+        "Skimmer reinforcement review",
+        "Bond Metallic components",
+        "Future deck interface review"
+      ]
+    },
+    {
+      "num": "2.4",
+      "name": "Bonding System Installation",
+      "skill": "@sub",
+      "tradeCode": null,
+      "defaultCrew": "subcon",
+      "days": 2,
+      "seq": 12,
+      "candidates": [],
+      "tasks": [
+        "Bond wire installation",
+        "Grid continuity verification",
+        "Equipment bonding preparation",
+        "Metal component bonding"
+      ]
+    },
+    {
+      "num": "2.5",
+      "name": "Steel QC Inspection Municipal Inspection",
+      "skill": "@sub",
+      "tradeCode": null,
+      "defaultCrew": "subcon",
+      "days": 2,
+      "seq": 13,
+      "candidates": [],
+      "tasks": [
+        "Rebar spacing verification",
+        "Steel elevation verification",
+        "Steel clearance verification",
+        "Bond Beam Verification",
+        "Chair placement and height verification",
+        "Penetration reinforcement review",
+        "Structural Elements Thickened Wall, Raised Bond Beam Review and verification"
+      ]
+    },
+    {
+      "num": "2.6",
+      "name": "Pre-Gunite Structural Inspection",
+      "skill": "@sub",
+      "tradeCode": null,
+      "defaultCrew": "subcon",
+      "days": 2,
+      "seq": 14,
+      "candidates": [],
+      "tasks": [
+        "Internal QC inspection",
+        "Municipal inspection preparation",
+        "Correction list completion",
+        "Inspection sign-off"
+      ]
+    },
+    {
+      "num": "3.1",
+      "name": "Hydraulic Design Verification",
+      "skill": "@office",
+      "tradeCode": null,
+      "defaultCrew": "office",
+      "days": 2,
+      "seq": 15,
+      "candidates": [],
+      "tasks": [
+        "Plumbing Plan Approved",
+        "Pipe sizing review",
+        "Verify Suction Lines",
+        "Verify Feature plumbing",
+        "Equipment compatibility review",
+        "Flow calculations",
+        "Water feature hydraulic review"
+      ]
+    },
+    {
+      "num": "3.2",
+      "name": "Underground Plumbing Installation",
+      "skill": "plumbing",
+      "tradeCode": "plumbing",
+      "defaultCrew": "harrison",
+      "days": 2,
+      "seq": 16,
+      "candidates": [
+        "harrison",
+        "stl"
+      ],
+      "tasks": [
+        "Main drain installation",
+        "Skimmer installation",
+        "Return line installation",
+        "Cleaner line installation",
+        "Spa jet plumbing",
+        "Water feature plumbing",
+        "Auto Leveler, Overflow Drains"
+      ]
+    },
+    {
+      "num": "3.3",
+      "name": "Plumbing Pressure Testing",
+      "skill": "plumbing",
+      "tradeCode": "plumbing",
+      "defaultCrew": "harrison",
+      "days": 2,
+      "seq": 17,
+      "candidates": [
+        "harrison",
+        "stl"
+      ],
+      "tasks": [
+        "Pressurize Lines",
+        "Monitor Pressure",
+        "Isolation testing",
+        "Pressure hold verification",
+        "Document Results",
+        "Leak identification",
+        "Repair documentation"
+      ]
+    },
+    {
+      "num": "3.4",
+      "name": "Electrical Rough-In",
+      "skill": "@sub",
+      "tradeCode": null,
+      "defaultCrew": "subcon",
+      "days": 2,
+      "seq": 18,
+      "candidates": [],
+      "tasks": [
+        "Conduit routing",
+        "Junction box placement (J Box)",
+        "Light niche installation",
+        "Low-voltage routing",
+        "Automation conduit preparation",
+        "Conduit for Water Features and Lights",
+        "Auto Cover Conduit"
+      ]
+    },
+    {
+      "num": "3.5",
+      "name": "Bonding Grid Completion",
+      "skill": "@sub",
+      "tradeCode": null,
+      "defaultCrew": "subcon",
+      "days": 2,
+      "seq": 19,
+      "candidates": [],
+      "tasks": [
+        "Grid installation",
+        "Grid continuity testing",
+        "Deck bonding preparation",
+        "Equipment bonding preparation"
+      ]
+    },
+    {
+      "num": "3.6",
+      "name": "Equipment Pad Preparation",
+      "skill": "gas",
+      "tradeCode": "gas",
+      "defaultCrew": "saul",
+      "days": 2,
+      "seq": 20,
+      "candidates": [
+        "saul"
+      ],
+      "tasks": [
+        "Verify Pad Location and Slope",
+        "Equipment orientation planning",
+        "Service clearance verification",
+        "Drainage planning",
+        "Future Service Availability",
+        "Utility stub-out verification",
+        "Transformer and light conduit planning and verification"
+      ]
+    },
+    {
+      "num": "3.7",
+      "name": "Rough Inspection Preparation",
+      "skill": "@unassigned",
+      "tradeCode": null,
+      "defaultCrew": "unassigned",
+      "days": 2,
+      "seq": 21,
+      "candidates": [],
+      "tasks": [
+        "Plumbing QC review",
+        "Electrical QC review",
+        "Bonding QC review",
+        "Inspection sign-off"
+      ]
+    },
+    {
+      "num": "4.1",
+      "name": "Pre-Shoot Readiness Review",
+      "skill": "@unassigned",
+      "tradeCode": null,
+      "defaultCrew": "unassigned",
+      "days": 2,
+      "seq": 22,
+      "candidates": [],
+      "tasks": [
+        "Structural inspection approval",
+        "Plumbing pressure confirmation",
+        "Steel acceptance verification",
+        "Electrical  Conduit Approved",
+        "Pressure Test Activated",
+        "Auto Cover Conduit in Vault",
+        "Weather assessment"
+      ]
+    },
+    {
+      "num": "4.2",
+      "name": "Crew Pre-Shoot Meeting",
+      "skill": "@unassigned",
+      "tradeCode": null,
+      "defaultCrew": "unassigned",
+      "days": 2,
+      "seq": 23,
+      "candidates": [],
+      "tasks": [
+        "Scope review",
+        "Thickness requirements review",
+        "Feature details review",
+        "Safety review"
+      ]
+    },
+    {
+      "num": "4.3",
+      "name": "Shotcrete Placement",
+      "skill": "shotcrete",
+      "tradeCode": "shotcrete",
+      "defaultCrew": "stl",
+      "days": 2,
+      "seq": 24,
+      "candidates": [
+        "stl"
+      ],
+      "tasks": [
+        "Floor shoot",
+        "Wall shoot",
+        "Bond beam shoot",
+        "Spa shoot",
+        "Pad Shoot",
+        "Feature shoot",
+        "Auto Cover shoot"
+      ]
+    },
+    {
+      "num": "4.4",
+      "name": "Real-Time QC Monitoring",
+      "skill": "@unassigned",
+      "tradeCode": null,
+      "defaultCrew": "unassigned",
+      "days": 2,
+      "seq": 25,
+      "candidates": [],
+      "tasks": [
+        "Thickness verification",
+        "Encapsulation verification",
+        "Nozzle Angle and Rebound management",
+        "Pipe penetration review"
+      ]
+    },
+    {
+      "num": "4.5",
+      "name": "Shaping & Finishing",
+      "skill": "shotcrete",
+      "tradeCode": "shotcrete",
+      "defaultCrew": "stl",
+      "days": 2,
+      "seq": 26,
+      "candidates": [
+        "stl"
+      ],
+      "tasks": [
+        "Step shaping",
+        "Bench shaping",
+        "Radius refinement",
+        "Spillway shaping"
+      ]
+    },
+    {
+      "num": "4.6",
+      "name": "Post-Shoot Inspection",
+      "skill": "@unassigned",
+      "tradeCode": null,
+      "defaultCrew": "unassigned",
+      "days": 2,
+      "seq": 27,
+      "candidates": [],
+      "tasks": [
+        "Hollow area inspection",
+        "Crack review",
+        "Thickness documentation",
+        "Photograph and document images",
+        "Engineer review (if required)"
+      ]
+    },
+    {
+      "num": "4.7",
+      "name": "Curing Program",
+      "skill": "@unassigned",
+      "tradeCode": null,
+      "defaultCrew": "unassigned",
+      "days": 2,
+      "seq": 28,
+      "candidates": [],
+      "tasks": [
+        "Cure instruction delivery",
+        "Daily cure monitoring",
+        "Daily Moisture Curing Schedule 7-10 Days (watering)",
+        "Cure log documentation",
+        "Customer education"
+      ]
+    },
+    {
+      "num": "5.1",
+      "name": "Material Verification",
+      "skill": "@office",
+      "tradeCode": null,
+      "defaultCrew": "office",
+      "days": 2,
+      "seq": 29,
+      "candidates": [],
+      "tasks": [
+        "Tile approval",
+        "Coping approval",
+        "Deck material approval",
+        "Color approval",
+        "Quantity verification"
+      ]
+    },
+    {
+      "num": "5.2",
+      "name": "Waterproofing & Surface Prep",
+      "skill": "sealant",
+      "tradeCode": "sealant",
+      "defaultCrew": "antonio",
+      "days": 2,
+      "seq": 30,
+      "candidates": [
+        "antonio"
+      ],
+      "tasks": [
+        "Beam preparation",
+        "Surface cleaning",
+        "Waterproofing application",
+        "Expansion joint planning"
+      ]
+    },
+    {
+      "num": "5.3",
+      "name": "Tile Installation",
+      "skill": "tile",
+      "tradeCode": "tile",
+      "defaultCrew": "cirilo",
+      "days": 2,
+      "seq": 31,
+      "candidates": [
+        "cirilo",
+        "guillermo"
+      ],
+      "tasks": [
+        "Waterline tile layout",
+        "Feature tile installation",
+        "Spa tile installation",
+        "Tile Level Verification",
+        "Verify Grout Joint Alignment",
+        "Expansion Joints Installation"
+      ]
+    },
+    {
+      "num": "5.4",
+      "name": "Coping Installation",
+      "skill": "coping",
+      "tradeCode": "coping",
+      "defaultCrew": "cirilo",
+      "days": 2,
+      "seq": 32,
+      "candidates": [
+        "armondo",
+        "cirilo",
+        "guillermo"
+      ],
+      "tasks": [
+        "Elevation verification",
+        "Overhang verification",
+        "Joint spacing verification",
+        "Radius consistency review",
+        "Water Feature and Veneers",
+        "Spa Veneer",
+        "Water Feature Veneer"
+      ]
+    },
+    {
+      "num": "5.5",
+      "name": "Deck Preparation",
+      "skill": "finishgrade",
+      "tradeCode": "finishgrade",
+      "defaultCrew": "guillermo",
+      "days": 2,
+      "seq": 33,
+      "candidates": [
+        "guillermo",
+        "saul"
+      ],
+      "tasks": [
+        "Subgrade preparation",
+        "Compaction testing",
+        "Form setup",
+        "Drain installation"
+      ]
+    },
+    {
+      "num": "5.6",
+      "name": "Deck Placement",
+      "skill": "hardscape",
+      "tradeCode": "hardscape",
+      "defaultCrew": "devon",
+      "days": 2,
+      "seq": 34,
+      "candidates": [
+        "antonio",
+        "armondo",
+        "campos",
+        "cirilo",
+        "devon",
+        "guillermo"
+      ],
+      "tasks": [
+        "Concrete placement",
+        "Paver installation",
+        "Paver Edge Placed",
+        "Auto Cover Rough in",
+        "Decorative finish application",
+        "Expansion joint installation"
+      ]
+    },
+    {
+      "num": "5.7",
+      "name": "Drainage Verification",
+      "skill": "drainage",
+      "tradeCode": "drainage",
+      "defaultCrew": "devon",
+      "days": 2,
+      "seq": 35,
+      "candidates": [
+        "cirilo",
+        "devon",
+        "guillermo"
+      ],
+      "tasks": [
+        "Deck slope testing",
+        "Water flow testing",
+        "Area drain testing",
+        "Equipment pad drainage review"
+      ]
+    },
+    {
+      "num": "5.8",
+      "name": "Hardscape Final QC",
+      "skill": "@unassigned",
+      "tradeCode": null,
+      "defaultCrew": "unassigned",
+      "days": 2,
+      "seq": 36,
+      "candidates": [],
+      "tasks": [
+        "Surface consistency review",
+        "Joint inspection",
+        "Trip hazard inspection",
+        "Finish approval"
+      ]
+    },
+    {
+      "num": "6.1",
+      "name": "Equipment Installation",
+      "skill": "plumbing",
+      "tradeCode": "plumbing",
+      "defaultCrew": "harrison",
+      "days": 2,
+      "seq": 37,
+      "candidates": [
+        "harrison",
+        "stl"
+      ],
+      "tasks": [
+        "Pump installation",
+        "Filter installation",
+        "Heater installation",
+        "Chiller Instalation",
+        "Automation installation",
+        "Sanitizer installation"
+      ]
+    },
+    {
+      "num": "6.2",
+      "name": "Equipment Plumbing",
+      "skill": "plumbing",
+      "tradeCode": "plumbing",
+      "defaultCrew": "harrison",
+      "days": 2,
+      "seq": 38,
+      "candidates": [
+        "harrison",
+        "stl"
+      ],
+      "tasks": [
+        "Manifold assembly",
+        "Valve installation",
+        "Check valve installation",
+        "Flow verification",
+        "Water Feature verification",
+        "Auto Leveler and Pool Drain verification"
+      ]
+    },
+    {
+      "num": "6.3",
+      "name": "Equipment Electrical",
+      "skill": "automation",
+      "tradeCode": "automation",
+      "defaultCrew": "harrison",
+      "days": 2,
+      "seq": 39,
+      "candidates": [
+        "harrison"
+      ],
+      "tasks": [
+        "Breaker installation",
+        "Automation wiring",
+        "Bonding completion",
+        "GFCI verification",
+        "Auto Cover Switch"
+      ]
+    },
+    {
+      "num": "6.4",
+      "name": "Interior Finish Preparation",
+      "skill": "plaster",
+      "tradeCode": "plaster",
+      "defaultCrew": "brothers",
+      "days": 2,
+      "seq": 40,
+      "candidates": [
+        "brothers",
+        "stl"
+      ],
+      "tasks": [
+        "Surface cleaning",
+        "Fill preparation",
+        "Water source verification",
+        "Trim Out Pool - Main Drains and Covers",
+        "Startup planning"
+      ]
+    },
+    {
+      "num": "6.5",
+      "name": "Interior Finish & Fill",
+      "skill": "pebbletech",
+      "tradeCode": "pebbletech",
+      "defaultCrew": "brothers",
+      "days": 2,
+      "seq": 41,
+      "candidates": [
+        "brothers",
+        "stl"
+      ],
+      "tasks": [
+        "Plaster/Pebble installation",
+        "Surface inspection",
+        "Fill supervision",
+        "Fill documentation"
+      ]
+    },
+    {
+      "num": "6.6",
+      "name": "Startup Procedures",
+      "skill": "@unassigned",
+      "tradeCode": null,
+      "defaultCrew": "unassigned",
+      "days": 2,
+      "seq": 42,
+      "candidates": [],
+      "tasks": [
+        "Initial equipment startup",
+        "Leak Inspection",
+        "Auto Cover Installed",
+        "Lights Pulled In",
+        "Flow balancing",
+        "Valve adjustment",
+        "Automation programming"
+      ]
+    },
+    {
+      "num": "6.7",
+      "name": "Water Chemistry Startup",
+      "skill": "@unassigned",
+      "tradeCode": null,
+      "defaultCrew": "unassigned",
+      "days": 2,
+      "seq": 43,
+      "candidates": [],
+      "tasks": [
+        "Initial testing",
+        "Chemical balancing",
+        "Brushing schedule",
+        "Startup log creation"
+      ]
+    },
+    {
+      "num": "6.8",
+      "name": "Client Orientation",
+      "skill": "poolschool",
+      "tradeCode": "poolschool",
+      "defaultCrew": "harrison",
+      "days": 2,
+      "seq": 44,
+      "candidates": [
+        "harrison"
+      ],
+      "tasks": [
+        "Equipment training",
+        "Automation training",
+        "Maintenance education",
+        "Warranty Submission",
+        "Documentation handoff"
+      ]
+    },
+    {
+      "num": "6.9",
+      "name": "Final Project Closeout",
+      "skill": "@office",
+      "tradeCode": null,
+      "defaultCrew": "office",
+      "days": 2,
+      "seq": 45,
+      "candidates": [],
+      "tasks": [
+        "Punch-list completion",
+        "Final inspection",
+        "Photo documentation",
+        "Warranty registration",
+        "Customer Pool School"
+      ]
+    },
+    {
+      "num": "7.0",
+      "name": "Warranty & 30-Day Follow-Up",
+      "skill": "@office",
+      "tradeCode": null,
+      "defaultCrew": "office",
+      "days": 2,
+      "seq": 46,
+      "candidates": [],
+      "tasks": [
+        "7-day startup review",
+        "30-day chemistry review",
+        "Warranty inspection",
+        "Customer satisfaction survey",
+        "Service department handoff"
+      ]
+    }
+  ],
+  "counts": {
+    "subphases": 46,
+    "tasks": 295
+  }
+}
