@@ -168,7 +168,12 @@ Sunday and all six are correct.
 
   **The canvas app must now send six parameters, not five.** `SignedByEmail` is required, so an app still sending five will fail at the trigger.
 
-  **NOT YET EXERCISED END TO END.** The definition validated, published and re-exported clean, but FlowAgent cannot inject inputs into a PowerAppV2 trigger (`DirectApiTriggerInputsUnsupported` — the caller lacks the ACL on the flow's Logic Flows connection), and the only past run targets Harrison Assignment 1, so resubmitting it is barred by §6a. **The first real test is the canvas app's sign-off screen calling it against a `TEST-900x` row.** Until then treat the `?['d']?['Id']` accessor as unverified: if the connector returns the body unwrapped, it needs to be `?['Id']`. Assignment **32** (`TEST-9002 · 2.1 Engineering Review by PM`, 6 tasks, 0 complete, unsigned) is the intended target.
+  **EXERCISED END TO END — confirmed 2026-09-08b, this caveat previously said the opposite.**
+  The `?['d']?['Id']` accessor is correct and the `ensureuser` path works. The proof no longer shows in the row state, because assignment 25 was subsequently REOPENED as a test of that feature, which clears `InstallerSignOff` and `InstallerSignOffById`. It survives in the audit trail the reopen appends:
+
+  > `REOPENED 2026-09-07 18:09 by stratirus@d2pools.com (was signed by D2 Bot): Poor work quality on tile line, PM walk-through`
+
+  That single line proves four things at once: sign-off wrote a real attributed user, Reopen clears it, Reopen records who had signed, and the optional reason is captured. **No row in the tenant currently carries a non-null `InstallerSignOffById`** — the six rows flagged `InstallerSignOff=true` today are seed rows with no timestamps plus Harrison 1's pre-fix `"Chrome-driven test"`. Do not read that as the fix being broken; read it as the evidence having been consumed. Original caveat, now void: The definition validated, published and re-exported clean, but FlowAgent cannot inject inputs into a PowerAppV2 trigger (`DirectApiTriggerInputsUnsupported` — the caller lacks the ACL on the flow's Logic Flows connection), and the only past run targets Harrison Assignment 1, so resubmitting it is barred by §6a. **The first real test is the canvas app's sign-off screen calling it against a `TEST-900x` row.** Until then treat the `?['d']?['Id']` accessor as unverified: if the connector returns the body unwrapped, it needs to be `?['Id']`. Assignment **32** (`TEST-9002 · 2.1 Engineering Review by PM`, 6 tasks, 0 complete, unsigned) is the intended target.
 - **CRITICAL:** The Event-Driven Reconciliation flow's trigger condition MUST skip sign-off-only edits, or Sign-off Intake writes re-fire it and burn quota. See Rev D §06 for the trigger-condition expression.
 
 **Between the four subcontractor crews and Assignments:**
@@ -219,6 +224,10 @@ model could not express, because it implied we were mid-Phase-C and on schedule.
   without any REST work by us. The gap that remains is the browser tool itself never writing
   to Lists; live pools are still edited directly in Lists.
 - **Teams channels.** Deferred post-pilot 2026-09-05; every flow delivers by email instead.
+- **A Work Calendar top-up flow.** The list is a rolling year seeded once and expires
+  **2027-08-22**; after that holidays silently become work days in both New Pool and Flow 1. A
+  yearly recurrence that appends the next year's Sundays and federal holidays closes it for good.
+  Extending the rows by hand buys a year and needs no code, so this is backlog, not a blocker.
 - **Photo capture** on a task or sign-off. Raised by Shane 2026-09-07, likely the highest-value
   addition after go-live for a warranty/QC trail. Needs a camera control, image storage, and an
   upload through a flow.
@@ -922,6 +931,40 @@ without saving — verified.)
 
 **Context only, not in scope: `d2install.com`.** D2 Pools and D2 Install are sister companies both owned by Don. Four accounts in this tenant (Amy Stevens, Bobby Harlow, David Taylor, Mike Brantley) carry `@d2install.com` in their `mail` attribute while signing in on `netorgft15040037.onmicrosoft.com` UPNs — `d2install.com` is **not** a verified domain here (only `d2pools.com`, `d2tn.com` and the onmicrosoft default are). **This project is pools-only.** Recorded so future sessions don't re-investigate it.
 
+**THE WORK CALENDAR EXPIRES 2027-08-22, AND NOTHING MAINTAINS IT. Found 2026-09-08b.**
+
+The 62 rows are not "2026 holidays". They are a rolling year seeded once in Phase A, running
+**2026-08-30 to 2027-08-22**: 52 Sundays and 10 US federal holidays spanning both years. No flow,
+script or runbook step extends it, so it simply runs out.
+
+What happens after that date is quiet rather than loud, which is what makes it worth writing down.
+`D2 - New Pool`'s `Condition_is_work_day` is:
+
+```
+and( not(equals(dayOfWeek(current), 0)),            // Sunday, COMPUTED
+     not(contains(variables('nonWork'), current)) ) // holiday, from Work Calendar
+```
+
+Sundays are computed and therefore correct forever. **Holidays are read only from the list**, so
+past 2027-08-22 every holiday silently becomes a work day, and pools get scheduled across
+Thanksgiving and Christmas with no error anywhere. A pool runs roughly four months, so pools
+created from about **April 2027** start crossing the boundary.
+
+Two related notes. `Get_work_calendar` passes `$top: 500`, so a calendar extended past roughly
+nine years would truncate, also silently. And Flow 1 reads the same list to decide whether today
+is a work day, so an expired calendar degrades dispatch as well, not just generation.
+
+**Cheapest fix is to extend the list**, which is data and needs no flow change. The durable fix is
+a yearly recurrence flow that tops it up, which is a Phase G item, not a pilot blocker.
+
+**`generate-seed.py` does not check holidays at all, only Sundays.** Three assignments carry an
+endpoint on **Labor Day, 2026-09-07**: ids 4 (Harrison), 21 and 25 (both TEST-900x, so seeder
+output). Business rule 4 covers Work Calendar entries, not merely Sundays, so these are rule-4
+violations of the same class as the already-recorded Sunday-span gap. Harmless in test data that
+is being deleted, and **the production path is unaffected** because `D2 - New Pool` checks both.
+But do not reuse this generator for real scheduling without fixing the holiday check as well as
+the span check.
+
 **Data gaps still open (from Rev D §15 / original plan §09):**
 - **10 trades unmapped to any sub-phase:** Retaining Walls, Veneer/Stone, CMU, Brick/Masonry, Landscaping, Pavers, Forms, Water Line Install, Material Runs, Grading. Don owes a mapping decision. George Crew is scheduled zero days until this lands.
 - **11 field-supervision sub-phases sit in Unassigned.** Don owes: shared PM bucket, or specific-person ownership?
@@ -977,9 +1020,9 @@ the same time, and a surprising row is not automatically a bug in this session's
 
 | List | Rows | GUID |
 |---|---|---|
-| Jobs | 1 (Harrison Residence D2-1001 — **demo data, not a real pool**) | `ee0ecabf-2f11-458d-a9ea-641f76d10cc3` |
-| Assignments | 5 (D2-1001 sub-phases; 22 fields incl full Phase A schema) | `49ef7006-d3fe-40a7-a52f-c4c18545bd35` |
-| Tasks | 30 (6 × 5 assignments) | `22c45847-ff0d-417a-b53e-1ea018fbb6d3` |
+| Jobs | **3** (Harrison D2-1001 demo + TEST-9001 + TEST-9002 — no real pool yet) | `ee0ecabf-2f11-458d-a9ea-641f76d10cc3` |
+| Assignments | **43** (5 Harrison + 38 TEST-900x; 22 fields incl full Phase A schema) | `49ef7006-d3fe-40a7-a52f-c4c18545bd35` |
+| Tasks | **282** (30 Harrison + 252 TEST-900x backfill) | `22c45847-ff0d-417a-b53e-1ea018fbb6d3` |
 | Trades | 26 | `05038f7f-a6cb-4f57-b1a1-3ff9c7126ba5` |
 | Crews | 14 (subcontractor patch applied) | `45e9ff1f-bf36-4ab5-929d-25ab9a80d460` |
 | Crew-Trades | 51 | (see viewlsts.aspx) |
@@ -1001,11 +1044,43 @@ which belongs to a separate estimator workload and is deliberately not documente
 | 3 | Event-Driven Reconciliation | Started | Trigger condition fixed to version-history comparison 2026-09-07 (see Known bugs); no longer the no-op it was when this table was written. **Stop it before any bulk write to Assignments**, since it still fires on every Crew/date edit. |
 | 4 | Nightly Reconciliation | Started | **DONE — built and both tests passed 2026-09-03.** Created fully headless (no designer). Clean sweep = 0 conflicts, no email; seeded double-book caught and emailed. |
 | 5 | Daily + Weekly Summary | Started | **DONE.** Built 2026-09-03 as two flows, HTML body not PDF. **Content reviewed 2026-09-05 and three defects fixed** — weekly compliance counted unfinished work, neither table was sorted, daily footer off by one. Re-verified by manual run. |
-| 6 | Task Tick Batch | Started | **NEW 2026-09-07, verified end to end.** `D2 - Task Tick Batch`, flowId `e8843056-53aa-f111-aaab-6045bd0196b3`. PowerAppV2 trigger `(AssignmentID, TaskUpdates, TasksTotal, TasksComplete, SignedByEmail)`. Resolves the site user once via `ensureuser`, MERGEs each task from a comma-separated `taskId:flag` list, then MERGEs the assignment counters. **This exists because Patch() does not work from the canvas app — see the Patch entry under Known bugs.** |
-| 7 | Counter Reconciliation | Started | **NEW 2026-09-07, verified.** `D2 - Counter Reconciliation`, flowId `291fa9d9-caaa-f111-aaac-6045bd0195dd`. Nightly 05:30 Central, an hour ahead of the daily summary so Don's compliance figures are always computed from repaired counters. Recomputes `TasksTotal`/`TasksComplete` from the Tasks list and MERGEs **only rows that drifted**, so a clean night writes nothing. First run repaired 6 rows; the immediate second run repaired 0. |
-| 8 | Reopen Sign-off | Started | **Built 2026-09-07, verified.** `D2 - Reopen Sign-off`, flowId `0f850a63-beaa-f111-aaac-6045bd0195dd`. PowerAppV2 trigger. Clears `InstallerSignOff` and appends who reopened, when, who had signed, and an optional reason to `SignOffNotes`. Was already live but had never been added to this table. |
+| 6 | Task Tick Batch | Started | **NEW 2026-09-07, verified end to end.** `D2 - Task Tick Batch`, flowId `1a825a83-492a-d47a-0fc0-ec5ef7d43594` (Dataverse workflowid `e8843056-53aa-f111-aaab-6045bd0196b3`). PowerAppV2 trigger `(AssignmentID, TaskUpdates, TasksTotal, TasksComplete, SignedByEmail)`. Resolves the site user once via `ensureuser`, MERGEs each task from a comma-separated `taskId:flag` list, then MERGEs the assignment counters. **This exists because Patch() does not work from the canvas app — see the Patch entry under Known bugs.** |
+| 7 | Counter Reconciliation | Started | **NEW 2026-09-07, verified.** `D2 - Counter Reconciliation`, flowId `e877197e-1ab6-8f74-49f2-9a12532e3b14` (Dataverse workflowid `291fa9d9-caaa-f111-aaac-6045bd0195dd`). Nightly 05:30 Central, an hour ahead of the daily summary so Don's compliance figures are always computed from repaired counters. Recomputes `TasksTotal`/`TasksComplete` from the Tasks list and MERGEs **only rows that drifted**, so a clean night writes nothing. First run repaired 6 rows; the immediate second run repaired 0. |
+| 8 | Reopen Sign-off | Started | **Built 2026-09-07, verified.** `D2 - Reopen Sign-off`, flowId `d7bad02d-cbdf-f8e6-c385-9ff41bac3776` (Dataverse workflowid `0f850a63-beaa-f111-aaac-6045bd0195dd`). PowerAppV2 trigger. Clears `InstallerSignOff` and appends who reopened, when, who had signed, and an optional reason to `SignOffNotes`. Was already live but had never been added to this table. |
 | 9 | New Pool | Started | **NEW 2026-09-08, verified.** `D2 - New Pool`, flowId `02905018-4f41-e05a-d140-74e2afc82052` (Dataverse workflowid `d782ee70-2fab-f111-aaab-6045bd0196b3`). Triggered by a new row in **New Pool Requests** (`ProjectManager` is a required field on that list). Reads the 46-row **Sub-phase Template** and 295-row **Task Template** and generates a full pool: one Job, 46 Assignments, ~295 Tasks. See Known bugs and gotchas for the platform constraints found building it. |
 | 10 | Delete Pool | Started | **NEW 2026-09-08, verified.** `D2 - Delete Pool`, flowId `995099f4-76e6-8bc0-89ef-9fd3557138ce` (Dataverse workflowid `83064f1f-47ab-f111-aaac-6045bd0195dd`). Triggered by a new row in **Delete Pool Requests**. Removes a pool's Tasks, Assignments and Job. |
+
+**PRE-PILOT REALITY AUDIT, 2026-09-08b.** Every load-bearing claim in this file was checked
+against the live tenant, because CLAUDE.md had been caught wrong twice in one morning and the
+pilot makes decisions from it under time pressure. Verified green, so a future session need not
+redo these:
+
+| Checked | Result |
+|---|---|
+| 9 tracked lists exist, GUIDs match this file | ok |
+| Assignments versioning on (50) — Flow 3's gate depends on it | ok |
+| `TasksTotal`/`TasksComplete` vs actual Tasks rows, all 43 | **0 drift** (Counter Reconciliation works) |
+| Orphan Tasks / orphan Job lookups / unknown `Crew` codes / assignments with no tasks | **0 each** |
+| Business rule 2, a non-`Unlimited` crew on two pools the same day | **0 double-books** |
+| Required-but-NULL `Locked`/`NotApplicable`/`PMSignOff`/`DurationDays` | **0 rows** |
+| 11 D2 flows exist, all `Started` | ok |
+| `flows/exports/` current vs each flow's live `lastModifiedTime` | ok, none stale |
+| Flow email recipients still internal | all `stratirus@d2pools.com` |
+| `Crews.LeadEmail` blank on all 7 field crews | ok |
+| 8 built views `Paged=true` with formatters | ok |
+| `WeekMonday` calculated column and formula | ok |
+| Canvas app published, 3 flows attached, pointing at live flow ids | ok |
+| `D2 - New Pool` skips Sundays AND Work Calendar holidays | ok, verified in the definition |
+
+Four things it found are recorded in their own sections above: the Work Calendar expiry, three
+flow ids that were really Dataverse workflowids, this table's own row counts having drifted, and
+Flow 2's stale "not yet exercised" caveat.
+
+**Method note worth keeping.** Two conclusions in this audit were wrong on first pass and caught
+by looking harder. A grep for `"Work Calendar"` in the New Pool export returned zero and nearly
+produced "the flow ignores holidays" — the flow references lists by **GUID**. And matching the
+canvas app's flow connections by flow id reported two of three missing — the app references flows
+by **workflowEntityId**. Both would have been confident, wrong, and written down.
 
 **Phase B close-out completed 2026-09-05:** summary previews reviewed (three defects found and fixed, see Flow 5 below), Flow 5 recipients deliberately left internal, and all six flows then existing re-exported to `flows/exports/`. Flows 8-10 above postdate Phase B close-out and were added by later work.
 
