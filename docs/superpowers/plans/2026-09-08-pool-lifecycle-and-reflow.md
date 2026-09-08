@@ -12,6 +12,46 @@
 
 ---
 
+## Progress, as of 2026-09-08 evening
+
+**Tasks 1-5 are DONE, committed and verified against the live tenant. Part 1 of the spec (make
+`Planned` mean something) is complete: all four flows now honour job status.** Resume at Task 6.
+
+| Task | State | Commit |
+|---|---|---|
+| 1. Schema and list scaffolding | done | `3b01fa5` |
+| 2. Event-Driven Reconciliation | done | `87e8add` |
+| 3. Daily Dispatch | done | `d4bd9cf` |
+| 4. Nightly Reconciliation | done | `dbd61e0` |
+| 5. Summary flows | done | `ff91954` |
+| 6-9 | not started | |
+
+**Three deviations from this plan, all deliberate and all carried forward:**
+
+1. **The job filter is applied SERVER-SIDE, not in memory.** The plan specified a `Filter array`
+   on `item()?['Job']?['Id']`. Instead a `Select` builds `JobId eq N` clauses, a `Compose` joins
+   them into `(JobId eq 1 or JobId eq 3)`, and that appends to the existing `$filter`. It avoids
+   the connector's lookup output shape entirely, fetches fewer rows, and leaves the existing
+   `Filter array` actions untouched so the `CrewID` join cannot be disturbed. An empty Active set
+   degrades to `JobId eq -1`, matching nothing. Use the same pattern in any remaining task.
+2. **Flow edits use `edit_flow` with surgical operations and a dry run**, not a full-definition
+   resend. Retyping a large definition to change a few things invites transcription error.
+3. **`autoResolveConnectionRefs: false` is required.** With the default, Task 4's edit failed with
+   `The API connection reference '...' could not be found for the operation 'Get_assignments'`,
+   naming a pre-existing action the edit barely touched. Setting it false applied cleanly, and it
+   was then used for Task 5 as well. Treat false as the default for these flows.
+
+**Found and fixed en route, outside this plan's scope:** Daily Dispatch had been failing on every
+real work day since `Crews.LeadEmail` was cleared on 2026-09-05, with `To: null` and
+`400 To Field cannot be null or empty`. Masked because the only intervening days were a Sunday and
+Labor Day, which the flow correctly terminates on. `To` now falls back to `stratirus@d2pools.com`
+with a `[no lead email]` subject prefix. See `d4bd9cf`.
+
+**Tenant state:** at its audited baseline. All three jobs `Active`, every seeded test row restored
+to its prior crew, dates and duration. Nothing is half-applied.
+
+---
+
 ## Global Constraints
 
 Every task's requirements implicitly include this section. Most of these are things this project
