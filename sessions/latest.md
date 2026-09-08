@@ -1,99 +1,88 @@
-# 2026-09-07c — site rewrite, canvas fixes, and a session with real failures
+# 2026-09-08a — New Pool deployment, end to end
 
-Third session of the day. Started on a reported canvas bug and a request to improve the SharePoint
-site's look; ended having rewritten the site, fixed three view defects nobody had noticed, and
-made several avoidable mistakes. Shane's assessment at close: *"It seems like you just burned
-tokens for 2 hours, created problems and didn't deliver solutions. Frustrating session."* That is
-a fair summary of the second half and the reason this log leads with the failures.
+**Session goal:** close the biggest remaining hole in the system. A PM had no way to create a
+pool; the only route into SharePoint was a Stratirus engineer running scripts by hand.
 
-## What landed and is verified
+Started the evening of 09-07 and ran into the morning of 09-08. Nine planned tasks, a final
+whole-branch review, and a fix wave, all executed subagent-driven with a review after every task.
 
-**Canvas crew-picker bug — fixed.** Declaration order in a `.pa.yaml` screen IS z-order, and later
-paints on top. The PM-proxy picker was declared above `galToday`, so the gallery rendered over the
-scrim, the card and the crew list. A pure reorder fixed it (14 controls, every body byte-identical,
-no formula touched). Added `canvas-app/check_zorder.py`, wired into `deploy.py`; it fails on the
-pre-fix source naming the exact controls.
+## What D2 can now do
 
-**Three view defects found and fixed**, none previously known:
-- All eight views were `RowLimit=100, Paged=false`, which returns 100 and stops with no next
-  control. `Incomplete Tasks` was showing 100 of 184. Measured three ways before believing it.
-- `This Week by Crew` was a rolling seven days, not this week. On the Monday it ran, it was pulling
-  in work starting the *following* Monday. Fixed with a new calculated column `WeekMonday`, because
-  CAML has no start-of-week primitive — checked against the `<Value>` element reference rather than
-  assumed.
-- The eight views existed only in the tenant, with no script. Now committed and idempotent.
+A project manager adds one item to a SharePoint list and gets a complete pool: the Job, 46
+sub-phase Assignments with chained work-day dates that skip Sundays and Work Calendar holidays,
+and 295 Tasks. A second flow deletes a pool behind four guards.
 
-**SharePoint site rewritten.** It was the untouched Microsoft template with three web parts titled
-`[Sample content]` over stock photography. Now a launchpad: intro, the LIVE `Today by Crew` view on
-the page itself, and an indexed link set. Theme and logo from D2's measured brand colours.
-`ProjectHome.aspx` and both empty template lists deleted — in that order, because both lists had
-web parts on the old page and deleting them first would have broken it.
+Proven by a real 6m47s production run, not asserted: 46 assignments, 295 tasks, zero count
+mismatches, no Sunday endpoints, 12 distinct real crews. Then deleted by the delete flow itself,
+returning the tenant to exact baseline.
 
-**Reopen reason.** Shane's case: a sign-off revoked for poor work quality. The flow recorded who
-and when but not why. Added a third trigger parameter, always sent and may be empty. Verified end
-to end through the app: `REOPENED 2026-09-07 18:09 by stratirus@d2pools.com (was signed by D2 Bot):
-Poor work quality on tile line, PM walk-through`.
+## The design changed twice, both times for the better
 
-**Canvas recoloured** to the D2 palette; app and site now share one set of colours. Contrast
-checked, all past WCAG AA.
+**Shane's redirect collapsed the build.** CLAUDE.md framed this as porting `add_pool.py`'s
+scheduling logic into Power Automate. Shane's point was that the checklist is fixed: *"a simple
+template with all of them that get copied by the PjM with start-dates updated should be
+sufficient."* That removed the expensive half. The flow does not plan anything. It copies a
+template and walks dates forward. No busy map, no qualified-crew search, no 46-step constraint
+solve in a language bad at all three.
 
-**`tools/write-pool.js`** — the missing half of the pool pipeline. `add_pool.py`'s docstring told
-the reader to apply plans with a file that did not exist, so there was no path from a plan into
-SharePoint at all.
+**Hosting the browser tool in SharePoint is closed off, on policy not capability.** An HTML page
+in a document library IS the custom-script mechanism, modern sites block it by default, and any
+change back reverts within 24 hours. Microsoft's own docs, found before spending a browser session
+on it.
 
-## Failures — the point of this log
+## Built
 
-**Hand-authored platform payloads three separate times, against a rule already in CLAUDE.md.**
-Hero web part, Quick links web part, and the modern Calendar view. All three returned success
-(201/204) and rendered blank or empty. Each cost a diagnosis cycle. The rule — capture the shape
-from a working example or the UI, never hand-author it — is now hoisted to the top of the Known
-bugs section because writing it once clearly was not enough.
+- Four lists: `New Pool Requests`, `Delete Pool Requests`, `Sub-phase Template` (46 rows),
+  `Task Template` (295 rows). The template is DATA, so Don can edit the checklist and the 46
+  placeholder durations without anyone touching a flow.
+- `tools/gen-template-seed.py` — extracts the template from the browser tool, resolves default
+  crews from the LIVE `Crew-Trades` list rather than the stale HTML.
+- `sharepoint/provision-pool-lists.js`, `sharepoint/seed-templates.js` — idempotent, committed.
+- `D2 - New Pool` and `D2 - Delete Pool`, both published, exported, and started.
+- Launchpad links, flow exports, CLAUDE.md and spec updated.
 
-**Broke the app icon and had to discard the edit.** Studio's "Icon background fill" textbox does
-not accept automated keystrokes; fill/type append or are ignored. I kept trying instead of
-stopping after the second failure, and committed a mangled hex to the in-memory document. The live
-app was never touched and I verified that before and after discarding — but the right call was to
-stop at attempt two and hand it over.
+## What the process caught that testing could not
 
-**Shipped two visual defects Shane had to catch:** a duplicate row indicator on the Tasks views
-(SharePoint's own selection gutter drawing next to mine — needed `hideSelection: true`), and dead
-space on the home page from the List web part's fixed height. Both were visible in the first
-screenshot I took and I did not look hard enough at my own output.
+- **A 2-row sample produced a confident, wrong conclusion** that `Sub-phase Template` had no
+  `Trade` column. Both sampled rows were pseudo-skill rows with no trade, and the connector OMITS
+  null-valued fields rather than emitting null. Caught by controller verification, not by the
+  implementer. That would have broken three later tasks.
+- **The final whole-branch review found a Critical no per-task review could see**: `D2 - New Pool`
+  had no failure path at all. The same defect had been found and fixed TWICE on the delete flow
+  and never carried back across the task boundary. A mid-run failure would have stranded a partial
+  pool with the request stuck at `Building` and no email to anyone.
+- **Hardening a guard introduced a fresh instance of the bug being hardened against.** The
+  truncation check added 46 sequential reads upstream of the failure handler.
+- The delete flow's guards **worked by luck of current data**, not by design: blank-vs-blank passed
+  the confirmation test on `'' == ''`, and reads capped at 200 rows with no pagination. Neither was
+  reachable with today's data, so no test could have found them.
 
-**Answered the wrong question on new pools.** Shane asked where a *user* goes to create a pool. I
-built `write-pool.js`, which is plumbing only I can run. The user-facing answer still does not
-exist.
+## Decisions
 
-**Two corrections to my own earlier claims in this session:** I told Shane the d2pools.com hero
-images were "D2's own photos so there is no licensing question" — they are licensed Getty stock,
-and I had been about to copy three into the client tenant. And I dismissed the applied theme as
-"just a green favicon" when computed styles showed it was genuinely driving headings and links.
+- **`ProjectManager` is REQUIRED on New Pool Requests** (Shane). The flow had been silently
+  defaulting a blank PM to the D2 Bot service account, reproducing the Harrison placeholder defect.
+  Leaving it null breaks Flow 3's alert routing. Both fail silently, so neither was acceptable.
+- **Delete Pool exists at all** (Shane, reversing my out-of-scope call). A PM who can create 342
+  rows needs a way to undo it.
+- **Flow 3 stays running** during bulk inserts. Stopping it risks it being left disabled, which
+  silently removes the only real-time safety net for business rule 2. A real pool costs ~92
+  reconciliation runs (46 inserts plus 46 counter MERGEs), which quota does not care about.
 
-## Corrections to CLAUDE.md
+Sixteen rulings are recorded in full in the SDD ledger.
 
-- **Refresh, not remove-and-re-add.** CLAUDE.md said a changed flow trigger signature needs the
-  flow removed and re-added in Studio. It does not — Refresh alone cleared the error. Refresh also
-  saves the document, so the 1px nudge was unnecessary too.
-- **"Still open on the app" was badly stale** and would have misled a fresh session: it listed the
-  reopen action, the Notes field and the PM-proxy picker as unbuilt (all three are built and
-  verified) and said Flow 3 "is currently STOPPED" when it is Started.
+## Open
 
-## Open / next
-
-Two tasks, both written up in CLAUDE.md under "NEXT SESSION — two tasks":
-
-1. **Calendar / schedule visualisation.** Gantt is genuinely unavailable at this licensing tier
-   (Microsoft's own modern-compatibility checklist). Ranked alternatives recorded, the cheapest
-   being to surface the existing browser tool, which already IS a Gantt and simply is not reachable
-   from SharePoint.
-2. **New pool deployment.** The biggest remaining hole in the system. Needs a New Pool form plus a
-   flow that generates the 46 sub-phases and ~295 tasks; `add_pool.py` already has the logic in
-   Python and it needs porting to Power Automate.
-
-Also open: the app icon (manual Studio step), and the site stays internal-only while the landing
-page shows `TEST-900x` data.
+- **A narrow gap in the new failure handler.** Nine variable initialisations sit outside the
+  protective Scope because Logic Apps forbids them inside a container. If one fails the request
+  sticks at `Building` with no email. Low probability; parked deliberately rather than make a
+  second structural change to a just-proven flow.
+- **Something other than this session is writing to the production tenant.** A `Jobs` row was
+  created and removed unexplained, and two protected Assignments rows were modified outside any
+  of this session's activity. No harm done and every count reconciles, but CLAUDE.md's warning
+  about concurrent sessions should be taken literally.
+- Calendar / Gantt visualisation is still untouched. It was the other task queued on 09-07.
 
 ## Next action
 
-Start a fresh session on the two tasks above. Read CLAUDE.md's "NEXT SESSION — two tasks" section
-and the new rule at the top of "Known bugs and gotchas" before touching either.
+Fresh session on calendar / schedule visualisation. Cheapest real option is to surface the
+browser tool, which already IS a Gantt and simply is not reachable from SharePoint.
