@@ -276,9 +276,11 @@ In the browser (same session as Task 1):
   const site='https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler';
   const g=async u=>(await fetch(site+u,{headers:{Accept:'application/json;odata=nometadata'},credentials:'include'})).json();
   const crews=(await g("/_api/web/lists/GetByTitle('Crews')/items?$select=Id,Title,CrewID,Unlimited,Active&$top=100")).value;
-  const ct=(await g("/_api/web/lists/GetByTitle('Crew-Trades')/items?$top=500")).value;
+  const crewTrades=(await g("/_api/web/lists/GetByTitle('Crew-Trades')/items?$top=500")).value;
   const trades=(await g("/_api/web/lists/GetByTitle('Trades')/items?$select=Id,Title,TradeCode&$top=200")).value;
-  return {crews, crewTradesSample: ct.slice(0,3), crewTradesCount: ct.length, trades};
+  // crewTrades is returned in FULL because the generator consumes it. The
+  // sample is separate so the field names can be read at a glance.
+  return {crews, crewTrades, crewTradesSample: crewTrades.slice(0,3), crewTradesCount: crewTrades.length, trades};
 })();
 ```
 
@@ -329,6 +331,7 @@ SECTIONS = [(s['num'], s['name'], s.get('skill'), s.get('days', 2), s.get('tasks
 live = json.load(io.open(LIVE, encoding='utf-8'))
 live = live.get('result', live)
 crews = {c['CrewID']: c for c in live['crews'] if c.get('CrewID')}
+TRADE_CODES = {t['TradeCode'] for t in live['trades'] if t.get('TradeCode')}
 UNLIMITED = {k for k, c in crews.items() if c.get('Unlimited')}
 # trade code -> set of crew codes that hold it
 QUAL = collections.defaultdict(set)
@@ -363,6 +366,11 @@ for s in subphases:
         errs.append('UNKNOWN CREW %s on %s' % (s['defaultCrew'], s['num']))
     if s['days'] < 1:
         errs.append('BAD DURATION on %s' % s['num'])
+    # A tradeCode absent from the live Trades list leaves Trade null on every
+    # assignment built from this row, silently. That is the exact class of
+    # failure that has cost this project four build cycles, so refuse instead.
+    if s['tradeCode'] and s['tradeCode'] not in TRADE_CODES:
+        errs.append('UNKNOWN TRADE CODE %r on %s (not in Trades.TradeCode)' % (s['tradeCode'], s['num']))
 if len({s['num'] for s in subphases}) != len(subphases):
     errs.append('DUPLICATE SUB-PHASE NUMBER')
 if errs:
@@ -378,6 +386,8 @@ print('sub-phases : %d' % out['counts']['subphases'])
 print('tasks      : %d' % out['counts']['tasks'])
 print('crew load  : %s' % dict(load.most_common()))
 print('unassigned : %d' % sum(1 for s in subphases if s['defaultCrew'] == 'unassigned'))
+print('trades ok  : %d of %d sub-phases carry a resolvable trade code'
+      % (sum(1 for s in subphases if s['tradeCode']), len(subphases)))
 print('wrote %s' % OUT)
 ```
 
@@ -870,7 +880,7 @@ Note the `AssignmentId eq` filter is correct: that spelling is right for a serve
 
 - [ ] **Step 6: Restart Flow 3**
 
-FlowAgent `enable_flow` on `D2 - Event-Driven Reconciliation`. Confirm state is `Started`. Leaving it stopped silently disables double-book detection, which is business rule 2's only real-time safety net.
+FlowAgent **`publish_flow`** on `D2 - Event-Driven Reconciliation`, then confirm state is `Started` with `get_flow`. There is no `enable_flow` verb; `publish_flow` is enable/start only, which is exactly what is wanted here, and it does not republish the definition. Leaving it stopped silently disables double-book detection, which is business rule 2's only real-time safety net.
 
 - [ ] **Step 7: Commit**
 
