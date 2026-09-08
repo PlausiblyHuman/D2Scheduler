@@ -1,0 +1,319 @@
+{
+  "flowId": "e51b5571-5062-7eae-9de4-900f2c93d95d",
+  "displayName": "D2 - Nightly Reconciliation",
+  "workflowEntityId": "a15b04e4-c8a7-f111-b8dd-6045bd0196b3",
+  "state": "Started",
+  "lastModifiedTime": "2026-09-08T19:51:05Z",
+  "connectionReferences": {
+    "shared_sharepointonline": {
+      "connectionName": "shared-sharepointonl-20b83f29-d689-437e-b1ff-930f7bf3fda4",
+      "connectionReferenceLogicalName": "new_sharedsharepointonline_beb06",
+      "source": "Embedded",
+      "id": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+      "displayName": "SharePoint",
+      "iconUri": "https://static.powerapps.com/resource/ppcr/releases/v1.0.1813/1.0.1813.4769/sharepointonline/icon.png",
+      "brandColor": "",
+      "tier": "Standard",
+      "apiName": "sharepointonline",
+      "isProcessSimpleApiReferenceConversionAlreadyDone": false
+    },
+    "shared_office365": {
+      "connectionName": "shared-office365-0bc14d33-bf94-4439-bdbc-d600759333d5",
+      "connectionReferenceLogicalName": "new_sharedoffice365_4d59e",
+      "source": "Embedded",
+      "id": "/providers/Microsoft.PowerApps/apis/shared_office365",
+      "displayName": "Office 365 Outlook",
+      "iconUri": "https://static.powerapps.com/resource/ppcr/releases/v1.0.1819/1.0.1819.4795/office365/icon.png",
+      "brandColor": "#0078D4",
+      "tier": "Standard",
+      "apiName": "office365",
+      "isProcessSimpleApiReferenceConversionAlreadyDone": false
+    }
+  },
+  "definition": {
+    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+      "$connections": {
+        "defaultValue": {},
+        "type": "Object"
+      },
+      "$authentication": {
+        "defaultValue": {},
+        "type": "SecureObject"
+      }
+    },
+    "triggers": {
+      "Recurrence": {
+        "recurrence": {
+          "frequency": "Day",
+          "interval": 1,
+          "timeZone": "Central Standard Time",
+          "startTime": "2026-09-04T23:00:00",
+          "schedule": {
+            "hours": [
+              "23"
+            ],
+            "minutes": [
+              0
+            ]
+          }
+        },
+        "type": "Recurrence"
+      }
+    },
+    "actions": {
+      "Initialize_today": {
+        "runAfter": {},
+        "type": "InitializeVariable",
+        "inputs": {
+          "variables": [
+            {
+              "name": "today",
+              "type": "string",
+              "value": "@{formatDateTime(convertFromUtc(utcNow(),'Central Standard Time'),'yyyy-MM-dd')}"
+            }
+          ]
+        }
+      },
+      "Initialize_horizon": {
+        "runAfter": {
+          "Initialize_today": [
+            "Succeeded"
+          ]
+        },
+        "type": "InitializeVariable",
+        "inputs": {
+          "variables": [
+            {
+              "name": "horizon",
+              "type": "string",
+              "value": "@{formatDateTime(addDays(convertFromUtc(utcNow(),'Central Standard Time'),30),'yyyy-MM-dd')}"
+            }
+          ]
+        }
+      },
+      "Initialize_conflicts": {
+        "runAfter": {
+          "Initialize_horizon": [
+            "Succeeded"
+          ]
+        },
+        "type": "InitializeVariable",
+        "inputs": {
+          "variables": [
+            {
+              "name": "conflicts",
+              "type": "array",
+              "value": []
+            }
+          ]
+        }
+      },
+      "Get_assignments": {
+        "runAfter": {
+          "Compose_active_job_clause": [
+            "Succeeded"
+          ]
+        },
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_sharepointonline",
+            "operationId": "GetItems",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+          },
+          "parameters": {
+            "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+            "table": "49ef7006-d3fe-40a7-a52f-c4c18545bd35",
+            "$filter": "ScheduledFinish ge '@{variables('today')}' and ScheduledStart le '@{variables('horizon')}' and NotApplicable ne 1 and @{outputs('Compose_active_job_clause')}",
+            "$top": 5000
+          }
+        }
+      },
+      "Get_crews": {
+        "runAfter": {
+          "Get_assignments": [
+            "Succeeded"
+          ]
+        },
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_sharepointonline",
+            "operationId": "GetItems",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+          },
+          "parameters": {
+            "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+            "table": "45e9ff1f-bf36-4ab5-929d-25ab9a80d460",
+            "$filter": "Active eq 1 and Unlimited ne 1",
+            "$top": 100
+          }
+        }
+      },
+      "For_each_crew": {
+        "foreach": "@outputs('Get_crews')?['body/value']",
+        "actions": {
+          "Filter_crew_assignments": {
+            "runAfter": {},
+            "type": "Query",
+            "inputs": {
+              "from": "@outputs('Get_assignments')?['body/value']",
+              "where": "@equals(item()?['Crew'], items('For_each_crew')?['CrewID'])"
+            }
+          },
+          "For_each_assignment": {
+            "foreach": "@body('Filter_crew_assignments')",
+            "actions": {
+              "Filter_overlaps": {
+                "runAfter": {},
+                "type": "Query",
+                "inputs": {
+                  "from": "@body('Filter_crew_assignments')",
+                  "where": "@and(not(equals(item()?['ID'], items('For_each_assignment')?['ID'])), lessOrEquals(item()?['ScheduledStart'], items('For_each_assignment')?['ScheduledFinish']), greaterOrEquals(item()?['ScheduledFinish'], items('For_each_assignment')?['ScheduledStart']))"
+                }
+              },
+              "Condition_has_overlap": {
+                "actions": {
+                  "Append_conflict_row": {
+                    "runAfter": {},
+                    "type": "AppendToArrayVariable",
+                    "inputs": {
+                      "name": "conflicts",
+                      "value": "@{concat('<tr><td>', items('For_each_crew')?['Title'], '</td><td>', items('For_each_assignment')?['Title'], '</td><td>', items('For_each_assignment')?['ScheduledStart'], ' to ', items('For_each_assignment')?['ScheduledFinish'], '</td><td align=\"center\">', string(length(body('Filter_overlaps'))), '</td><td>', first(body('Filter_overlaps'))?['Title'], '</td></tr>')}"
+                    }
+                  }
+                },
+                "runAfter": {
+                  "Filter_overlaps": [
+                    "Succeeded"
+                  ]
+                },
+                "else": {
+                  "actions": {}
+                },
+                "expression": {
+                  "greater": [
+                    "@length(body('Filter_overlaps'))",
+                    0
+                  ]
+                },
+                "type": "If"
+              }
+            },
+            "runAfter": {
+              "Filter_crew_assignments": [
+                "Succeeded"
+              ]
+            },
+            "type": "Foreach",
+            "runtimeConfiguration": {
+              "concurrency": {
+                "repetitions": 1
+              }
+            }
+          }
+        },
+        "runAfter": {
+          "Get_crews": [
+            "Succeeded"
+          ]
+        },
+        "type": "Foreach",
+        "runtimeConfiguration": {
+          "concurrency": {
+            "repetitions": 1
+          }
+        }
+      },
+      "Condition_any_conflicts": {
+        "actions": {
+          "Compose_summary": {
+            "runAfter": {},
+            "type": "Compose",
+            "inputs": "<div style=\"font-family:Segoe UI,sans-serif;font-size:14px;color:#1a2332\"><h2 style=\"color:#a84a18\">Nightly reconciliation - @{length(variables('conflicts'))} assignment(s) in conflict</h2><p>Sweep window: @{variables('today')} through @{variables('horizon')}. Subcontractor (Unlimited) crews are exempt and were not checked.</p><table border=\"1\" cellpadding=\"6\" cellspacing=\"0\" style=\"border-collapse:collapse;font-size:13px\"><tr style=\"background:#f0f0f0\"><th>Crew</th><th>Sub-phase</th><th>Dates</th><th>Overlaps</th><th>First overlap</th></tr>@{join(variables('conflicts'),'')}</table><p style=\"color:#666;font-size:12px\">Each row is one assignment that overlaps at least one other for the same crew. A conflicting pair appears as two rows.</p></div>"
+          },
+          "Send_conflict_summary": {
+            "runAfter": {
+              "Compose_summary": [
+                "Succeeded"
+              ]
+            },
+            "type": "OpenApiConnection",
+            "inputs": {
+              "host": {
+                "connectionName": "shared_office365",
+                "operationId": "SendEmailV2",
+                "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365"
+              },
+              "parameters": {
+                "emailMessage/To": "stratirus@d2pools.com",
+                "emailMessage/Subject": "D2 Nightly Reconciliation - @{length(variables('conflicts'))} conflict(s) found",
+                "emailMessage/Body": "<p>@{outputs('Compose_summary')}</p>",
+                "emailMessage/Importance": "High"
+              }
+            }
+          }
+        },
+        "runAfter": {
+          "For_each_crew": [
+            "Succeeded"
+          ]
+        },
+        "else": {
+          "actions": {}
+        },
+        "expression": {
+          "greater": [
+            "@length(variables('conflicts'))",
+            0
+          ]
+        },
+        "type": "If"
+      },
+      "Get_active_jobs": {
+        "runAfter": {
+          "Initialize_conflicts": [
+            "Succeeded"
+          ]
+        },
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_sharepointonline",
+            "operationId": "GetItems",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+          },
+          "parameters": {
+            "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+            "table": "ee0ecabf-2f11-458d-a9ea-641f76d10cc3",
+            "$filter": "Status eq 'Active'",
+            "$top": 500
+          }
+        }
+      },
+      "Select_active_job_ids": {
+        "runAfter": {
+          "Get_active_jobs": [
+            "Succeeded"
+          ]
+        },
+        "type": "Select",
+        "inputs": {
+          "from": "@outputs('Get_active_jobs')?['body/value']",
+          "select": "@concat('JobId eq ', string(item()?['ID']))"
+        }
+      },
+      "Compose_active_job_clause": {
+        "runAfter": {
+          "Select_active_job_ids": [
+            "Succeeded"
+          ]
+        },
+        "type": "Compose",
+        "inputs": "@if(empty(body('Select_active_job_ids')), 'JobId eq -1', concat('(', join(body('Select_active_job_ids'), ' or '), ')'))"
+      }
+    }
+  }
+}
