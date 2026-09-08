@@ -48,7 +48,7 @@
       { i: 'Address',            t: 'Text',     r: false },
       { i: 'City',               t: 'Text',     r: false },
       { i: 'StartDate',          t: 'DateTime', r: true, df: 0 },
-      { i: 'ProjectManager',     d: 'Project Manager', t: 'User', r: false },
+      { i: 'ProjectManager',     d: 'Project Manager', t: 'User', r: true },
       { i: 'AssignDefaultCrews', d: 'Assign Default Crews', t: 'Boolean', r: true, def: 1 },
       { i: 'Status',             t: 'Choice',   r: true, c: ['Requested', 'Building', 'Done', 'Failed'], def: 'Requested' },
       { i: 'Result',             t: 'Note',     r: false }

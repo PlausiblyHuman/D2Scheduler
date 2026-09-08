@@ -135,9 +135,62 @@
             "actions": {}
           }
         },
-        "Ensure_pm_user": {
+        "Condition_missing_pm": {
           "runAfter": {
             "Condition_duplicate": [
+              "Succeeded"
+            ]
+          },
+          "type": "If",
+          "expression": {
+            "equals": [
+              "@coalesce(triggerOutputs()?['body/ProjectManager']?['Claims'], '')",
+              ""
+            ]
+          },
+          "actions": {
+            "Set_status_failed_no_pm": {
+              "runAfter": {},
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                  "operationId": "HttpRequest",
+                  "connectionName": "shared_sharepointonline"
+                },
+                "parameters": {
+                  "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+                  "parameters/method": "POST",
+                  "parameters/uri": "_api/web/lists/GetByTitle('New Pool Requests')/items(@{triggerOutputs()?['body/ID']})",
+                  "parameters/headers": {
+                    "X-HTTP-Method": "MERGE",
+                    "If-Match": "*",
+                    "Content-Type": "application/json;odata=verbose",
+                    "Accept": "application/json;odata=verbose"
+                  },
+                  "parameters/body": "{\"__metadata\":{\"type\":\"SP.Data.New_x0020_Pool_x0020_RequestsListItem\"},\"Status\":\"Failed\",\"Result\":\"Refused: Project Manager is required.\"}"
+                }
+              }
+            },
+            "Terminate_no_pm": {
+              "runAfter": {
+                "Set_status_failed_no_pm": [
+                  "Succeeded"
+                ]
+              },
+              "type": "Terminate",
+              "inputs": {
+                "runStatus": "Succeeded"
+              }
+            }
+          },
+          "else": {
+            "actions": {}
+          }
+        },
+        "Ensure_pm_user": {
+          "runAfter": {
+            "Condition_missing_pm": [
               "Succeeded"
             ]
           },
@@ -156,7 +209,7 @@
                 "Content-Type": "application/json;odata=verbose",
                 "Accept": "application/json;odata=verbose"
               },
-              "parameters/body": "{\"logonName\":\"@{coalesce(triggerOutputs()?['body/ProjectManager']?['Claims'], 'i:0#.f|membership|stratirus@d2pools.com')}\"}"
+              "parameters/body": "{\"logonName\":\"@{triggerOutputs()?['body/ProjectManager']?['Claims']}\"}"
             }
           }
         },
