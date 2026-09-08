@@ -130,7 +130,7 @@ which nothing currently has.
 | `Address` | Text | no | |
 | `City` | Text | no | |
 | `StartDate` | DateTime, DateOnly | yes | First work day. Advanced forward if it is not one. |
-| `ProjectManager` | User | no | Written to `Jobs.ProjectManager` and receives the result email. `UserSelectionScope=0`, tenant members only, matching the Jobs column. |
+| `ProjectManager` | User | **yes** | Written to `Jobs.ProjectManager` and receives the result email. `UserSelectionScope=0`, tenant members only, matching the Jobs column. **Required deliberately**: the two alternatives are both silent failures. Left empty, the Job has no PM and Flow 3's alert cannot resolve a recipient; defaulted to the service account, every PM-less pool is mis-attributed to D2 Bot, which is the same placeholder defect CLAUDE.md records against Harrison. Requiring it makes a PM-less pool impossible rather than wrong, and it forces the Person-field write onto the tested path. |
 | `AssignDefaultCrews` | Boolean | yes | Default Yes. No means every Assignment gets `unassigned`. |
 | `Status` | Choice | yes | `Requested` / `Building` / `Done` / `Failed`. Default `Requested`. |
 | `Result` | Note | no | Written back by the flow. Counts on success, the reason on failure. |
