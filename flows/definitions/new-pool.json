@@ -1,0 +1,226 @@
+{
+  "properties": {
+    "displayName": "D2 - New Pool",
+    "state": "Stopped",
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        },
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        }
+      },
+      "triggers": {
+        "When_an_item_is_created": {
+          "type": "OpenApiConnection",
+          "splitOn": "@triggerOutputs()?['body/value']",
+          "recurrence": {
+            "frequency": "Minute",
+            "interval": 1
+          },
+          "inputs": {
+            "host": {
+              "connectionName": "shared_sharepointonline",
+              "operationId": "GetOnNewItems",
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+            },
+            "parameters": {
+              "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+              "table": "13331a5e-ea8e-4ab2-9276-db5b4f4d46bf"
+            },
+            "authentication": "@parameters('$authentication')"
+          }
+        }
+      },
+      "actions": {
+        "Set_status_building": {
+          "runAfter": {},
+          "type": "OpenApiConnection",
+          "inputs": {
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+              "operationId": "HttpRequest",
+              "connectionName": "shared_sharepointonline"
+            },
+            "parameters": {
+              "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+              "parameters/method": "POST",
+              "parameters/uri": "_api/web/lists/GetByTitle('New Pool Requests')/items(@{triggerOutputs()?['body/ID']})",
+              "parameters/headers": {
+                "X-HTTP-Method": "MERGE",
+                "If-Match": "*",
+                "Content-Type": "application/json;odata=verbose",
+                "Accept": "application/json;odata=verbose"
+              },
+              "parameters/body": "{\"__metadata\":{\"type\":\"SP.Data.New_x0020_Pool_x0020_RequestsListItem\"},\"Status\":\"Building\"}"
+            }
+          }
+        },
+        "Get_existing_job": {
+          "runAfter": {
+            "Set_status_building": [
+              "Succeeded"
+            ]
+          },
+          "type": "OpenApiConnection",
+          "inputs": {
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+              "operationId": "GetItems",
+              "connectionName": "shared_sharepointonline"
+            },
+            "parameters": {
+              "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+              "table": "ee0ecabf-2f11-458d-a9ea-641f76d10cc3",
+              "$filter": "JobNumber eq '@{triggerOutputs()?['body/JobNumber']}'",
+              "$top": 1
+            }
+          }
+        },
+        "Condition_duplicate": {
+          "runAfter": {
+            "Get_existing_job": [
+              "Succeeded"
+            ]
+          },
+          "type": "If",
+          "expression": {
+            "greater": [
+              "@length(outputs('Get_existing_job')?['body/value'])",
+              0
+            ]
+          },
+          "actions": {
+            "Set_status_failed_duplicate": {
+              "runAfter": {},
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                  "operationId": "HttpRequest",
+                  "connectionName": "shared_sharepointonline"
+                },
+                "parameters": {
+                  "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+                  "parameters/method": "POST",
+                  "parameters/uri": "_api/web/lists/GetByTitle('New Pool Requests')/items(@{triggerOutputs()?['body/ID']})",
+                  "parameters/headers": {
+                    "X-HTTP-Method": "MERGE",
+                    "If-Match": "*",
+                    "Content-Type": "application/json;odata=verbose",
+                    "Accept": "application/json;odata=verbose"
+                  },
+                  "parameters/body": "{\"__metadata\":{\"type\":\"SP.Data.New_x0020_Pool_x0020_RequestsListItem\"},\"Status\":\"Failed\",\"Result\":\"Refused: job number @{triggerOutputs()?['body/JobNumber']} already exists.\"}"
+                }
+              }
+            },
+            "Terminate_duplicate": {
+              "runAfter": {
+                "Set_status_failed_duplicate": [
+                  "Succeeded"
+                ]
+              },
+              "type": "Terminate",
+              "inputs": {
+                "runStatus": "Succeeded"
+              }
+            }
+          },
+          "else": {
+            "actions": {}
+          }
+        },
+        "Ensure_pm_user": {
+          "runAfter": {
+            "Condition_duplicate": [
+              "Succeeded"
+            ]
+          },
+          "type": "OpenApiConnection",
+          "inputs": {
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+              "operationId": "HttpRequest",
+              "connectionName": "shared_sharepointonline"
+            },
+            "parameters": {
+              "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+              "parameters/method": "POST",
+              "parameters/uri": "_api/web/ensureuser",
+              "parameters/headers": {
+                "Content-Type": "application/json;odata=verbose",
+                "Accept": "application/json;odata=verbose"
+              },
+              "parameters/body": "{\"logonName\":\"@{coalesce(triggerOutputs()?['body/ProjectManager']?['Claims'], 'i:0#.f|membership|stratirus@d2pools.com')}\"}"
+            }
+          }
+        },
+        "Create_job": {
+          "runAfter": {
+            "Ensure_pm_user": [
+              "Succeeded"
+            ]
+          },
+          "type": "OpenApiConnection",
+          "inputs": {
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+              "operationId": "HttpRequest",
+              "connectionName": "shared_sharepointonline"
+            },
+            "parameters": {
+              "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+              "parameters/method": "POST",
+              "parameters/uri": "_api/web/lists/GetByTitle('Jobs')/items",
+              "parameters/headers": {
+                "Content-Type": "application/json;odata=verbose",
+                "Accept": "application/json;odata=verbose"
+              },
+              "parameters/body": "{\"__metadata\":{\"type\":\"SP.Data.JobsListItem\"},\"Title\":\"@{triggerOutputs()?['body/Title']}\",\"JobNumber\":\"@{triggerOutputs()?['body/JobNumber']}\",\"Address\":\"@{coalesce(triggerOutputs()?['body/Address'], '')}\",\"City\":\"@{coalesce(triggerOutputs()?['body/City'], '')}\",\"StartDate\":\"@{formatDateTime(triggerOutputs()?['body/StartDate'],'yyyy-MM-dd')}\",\"Status\":\"Planned\",\"ProjectManagerId\":@{body('Ensure_pm_user')?['d']?['Id']}}"
+            }
+          }
+        },
+        "Set_status_done": {
+          "runAfter": {
+            "Create_job": [
+              "Succeeded"
+            ]
+          },
+          "type": "OpenApiConnection",
+          "inputs": {
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+              "operationId": "HttpRequest",
+              "connectionName": "shared_sharepointonline"
+            },
+            "parameters": {
+              "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+              "parameters/method": "POST",
+              "parameters/uri": "_api/web/lists/GetByTitle('New Pool Requests')/items(@{triggerOutputs()?['body/ID']})",
+              "parameters/headers": {
+                "X-HTTP-Method": "MERGE",
+                "If-Match": "*",
+                "Content-Type": "application/json;odata=verbose",
+                "Accept": "application/json;odata=verbose"
+              },
+              "parameters/body": "{\"__metadata\":{\"type\":\"SP.Data.New_x0020_Pool_x0020_RequestsListItem\"},\"Status\":\"Done\",\"Result\":\"Created Jobs item @{body('Create_job')?['d']?['Id']}.\"}"
+            }
+          }
+        }
+      }
+    },
+    "connectionReferences": {
+      "shared_sharepointonline": {
+        "connectionName": "shared-sharepointonl-20b83f29-d689-437e-b1ff-930f7bf3fda4",
+        "source": "Embedded",
+        "id": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+        "tier": "Standard"
+      }
+    }
+  }
+}
