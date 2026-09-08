@@ -23,6 +23,16 @@
  * Teams channels (deferred post-pilot). The Phase F training docs had to be
  * corrected for exactly that, so nothing on this page mentions either.
  *
+ * ADDED 2026-09-08 -- "Pool management" section: New Pool and Delete Pool now
+ * link to the New Pool Requests / Delete Pool Requests lists, which is how a
+ * PM actually starts or removes a pool build (D2 - New Pool and D2 - Delete
+ * Pool read the row and do the rest). Kept in their own labelled section
+ * below the day-to-day views rather than mixed into either list, because
+ * these are actions, not something to glance at. Delete Pool is captioned
+ * "permanent" in the link text itself rather than styled or hidden away --
+ * a PM who reads the one line before clicking is the actual safeguard, not
+ * colour.
+ *
  * ---------------------------------------------------------------------------
  * WHY TEXT WEB PARTS AND NOT HERO / QUICK LINKS -- this was tested, not assumed
  * ---------------------------------------------------------------------------
@@ -96,6 +106,8 @@
     tasks: L('Tasks/Incomplete Tasks.aspx'),
     jobs: L('Jobs/AllItems.aspx'),
     crews: L('Crews/AllItems.aspx'),
+    newPool: L('New Pool Requests/AllItems.aspx'),
+    deletePool: L('Delete Pool Requests/AllItems.aspx'),
     app: 'https://apps.powerapps.com/play/e/2710a01b-6cfa-e820-b338-2286f2649300/a/6bad1fae-7f3b-42d7-a63f-48a63e1e8771'
   };
   const ASSIGNMENTS = '49ef7006-d3fe-40a7-a52f-c4c18545bd35';
@@ -141,6 +153,9 @@
     + '<li>' + a(U.all, 'All Assignments') + ' &mdash; every sub-phase, grouped by job</li>'
     + '<li>' + a(U.tasks, 'Incomplete Tasks') + ' &mdash; outstanding work at task level</li>'
     + '<li>' + a(U.jobs, 'Jobs') + ' &nbsp;&middot;&nbsp; ' + a(U.crews, 'Crews') + '</li>'
+    + '</ul><h3>Pool management</h3><ul>'
+    + '<li>' + a(U.newPool, 'New Pool') + ' &mdash; start a new pool build: job number, name, address and start date generate every sub-phase and task</li>'
+    + '<li>' + a(U.deletePool, 'Delete Pool') + ' &mdash; <strong>permanent.</strong> Removes a pool and everything under it. Only for a pool created by mistake.</li>'
     + '</ul>';
 
   const listData = {
