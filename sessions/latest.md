@@ -1,88 +1,119 @@
-# 2026-09-08a — New Pool deployment, end to end
+# 2026-09-08b — Pre-pilot audit, then pool lifecycle and reflow
 
-**Session goal:** close the biggest remaining hole in the system. A PM had no way to create a
-pool; the only route into SharePoint was a Stratirus engineer running scripts by hand.
+**Session goal:** clear the calendar/Gantt task queued from 09-07, then verify CLAUDE.md against
+the live tenant before the pilot makes decisions from it. The audit found enough that the session
+turned into a second workstream: making the `Planned` pool state actually mean something.
 
-Started the evening of 09-07 and ran into the morning of 09-08. Nine planned tasks, a final
-whole-branch review, and a fix wave, all executed subagent-driven with a review after every task.
+Ran 09:31 to 16:03. Ended when VS Code crashed, not at a natural close, so this log was written
+the following session from git and the plan's own progress record.
 
-## What D2 can now do
+## Part 1 — the queued task and the audit
 
-A project manager adds one item to a SharePoint list and gets a complete pool: the Job, 46
-sub-phase Assignments with chained work-day dates that skip Sundays and Work Calendar holidays,
-and 295 Tasks. A second flow deletes a pool behind four guards.
+**Gantt is not available at this licensing tier**, so schedule visualisation shipped as a
+timeline lane inside the existing views instead. `All Assignments` and `Late-Starting Jobs` now
+draw 28 day-cells per row across a fixed `today-7 .. today+21` window, painted in the row's status
+colour. Fixed cells rather than absolute positioning, because SharePoint's style allowlist cannot
+be trusted to pass `position: absolute`. Verified by reading the rendered DOM: 43 lanes on one
+view, 15 on the other, 0 on `Today by Crew`, and every sampled row's painted cells match day
+indices computed independently from that row's own displayed dates.
 
-Proven by a real 6m47s production run, not asserted: 46 assignments, 295 tasks, zero count
-mismatches, no Sunday endpoints, 12 distinct real crews. Then deleted by the delete flow itself,
-returning the tenant to exact baseline.
+**The pre-pilot reality audit checked every load-bearing claim in CLAUDE.md against the tenant.**
+Fourteen checks, mostly green: zero counter drift across all 43 assignments, zero orphan tasks,
+zero double-books, zero required-but-NULL rows, all 11 flows started.
 
-## The design changed twice, both times for the better
+Four things it found:
 
-**Shane's redirect collapsed the build.** CLAUDE.md framed this as porting `add_pool.py`'s
-scheduling logic into Power Automate. Shane's point was that the checklist is fixed: *"a simple
-template with all of them that get copied by the PjM with start-dates updated should be
-sufficient."* That removed the expensive half. The flow does not plan anything. It copies a
-template and walks dates forward. No busy map, no qualified-crew search, no 46-step constraint
-solve in a language bad at all three.
+1. **The Work Calendar had run out on 2027-08-22.** The original 62 rows were a rolling year
+   seeded once in Phase A, and nothing ever extended them. Sundays are computed in
+   `D2 - New Pool`, so they stay correct forever; holidays are read only from the list, so past
+   that date every holiday silently becomes a work day. Extended to 210 rows through 2029-12-30.
+2. **One audit check was itself defective.** Export freshness compared each export's filename date
+   against the flow's live `lastModifiedTime` and reported all current. Re-checked by content,
+   four of eleven differed, and `D2 - New Pool`'s export was a pre-hardening snapshot missing the
+   entire failure path, 12 actions including both failure emails. Restoring that flow from its
+   committed export would have deleted the fix. All 11 regenerated and each verified by re-reading
+   the written file.
+3. Three flow ids recorded in CLAUDE.md were really Dataverse workflowids.
+4. Flow 2's caveat still said `InstallerSignOffBy` had never been exercised. It had; the evidence
+   had been consumed by a later reopen test.
 
-**Hosting the browser tool in SharePoint is closed off, on policy not capability.** An HTML page
-in a document library IS the custom-script mechanism, modern sites block it by default, and any
-change back reverts within 24 hours. Microsoft's own docs, found before spending a browser session
-on it.
+**Two conclusions in the audit were wrong on first pass** and caught by looking again. A grep for
+`"Work Calendar"` in the New Pool export returned zero and nearly produced "the flow ignores
+holidays"; the flow references lists by GUID. Matching the canvas app's flow connections by flow
+id reported two of three missing; the app references flows by `workflowEntityId`.
 
-## Built
+Also in this part: `cleanup.js` extended to cover both request lists, given a `DRY_RUN` flag, and
+rehearsed against the live tenant. The dry run reported it would remove 282 Tasks, 43 Assignments
+and 3 Jobs with 0 failures, and live counts were unchanged afterwards. The classifier was tested
+against 12 synthetic job numbers and fails safe in one direction: every ambiguous input lands on
+"keep and report", so a real pool is never deleted by accident.
 
-- Four lists: `New Pool Requests`, `Delete Pool Requests`, `Sub-phase Template` (46 rows),
-  `Task Template` (295 rows). The template is DATA, so Don can edit the checklist and the 46
-  placeholder durations without anyone touching a flow.
-- `tools/gen-template-seed.py` — extracts the template from the browser tool, resolves default
-  crews from the LIVE `Crew-Trades` list rather than the stale HTML.
-- `sharepoint/provision-pool-lists.js`, `sharepoint/seed-templates.js` — idempotent, committed.
-- `D2 - New Pool` and `D2 - Delete Pool`, both published, exported, and started.
-- Launchpad links, flow exports, CLAUDE.md and spec updated.
+## Part 2 — pool lifecycle and schedule reflow
 
-## What the process caught that testing could not
+Spec and plan written, then Tasks 1 to 5 executed subagent-driven with a review after each.
 
-- **A 2-row sample produced a confident, wrong conclusion** that `Sub-phase Template` had no
-  `Trade` column. Both sampled rows were pseudo-skill rows with no trade, and the connector OMITS
-  null-valued fields rather than emitting null. Caught by controller verification, not by the
-  implementer. That would have broken three later tasks.
-- **The final whole-branch review found a Critical no per-task review could see**: `D2 - New Pool`
-  had no failure path at all. The same defect had been found and fixed TWICE on the delete flow
-  and never carried back across the task boundary. A mid-run failure would have stranded a partial
-  pool with the request stuck at `Building` and no email to anyone.
-- **Hardening a guard introduced a fresh instance of the bug being hardened against.** The
-  truncation check added 46 sequential reads upstream of the failure handler.
-- The delete flow's guards **worked by luck of current data**, not by design: blank-vs-blank passed
-  the confirmation test on `'' == ''`, and reads capped at 200 rows with no pagination. Neither was
-  reachable with today's data, so no test could have found them.
+**Part 1 of the spec is complete.** All four flows that consume assignments now honour job status,
+so a `Planned` pool no longer dispatches crews or raises conflict alerts. Task 1 added the
+scaffolding: `Assignments.SuppressReconcileUntil`, a `Reschedule Requests` list, and a
+`Planned Pools` view.
+
+**Found and fixed en route, outside the plan's scope:** Daily Dispatch had been failing on every
+real work day since `Crews.LeadEmail` was cleared on 09-05, with `To: null` and
+`400 To Field cannot be null or empty`. Masked because the only intervening days were a Sunday
+and Labor Day, which the flow correctly terminates on. `To` now falls back to
+`stratirus@d2pools.com` with a `[no lead email]` subject prefix.
+
+## Files touched
+
+- `CLAUDE.md` — audit results, Work Calendar expiry and extension, Juneteenth exclusion, the
+  export-by-content rule, tenant-not-yet-live posture
+- `sharepoint/format-views.js` — timeline lane, built into the existing formatter rather than a
+  second script, since two scripts MERGEing `CustomFormatter` on the same view is last-writer-wins
+  with no error
+- `sharepoint/provision-reschedule.js` — new, Task 1 scaffolding
+- `flows/testdata/cleanup.js` — request lists, `DRY_RUN`, conservative classifier
+- `flows/exports/*.json` — all 11 regenerated and content-verified
+- `docs/superpowers/specs/2026-09-08-pool-lifecycle-and-reflow-design.md` — new
+- `docs/superpowers/plans/2026-09-08-pool-lifecycle-and-reflow.md` — new, plus the progress record
+- `D2-Phase-E-Pilot-Runbook.md`, `D2-Phase-F-Cutover-Runbook.md` — training copy still told PMs to
+  plan a new pool in the browser tool and have Stratirus load it, which `D2 - New Pool` had made
+  false the day before
+- `tools/check-env.ps1` — new, Windows readiness check
+
+## Commits
+
+09:31 to 16:03, 17 commits, `66b8c6e` through `c1a7117`.
 
 ## Decisions
 
-- **`ProjectManager` is REQUIRED on New Pool Requests** (Shane). The flow had been silently
-  defaulting a blank PM to the D2 Bot service account, reproducing the Harrison placeholder defect.
-  Leaving it null breaks Flow 3's alert routing. Both fail silently, so neither was acceptable.
-- **Delete Pool exists at all** (Shane, reversing my out-of-scope call). A PM who can create 342
-  rows needs a way to undo it.
-- **Flow 3 stays running** during bulk inserts. Stopping it risks it being left disabled, which
-  silently removes the only real-time safety net for business rule 2. A real pool costs ~92
-  reconciliation runs (46 inserts plus 46 counter MERGEs), which quota does not care about.
+- **Juneteenth stays excluded from the Work Calendar** (Shane). A row here suppresses dispatch, so
+  adding a holiday the crews actually work silently kills a real work day with no error anywhere.
+  Absence is the safe default. Do not re-raise it when next extending the calendar.
+- **The tenant is not yet operationally live** (Shane): *"I am literally the only person with
+  access and getting notifications."* This releases batching purely to avoid tenant churn, and
+  hesitation about editing or stopping a published flow. It does not release verification
+  discipline, which exists because this platform's failure signature is a write that returns 200
+  and does nothing. Revisit at Phase E.
+- **`ProjectManager` is required on New Pool Requests.**
+- **Flow 3 stays running during bulk inserts**, rather than being stopped and risking it left
+  disabled.
 
-Sixteen rulings are recorded in full in the SDD ledger.
+**Three deviations from the plan, carried forward into Tasks 6 to 9:** the job filter is applied
+server-side as `JobId eq N` clauses rather than an in-memory `Filter array`; flow edits use
+`edit_flow` with surgical operations and a dry run rather than full-definition resends; and
+`autoResolveConnectionRefs: false` is required, since the default failed Task 4's edit naming a
+pre-existing action the edit barely touched.
 
 ## Open
 
-- **A narrow gap in the new failure handler.** Nine variable initialisations sit outside the
-  protective Scope because Logic Apps forbids them inside a container. If one fails the request
-  sticks at `Building` with no email. Low probability; parked deliberately rather than make a
-  second structural change to a just-proven flow.
-- **Something other than this session is writing to the production tenant.** A `Jobs` row was
-  created and removed unexplained, and two protected Assignments rows were modified outside any
-  of this session's activity. No harm done and every count reconciles, but CLAUDE.md's warning
-  about concurrent sessions should be taken literally.
-- Calendar / Gantt visualisation is still untouched. It was the other task queued on 09-07.
+- Tasks 6 to 9 not started. Part 2 of the spec, the reflow flow itself, does not exist yet.
+- The narrow gap in `D2 - New Pool`'s failure handler is still parked: nine variable
+  initialisations sit outside the protective Scope because Logic Apps forbids them inside a
+  container, so if one fails the request sticks at `Building` with no email.
+- Something other than these sessions is writing to the production tenant. Two Assignments rows
+  were modified outside this session's activity and a Jobs row was created and removed.
 
 ## Next action
 
-Fresh session on calendar / schedule visualisation. Cheapest real option is to surface the
-browser tool, which already IS a Gantt and simply is not reachable from SharePoint.
+Task 6: `D2 - Reschedule Pool` skeleton, trigger, both guards and the failure path, before the
+walk in Task 7. Tenant is at its audited baseline with nothing half-applied.
