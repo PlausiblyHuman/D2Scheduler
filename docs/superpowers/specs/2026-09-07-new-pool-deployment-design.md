@@ -79,7 +79,7 @@ updated when this ships, or the two documents disagree.
 
 ## Architecture
 
-Three new lists, one new flow. No change to the canvas app, and no change to any
+Four new lists, two new flows. No change to the canvas app, and no change to any
 of the seven existing flows as shipped. One possible follow-on change to Flow 3
 is described under Known consequence below, deliberately deferred until the first
 pool shows whether it is needed.
@@ -101,6 +101,20 @@ PM  ->  New Pool Requests  (add an item: name, number, address, start date)
               |
               v
         Status = Done, Result summary, email to the PM
+
+
+PM  ->  Delete Pool Requests  (job number, typed again to confirm, reason)
+              |
+              v
+        D2 - Delete Pool  (flow)
+              |
+              +-- guard: confirmation matches
+              +-- guard: nothing signed off, unless overridden
+              |
+              +-- deletes  Tasks, then Assignments, then the Job
+              |
+              v
+        Status = Done, counts in Result, email the record
 ```
 
 ### List: `New Pool Requests`
@@ -327,10 +341,68 @@ signature failure here.
 - Both test pools removed through the existing `cleanup.js` path, extended to
   take a job number.
 
+---
+
+## Deleting a pool
+
+Decided 2026-09-07 by Shane, after being raised as out of scope. A PM who can
+create 342 rows needs a way to undo it, and leaving recovery as a Stratirus job
+means every mistyped job number becomes a support call.
+
+The risk is real though, so the warnings have to be protective rather than a
+dialog people click through by reflex. Four guards, in order of how much work
+they save:
+
+**Type the job number to confirm.** The request carries a `ConfirmJobNumber`
+field and the flow refuses unless it matches the target exactly. This is the
+pattern GitHub uses for deleting a repository, and it works because it cannot be
+done by reflex or by a mis-tap.
+
+**Refuse if anything is signed off.** If any Assignment on the job has
+`InstallerSignOff = true`, the flow stops and says so, unless a separate
+`OverrideSignedOff` box is ticked. A signed-off pool carries attestation and
+warranty value, and `InstallerSignOffBy` is the artifact this whole system exists
+to produce. Destroying it should take a deliberate second act, not the same click
+as deleting an empty pool created by mistake.
+
+**Delete children first.** Tasks, then Assignments, then the Job. Same order
+`cleanup.js` uses. The reverse orphans rows that then appear in views with a
+broken lookup.
+
+**Email a record.** Job number, title, and the exact counts removed, to the
+requesting PM and to the job's Project Manager. A deletion nobody can see is the
+part that hurts three months later.
+
+Deletes do not wake Flow 3, because its trigger is created-or-modified, so there
+is no alert-noise problem on this path.
+
+### Surface
+
+A `Delete Pool Requests` list rather than a button on the Job itself. Reasons:
+a list gives a permanent record of who deleted what and when, which a button
+does not; it keeps the destructive action off the same screen as everyday
+editing; and it costs nothing extra since the New Pool flow already establishes
+the request-list pattern.
+
+| Column | Type | Required | Notes |
+|---|---|---|---|
+| `Title` | Text | yes | JobNumber of the pool to delete |
+| `ConfirmJobNumber` | Text | yes | must match `Title` exactly or the flow refuses |
+| `Reason` | Note | yes | why. Required, and kept after the rows are gone. |
+| `OverrideSignedOff` | Boolean | yes | default No. Only route past a signed-off pool. |
+| `Status` | Choice | yes | `Requested` / `Deleting` / `Done` / `Refused` |
+| `Result` | Note | no | counts removed, or the reason it refused |
+
+Flow `D2 - Delete Pool`, triggered on item created. Guards first, then delete,
+then write `Result` and email. Every refusal path names which guard stopped it.
+
+---
+
 ## Out of scope
 
-- Deleting or archiving a pool from the UI.
 - Editing a pool's schedule after creation. That stays in the browser tool and
   the list views.
 - The browser-tool to Lists sync. Still Phase G, and this reduces the need for it.
 - Re-running against an existing pool to add newly-added template rows.
+- Restoring a deleted pool. SharePoint's recycle bin holds the rows for 93 days,
+  which is the recovery path, and it is a site-admin job rather than a PM one.
