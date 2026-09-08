@@ -17,6 +17,12 @@
  *
  * Idempotent. Deletes Assignments by Title prefix and by parent Job, and Jobs by
  * JobNumber. Safe to re-run; reports what it found and what remains.
+ *
+ * COVERS FIVE LISTS: Tasks, Assignments, Jobs, New Pool Requests, Delete Pool
+ * Requests. The last two were added 2026-09-08b -- this script predated them and
+ * silently ignored both, so the pre-pilot gate did not actually clear them and
+ * they had to be emptied by hand once already. They are treated more cautiously
+ * than the other three: see the comment on REQUEST_LISTS below.
  */
 (async () => {
   const site = 'https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler';
@@ -26,10 +32,18 @@
     { method: 'POST', headers: H, credentials: 'include' })).json();
   const digest = dg.d.GetContextWebInformation.FormDigestValue;
 
-  const del = (list, id) => fetch(`${site}/_api/web/lists/GetByTitle('${list}')/items(${id})`, {
-    method: 'POST', credentials: 'include',
-    headers: { ...H, 'X-RequestDigest': digest, 'IF-MATCH': '*', 'X-HTTP-Method': 'DELETE' }
-  }).then(r => ({ list, id, status: r.status }));
+  // DRY_RUN reports exactly what WOULD go without deleting anything. Rehearse the
+  // pre-pilot gate with this on: it is the only way to see the blast radius before
+  // committing to it, and the gate is otherwise a one-shot destructive step run
+  // under time pressure on a live client tenant.
+  const DRY_RUN = false;
+
+  const del = (list, id) => DRY_RUN
+    ? Promise.resolve({ list, id, status: 204, dryRun: true })
+    : fetch(`${site}/_api/web/lists/GetByTitle('${list}')/items(${id})`, {
+        method: 'POST', credentials: 'include',
+        headers: { ...H, 'X-RequestDigest': digest, 'IF-MATCH': '*', 'X-HTTP-Method': 'DELETE' }
+      }).then(r => ({ list, id, status: r.status }));
 
   const DROP_DEMO_JOB = true;              // false = keep Harrison D2-1001 for app testing
   const DEMO_JOB = 'D2-1001';
@@ -61,10 +75,44 @@
   }
   for (const r of doomedJ) res.push(await del('Jobs', r.ID));
 
+  // ---- request lists ------------------------------------------------------
+  // New Pool Requests and Delete Pool Requests are CLIENT-FACING operational
+  // logs, not scratch space -- a PM opens them and sees a history of real
+  // requests. So this deletes only rows it can PROVE are ours (a TEST- job
+  // number, or the demo job) and merely REPORTS anything else. A blanket wipe
+  // here would destroy a PM's real request history the first time someone ran
+  // this script after go-live, which is precisely when it looks harmless.
+  //
+  // Both flows trigger on item CREATION, so deleting rows fires nothing.
+  //
+  // Note these rows are only the REQUEST records. Deleting a New Pool Request
+  // does not remove the pool it created; the Jobs/Assignments/Tasks passes
+  // above do that, and they run first.
+  const REQUEST_LISTS = [
+    ['New Pool Requests', 'JobNumber'],
+    ['Delete Pool Requests', 'ConfirmJobNumber']   // field names differ, read off the live lists
+  ];
+  const requests = {};
+  for (const [list, jobField] of REQUEST_LISTS) {
+    const rows = (await get(`${site}/_api/web/lists/GetByTitle('${list}')`
+      + `/items?$select=ID,Title,${jobField},Status&$top=500`)).d.results;
+    const mine = rows.filter(r => doomed(r[jobField]));
+    const other = rows.filter(r => !doomed(r[jobField]));
+    for (let i = 0; i < mine.length; i += 8) {
+      res.push(...await Promise.all(mine.slice(i, i + 8).map(r => del(list, r.ID))));
+    }
+    requests[list] = {
+      deleted: mine.length,
+      leftForReview: other.map(r =>
+        ({ id: r.ID, title: r.Title, job: r[jobField] || '(blank)', status: r.Status }))
+    };
+  }
+
   const a2 = await get(`${site}/_api/web/lists/GetByTitle('Assignments')/items?$select=ID,Title&$top=500`);
   const j2 = await get(`${site}/_api/web/lists/GetByTitle('Jobs')/items?$select=ID,JobNumber&$top=100`);
   const t2 = await get(`${site}/_api/web/lists/GetByTitle('Tasks')/items?$select=ID&$top=1000`);
   const out = {
+    dryRun: DRY_RUN,
     dropDemoJob: DROP_DEMO_JOB,
     deletedTasks: doomedT.length,
     deletedAssignments: doomedA.length,
@@ -73,10 +121,24 @@
     remainingAssignments: a2.d.results.map(r => r.ID),
     remainingJobs: j2.d.results.map(r => r.JobNumber),
     remainingTasks: t2.d.results.length,
-    expected: DROP_DEMO_JOB
-      ? 'assignments [], jobs [], tasks 0  -- tenant clean, ready for the first real pool'
-      : 'assignments [1,2,3,4,5], jobs ["D2-1001"], tasks 30'
+    requests,
+    expected: DRY_RUN
+      ? 'DRY RUN -- nothing was deleted. The deleted* counts are what WOULD go.'
+      : (DROP_DEMO_JOB
+          ? 'assignments [], jobs [], tasks 0  -- tenant clean, ready for the first real pool'
+          : 'assignments [1,2,3,4,5], jobs ["D2-1001"], tasks 30')
   };
+
+  // Rows this script refused to delete. Before the pilot the request lists should
+  // be EMPTY, so anything here is either leftover test litter under a name that
+  // carries no TEST- marker (Guard Test, PROBE-BLANK-CONFIRM and friends all
+  // looked like this) or a real request. Deleting it is a human decision.
+  const review = Object.entries(requests).flatMap(([list, r]) =>
+    r.leftForReview.map(x => ({ list, ...x })));
+  if (review.length) {
+    console.warn(`${review.length} request row(s) NOT deleted -- review by hand before the pilot:`);
+    console.table(review);
+  }
   console.log(JSON.stringify(out, null, 2));
   return out;
 })();

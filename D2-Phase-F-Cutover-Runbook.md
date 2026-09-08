@@ -23,19 +23,40 @@ Realistic count for D2 at any given time: 8-15 active pools.
 
 ### Step 3 — Migrate remaining pools
 
-Two paths, same as Phase E Day 0:
+**There is no browser-tool export flow. It was never built and it is not coming.** Earlier drafts
+of this step offered it as the preferred path with a grid-paste fallback. Both are gone. Use
+`D2 - New Pool`, which is what actually exists.
 
-**Preferred — browser-tool export flow (if it works):**
-1. Run the export flow, no filter this time — pulls all active pools
-2. Verify row counts: each pool = 46 sub-phase assignments + 295 tasks. Total should be N × 341.
-3. Spot-check 2-3 pools' data against the browser tool
+**3a. Generate each pool.** Add one row to **New Pool Requests** per active pool: job number,
+name, address, start date, project manager. All five are required. Each request produces 1 Job,
+46 Assignments and about 295 Tasks, with dates walked forward from the start date across work
+days only, skipping Sundays and Work Calendar holidays. Roughly 7 minutes per pool, and they can
+be raised back to back.
 
-**Manual fallback:**
-1. Export browser tool state (Backup button) → JSON
-2. Convert JSON to CSV rows using a helper script (Python one-liner or Power Automate flow)
-3. Grid-paste each list per the Phase A seed-data runbook, but scoped to new pools only
+**3b. Reconcile each pool to its real plan. This is the actual work of the day, not 3a.**
+`D2 - New Pool` generates from the 46-row Sub-phase Template, so it produces a *standard* schedule
+counted forward from a start date. It does not know the PM's real sequencing, which crews were
+actually used, or how far along the pool already is. For a pool part-way through construction the
+generated rows are a starting point, not the answer. For each pool:
 
-Estimate: 90 min via export flow, 3-4 hrs manual.
+1. Open the browser tool's plan for that pool side by side with the `All Assignments` view.
+2. Correct `Crew`, `ScheduledStart` and `ScheduledFinish` on every row that differs. The timeline
+   bar on `All Assignments` makes the shape of the divergence obvious at a glance.
+3. Mark sub-phases that are **already complete**, or crews will be dispatched to work that is
+   finished. This is the failure that will actually embarrass us on go-live morning.
+
+Remember `DurationDays` means **work** days, never the inclusive calendar span, and only the
+endpoints must be work days. A 2-day sub-phase starting Saturday correctly runs Sat + Mon.
+
+**3c. Verify.** Each pool should be 46 assignments and about 295 tasks. Spot-check 2-3 pools
+against the browser tool.
+
+Estimate: generation is minutes. Reconciliation is 15-30 min per in-flight pool, so budget on the
+count of pools, not on the mechanism. If a pool has not started yet, it needs almost no
+reconciliation and is nearly free.
+
+**If a pool comes out wrong, delete and redo rather than hand-repairing 341 rows.** Add a row to
+**Delete Pool Requests**, then raise the New Pool request again with corrected inputs.
 
 ### Step 4 — Sanity check the full load
 
@@ -66,10 +87,24 @@ Where do I go?
   There are no Teams channels. Everything arrives by email.
 
 How do I …
+  Start a new pool?
+    New Pool Requests > New. Fill in job number, name, address, start date
+    and project manager. All five are required. The system builds the whole
+    pool for you: 46 sub-phases and about 295 tasks, dated forward from your
+    start date, skipping Sundays and holidays. Takes a few minutes. You do
+    not need to call Stratirus.
+  Remove a pool?
+    Delete Pool Requests > New. This removes the job, all its sub-phases and
+    all its tasks. There is no undo, so check the job number first.
   See where my crews are today?
     Views drop-down > "Today by Crew" — grouped by crew, with the site address
   See what my crews are doing this week?
     Views drop-down > "This Week by Crew"
+  See a whole job's schedule at a glance?
+    Views drop-down > "All Assignments", grouped by job. Each row has a
+    4-week timeline bar: the dark vertical line is today, and the bar shows
+    when that sub-phase runs. Green means signed off, amber in progress,
+    grey not started.
   Reassign a sub-phase to a different crew?
     Open the sub-phase row, click the Crew field, pick a new crew, save.
     If the new crew is already booked that day, the job's PM gets a
@@ -96,15 +131,22 @@ Every Monday morning
 READ THIS FIRST — the browser tool does NOT sync to SharePoint
   There is no automatic export. Anything you change in pool-scheduler.html
   stays there. SharePoint is the source of truth for everything the crews
-  and the sign-off system see.
+  and the sign-off system see. New pools are now created in SharePoint, not
+  in the browser tool.
 
 Every time you plan or re-plan
-  1. Plan a NEW pool in the browser tool as before, then tell Stratirus —
-     we load it into SharePoint for you.
+  1. For a NEW pool, add a row to New Pool Requests: job number, name,
+     address, start date, project manager. The system builds the job, all
+     46 sub-phases and about 295 tasks for you, dated forward across work
+     days. You do not need to call Stratirus, and you do not need to plan
+     it in the browser tool first.
   2. For changes to a pool that is already live (a date shift, a crew swap),
      edit SharePoint directly. That is what the crews' app reads.
-  3. If you also keep the browser tool up to date for your own planning,
-     treat that as your notes, not as the system of record.
+  3. The browser tool is still your planner and it is still the only Gantt.
+     Use it to lay out crew sequencing by eye. Treat it as your notes, not
+     as the system of record.
+  4. If a new pool comes out wrong, do not hand-fix 341 rows. Add a row to
+     Delete Pool Requests and raise the New Pool request again.
 
 Every time a customer or crew calls with a change
   1. Update SharePoint — that is what dispatch and sign-off read tomorrow morning
@@ -231,7 +273,7 @@ Concretely:
 
 1. Take a final backup of the browser tool state — save as `pre-cutover-final-[date].json`
 2. Rename the browser tool's HTML file locally to `pool-scheduler-PLANNER-ONLY.html` and update any pinned shortcut. Optional: add a banner at the top of the file: "PLANNING ONLY — execution state lives in SharePoint Lists".
-3. Confirm the office understands there is NO browser-tool sync — SharePoint is edited directly for live pools, and Stratirus loads new pools. The sync flow does not exist and was descoped from the pilot deliberately.
+3. Confirm the office understands there is NO browser-tool sync. SharePoint is edited directly for live pools, and **the PMs raise new pools themselves** via New Pool Requests. The sync flow does not exist and was descoped from the pilot deliberately. Note this point used to read "Stratirus loads new pools", which stopped being true on 2026-09-08 when `D2 - New Pool` shipped. Do not train anyone back into calling us for a new pool.
 4. Document the demotion in the divergence log as `Day 4 cutover: browser tool → planner-only role`
 
 ### Step 13 — Verify go-live state
@@ -345,7 +387,7 @@ Post-Week-5, the project becomes ongoing operations. What that means concretely:
 
 ## Common gotchas
 
-- **Someone tries to run Auto-Schedule in the browser tool on Day 4-5.** This is fine — it's still doing its planning job — but if the export flow runs immediately after, it may push conflicting Assignments to Lists that a crew lead is mid-signing-off on. Coordinate: no Auto-Schedule runs during business hours in the first week post-cutover unless coordinated with Shane.
+- **Someone runs Auto-Schedule in the browser tool on Day 4-5.** Nothing reaches Lists, because there is no export flow, so no crew lead's sign-off can be overwritten by it. The real risk is the quiet one in the other direction: the browser tool now silently disagrees with Lists for good, and whoever runs it may believe they have rescheduled the crews when they have changed nothing anyone will act on. Coordinate: no Auto-Schedule runs during business hours in the first week post-cutover without telling Shane, and if one happens, the change has to be re-entered in SharePoint by hand.
 - **Crew lead installed Power Apps on the wrong account.** Common if they have a personal M365 account and a work one. Sign them out of everything, sign back in with D2 email only, force-close and reopen Power Apps.
 - **Someone forwards a dispatch email to a crew lead who isn't licensed for Power Apps.** They'll get a "you don't have access" page on the sign-off link. Not fixable in the app — need to license them properly. Rare but happens.
 - **First real conflict alert fires on a real double-book.** This is a good sign — the system caught what the browser tool would have missed. Don't panic. Fix in Lists, log, move on.

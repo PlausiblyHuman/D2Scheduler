@@ -1280,12 +1280,34 @@ Two deviations from the runbook, both deliberate:
   parent assignment's dates, but CAML cannot filter a view on a lookup's *other* columns without
   a join. Filter is `Complete = No`, grouped by Assignment.
 
-**OPEN — Phase F training materials describe two mechanisms that do not exist.** The office quick
-reference and PM workflow docs in `D2-Phase-F-Cutover-Runbook.md` still tell PMs that "the nightly
-export pushes to Lists at 11 PM" and point them at "Field Dispatch" and "Ownership" Teams
-channels. The nightly sync was **descoped from the pilot** and the Teams channels were **deferred
-post-pilot** — both deliberate decisions whose training copy was never updated. Fix before anyone
-is trained on it, or three of the mechanisms Don is shown will not be real.
+**RESOLVED 2026-09-08b — the Phase E and F runbooks now match what exists.** This entry used to
+say the training materials still promised a nightly export at 11 PM and pointed at Teams channels.
+That half had already been fixed by someone and the note was never struck, so CLAUDE.md was
+carrying a phantom. What it missed was a *newer* staleness created the day before: the PM workflow
+sheet still said **"Plan a NEW pool in the browser tool as before, then tell Stratirus, we load it
+into SharePoint for you"**, which `D2 - New Pool` had just made false. Training Don and the two PMs
+off that copy would have handed straight back the bottleneck the feature exists to remove.
+
+Fixed across both runbooks:
+
+- **Phase F Step 3** and **Phase E Step 2** both routed the pool load through a "browser-tool
+  export flow" that has never existed. Both now use `D2 - New Pool`, and both say plainly that
+  generation is the cheap part and **reconciling a template-generated schedule to the pool's real
+  sequencing and progress is the actual work**. That distinction matters: New Pool counts dates
+  forward from a start date and knows nothing about how a live pool has actually been run.
+- **Office quick reference** gained "Start a new pool?", "Remove a pool?", and how to read the new
+  timeline bar.
+- **PM workflow** now says PMs raise pools themselves, and that the browser tool stays the planner
+  and the only Gantt.
+- **Step 12** no longer tells the office that Stratirus loads new pools.
+- The **Auto-Schedule gotcha** described an export flow pushing conflicting rows over a crew lead's
+  sign-off. That cannot happen. The real risk is the quiet inverse, which it now describes.
+- **Phase E's "use Pacific"** timezone instruction was wrong and is now Central.
+
+**The lesson worth keeping: a stale OPEN note is worse than no note.** This one asserted a problem
+that was already fixed while the real defect sat three lines away in the same file, and it had
+been read past more than once. When closing an item here, check the artifact rather than the
+memory of it.
 
 **TEMPORARY TEST DATA IS LIVE ON THE D2 TENANT — remove before the pilot.** Seeded 2026-09-03 so Flows 4 and 5 could be judged against realistic volume rather than 5 rows.
 
@@ -1312,10 +1334,37 @@ lists had accumulated build-time test rows (`Guard Test`, `Plan Test Alpha/Bravo
 `Sunday Start Test`, `TEST-9999`, `TEST-8888`, `PROBE-BLANK-CONFIRM`, and the `TEST-91xx` runs
 from the New Pool build), and a PM opening either list on day one would have seen our test litter
 in what is meant to read as a client-facing operational log. Both lists are now empty by direct
-REST delete. **`cleanup.js` does not know about these two lists.** It was written before they
-existed and only touches Jobs/Assignments/Tasks. Any future test rows in `New Pool Requests` or
-`Delete Pool Requests` must be cleared by hand (or `cleanup.js` extended) rather than assumed
-covered.
+REST delete.
+
+**RESOLVED 2026-09-08b — `cleanup.js` now covers both request lists**, so the pre-pilot gate no
+longer silently skips them. It handles them more cautiously than Jobs/Assignments/Tasks, and
+deliberately:
+
+- It deletes only rows it can **prove** are ours, meaning a `TEST-` job number or the demo job.
+- Anything else is **reported, never deleted**, via a `console.warn` plus a table of what was left.
+  These lists are a client-facing operational log, so after go-live their rows are a PM's real
+  request history. A blanket wipe would destroy that the first time someone ran the script post
+  go-live, which is exactly when it would look harmless.
+- Consequence to know: leftover test rows whose name carries no `TEST-` marker (`Guard Test`,
+  `PROBE-BLANK-CONFIRM` and the rest above all looked like this) are **not** auto-removed. They
+  show up in the review table and clearing them is a human decision.
+
+**The two lists do NOT share a job-number column**, and this is worth knowing before writing any
+query against them: it is `JobNumber` on `New Pool Requests` and **`ConfirmJobNumber`** on
+`Delete Pool Requests`. Verified rather than assumed, by probing `$select` against the live lists:
+a bogus column returns **400**, both real columns return 200, and `JobNumber` against
+`Delete Pool Requests` returns **400**. The obvious guess of a shared `JobNumber` would have
+failed at the gate.
+
+**`cleanup.js` also gained a `DRY_RUN` flag** (default `false`). Set it `true` to report exactly
+what would be deleted without deleting anything. Worth using before the real gate run: that gate
+is a one-shot destructive step on a live client tenant, normally run under time pressure, and this
+is the only way to see the blast radius first.
+
+Not yet exercised end to end: the request-list **delete** and **review** paths have never run
+against real rows, because both lists are currently empty and the only way to populate them is to
+create rows that trigger `D2 - New Pool` or `D2 - Delete Pool`. The queries themselves are
+verified. Do a `DRY_RUN` pass before trusting the gate.
 
 **`cleanup.js` was extended 2026-09-05 and now removes the Harrison demo job too.** `D2-1001` is no more real than `TEST-900x` — it is the browser prototype's hardcoded demo job and Assignments 1-5 hang off it, so leaving it means going live with demo data in a client tenant. Deleting it also disposes of three separately-tracked defects for free: Assignment 1's stale `"Chrome-driven test"` sign-off, Assignment 4's Sunday start, and the D2 Bot placeholder in `Jobs.ProjectManager`. **Do not spend effort fixing those three; they are being deleted.**
 

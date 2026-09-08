@@ -41,20 +41,30 @@ Before Day 0, have on hand:
 
 ### Step 2 — Load the pilot pool into Lists
 
-Two paths, pick one:
+**There is no browser-tool export flow.** It was never built, it was descoped from the pilot
+deliberately on 2026-09-05, and it is not coming before go-live. Earlier drafts of this step
+offered it as the "correct" path. Ignore that. Use `D2 - New Pool`.
 
-**Manual (fast, 30 min):**
-1. Create a Jobs list entry for the pilot pool using the JobNumber from the browser tool
-2. Create 46 Sub-phase Assignment rows (one per template sub-phase). Set Crew, ScheduledStart, DurationDays, and Locked/NotApplicable per what the browser tool currently shows
-3. Create 295 Sub-phase Task rows (per template). All Complete = No (they'll get ticked during the week)
-4. Set InstallerSignOff = Yes for any sub-phases the browser tool shows already signed off
+**1. Generate the pool.** Add one row to **New Pool Requests**: job number, name, address, start
+date, project manager. All five are required. That produces 1 Job, 46 Assignments and about 295
+Tasks, dated forward across work days only, in roughly 7 minutes.
 
-**Via the browser-tool export flow (correct, ~15 min if the flow works):**
-1. Point the export flow at the pilot pool only (filter by JobNumber in the flow's Get action)
-2. Run manually
-3. Verify the correct rows landed
+**2. Reconcile it to the pilot pool's actual state.** This is the part that matters, and it is
+the whole point of a pilot. `D2 - New Pool` generates a standard schedule from the template, so
+it knows nothing about how this specific pool has actually been run. Against the browser tool's
+current state for the pilot pool:
 
-If the export flow is untested by Phase E, use the manual path. Do NOT extend Phase C into Phase E to build the export flow — save that for post-cutover.
+1. Correct `Crew`, `ScheduledStart` and `ScheduledFinish` on every sub-phase that differs.
+2. Set `Locked` / `NotApplicable` to match what the browser tool shows.
+3. Set `InstallerSignOff = Yes` on any sub-phase the browser tool already shows signed off, and
+   tick the corresponding Tasks rows.
+
+Getting step 2 wrong does not just cost setup time, it manufactures divergence that the whole
+pilot then spends the week chasing. Do it carefully and log anything ambiguous before Monday
+rather than discovering it mid-week.
+
+**If the pool comes out wrong, delete and redo.** Add a row to **Delete Pool Requests** and raise
+the New Pool request again, rather than hand-repairing 341 rows.
 
 ### Step 3 — Set up the divergence log
 
@@ -113,7 +123,7 @@ Every workday morning, ~15 min. This is the actual pilot.
 
 **Don't touch:**
 - Do not edit Assignments in Lists directly during the day, except to fix a divergence with a documented root cause. Every edit is a variable.
-- Do not run the export flow again during the pilot — it will overwrite Lists state and mask divergences.
+- Do not raise another New Pool request for the pilot pool mid-week. It would create a second, duplicate set of 46 Assignments rather than update the existing ones, which both masks divergences and doubles every count you are checking against.
 
 ### End of day
 
@@ -134,7 +144,7 @@ Browser tool updated at 8:15 AM by the PM and never reaches Lists at all — the
 
 **Diagnosis:** Verify with a second check at 8:45 AM. If the Lists state now matches, it was timing.
 
-**Resolution:** Log as timing, accept. If it happens 3+ times in a week, we may need a mid-day export flow, not just nightly.
+**Resolution:** Log as timing, accept. There is no export flow of any cadence, so if this happens 3+ times in a week the answer is a process one: agree a cut-off after which the day's changes are made in SharePoint directly rather than in the browser tool.
 
 ### Type B — Sign-off not propagating
 
@@ -237,7 +247,7 @@ Verify all before proceeding to Phase F:
 
 - **PM edits Lists directly to "help" during the pilot.** Discourage. Every direct edit undermines the parallel-run comparison. If the PM sees a Lists error and wants to fix it, log it first.
 - **Weekend gap.** Days 1–5 run Mon–Fri. Saturday is a normal work day for D2 crews but the pilot check cadence should still hit Saturday morning. Sunday is genuine skip.
-- **Timezone confusion.** Verify all comparison points use Pacific. The browser tool uses local device time; Lists stores UTC. A 1-day-off divergence is almost always a timezone issue in a query filter.
+- **Timezone confusion.** Verify all comparison points use **Central**, not Pacific. This runbook said Pacific and that was wrong: the site's regional setting is (UTC-06:00) Central, and the summary flows are scheduled in Central. The browser tool uses local device time. Date-only fields are stored at local midnight, so a value written as midnight UTC reads back one day early. A 1-day-off divergence is almost always this, not a real scheduling error. See the DateTime storage convention in CLAUDE.md.
 - **Sample size of one pool.** A clean pilot doesn't prove the system handles all edge cases. Cutover in Phase F puts more pools in and will surface things the pilot didn't. Plan for that in Phase F's on-call schedule.
 - **The browser tool's Auto-Schedule can drift, and nothing reconciles it.** There is no export, so a mid-week Auto-Schedule run silently diverges the browser tool from Lists for good. Coordinate: the PM does not re-run Auto-Schedule during the pilot week without notifying you first.
 
