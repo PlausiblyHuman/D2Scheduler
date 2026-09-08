@@ -224,10 +224,10 @@ model could not express, because it implied we were mid-Phase-C and on schedule.
   without any REST work by us. The gap that remains is the browser tool itself never writing
   to Lists; live pools are still edited directly in Lists.
 - **Teams channels.** Deferred post-pilot 2026-09-05; every flow delivers by email instead.
-- **A Work Calendar top-up flow.** The list is a rolling year seeded once and expires
-  **2027-08-22**; after that holidays silently become work days in both New Pool and Flow 1. A
-  yearly recurrence that appends the next year's Sundays and federal holidays closes it for good.
-  Extending the rows by hand buys a year and needs no code, so this is backlog, not a blocker.
+- **A Work Calendar top-up flow.** The list was extended by hand to **2029-12-30** on
+  2026-09-08b, so this is no longer near-term, but it still expires and nothing still maintains
+  it. A yearly recurrence appending the next year's Sundays and holidays closes it permanently.
+  Do it before the horizon is inside a pool's four-month span again, i.e. well before mid-2029.
 - **Photo capture** on a task or sign-off. Raised by Shane 2026-09-07, likely the highest-value
   addition after go-live for a warranty/QC trail. Needs a camera control, image storage, and an
   upload through a flow.
@@ -931,11 +931,20 @@ without saving — verified.)
 
 **Context only, not in scope: `d2install.com`.** D2 Pools and D2 Install are sister companies both owned by Don. Four accounts in this tenant (Amy Stevens, Bobby Harlow, David Taylor, Mike Brantley) carry `@d2install.com` in their `mail` attribute while signing in on `netorgft15040037.onmicrosoft.com` UPNs — `d2install.com` is **not** a verified domain here (only `d2pools.com`, `d2tn.com` and the onmicrosoft default are). **This project is pools-only.** Recorded so future sessions don't re-investigate it.
 
-**THE WORK CALENDAR EXPIRES 2027-08-22, AND NOTHING MAINTAINS IT. Found 2026-09-08b.**
+**THE WORK CALENDAR RAN OUT ON 2027-08-22. EXTENDED TO 2029-12-30 on 2026-09-08b.**
 
-The 62 rows are not "2026 holidays". They are a rolling year seeded once in Phase A, running
-**2026-08-30 to 2027-08-22**: 52 Sundays and 10 US federal holidays spanning both years. No flow,
-script or runbook step extends it, so it simply runs out.
+The original 62 rows were not "2026 holidays". They were a rolling year seeded once in Phase A,
+running **2026-08-30 to 2027-08-22**: 52 Sundays and 10 US federal holidays spanning both years.
+No flow, script or runbook step extended it, so it simply ran out, about 11 months out.
+
+**Now 210 rows covering 2026-08-30 to 2029-12-30** (175 Sundays, 35 holidays), so the fuse is
+roughly three years rather than one. Verified on write: 0 duplicates, 0 missing Sundays across
+the whole span, 0 rows stored at midnight UTC (126 at `T05:00Z` CDT and 84 at `T06:00Z` CST,
+which is the DST split you get only if each bare `yyyy-MM-dd` was interpreted in site-local time),
+and every Sunday row's stored date matches the date embedded in its own Title.
+
+**This is a reprieve, not a fix.** It still expires, and nothing still maintains it. The Phase G
+top-up flow is the actual answer.
 
 What happens after that date is quiet rather than loud, which is what makes it worth writing down.
 `D2 - New Pool`'s `Condition_is_work_day` is:
@@ -954,8 +963,15 @@ Two related notes. `Get_work_calendar` passes `$top: 500`, so a calendar extende
 nine years would truncate, also silently. And Flow 1 reads the same list to decide whether today
 is a work day, so an expired calendar degrades dispatch as well, not just generation.
 
-**Cheapest fix is to extend the list**, which is data and needs no flow change. The durable fix is
-a yearly recurrence flow that tops it up, which is a Phase G item, not a pilot blocker.
+**JUNETEENTH IS MISSING AND ALWAYS HAS BEEN — this is a question for D2, not a bug to fix.**
+The seeded set is 10 holidays and omits Juneteenth, a federal holiday since 2021. It is absent for
+2027 (19 June 2027 is a Saturday, so it would be observed Friday the 18th) and the extension
+deliberately did NOT add it, because **adding a holiday suppresses dispatch on a day crews may
+actually work**, and which days D2 does not work is D2's call, not ours. Note the list already
+contains Columbus Day and Veterans Day, which plenty of construction crews do work, so the set is
+really "federal holidays" used as a proxy rather than D2's observed days. **Worth asking Don and
+David to confirm the whole list once**, rather than only Juneteenth. Adding or removing one is a
+row per year either way.
 
 **`generate-seed.py` does not check holidays at all, only Sundays.** Three assignments carry an
 endpoint on **Labor Day, 2026-09-07**: ids 4 (Harrison), 21 and 25 (both TEST-900x, so seeder
@@ -1026,7 +1042,7 @@ the same time, and a surprising row is not automatically a bug in this session's
 | Trades | 26 | `05038f7f-a6cb-4f57-b1a1-3ff9c7126ba5` |
 | Crews | 14 (subcontractor patch applied) | `45e9ff1f-bf36-4ab5-929d-25ab9a80d460` |
 | Crew-Trades | 51 | (see viewlsts.aspx) |
-| Work Calendar | 62 (52 Sundays + 10 US federal holidays) | (see viewlsts.aspx) |
+| Work Calendar | **210** (175 Sundays + 35 holidays, 2026-08-30 to 2029-12-30) | (see viewlsts.aspx) |
 | New Pool Requests | 0 (cleared 2026-09-08 of build-time test rows; this is a client-facing operational log, not a place for our test litter) | `13331a5e-ea8e-4ab2-9276-db5b4f4d46bf` |
 | Delete Pool Requests | 0 (cleared 2026-09-08, same reason) | `b1ea3db6-7870-4648-80c2-7fe8414ecfd7` |
 | Sub-phase Template | 46 (one row per sub-phase; read by `D2 - New Pool`) | `453e7cd5-f84a-4e2a-9372-73f26019e3f0` |
