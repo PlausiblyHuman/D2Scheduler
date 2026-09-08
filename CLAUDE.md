@@ -963,15 +963,19 @@ Two related notes. `Get_work_calendar` passes `$top: 500`, so a calendar extende
 nine years would truncate, also silently. And Flow 1 reads the same list to decide whether today
 is a work day, so an expired calendar degrades dispatch as well, not just generation.
 
-**JUNETEENTH IS MISSING AND ALWAYS HAS BEEN — this is a question for D2, not a bug to fix.**
-The seeded set is 10 holidays and omits Juneteenth, a federal holiday since 2021. It is absent for
-2027 (19 June 2027 is a Saturday, so it would be observed Friday the 18th) and the extension
-deliberately did NOT add it, because **adding a holiday suppresses dispatch on a day crews may
-actually work**, and which days D2 does not work is D2's call, not ours. Note the list already
-contains Columbus Day and Veterans Day, which plenty of construction crews do work, so the set is
-really "federal holidays" used as a proxy rather than D2's observed days. **Worth asking Don and
-David to confirm the whole list once**, rather than only Juneteenth. Adding or removing one is a
-row per year either way.
+**JUNETEENTH IS DELIBERATELY EXCLUDED. Decided by Shane, 2026-09-08b. Do not re-raise it, and
+do not "helpfully" add it when next extending the calendar.**
+
+It has been absent since seeding and stays absent. The reasoning matters for anyone extending
+this list later: a row here **suppresses dispatch**, so adding a holiday the crews actually work
+silently kills a real work day, and no error surfaces anywhere. Absence is the safe default;
+presence is the claim that needs evidence.
+
+Standing note, not a blocker: the other ten are inherited from the Phase A seed and were never
+confirmed against D2's actual practice. The set includes Columbus Day and Veterans Day, which
+many construction crews work, so it is really "US federal holidays" used as a proxy for D2's
+shutdown days. If a crew is ever dispatched on a day D2 is closed, or not dispatched on a day it
+is open, this list is the first place to look.
 
 **`generate-seed.py` does not check holidays at all, only Sundays.** Three assignments carry an
 endpoint on **Labor Day, 2026-09-07**: ids 4 (Harrison), 21 and 25 (both TEST-900x, so seeder
