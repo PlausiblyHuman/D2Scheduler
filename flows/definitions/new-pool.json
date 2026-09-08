@@ -413,9 +413,26 @@
             ]
           }
         },
-        "Apply_to_each_subphase": {
+        "Init_taskCount": {
           "runAfter": {
             "Init_dayOffset": [
+              "Succeeded"
+            ]
+          },
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "taskCount",
+                "type": "integer",
+                "value": 0
+              }
+            ]
+          }
+        },
+        "Apply_to_each_subphase": {
+          "runAfter": {
+            "Init_taskCount": [
               "Succeeded"
             ]
           },
@@ -594,9 +611,92 @@
                 }
               }
             },
-            "Set_cursor_next": {
+            "Filter_tasks_for_subphase": {
               "runAfter": {
                 "Create_assignment": [
+                  "Succeeded"
+                ]
+              },
+              "type": "Query",
+              "inputs": {
+                "from": "@body('Get_task_template')?['value']",
+                "where": "@equals(item()?['SubPhase']?['Id'], items('Apply_to_each_subphase')?['ID'])"
+              }
+            },
+            "Increment_taskCount": {
+              "runAfter": {
+                "Filter_tasks_for_subphase": [
+                  "Succeeded"
+                ]
+              },
+              "type": "IncrementVariable",
+              "inputs": {
+                "name": "taskCount",
+                "value": "@length(body('Filter_tasks_for_subphase'))"
+              }
+            },
+            "Apply_to_each_task": {
+              "runAfter": {
+                "Increment_taskCount": [
+                  "Succeeded"
+                ]
+              },
+              "type": "Foreach",
+              "foreach": "@body('Filter_tasks_for_subphase')",
+              "actions": {
+                "Create_task": {
+                  "runAfter": {},
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "host": {
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                      "operationId": "HttpRequest",
+                      "connectionName": "shared_sharepointonline"
+                    },
+                    "parameters": {
+                      "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+                      "parameters/method": "POST",
+                      "parameters/uri": "_api/web/lists/GetByTitle('Tasks')/items",
+                      "parameters/headers": {
+                        "Content-Type": "application/json;odata=verbose",
+                        "Accept": "application/json;odata=verbose"
+                      },
+                      "parameters/body": "{\"__metadata\":{\"type\":\"SP.Data.TasksListItem\"},\"Title\":\"@{items('Apply_to_each_task')?['Title']}\",\"AssignmentId\":@{body('Create_assignment')?['d']?['Id']},\"Sequence\":@{items('Apply_to_each_task')?['Sequence']},\"Complete\":false}"
+                    }
+                  }
+                }
+              }
+            },
+            "Merge_task_total": {
+              "runAfter": {
+                "Apply_to_each_task": [
+                  "Succeeded"
+                ]
+              },
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                  "operationId": "HttpRequest",
+                  "connectionName": "shared_sharepointonline"
+                },
+                "parameters": {
+                  "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+                  "parameters/method": "POST",
+                  "parameters/uri": "_api/web/lists/GetByTitle('Assignments')/items(@{body('Create_assignment')?['d']?['Id']})",
+                  "parameters/headers": {
+                    "X-HTTP-Method": "MERGE",
+                    "If-Match": "*",
+                    "Content-Type": "application/json;odata=verbose",
+                    "Accept": "application/json;odata=verbose"
+                  },
+                  "parameters/body": "{\"__metadata\":{\"type\":\"SP.Data.AssignmentsListItem\"},\"TasksTotal\":@{length(body('Filter_tasks_for_subphase'))},\"TasksComplete\":0}"
+                }
+              }
+            },
+            "Set_cursor_next": {
+              "runAfter": {
+                "Merge_task_total": [
                   "Succeeded"
                 ]
               },
@@ -608,9 +708,18 @@
             }
           }
         },
-        "Set_status_done": {
+        "Compose_result": {
           "runAfter": {
             "Apply_to_each_subphase": [
+              "Succeeded"
+            ]
+          },
+          "type": "Compose",
+          "inputs": "@concat('Created ', triggerOutputs()?['body/JobNumber'], ': ', string(length(outputs('Get_subphase_template')?['body/value'])), ' sub-phases, ', string(variables('taskCount')), ' tasks, ', formatDateTime(triggerOutputs()?['body/StartDate'],'yyyy-MM-dd'), ' to ', variables('spanFinish'))"
+        },
+        "Set_status_done": {
+          "runAfter": {
+            "Compose_result": [
               "Succeeded"
             ]
           },
@@ -631,7 +740,28 @@
                 "Content-Type": "application/json;odata=verbose",
                 "Accept": "application/json;odata=verbose"
               },
-              "parameters/body": "{\"__metadata\":{\"type\":\"SP.Data.New_x0020_Pool_x0020_RequestsListItem\"},\"Status\":\"Done\",\"Result\":\"Created Jobs item @{body('Create_job')?['d']?['Id']}.\"}"
+              "parameters/body": "{\"__metadata\":{\"type\":\"SP.Data.New_x0020_Pool_x0020_RequestsListItem\"},\"Status\":\"Done\",\"Result\":\"@{outputs('Compose_result')}\"}"
+            }
+          }
+        },
+        "Send_result_email": {
+          "runAfter": {
+            "Set_status_done": [
+              "Succeeded"
+            ]
+          },
+          "type": "OpenApiConnection",
+          "inputs": {
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+              "operationId": "SendEmailV2",
+              "connectionName": "shared_office365"
+            },
+            "parameters": {
+              "emailMessage/To": "@{coalesce(triggerOutputs()?['body/ProjectManager']?['Email'], triggerOutputs()?['body/Author']?['Email'])}",
+              "emailMessage/Subject": "New Pool Built: @{triggerOutputs()?['body/JobNumber']}",
+              "emailMessage/Body": "<p>@{outputs('Compose_result')}</p><p><a href=\"https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler/Lists/Assignments/All%20Assignments.aspx\">View assignments</a></p>",
+              "emailMessage/Importance": "Normal"
             }
           }
         }
@@ -648,6 +778,18 @@
         "brandColor": "",
         "tier": "Standard",
         "apiName": "sharepointonline",
+        "isProcessSimpleApiReferenceConversionAlreadyDone": false
+      },
+      "shared_office365": {
+        "connectionName": "shared-office365-0bc14d33-bf94-4439-bdbc-d600759333d5",
+        "connectionReferenceLogicalName": "new_sharedoffice365_4d59e",
+        "source": "Embedded",
+        "id": "/providers/Microsoft.PowerApps/apis/shared_office365",
+        "displayName": "Office 365 Outlook",
+        "iconUri": "https://static.powerapps.com/resource/ppcr/releases/v1.0.1819/1.0.1819.4795/office365/icon.png",
+        "brandColor": "#0078D4",
+        "tier": "Standard",
+        "apiName": "office365",
         "isProcessSimpleApiReferenceConversionAlreadyDone": false
       }
     }
