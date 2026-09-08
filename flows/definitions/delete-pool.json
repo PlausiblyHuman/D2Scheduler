@@ -578,7 +578,7 @@
             ]
           },
           "type": "Compose",
-          "inputs": "@concat('Failed: a pre-check step failed or timed out while preparing to delete ', triggerOutputs()?['body/Title'], '. Deletion DID NOT START \u2014 no tasks, assignments, or the job itself were touched. Escalate for investigation, then resubmit once the underlying issue (e.g. SharePoint throttling) is resolved.')"
+          "inputs": "@concat('Failed: a pre-check step failed or timed out while preparing to delete ', triggerOutputs()?['body/Title'], '. Deletion DID NOT START. No tasks, assignments, or the job itself were touched. Escalate for investigation, then resubmit once the underlying issue (e.g. SharePoint throttling) is resolved.')"
         },
         "Set_status_failed_preflight": {
           "runAfter": {
@@ -622,7 +622,7 @@
             },
             "parameters": {
               "emailMessage/To": "@{coalesce(triggerOutputs()?['body/Author']?['Email'], '')}",
-              "emailMessage/Subject": "URGENT \u2014 Pool deletion could not start: @{triggerOutputs()?['body/Title']}",
+              "emailMessage/Subject": "URGENT: Pool deletion could not start: @{triggerOutputs()?['body/Title']}",
               "emailMessage/Body": "<p>@{outputs('Compose_preflight_failure_message')}</p>",
               "emailMessage/Importance": "High"
             }
@@ -825,7 +825,7 @@
             ]
           },
           "type": "Compose",
-          "inputs": "@concat('Failed: deletion of ', triggerOutputs()?['body/Title'], ' (', first(outputs('Get_job')?['body/value'])?['Title'], ') was interrupted partway through and is INCOMPLETE. Some tasks and/or sub-phases may already be deleted while others remain. Do not resubmit \u2014 escalate for manual verification.')"
+          "inputs": "@concat('Failed: deletion of ', triggerOutputs()?['body/Title'], ' (', first(outputs('Get_job')?['body/value'])?['Title'], ') was interrupted partway through and is INCOMPLETE. Some tasks and/or sub-phases may already be deleted while others remain. Do not resubmit. Escalate for manual verification.')"
         },
         "Set_status_failed_partial": {
           "runAfter": {
@@ -869,7 +869,7 @@
             },
             "parameters": {
               "emailMessage/To": "@{outputs('Compose_recipients')}",
-              "emailMessage/Subject": "URGENT \u2014 Pool deletion INCOMPLETE: @{triggerOutputs()?['body/Title']}",
+              "emailMessage/Subject": "URGENT: Pool deletion INCOMPLETE: @{triggerOutputs()?['body/Title']}",
               "emailMessage/Body": "<p>@{outputs('Compose_failure_message')}</p>",
               "emailMessage/Importance": "High"
             }
