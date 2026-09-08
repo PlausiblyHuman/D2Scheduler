@@ -1456,10 +1456,30 @@ what would be deleted without deleting anything. Worth using before the real gat
 is a one-shot destructive step on a live client tenant, normally run under time pressure, and this
 is the only way to see the blast radius first.
 
-Not yet exercised end to end: the request-list **delete** and **review** paths have never run
-against real rows, because both lists are currently empty and the only way to populate them is to
-create rows that trigger `D2 - New Pool` or `D2 - Delete Pool`. The queries themselves are
-verified. Do a `DRY_RUN` pass before trusting the gate.
+**REHEARSED 2026-09-08b.** A `DRY_RUN` pass against the live tenant reported it would remove 282
+Tasks, 43 Assignments and 3 Jobs (`D2-1001`, `TEST-9001`, `TEST-9002`), making 328 no-op delete
+calls with 0 failures, and would leave `assignments [], tasks 0, jobs []` — the documented gate end
+state exactly. Live counts were unchanged afterwards (43/282/3), confirming nothing was written.
+Every Assignment and every Task matched, so the two-way matching (Title prefix plus parent Job
+lookup) has no survivors on current data.
+
+The request-list **delete** and **review** paths still cannot be exercised against real rows,
+because both lists are empty and the only way to populate them is to create rows that trigger
+`D2 - New Pool` or `D2 - Delete Pool`. The classification predicate that drives them **was** tested
+directly against synthetic rows, which is the part with teeth, since it decides whether a PM's real
+request history survives. All twelve cases behave, and they fail safe in one direction:
+
+| Job number | Deleted? |
+|---|---|
+| `TEST-9001`, `TEST-91xx` | yes |
+| `D2-1001` (with `DROP_DEMO_JOB`) | yes |
+| `D2-1042`, a real pool | **no** |
+| `''`, `null`, field absent | **no** |
+| `test-9001` lowercase, `' TEST-9001'` leading space, `TESTING-1` | **no** |
+
+Every ambiguous input lands on "keep and report". A real pool is never deleted by accident; the
+worst case is our own litter surviving into the review table, which is visible rather than silent.
+Note the consequence: test rows with odd casing are NOT auto-removed.
 
 **`cleanup.js` was extended 2026-09-05 and now removes the Harrison demo job too.** `D2-1001` is no more real than `TEST-900x` — it is the browser prototype's hardcoded demo job and Assignments 1-5 hang off it, so leaving it means going live with demo data in a client tenant. Deleting it also disposes of three separately-tracked defects for free: Assignment 1's stale `"Chrome-driven test"` sign-off, Assignment 4's Sunday start, and the D2 Bot placeholder in `Jobs.ProjectManager`. **Do not spend effort fixing those three; they are being deleted.**
 
