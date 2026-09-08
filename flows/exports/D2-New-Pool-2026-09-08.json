@@ -1,9 +1,9 @@
 {
-  "displayName": "D2 - New Pool",
   "flowId": "02905018-4f41-e05a-d140-74e2afc82052",
+  "displayName": "D2 - New Pool",
   "workflowEntityId": "d782ee70-2fab-f111-aaab-6045bd0196b3",
   "state": "Started",
-  "exportedUtc": "2026-09-08T07:00:20.299Z",
+  "lastModifiedTime": "2026-09-08T12:50:15Z",
   "connectionReferences": {
     "shared_sharepointonline": {
       "connectionName": "shared-sharepointonl-20b83f29-d689-437e-b1ff-930f7bf3fda4",
@@ -60,8 +60,7 @@
           "parameters": {
             "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
             "table": "13331a5e-ea8e-4ab2-9276-db5b4f4d46bf"
-          },
-          "authentication": "@parameters('$authentication')"
+          }
         }
       }
     },
@@ -216,34 +215,148 @@
         },
         "type": "If"
       },
-      "Ensure_pm_user": {
+      "Scope_provision_job": {
+        "actions": {
+          "Ensure_pm_user": {
+            "runAfter": {},
+            "type": "OpenApiConnection",
+            "inputs": {
+              "host": {
+                "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                "operationId": "HttpRequest",
+                "connectionName": "shared_sharepointonline"
+              },
+              "parameters": {
+                "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+                "parameters/method": "POST",
+                "parameters/uri": "_api/web/ensureuser",
+                "parameters/headers": {
+                  "Content-Type": "application/json;odata=verbose",
+                  "Accept": "application/json;odata=verbose"
+                },
+                "parameters/body": "{\"logonName\":\"@{triggerOutputs()?['body/ProjectManager']?['Claims']}\"}"
+              }
+            }
+          },
+          "Create_job": {
+            "runAfter": {
+              "Ensure_pm_user": [
+                "Succeeded"
+              ]
+            },
+            "type": "OpenApiConnection",
+            "inputs": {
+              "host": {
+                "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                "operationId": "HttpRequest",
+                "connectionName": "shared_sharepointonline"
+              },
+              "parameters": {
+                "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+                "parameters/method": "POST",
+                "parameters/uri": "_api/web/lists/GetByTitle('Jobs')/items",
+                "parameters/headers": {
+                  "Content-Type": "application/json;odata=verbose",
+                  "Accept": "application/json;odata=verbose"
+                },
+                "parameters/body": "{\"__metadata\":{\"type\":\"SP.Data.JobsListItem\"},\"Title\":\"@{triggerOutputs()?['body/Title']}\",\"JobNumber\":\"@{triggerOutputs()?['body/JobNumber']}\",\"Address\":\"@{coalesce(triggerOutputs()?['body/Address'], '')}\",\"City\":\"@{coalesce(triggerOutputs()?['body/City'], '')}\",\"StartDate\":\"@{formatDateTime(triggerOutputs()?['body/StartDate'],'yyyy-MM-dd')}\",\"Status\":\"Planned\",\"ProjectManagerId\":@{body('Ensure_pm_user')?['d']?['Id']}}"
+              }
+            }
+          },
+          "Get_subphase_template": {
+            "runAfter": {
+              "Create_job": [
+                "Succeeded"
+              ]
+            },
+            "type": "OpenApiConnection",
+            "inputs": {
+              "host": {
+                "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                "operationId": "GetItems",
+                "connectionName": "shared_sharepointonline"
+              },
+              "parameters": {
+                "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+                "table": "453e7cd5-f84a-4e2a-9372-73f26019e3f0",
+                "$orderby": "Sequence asc",
+                "$top": 100
+              }
+            }
+          },
+          "Get_task_template": {
+            "runAfter": {
+              "Get_subphase_template": [
+                "Succeeded"
+              ]
+            },
+            "type": "OpenApiConnection",
+            "inputs": {
+              "host": {
+                "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                "operationId": "GetItems",
+                "connectionName": "shared_sharepointonline"
+              },
+              "parameters": {
+                "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+                "table": "61824add-8eaa-4b1b-aed7-a202204bf9f5",
+                "$top": 500
+              }
+            }
+          },
+          "Get_work_calendar": {
+            "runAfter": {
+              "Get_task_template": [
+                "Succeeded"
+              ]
+            },
+            "type": "OpenApiConnection",
+            "inputs": {
+              "host": {
+                "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                "operationId": "GetItems",
+                "connectionName": "shared_sharepointonline"
+              },
+              "parameters": {
+                "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+                "table": "d36758cf-9d27-4342-84e4-817f8dcfa2ba",
+                "$top": 500
+              }
+            }
+          },
+          "Select_nonWork": {
+            "runAfter": {
+              "Get_work_calendar": [
+                "Succeeded"
+              ]
+            },
+            "type": "Select",
+            "inputs": {
+              "from": "@outputs('Get_work_calendar')?['body/value']",
+              "select": "@formatDateTime(item()?['Date'], 'yyyy-MM-dd')"
+            }
+          }
+        },
         "runAfter": {
           "Condition_missing_pm": [
             "Succeeded"
           ]
         },
-        "type": "OpenApiConnection",
-        "inputs": {
-          "host": {
-            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
-            "operationId": "HttpRequest",
-            "connectionName": "shared_sharepointonline"
-          },
-          "parameters": {
-            "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
-            "parameters/method": "POST",
-            "parameters/uri": "_api/web/ensureuser",
-            "parameters/headers": {
-              "Content-Type": "application/json;odata=verbose",
-              "Accept": "application/json;odata=verbose"
-            },
-            "parameters/body": "{\"logonName\":\"@{triggerOutputs()?['body/ProjectManager']?['Claims']}\"}"
-          }
-        }
+        "type": "Scope"
       },
-      "Create_job": {
+      "Compose_provision_failure_message": {
         "runAfter": {
-          "Ensure_pm_user": [
+          "Scope_provision_job": [
+            "Failed",
+            "TimedOut"
+          ]
+        },
+        "type": "Compose",
+        "inputs": "@concat('Failed: could not finish preparing to build ', triggerOutputs()?['body/JobNumber'], ' (', triggerOutputs()?['body/Title'], '). A Job row for this job number may already exist in production even though no sub-phases or tasks were created. Check the Jobs list before resubmitting. If the Job row exists, remove it with the Delete Pool form first. Escalate for investigation of the underlying failure.')"
+      },
+      "Set_status_failed_provision": {
+        "runAfter": {
+          "Compose_provision_failure_message": [
             "Succeeded"
           ]
         },
@@ -257,91 +370,52 @@
           "parameters": {
             "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
             "parameters/method": "POST",
-            "parameters/uri": "_api/web/lists/GetByTitle('Jobs')/items",
+            "parameters/uri": "_api/web/lists/GetByTitle('New Pool Requests')/items(@{triggerOutputs()?['body/ID']})",
             "parameters/headers": {
+              "X-HTTP-Method": "MERGE",
+              "If-Match": "*",
               "Content-Type": "application/json;odata=verbose",
               "Accept": "application/json;odata=verbose"
             },
-            "parameters/body": "{\"__metadata\":{\"type\":\"SP.Data.JobsListItem\"},\"Title\":\"@{triggerOutputs()?['body/Title']}\",\"JobNumber\":\"@{triggerOutputs()?['body/JobNumber']}\",\"Address\":\"@{coalesce(triggerOutputs()?['body/Address'], '')}\",\"City\":\"@{coalesce(triggerOutputs()?['body/City'], '')}\",\"StartDate\":\"@{formatDateTime(triggerOutputs()?['body/StartDate'],'yyyy-MM-dd')}\",\"Status\":\"Planned\",\"ProjectManagerId\":@{body('Ensure_pm_user')?['d']?['Id']}}"
+            "parameters/body": "{\"__metadata\":{\"type\":\"SP.Data.New_x0020_Pool_x0020_RequestsListItem\"},\"Status\":\"Failed\",\"Result\":\"@{outputs('Compose_provision_failure_message')}\"}"
           }
         }
       },
-      "Get_subphase_template": {
+      "Send_provision_failure_email": {
         "runAfter": {
-          "Create_job": [
+          "Set_status_failed_provision": [
             "Succeeded"
           ]
         },
         "type": "OpenApiConnection",
         "inputs": {
           "host": {
-            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
-            "operationId": "GetItems",
-            "connectionName": "shared_sharepointonline"
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+            "operationId": "SendEmailV2",
+            "connectionName": "shared_office365"
           },
           "parameters": {
-            "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
-            "table": "453e7cd5-f84a-4e2a-9372-73f26019e3f0",
-            "$orderby": "Sequence asc",
-            "$top": 100
+            "emailMessage/To": "@{coalesce(triggerOutputs()?['body/ProjectManager']?['Email'], triggerOutputs()?['body/Author']?['Email'])}",
+            "emailMessage/Subject": "URGENT: Pool build could not finish preparing: @{triggerOutputs()?['body/JobNumber']}",
+            "emailMessage/Body": "<p>@{outputs('Compose_provision_failure_message')}</p>",
+            "emailMessage/Importance": "High"
           }
         }
       },
-      "Get_task_template": {
+      "Terminate_failed_provision": {
         "runAfter": {
-          "Get_subphase_template": [
+          "Send_provision_failure_email": [
             "Succeeded"
           ]
         },
-        "type": "OpenApiConnection",
+        "type": "Terminate",
         "inputs": {
-          "host": {
-            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
-            "operationId": "GetItems",
-            "connectionName": "shared_sharepointonline"
-          },
-          "parameters": {
-            "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
-            "table": "61824add-8eaa-4b1b-aed7-a202204bf9f5",
-            "$top": 500
-          }
-        }
-      },
-      "Get_work_calendar": {
-        "runAfter": {
-          "Get_task_template": [
-            "Succeeded"
-          ]
-        },
-        "type": "OpenApiConnection",
-        "inputs": {
-          "host": {
-            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
-            "operationId": "GetItems",
-            "connectionName": "shared_sharepointonline"
-          },
-          "parameters": {
-            "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
-            "table": "d36758cf-9d27-4342-84e4-817f8dcfa2ba",
-            "$top": 500
-          }
-        }
-      },
-      "Select_nonWork": {
-        "runAfter": {
-          "Get_work_calendar": [
-            "Succeeded"
-          ]
-        },
-        "type": "Select",
-        "inputs": {
-          "from": "@outputs('Get_work_calendar')?['body/value']",
-          "select": "@formatDateTime(item()?['Date'], 'yyyy-MM-dd')"
+          "runStatus": "Failed"
         }
       },
       "Init_nonWork": {
         "runAfter": {
-          "Select_nonWork": [
+          "Scope_provision_job": [
             "Succeeded"
           ]
         },
@@ -458,11 +532,57 @@
           ]
         }
       },
+      "Init_currentSubphase": {
+        "runAfter": {
+          "Init_taskCount": [
+            "Succeeded"
+          ]
+        },
+        "type": "InitializeVariable",
+        "inputs": {
+          "variables": [
+            {
+              "name": "currentSubphase",
+              "type": "string",
+              "value": ""
+            }
+          ]
+        }
+      },
+      "Init_shortScheduledSubphase": {
+        "runAfter": {
+          "Init_currentSubphase": [
+            "Succeeded"
+          ]
+        },
+        "type": "InitializeVariable",
+        "inputs": {
+          "variables": [
+            {
+              "name": "shortScheduledSubphase",
+              "type": "string",
+              "value": ""
+            }
+          ]
+        }
+      },
       "Apply_to_each_subphase": {
         "foreach": "@outputs('Get_subphase_template')?['body/value']",
         "actions": {
-          "Reset_daysTaken": {
+          "Set_currentSubphase": {
             "runAfter": {},
+            "type": "SetVariable",
+            "inputs": {
+              "name": "currentSubphase",
+              "value": "@{concat(items('Apply_to_each_subphase')?['SubPhaseNumber'], ' ', items('Apply_to_each_subphase')?['Title'])}"
+            }
+          },
+          "Reset_daysTaken": {
+            "runAfter": {
+              "Set_currentSubphase": [
+                "Succeeded"
+              ]
+            },
             "type": "SetVariable",
             "inputs": {
               "name": "daysTaken",
@@ -603,129 +723,157 @@
             },
             "type": "Until"
           },
-          "Create_assignment": {
+          "Condition_span_incomplete": {
+            "actions": {
+              "Set_shortScheduledSubphase": {
+                "runAfter": {},
+                "type": "SetVariable",
+                "inputs": {
+                  "name": "shortScheduledSubphase",
+                  "value": "@{concat(items('Apply_to_each_subphase')?['SubPhaseNumber'], ' ', items('Apply_to_each_subphase')?['Title'], ': needed ', string(items('Apply_to_each_subphase')?['DurationDays']), ' work day(s), only found ', string(variables('daysTaken')), ' before the 90-day search limit.')}"
+                }
+              }
+            },
             "runAfter": {
               "Do_until_span_complete": [
                 "Succeeded"
               ]
             },
-            "type": "OpenApiConnection",
-            "inputs": {
-              "host": {
-                "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
-                "operationId": "HttpRequest",
-                "connectionName": "shared_sharepointonline"
-              },
-              "parameters": {
-                "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
-                "parameters/method": "POST",
-                "parameters/uri": "_api/web/lists/GetByTitle('Assignments')/items",
-                "parameters/headers": {
-                  "Content-Type": "application/json;odata=verbose",
-                  "Accept": "application/json;odata=verbose"
-                },
-                "parameters/body": "{\"__metadata\":{\"type\":\"SP.Data.AssignmentsListItem\"},\"Title\":\"@{concat(triggerOutputs()?['body/JobNumber'], ' · ', items('Apply_to_each_subphase')?['SubPhaseNumber'], ' ', items('Apply_to_each_subphase')?['Title'])}\",\"JobId\":@{body('Create_job')?['d']?['Id']},\"SubPhaseNumber\":\"@{items('Apply_to_each_subphase')?['SubPhaseNumber']}\",\"SubPhaseName\":\"@{items('Apply_to_each_subphase')?['Title']}\",\"Sequence\":@{items('Apply_to_each_subphase')?['Sequence']},\"TradeId\":@{coalesce(items('Apply_to_each_subphase')?['Trade']?['Id'], 'null')},\"Crew\":\"@{if(triggerOutputs()?['body/AssignDefaultCrews'], coalesce(items('Apply_to_each_subphase')?['DefaultCrew'],'unassigned'), 'unassigned')}\",\"ScheduledStart\":\"@{variables('spanStart')}\",\"ScheduledFinish\":\"@{variables('spanFinish')}\",\"DurationDays\":@{items('Apply_to_each_subphase')?['DurationDays']},\"Locked\":false,\"NotApplicable\":false,\"PMSignOff\":false,\"InstallerSignOff\":false,\"TasksComplete\":0,\"TasksTotal\":0}"
-              }
-            }
-          },
-          "Filter_tasks_for_subphase": {
-            "runAfter": {
-              "Create_assignment": [
-                "Succeeded"
-              ]
-            },
-            "type": "Query",
-            "inputs": {
-              "from": "@body('Get_task_template')?['value']",
-              "where": "@equals(item()?['SubPhase']?['Id'], items('Apply_to_each_subphase')?['ID'])"
-            }
-          },
-          "Increment_taskCount": {
-            "runAfter": {
-              "Filter_tasks_for_subphase": [
-                "Succeeded"
-              ]
-            },
-            "type": "IncrementVariable",
-            "inputs": {
-              "name": "taskCount",
-              "value": "@length(body('Filter_tasks_for_subphase'))"
-            }
-          },
-          "Apply_to_each_task": {
-            "foreach": "@body('Filter_tasks_for_subphase')",
-            "actions": {
-              "Create_task": {
-                "runAfter": {},
-                "type": "OpenApiConnection",
-                "inputs": {
-                  "host": {
-                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
-                    "operationId": "HttpRequest",
-                    "connectionName": "shared_sharepointonline"
-                  },
-                  "parameters": {
-                    "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
-                    "parameters/method": "POST",
-                    "parameters/uri": "_api/web/lists/GetByTitle('Tasks')/items",
-                    "parameters/headers": {
-                      "Content-Type": "application/json;odata=verbose",
-                      "Accept": "application/json;odata=verbose"
+            "else": {
+              "actions": {
+                "Create_assignment": {
+                  "runAfter": {},
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "host": {
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                      "operationId": "HttpRequest",
+                      "connectionName": "shared_sharepointonline"
                     },
-                    "parameters/body": "{\"__metadata\":{\"type\":\"SP.Data.TasksListItem\"},\"Title\":\"@{items('Apply_to_each_task')?['Title']}\",\"AssignmentId\":@{body('Create_assignment')?['d']?['Id']},\"Sequence\":@{items('Apply_to_each_task')?['Sequence']},\"Complete\":false}"
+                    "parameters": {
+                      "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+                      "parameters/method": "POST",
+                      "parameters/uri": "_api/web/lists/GetByTitle('Assignments')/items",
+                      "parameters/headers": {
+                        "Content-Type": "application/json;odata=verbose",
+                        "Accept": "application/json;odata=verbose"
+                      },
+                      "parameters/body": "{\"__metadata\":{\"type\":\"SP.Data.AssignmentsListItem\"},\"Title\":\"@{concat(triggerOutputs()?['body/JobNumber'], ' · ', items('Apply_to_each_subphase')?['SubPhaseNumber'], ' ', items('Apply_to_each_subphase')?['Title'])}\",\"JobId\":@{body('Create_job')?['d']?['Id']},\"SubPhaseNumber\":\"@{items('Apply_to_each_subphase')?['SubPhaseNumber']}\",\"SubPhaseName\":\"@{items('Apply_to_each_subphase')?['Title']}\",\"Sequence\":@{items('Apply_to_each_subphase')?['Sequence']},\"TradeId\":@{coalesce(items('Apply_to_each_subphase')?['Trade']?['Id'], 'null')},\"Crew\":\"@{if(triggerOutputs()?['body/AssignDefaultCrews'], coalesce(items('Apply_to_each_subphase')?['DefaultCrew'],'unassigned'), 'unassigned')}\",\"ScheduledStart\":\"@{variables('spanStart')}\",\"ScheduledFinish\":\"@{variables('spanFinish')}\",\"DurationDays\":@{items('Apply_to_each_subphase')?['DurationDays']},\"Locked\":false,\"NotApplicable\":false,\"PMSignOff\":false,\"InstallerSignOff\":false,\"TasksComplete\":0,\"TasksTotal\":0}"
+                    }
+                  }
+                },
+                "Filter_tasks_for_subphase": {
+                  "runAfter": {
+                    "Create_assignment": [
+                      "Succeeded"
+                    ]
+                  },
+                  "type": "Query",
+                  "inputs": {
+                    "from": "@body('Get_task_template')?['value']",
+                    "where": "@equals(item()?['SubPhase']?['Id'], items('Apply_to_each_subphase')?['ID'])"
+                  }
+                },
+                "Increment_taskCount": {
+                  "runAfter": {
+                    "Filter_tasks_for_subphase": [
+                      "Succeeded"
+                    ]
+                  },
+                  "type": "IncrementVariable",
+                  "inputs": {
+                    "name": "taskCount",
+                    "value": "@length(body('Filter_tasks_for_subphase'))"
+                  }
+                },
+                "Apply_to_each_task": {
+                  "foreach": "@body('Filter_tasks_for_subphase')",
+                  "actions": {
+                    "Create_task": {
+                      "runAfter": {},
+                      "type": "OpenApiConnection",
+                      "inputs": {
+                        "host": {
+                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                          "operationId": "HttpRequest",
+                          "connectionName": "shared_sharepointonline"
+                        },
+                        "parameters": {
+                          "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+                          "parameters/method": "POST",
+                          "parameters/uri": "_api/web/lists/GetByTitle('Tasks')/items",
+                          "parameters/headers": {
+                            "Content-Type": "application/json;odata=verbose",
+                            "Accept": "application/json;odata=verbose"
+                          },
+                          "parameters/body": "{\"__metadata\":{\"type\":\"SP.Data.TasksListItem\"},\"Title\":\"@{items('Apply_to_each_task')?['Title']}\",\"AssignmentId\":@{body('Create_assignment')?['d']?['Id']},\"Sequence\":@{items('Apply_to_each_task')?['Sequence']},\"Complete\":false}"
+                        }
+                      }
+                    }
+                  },
+                  "runAfter": {
+                    "Increment_taskCount": [
+                      "Succeeded"
+                    ]
+                  },
+                  "type": "Foreach"
+                },
+                "Merge_task_total": {
+                  "runAfter": {
+                    "Apply_to_each_task": [
+                      "Succeeded"
+                    ]
+                  },
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "host": {
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                      "operationId": "HttpRequest",
+                      "connectionName": "shared_sharepointonline"
+                    },
+                    "parameters": {
+                      "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+                      "parameters/method": "POST",
+                      "parameters/uri": "_api/web/lists/GetByTitle('Assignments')/items(@{body('Create_assignment')?['d']?['Id']})",
+                      "parameters/headers": {
+                        "X-HTTP-Method": "MERGE",
+                        "If-Match": "*",
+                        "Content-Type": "application/json;odata=verbose",
+                        "Accept": "application/json;odata=verbose"
+                      },
+                      "parameters/body": "{\"__metadata\":{\"type\":\"SP.Data.AssignmentsListItem\"},\"TasksTotal\":@{length(body('Filter_tasks_for_subphase'))},\"TasksComplete\":0}"
+                    }
+                  }
+                },
+                "Set_cursor_next": {
+                  "runAfter": {
+                    "Merge_task_total": [
+                      "Succeeded"
+                    ]
+                  },
+                  "type": "SetVariable",
+                  "inputs": {
+                    "name": "cursor",
+                    "value": "@{formatDateTime(addDays(variables('spanFinish'), 1), 'yyyy-MM-dd')}"
                   }
                 }
               }
             },
-            "runAfter": {
-              "Increment_taskCount": [
-                "Succeeded"
+            "expression": {
+              "not": [
+                {
+                  "equals": [
+                    "@variables('daysTaken')",
+                    "@int(items('Apply_to_each_subphase')?['DurationDays'])"
+                  ]
+                }
               ]
             },
-            "type": "Foreach"
-          },
-          "Merge_task_total": {
-            "runAfter": {
-              "Apply_to_each_task": [
-                "Succeeded"
-              ]
-            },
-            "type": "OpenApiConnection",
-            "inputs": {
-              "host": {
-                "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
-                "operationId": "HttpRequest",
-                "connectionName": "shared_sharepointonline"
-              },
-              "parameters": {
-                "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
-                "parameters/method": "POST",
-                "parameters/uri": "_api/web/lists/GetByTitle('Assignments')/items(@{body('Create_assignment')?['d']?['Id']})",
-                "parameters/headers": {
-                  "X-HTTP-Method": "MERGE",
-                  "If-Match": "*",
-                  "Content-Type": "application/json;odata=verbose",
-                  "Accept": "application/json;odata=verbose"
-                },
-                "parameters/body": "{\"__metadata\":{\"type\":\"SP.Data.AssignmentsListItem\"},\"TasksTotal\":@{length(body('Filter_tasks_for_subphase'))},\"TasksComplete\":0}"
-              }
-            }
-          },
-          "Set_cursor_next": {
-            "runAfter": {
-              "Merge_task_total": [
-                "Succeeded"
-              ]
-            },
-            "type": "SetVariable",
-            "inputs": {
-              "name": "cursor",
-              "value": "@{formatDateTime(addDays(variables('spanFinish'), 1), 'yyyy-MM-dd')}"
-            }
+            "type": "If"
           }
         },
         "runAfter": {
-          "Init_taskCount": [
+          "Init_shortScheduledSubphase": [
             "Succeeded"
           ]
         },
@@ -736,18 +884,160 @@
           }
         }
       },
-      "Compose_result": {
+      "Condition_short_scheduled": {
+        "actions": {
+          "Compose_short_scheduled_message": {
+            "runAfter": {},
+            "type": "Compose",
+            "inputs": "@concat('Failed: pool build for ', triggerOutputs()?['body/JobNumber'], ' (', triggerOutputs()?['body/Title'], ') stopped because sub-phase ', variables('shortScheduledSubphase'), ' could not be scheduled within the search window. A Job row and a partial set of Assignments/Tasks now exist in production, stopping at sub-phase ', variables('currentSubphase'), '. Do NOT resubmit this job number. Remove the partial pool with the Delete Pool form, fix the DurationDays for that sub-phase, then create it again.')"
+          },
+          "Set_status_failed_span": {
+            "runAfter": {
+              "Compose_short_scheduled_message": [
+                "Succeeded"
+              ]
+            },
+            "type": "OpenApiConnection",
+            "inputs": {
+              "host": {
+                "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                "operationId": "HttpRequest",
+                "connectionName": "shared_sharepointonline"
+              },
+              "parameters": {
+                "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+                "parameters/method": "POST",
+                "parameters/uri": "_api/web/lists/GetByTitle('New Pool Requests')/items(@{triggerOutputs()?['body/ID']})",
+                "parameters/headers": {
+                  "X-HTTP-Method": "MERGE",
+                  "If-Match": "*",
+                  "Content-Type": "application/json;odata=verbose",
+                  "Accept": "application/json;odata=verbose"
+                },
+                "parameters/body": "{\"__metadata\":{\"type\":\"SP.Data.New_x0020_Pool_x0020_RequestsListItem\"},\"Status\":\"Failed\",\"Result\":\"@{outputs('Compose_short_scheduled_message')}\"}"
+              }
+            }
+          },
+          "Send_span_failure_email": {
+            "runAfter": {
+              "Set_status_failed_span": [
+                "Succeeded"
+              ]
+            },
+            "type": "OpenApiConnection",
+            "inputs": {
+              "host": {
+                "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+                "operationId": "SendEmailV2",
+                "connectionName": "shared_office365"
+              },
+              "parameters": {
+                "emailMessage/To": "@{coalesce(triggerOutputs()?['body/ProjectManager']?['Email'], triggerOutputs()?['body/Author']?['Email'])}",
+                "emailMessage/Subject": "URGENT: Pool build INCOMPLETE: @{triggerOutputs()?['body/JobNumber']}",
+                "emailMessage/Body": "<p>@{outputs('Compose_short_scheduled_message')}</p>",
+                "emailMessage/Importance": "High"
+              }
+            }
+          },
+          "Terminate_failed_span": {
+            "runAfter": {
+              "Send_span_failure_email": [
+                "Succeeded"
+              ]
+            },
+            "type": "Terminate",
+            "inputs": {
+              "runStatus": "Failed"
+            }
+          }
+        },
         "runAfter": {
           "Apply_to_each_subphase": [
             "Succeeded"
           ]
         },
-        "type": "Compose",
-        "inputs": "@concat('Created ', triggerOutputs()?['body/JobNumber'], ': ', string(length(outputs('Get_subphase_template')?['body/value'])), ' sub-phases, ', string(variables('taskCount')), ' tasks, ', formatDateTime(triggerOutputs()?['body/StartDate'],'yyyy-MM-dd'), ' to ', variables('spanFinish'))"
+        "else": {
+          "actions": {
+            "Compose_result": {
+              "runAfter": {},
+              "type": "Compose",
+              "inputs": "@concat('Created ', triggerOutputs()?['body/JobNumber'], ': ', string(length(outputs('Get_subphase_template')?['body/value'])), ' sub-phases, ', string(variables('taskCount')), ' tasks, ', formatDateTime(triggerOutputs()?['body/StartDate'],'yyyy-MM-dd'), ' to ', variables('spanFinish'))"
+            },
+            "Set_status_done": {
+              "runAfter": {
+                "Compose_result": [
+                  "Succeeded"
+                ]
+              },
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                  "operationId": "HttpRequest",
+                  "connectionName": "shared_sharepointonline"
+                },
+                "parameters": {
+                  "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+                  "parameters/method": "POST",
+                  "parameters/uri": "_api/web/lists/GetByTitle('New Pool Requests')/items(@{triggerOutputs()?['body/ID']})",
+                  "parameters/headers": {
+                    "X-HTTP-Method": "MERGE",
+                    "If-Match": "*",
+                    "Content-Type": "application/json;odata=verbose",
+                    "Accept": "application/json;odata=verbose"
+                  },
+                  "parameters/body": "{\"__metadata\":{\"type\":\"SP.Data.New_x0020_Pool_x0020_RequestsListItem\"},\"Status\":\"Done\",\"Result\":\"@{outputs('Compose_result')}\"}"
+                }
+              }
+            },
+            "Send_result_email": {
+              "runAfter": {
+                "Set_status_done": [
+                  "Succeeded"
+                ]
+              },
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+                  "operationId": "SendEmailV2",
+                  "connectionName": "shared_office365"
+                },
+                "parameters": {
+                  "emailMessage/To": "@{coalesce(triggerOutputs()?['body/ProjectManager']?['Email'], triggerOutputs()?['body/Author']?['Email'])}",
+                  "emailMessage/Subject": "New Pool Built: @{triggerOutputs()?['body/JobNumber']}",
+                  "emailMessage/Body": "<p>@{outputs('Compose_result')}</p><p><a href=\"https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler/Lists/Assignments/All%20Assignments.aspx\">View assignments</a></p>",
+                  "emailMessage/Importance": "Normal"
+                }
+              }
+            }
+          }
+        },
+        "expression": {
+          "not": [
+            {
+              "equals": [
+                "@variables('shortScheduledSubphase')",
+                ""
+              ]
+            }
+          ]
+        },
+        "type": "If"
       },
-      "Set_status_done": {
+      "Compose_failure_message": {
         "runAfter": {
-          "Compose_result": [
+          "Apply_to_each_subphase": [
+            "Failed",
+            "TimedOut"
+          ]
+        },
+        "type": "Compose",
+        "inputs": "@concat('Failed: pool build for ', triggerOutputs()?['body/JobNumber'], ' (', triggerOutputs()?['body/Title'], ') was interrupted while creating sub-phase ', variables('currentSubphase'), '. A Job row and a partial set of Assignments/Tasks now exist in production. Do NOT resubmit this job number. Remove the partial pool with the Delete Pool form, fix the underlying issue, then create it again.')"
+      },
+      "Set_status_failed_partial": {
+        "runAfter": {
+          "Compose_failure_message": [
             "Succeeded"
           ]
         },
@@ -768,13 +1058,13 @@
               "Content-Type": "application/json;odata=verbose",
               "Accept": "application/json;odata=verbose"
             },
-            "parameters/body": "{\"__metadata\":{\"type\":\"SP.Data.New_x0020_Pool_x0020_RequestsListItem\"},\"Status\":\"Done\",\"Result\":\"@{outputs('Compose_result')}\"}"
+            "parameters/body": "{\"__metadata\":{\"type\":\"SP.Data.New_x0020_Pool_x0020_RequestsListItem\"},\"Status\":\"Failed\",\"Result\":\"@{outputs('Compose_failure_message')}\"}"
           }
         }
       },
-      "Send_result_email": {
+      "Send_failure_email": {
         "runAfter": {
-          "Set_status_done": [
+          "Set_status_failed_partial": [
             "Succeeded"
           ]
         },
@@ -787,10 +1077,21 @@
           },
           "parameters": {
             "emailMessage/To": "@{coalesce(triggerOutputs()?['body/ProjectManager']?['Email'], triggerOutputs()?['body/Author']?['Email'])}",
-            "emailMessage/Subject": "New Pool Built: @{triggerOutputs()?['body/JobNumber']}",
-            "emailMessage/Body": "<p>@{outputs('Compose_result')}</p><p><a href=\"https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler/Lists/Assignments/All%20Assignments.aspx\">View assignments</a></p>",
-            "emailMessage/Importance": "Normal"
+            "emailMessage/Subject": "URGENT: Pool build INCOMPLETE: @{triggerOutputs()?['body/JobNumber']}",
+            "emailMessage/Body": "<p>@{outputs('Compose_failure_message')}</p>",
+            "emailMessage/Importance": "High"
           }
+        }
+      },
+      "Terminate_failed_partial": {
+        "runAfter": {
+          "Send_failure_email": [
+            "Succeeded"
+          ]
+        },
+        "type": "Terminate",
+        "inputs": {
+          "runStatus": "Failed"
         }
       }
     }

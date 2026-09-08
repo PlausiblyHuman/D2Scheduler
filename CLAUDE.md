@@ -1108,7 +1108,7 @@ redo these:
 | Business rule 2, a non-`Unlimited` crew on two pools the same day | **0 double-books** |
 | Required-but-NULL `Locked`/`NotApplicable`/`PMSignOff`/`DurationDays` | **0 rows** |
 | 11 D2 flows exist, all `Started` | ok |
-| `flows/exports/` current vs each flow's live `lastModifiedTime` | ok, none stale |
+| `flows/exports/` current vs live | **WRONG when first checked, corrected 2026-09-08b — see below** |
 | Flow email recipients still internal | all `stratirus@d2pools.com` |
 | `Crews.LeadEmail` blank on all 7 field crews | ok |
 | 8 built views `Paged=true` with formatters | ok |
@@ -1119,6 +1119,19 @@ redo these:
 Four things it found are recorded in their own sections above: the Work Calendar expiry, three
 flow ids that were really Dataverse workflowids, this table's own row counts having drifted, and
 Flow 2's stale "not yet exercised" caveat.
+
+**One audit check was itself defective, and it matters.** The export freshness check above
+originally compared each export's **filename date** against the flow's live `lastModifiedTime` and
+reported all current. Same-day is not the same as after-the-last-change. Re-checked by **content**
+later the same day, four of eleven exports differed from live, and one differed badly:
+`D2 - New Pool`'s export was a **pre-hardening snapshot missing the entire failure path** (12
+actions absent, including `Scope_provision_job`, both failure emails and both terminates), which
+is exactly the Critical the final whole-branch review had caught. Restoring that flow from its
+committed export would have silently deleted the fix.
+
+All eleven exports were regenerated on 2026-09-08b and each verified by re-reading the written
+file and comparing its definition to live, rather than by trusting the write. **Compare exports by
+content, never by date.**
 
 **Method note worth keeping.** Two conclusions in this audit were wrong on first pass and caught
 by looking harder. A grep for `"Work Calendar"` in the New Pool export returned zero and nearly

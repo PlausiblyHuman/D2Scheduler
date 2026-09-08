@@ -1,9 +1,9 @@
 {
-  "displayName": "D2 - Delete Pool",
   "flowId": "995099f4-76e6-8bc0-89ef-9fd3557138ce",
+  "displayName": "D2 - Delete Pool",
   "workflowEntityId": "83064f1f-47ab-f111-aaac-6045bd0195dd",
   "state": "Started",
-  "exportedUtc": "2026-09-08T07:00:20.312Z",
+  "lastModifiedTime": "2026-09-08T12:54:51Z",
   "connectionReferences": {
     "shared_sharepointonline": {
       "connectionName": "shared-sharepointonl-20b83f29-d689-437e-b1ff-930f7bf3fda4",
@@ -60,8 +60,7 @@
           "parameters": {
             "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
             "table": "b1ea3db6-7870-4648-80c2-7fe8414ecfd7"
-          },
-          "authentication": "@parameters('$authentication')"
+          }
         }
       }
     },
@@ -465,8 +464,8 @@
                 },
                 {
                   "equals": [
-                    "@triggerOutputs()?['body/OverrideSignedOff']",
-                    false
+                    "@not(equals(coalesce(triggerOutputs()?['body/OverrideSignedOff'], false), true))",
+                    true
                   ]
                 }
               ]
@@ -606,7 +605,7 @@
           ]
         },
         "type": "Compose",
-        "inputs": "@concat('Failed: a pre-check step failed or timed out while preparing to delete ', triggerOutputs()?['body/Title'], '. Deletion DID NOT START — no tasks, assignments, or the job itself were touched. Escalate for investigation, then resubmit once the underlying issue (e.g. SharePoint throttling) is resolved.')"
+        "inputs": "@concat('Failed: a pre-check step failed or timed out while preparing to delete ', triggerOutputs()?['body/Title'], '. Deletion DID NOT START. No tasks, assignments, or the job itself were touched. Escalate for investigation, then resubmit once the underlying issue (e.g. SharePoint throttling) is resolved.')"
       },
       "Set_status_failed_preflight": {
         "runAfter": {
@@ -650,7 +649,7 @@
           },
           "parameters": {
             "emailMessage/To": "@{coalesce(triggerOutputs()?['body/Author']?['Email'], '')}",
-            "emailMessage/Subject": "URGENT — Pool deletion could not start: @{triggerOutputs()?['body/Title']}",
+            "emailMessage/Subject": "URGENT: Pool deletion could not start: @{triggerOutputs()?['body/Title']}",
             "emailMessage/Body": "<p>@{outputs('Compose_preflight_failure_message')}</p>",
             "emailMessage/Importance": "High"
           }
@@ -853,7 +852,7 @@
           ]
         },
         "type": "Compose",
-        "inputs": "@concat('Failed: deletion of ', triggerOutputs()?['body/Title'], ' (', first(outputs('Get_job')?['body/value'])?['Title'], ') was interrupted partway through and is INCOMPLETE. Some tasks and/or sub-phases may already be deleted while others remain. Do not resubmit — escalate for manual verification.')"
+        "inputs": "@concat('Failed: deletion of ', triggerOutputs()?['body/Title'], ' (', first(outputs('Get_job')?['body/value'])?['Title'], ') was interrupted partway through and is INCOMPLETE. Some tasks and/or sub-phases may already be deleted while others remain. Do not resubmit. Escalate for manual verification.')"
       },
       "Set_status_failed_partial": {
         "runAfter": {
@@ -897,7 +896,7 @@
           },
           "parameters": {
             "emailMessage/To": "@{outputs('Compose_recipients')}",
-            "emailMessage/Subject": "URGENT — Pool deletion INCOMPLETE: @{triggerOutputs()?['body/Title']}",
+            "emailMessage/Subject": "URGENT: Pool deletion INCOMPLETE: @{triggerOutputs()?['body/Title']}",
             "emailMessage/Body": "<p>@{outputs('Compose_failure_message')}</p>",
             "emailMessage/Importance": "High"
           }
