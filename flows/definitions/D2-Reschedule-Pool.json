@@ -239,7 +239,7 @@
         },
         "Set_status_running": {
           "runAfter": {
-            "Init_pastCount": [
+            "Init_conflicts": [
               "Succeeded"
             ]
           },
@@ -790,7 +790,7 @@
                                                     "Content-Type": "application/json;odata=verbose",
                                                     "Accept": "application/json;odata=verbose"
                                                   },
-                                                  "parameters/body": "{\"__metadata\":{\"type\":\"SP.Data.AssignmentsListItem\"},\"ScheduledStart\":\"@{variables('spanStart')}\",\"ScheduledFinish\":\"@{variables('spanFinish')}\"}"
+                                                  "parameters/body": "{\"__metadata\":{\"type\":\"SP.Data.AssignmentsListItem\"},\"ScheduledStart\":\"@{variables('spanStart')}\",\"ScheduledFinish\":\"@{variables('spanFinish')}\",\"SuppressReconcileUntil\":\"@{addMinutes(utcNow(), 10)}\"}"
                                                 }
                                               }
                                             },
@@ -878,6 +878,147 @@
                               }
                             }
                           }
+                        },
+                        "Get_all_assignments": {
+                          "runAfter": {
+                            "Apply_to_each_row": [
+                              "Succeeded"
+                            ]
+                          },
+                          "type": "OpenApiConnection",
+                          "inputs": {
+                            "host": {
+                              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                              "operationId": "GetItems",
+                              "connectionName": "shared_sharepointonline"
+                            },
+                            "parameters": {
+                              "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+                              "table": "49ef7006-d3fe-40a7-a52f-c4c18545bd35",
+                              "$filter": "NotApplicable ne 1",
+                              "$top": 5000
+                            }
+                          }
+                        },
+                        "Get_conflict_crews": {
+                          "runAfter": {
+                            "Get_all_assignments": [
+                              "Succeeded"
+                            ]
+                          },
+                          "type": "OpenApiConnection",
+                          "inputs": {
+                            "host": {
+                              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                              "operationId": "GetItems",
+                              "connectionName": "shared_sharepointonline"
+                            },
+                            "parameters": {
+                              "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+                              "table": "45e9ff1f-bf36-4ab5-929d-25ab9a80d460",
+                              "$filter": "Active eq 1 and Unlimited ne 1",
+                              "$top": 100
+                            }
+                          }
+                        },
+                        "For_each_conflict_crew": {
+                          "foreach": "@outputs('Get_conflict_crews')?['body/value']",
+                          "runAfter": {
+                            "Get_conflict_crews": [
+                              "Succeeded"
+                            ]
+                          },
+                          "type": "Foreach",
+                          "runtimeConfiguration": {
+                            "concurrency": {
+                              "repetitions": 1
+                            }
+                          },
+                          "actions": {
+                            "Filter_job_rows_for_crew": {
+                              "runAfter": {},
+                              "type": "Query",
+                              "inputs": {
+                                "from": "@outputs('Get_all_assignments')?['body/value']",
+                                "where": "@and(equals(item()?['Crew'], items('For_each_conflict_crew')?['CrewID']), equals(item()?['Job']?['Id'], first(outputs('Get_job')?['body/value'])?['ID']))"
+                              }
+                            },
+                            "Condition_job_uses_crew": {
+                              "runAfter": {
+                                "Filter_job_rows_for_crew": [
+                                  "Succeeded"
+                                ]
+                              },
+                              "type": "If",
+                              "expression": {
+                                "greater": [
+                                  "@length(body('Filter_job_rows_for_crew'))",
+                                  0
+                                ]
+                              },
+                              "actions": {
+                                "For_each_job_crew_row": {
+                                  "foreach": "@body('Filter_job_rows_for_crew')",
+                                  "runAfter": {},
+                                  "type": "Foreach",
+                                  "runtimeConfiguration": {
+                                    "concurrency": {
+                                      "repetitions": 1
+                                    }
+                                  },
+                                  "actions": {
+                                    "Filter_other_job_overlaps": {
+                                      "runAfter": {},
+                                      "type": "Query",
+                                      "inputs": {
+                                        "from": "@outputs('Get_all_assignments')?['body/value']",
+                                        "where": "@and(not(equals(item()?['Job']?['Id'], first(outputs('Get_job')?['body/value'])?['ID'])), equals(item()?['Crew'], items('For_each_conflict_crew')?['CrewID']), lessOrEquals(item()?['ScheduledStart'], items('For_each_job_crew_row')?['ScheduledFinish']), greaterOrEquals(item()?['ScheduledFinish'], items('For_each_job_crew_row')?['ScheduledStart']))"
+                                      }
+                                    },
+                                    "Condition_has_cross_job_conflict": {
+                                      "runAfter": {
+                                        "Filter_other_job_overlaps": [
+                                          "Succeeded"
+                                        ]
+                                      },
+                                      "type": "If",
+                                      "expression": {
+                                        "greater": [
+                                          "@length(body('Filter_other_job_overlaps'))",
+                                          0
+                                        ]
+                                      },
+                                      "actions": {
+                                        "Append_conflict_row": {
+                                          "runAfter": {},
+                                          "type": "AppendToArrayVariable",
+                                          "inputs": {
+                                            "name": "conflicts",
+                                            "value": "@{concat('<tr><td>', items('For_each_conflict_crew')?['Title'], '</td><td>', items('For_each_job_crew_row')?['Title'], '</td><td>', items('For_each_job_crew_row')?['ScheduledStart'], ' to ', items('For_each_job_crew_row')?['ScheduledFinish'], '</td><td align=''center''>', string(length(body('Filter_other_job_overlaps'))), '</td><td>', first(body('Filter_other_job_overlaps'))?['Job']?['Value'], ' - ', first(body('Filter_other_job_overlaps'))?['Title'], '</td></tr>')}"
+                                          }
+                                        }
+                                      },
+                                      "else": {
+                                        "actions": {}
+                                      }
+                                    }
+                                  }
+                                }
+                              },
+                              "else": {
+                                "actions": {}
+                              }
+                            }
+                          }
+                        },
+                        "Compose_conflict_summary": {
+                          "runAfter": {
+                            "For_each_conflict_crew": [
+                              "Succeeded"
+                            ]
+                          },
+                          "type": "Compose",
+                          "inputs": "@if(equals(length(variables('conflicts')), 0), '', concat('<h3>Crew conflicts detected: ', string(length(variables('conflicts'))), '</h3><table border=''1'' cellpadding=''6'' cellspacing=''0'' style=''border-collapse:collapse;font-size:13px''><tr style=''background:#f0f0f0''><th>Crew</th><th>Sub-phase</th><th>Dates</th><th>Overlaps</th><th>Conflicting job / sub-phase</th></tr>', join(variables('conflicts'), ''), '</table>'))"
                         }
                       }
                     }
@@ -951,7 +1092,7 @@
               "Compose_success_result": {
                 "runAfter": {},
                 "type": "Compose",
-                "inputs": "@concat('Reflow complete for ', triggerOutputs()?['body/JobNumber'], '. ', string(variables('moved')), ' sub-phase(s) moved. Skipped: ', if(equals(variables('skipped'), ''), 'none', variables('skipped')), '. New pool finish: ', if(equals(variables('poolFinish'), ''), 'unchanged', variables('poolFinish')), '. ', string(variables('pastCount')), ' sub-phase(s) now scheduled before today.')"
+                "inputs": "@concat('Reflow complete for ', triggerOutputs()?['body/JobNumber'], '. ', string(variables('moved')), ' sub-phase(s) moved. Skipped: ', if(equals(variables('skipped'), ''), 'none', variables('skipped')), '. New pool finish: ', if(equals(variables('poolFinish'), ''), 'unchanged', variables('poolFinish')), '. ', string(variables('pastCount')), ' sub-phase(s) now scheduled before today.', ' Crew conflicts: ', string(length(variables('conflicts'))), '.', outputs('Compose_conflict_summary'))"
               },
               "Set_status_done": {
                 "runAfter": {
@@ -977,6 +1118,27 @@
                       "Accept": "application/json;odata=verbose"
                     },
                     "parameters/body": "{\"__metadata\":{\"type\":\"SP.Data.Reschedule_x0020_RequestsListItem\"},\"Status\":\"Done\",\"Result\":\"@{outputs('Compose_success_result')}\"}"
+                  }
+                }
+              },
+              "Send_completion_email": {
+                "runAfter": {
+                  "Set_status_done": [
+                    "Succeeded"
+                  ]
+                },
+                "type": "OpenApiConnection",
+                "inputs": {
+                  "host": {
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+                    "operationId": "SendEmailV2",
+                    "connectionName": "shared_office365"
+                  },
+                  "parameters": {
+                    "emailMessage/To": "@{triggerOutputs()?['body/Author']?['Email']}",
+                    "emailMessage/Subject": "@{if(and(equals(first(outputs('Get_job')?['body/value'])?['Status'], 'Active'), greater(length(variables('conflicts')), 0)), concat('ALERT: crew conflict after reschedule - ', triggerOutputs()?['body/JobNumber']), concat('Reschedule complete: ', triggerOutputs()?['body/JobNumber']))}",
+                    "emailMessage/Body": "<p>@{outputs('Compose_success_result')}</p>",
+                    "emailMessage/Importance": "@{if(and(equals(first(outputs('Get_job')?['body/value'])?['Status'], 'Active'), greater(length(variables('conflicts')), 0)), 'High', 'Normal')}"
                   }
                 }
               }
@@ -1056,6 +1218,23 @@
                 "runStatus": "Failed"
               }
             }
+          }
+        },
+        "Init_conflicts": {
+          "runAfter": {
+            "Init_pastCount": [
+              "Succeeded"
+            ]
+          },
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "conflicts",
+                "type": "array",
+                "value": []
+              }
+            ]
           }
         }
       }
