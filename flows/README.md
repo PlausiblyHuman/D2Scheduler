@@ -1,5 +1,14 @@
 # flows/ — Flow 3 ready to import via FlowAgent
 
+**`definitions/` is HISTORICAL as of 2026-09-09, do not restore or reuse it.** It documents the
+original authoring approach (write the definition offline, import with FlowAgent) but nothing
+keeps it in sync with the flows as they change in the tenant, and the final whole-branch review
+of the `Planned`-suppression / `D2 - Reschedule Pool` work found five of its files silently
+missing every action a later session added. See the "`flows/definitions/` is HISTORICAL" entry
+in `CLAUDE.md` for what was found and why. **`exports/` is the content-verified artifact.** To
+restore or inspect any flow's real current shape, read the newest `exports/<Flow-Name>-*.json`
+and verify it against a fresh `get_flow`, never `definitions/`.
+
 **Current pattern:** author the definition JSON offline (using the Flow 1 & 2 exports as
 templates), then import it with **FlowAgent** — the MCP server from Microsoft's
 `microsoft/power-platform-skills` plugin, running inside Claude Code.
@@ -18,8 +27,8 @@ flows/
 ├── exports/                         ← Get-AdminFlow dumps of live flows (VC + backup)
 │   ├── D2-—-Daily-Dispatch-+-Reminders-2026-09-01.json
 │   └── D2---Sign-off-Intake-2026-09-01.json
-├── definitions/                     ← authored-here, imported-there flow bodies
-│   └── D2-Event-Driven-Reconciliation.json      ← Flow 3, validates clean
+├── definitions/                     ← HISTORICAL, do not restore from here (see above)
+│   └── D2-Event-Driven-Reconciliation.json      ← Flow 3, validates clean at time of authoring
 ├── scripts/                         ← ARCHAEOLOGY: the failed REST path. Do not run.
 │   ├── Import-Flow.ps1              ← PUT attempt   → 404 (route doesn't exist)
 │   ├── Patch-Flow.ps1               ← PATCH attempt → lands in draft, unpublishable

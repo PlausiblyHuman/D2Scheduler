@@ -3,7 +3,7 @@
   "displayName": "D2 - Reschedule Pool",
   "workflowEntityId": "210f1d70-e2ab-f111-aaab-6045bd0196b3",
   "state": "Started",
-  "lastModifiedTime": "2026-09-09T04:06:49Z",
+  "lastModifiedTime": "2026-09-09T16:36:53Z",
   "connectionReferences": {
     "shared_sharepointonline": {
       "connectionName": "shared-sharepointonl-20b83f29-d689-437e-b1ff-930f7bf3fda4",
@@ -881,7 +881,12 @@
                             "Succeeded"
                           ]
                         },
-                        "type": "Foreach"
+                        "type": "Foreach",
+                        "runtimeConfiguration": {
+                          "concurrency": {
+                            "repetitions": 1
+                          }
+                        }
                       },
                       "Get_all_assignments": {
                         "runAfter": {
@@ -1095,7 +1100,7 @@
                 "connectionName": "shared_office365"
               },
               "parameters": {
-                "emailMessage/To": "@{triggerOutputs()?['body/Author']?['Email']}",
+                "emailMessage/To": "@{if(not(empty(coalesce(first(outputs('Get_job')?['body/value'])?['ProjectManager']?['Email'], ''))), first(outputs('Get_job')?['body/value'])?['ProjectManager']?['Email'], if(not(empty(coalesce(triggerOutputs()?['body/Author']?['Email'], ''))), triggerOutputs()?['body/Author']?['Email'], 'stratirus@d2pools.com'))}",
                 "emailMessage/Subject": "Reschedule failed: @{triggerOutputs()?['body/JobNumber']}",
                 "emailMessage/Body": "<p>@{variables('result')}</p>",
                 "emailMessage/Importance": "High"
@@ -1156,7 +1161,7 @@
                   "connectionName": "shared_office365"
                 },
                 "parameters": {
-                  "emailMessage/To": "@{triggerOutputs()?['body/Author']?['Email']}",
+                  "emailMessage/To": "@{if(not(empty(coalesce(first(outputs('Get_job')?['body/value'])?['ProjectManager']?['Email'], ''))), first(outputs('Get_job')?['body/value'])?['ProjectManager']?['Email'], if(not(empty(coalesce(triggerOutputs()?['body/Author']?['Email'], ''))), triggerOutputs()?['body/Author']?['Email'], 'stratirus@d2pools.com'))}",
                   "emailMessage/Subject": "Reschedule complete: @{triggerOutputs()?['body/JobNumber']}",
                   "emailMessage/Body": "<p>@{outputs('Compose_success_result')}</p>",
                   "emailMessage/Importance": "Normal"
@@ -1214,7 +1219,7 @@
           "Compose_failure_message": {
             "runAfter": {},
             "type": "Compose",
-            "inputs": "@concat('Failed: unexpected error while reflowing job ', triggerOutputs()?['body/JobNumber'], '. Check the flow run history for details.')"
+            "inputs": "@concat('Failed: unexpected error while reflowing job ', triggerOutputs()?['body/JobNumber'], '. ', string(variables('moved')), ' sub-phase(s) were already moved before the failure. To recover, submit a new Reschedule Requests row for the same job with FromSequence ', string(triggerOutputs()?['body/FromSequence']), ' - the walk is idempotent and safe to re-run from there. Check the flow run history for details.')"
           },
           "Set_status_failed_action": {
             "runAfter": {
@@ -1257,7 +1262,7 @@
                 "connectionName": "shared_office365"
               },
               "parameters": {
-                "emailMessage/To": "@{triggerOutputs()?['body/Author']?['Email']}",
+                "emailMessage/To": "@{if(not(empty(coalesce(first(outputs('Get_job')?['body/value'])?['ProjectManager']?['Email'], ''))), first(outputs('Get_job')?['body/value'])?['ProjectManager']?['Email'], if(not(empty(coalesce(triggerOutputs()?['body/Author']?['Email'], ''))), triggerOutputs()?['body/Author']?['Email'], 'stratirus@d2pools.com'))}",
                 "emailMessage/Subject": "URGENT: Reschedule Pool failed: @{triggerOutputs()?['body/JobNumber']}",
                 "emailMessage/Body": "<p>@{outputs('Compose_failure_message')}</p>",
                 "emailMessage/Importance": "High"

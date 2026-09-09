@@ -33,6 +33,13 @@
  * a PM who reads the one line before clicking is the actual safeguard, not
  * colour.
  *
+ * ADDED 2026-09-09 -- Reschedule Pool and Planned Pools joined the same
+ * section. Found missing in the final whole-branch review of the
+ * Planned-suppression / reflow work: the office quick reference already
+ * makes Reschedule Requests the answer to "a date slipped" and sends PMs to
+ * Planned Pools to confirm a commit, but neither surface was linked from the
+ * page the office actually starts from.
+ *
  * ---------------------------------------------------------------------------
  * WHY TEXT WEB PARTS AND NOT HERO / QUICK LINKS -- this was tested, not assumed
  * ---------------------------------------------------------------------------
@@ -108,6 +115,8 @@
     crews: L('Crews/AllItems.aspx'),
     newPool: L('New Pool Requests/AllItems.aspx'),
     deletePool: L('Delete Pool Requests/AllItems.aspx'),
+    reschedulePool: L('Reschedule Requests/AllItems.aspx'),
+    plannedPools: L('Jobs/Planned Pools.aspx'),
     app: 'https://apps.powerapps.com/play/e/2710a01b-6cfa-e820-b338-2286f2649300/a/6bad1fae-7f3b-42d7-a63f-48a63e1e8771'
   };
   const ASSIGNMENTS = '49ef7006-d3fe-40a7-a52f-c4c18545bd35';
@@ -155,6 +164,8 @@
     + '<li>' + a(U.jobs, 'Jobs') + ' &nbsp;&middot;&nbsp; ' + a(U.crews, 'Crews') + '</li>'
     + '</ul><h3>Pool management</h3><ul>'
     + '<li>' + a(U.newPool, 'New Pool') + ' &mdash; start a new pool build: job number, name, address and start date generate every sub-phase and task</li>'
+    + '<li>' + a(U.reschedulePool, 'Reschedule Pool') + ' &mdash; a date slipped or a sub-phase needs to move: name the job and the sub-phase to reflow from, everything after it recomputes automatically</li>'
+    + '<li>' + a(U.plannedPools, 'Planned Pools') + ' &mdash; pools waiting on a commit. Nothing dispatches or alerts for these until Status changes from Planned to Active on the Jobs list</li>'
     + '<li>' + a(U.deletePool, 'Delete Pool') + ' &mdash; <strong>permanent.</strong> Removes a pool and everything under it. Only for a pool created by mistake.</li>'
     + '</ul>';
 

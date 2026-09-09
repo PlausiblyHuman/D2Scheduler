@@ -121,6 +121,12 @@ How do I …
   Remove a pool?
     Delete Pool Requests > New. This removes the job, all its sub-phases and
     all its tasks. There is no undo, so check the job number first.
+
+    Title and Confirm Job Number must match EXACTLY -- same job number,
+    typed twice. If they do not match, nothing is deleted, but nothing
+    tells you that either: the row just sits there marked "Refused (confirm
+    mismatch)" with no email. If a delete request seems to have done
+    nothing, open the row and check Status before re-raising it.
   See where my crews are today?
     Views drop-down > "Today by Crew" — grouped by crew, with the site address
   See what my crews are doing this week?

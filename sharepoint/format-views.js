@@ -212,6 +212,67 @@
     }
   });
 
+  // ----------------------------------------------------------------------- Jobs
+  // `Planned Pools` (filter `Status eq 'Planned'`) was the only one of the nine
+  // built views with no formatter, found in the 2026-09-09 whole-branch review --
+  // PMs are told to use it (Phase F step 5, confirm a commit) and it rendered as
+  // a plain grey table beside eight formatted ones. Same card shape as
+  // Assignments (left border, title line, detail lines) but sized to Jobs'
+  // fields: JobNumber/Title, Address/City, ProjectManager/StartDate, and a
+  // Status pill instead of the sign-off/progress pill, since Jobs has no
+  // InstallerSignOff or TasksComplete to key off.
+  const jobCard = {
+    $schema: 'https://developer.microsoft.com/json-schemas/sp/v2/row-formatting.schema.json',
+    hideColumnHeader: true,
+    hideSelection: true,
+    rowFormatter: {
+      elmType: 'div',
+      style: {
+        'display': 'flex', 'flex-direction': 'column', 'gap': '4px',
+        'width': '100%', 'box-sizing': 'border-box', 'align-items': 'flex-start',
+        'text-align': 'left',
+        'padding': '10px 14px', 'margin': '4px 0', 'border-radius': '4px',
+        'background-color': '#ffffff', 'box-shadow': '0 1px 2px rgba(8,37,68,.12)',
+        'border-left': '4px solid',
+        // Active/Complete read as done-ish (green), Planned as awaiting
+        // commit (amber), On Hold as parked (grey) -- nested if, not a
+        // lookup table, so this stays one expression with no `&&`/`<=`.
+        'border-left-color':
+          `=if([$Status] == 'Active', '${GREEN}', if([$Status] == 'Planned', '${AMBER}', if([$Status] == 'On Hold', '${GREY}', '${GREEN}')))`
+      },
+      children: [
+        { // job number + name + status pill
+          elmType: 'div',
+          style: { 'display': 'flex', 'align-items': 'center', 'flex-wrap': 'wrap' },
+          children: [
+            { elmType: 'span',
+              style: { 'font-size': '15px', 'font-weight': '600', 'color': NAVY },
+              txtContent: "=[$JobNumber] + '  ' + [$Title]" },
+            { elmType: 'span',
+              style: {
+                'padding': '2px 8px', 'border-radius': '10px', 'font-size': '11px',
+                'font-weight': '600', 'white-space': 'nowrap', 'color': '#ffffff',
+                'margin-left': '8px',
+                'background-color':
+                  `=if([$Status] == 'Active', '${GREEN}', if([$Status] == 'Planned', '${AMBER}', if([$Status] == 'On Hold', '${GREY}', '${GREEN}')))`
+              },
+              txtContent: '=[$Status]' }
+          ]
+        },
+        { // address
+          elmType: 'div',
+          style: { 'font-size': '12px', 'color': '#4b5563' },
+          txtContent: "=[$Address] + ', ' + [$City]"
+        },
+        { // PM and start date
+          elmType: 'div',
+          style: { 'font-size': '12px', 'color': GREY },
+          txtContent: "=[$ProjectManager.title] + '   ·   starts ' + [$StartDate.displayValue]"
+        }
+      ]
+    }
+  };
+
   // ---------------------------------------------------------------------- Tasks
   const taskRow = {
     $schema: 'https://developer.microsoft.com/json-schemas/sp/v2/row-formatting.schema.json',
@@ -252,7 +313,8 @@
     ['Assignments', 'Late-Starting Jobs', timelineCard],
     ['Assignments', 'Today by Crew', plainCard],
     ['Tasks', 'All Tasks (by Assignment)', taskRow],
-    ['Tasks', 'Incomplete Tasks', taskRow]
+    ['Tasks', 'Incomplete Tasks', taskRow],
+    ['Jobs', 'Planned Pools', jobCard]
   ];
 
   const results = [];

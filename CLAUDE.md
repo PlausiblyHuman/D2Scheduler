@@ -1072,10 +1072,38 @@ the span check.
 
 **Data gaps still open (from Rev D §15 / original plan §09):**
 - **10 trades unmapped to any sub-phase:** Retaining Walls, Veneer/Stone, CMU, Brick/Masonry, Landscaping, Pavers, Forms, Water Line Install, Material Runs, Grading. Don owes a mapping decision. George Crew is scheduled zero days until this lands.
-- **11 field-supervision sub-phases sit in Unassigned.** Don owes: shared PM bucket, or specific-person ownership?
+- **11 field-supervision sub-phases sit in Unassigned.** Don owes: shared PM bucket, or specific-person ownership? **This is not an idle choice: see the `office` compliance asymmetry below.** If Don picks "shared PM bucket," these 11 land on the `office` pseudo-crew, which inherits that asymmetry immediately: no reminder ever nudges anyone to finish them, but every one still counts against Don's compliance number the day it finishes.
 - Finish Grade skill on Saul & Guillermo — confirmed by Don (yes, they are qualified). No action.
 - Four crews without roster (George, Armondo, STL, Brothers) — resolved as subcontractors, Unlimited=Yes.
 - 46 durations still at 2-day placeholder — deferred; will be replaced from real actuals after first few pools.
+
+**The `office` pseudo-crew has an asymmetry that is behaviour, not a bug, found 2026-09-09 in
+the final whole-branch review.** `office` is not invisible: its sub-phases show up in Don's daily
+summary and in the Assignments views exactly like any crew's. The real asymmetry is narrower and
+easy to miss, because it sits between two flows that never looked wrong on their own:
+
+- **Daily Dispatch's outstanding-work reminder never nudges anyone about an `office` sub-phase.**
+  The reminder loop (`Get_items_3` in the export) is scoped `Active eq 1 and Unlimited ne 1`, the
+  same "7 real field crews" filter used everywhere else in this codebase, and `office` is one of
+  the seven `Unlimited = Yes` pseudo-crew buckets (`stl`, `george`, `armondo`, `brothers`,
+  `subcon`, `unassigned`, `office`), so it is correctly excluded from a loop built to email a crew
+  lead. Nobody is meant to get a text-message-shaped reminder on behalf of "the office."
+- **But `office` sub-phases still count against Don's compliance percentage.** `Get_recent_finished`
+  in the Daily and Weekly Summary flows has no crew filter at all (by design, since compliance is
+  meant to be pool-wide, not crew-scoped), so a finished, unsigned `office` sub-phase depresses the
+  same `signed / finished (pct)` number as a finished, unsigned field sub-phase.
+
+Put together: work assigned to `office` gets counted against compliance but nothing in the system
+ever prompts anyone to go close it out. Nobody is asked to fix it and everybody just watches the
+number fall. This was true the day `office` was seeded as a pseudo-crew and is unrelated to the
+`Planned`-suppression work this branch did. It is recorded here because it was found while
+reviewing the same compliance-adjacent flows, and because it explains why the 11 unmapped
+field-supervision sub-phases above are not a paperwork question: whichever way Don resolves them,
+if any land on `office`, they will surface as a falling compliance score before they ever surface
+as a question anyone asks. Not proposing a fix here: the honest options are "give `office` its
+own reminder path" (real scope: a second recipient, since `office` has no single crew lead to
+email) or "exclude `office` from the compliance denominator" (changes what the number means), and
+neither is this branch's decision to make.
 
 **`D2 - New Pool` / `D2 - Delete Pool` build: new platform constraints found 2026-09-07/08, all
 reproduced. None of the three below is caught by `validate_flow`:**
@@ -1186,7 +1214,7 @@ which belongs to a separate estimator workload and is deliberately not documente
 |---|---|---|---|
 | 1 | Daily Dispatch + Reminders | Started | **DONE — verified end-to-end 2026-09-03.** Both the `?['Value']` fix and the `CrewID` join fix applied and published; a live run produced a populated dispatch email. |
 | 2 | Sign-off Intake | Started | DONE, end-to-end verified |
-| 3 | Event-Driven Reconciliation | Started | Trigger condition fixed to version-history comparison 2026-09-07 (see Known bugs); no longer the no-op it was when this table was written. **Stop it before any bulk write to Assignments**, since it still fires on every Crew/date edit. |
+| 3 | Event-Driven Reconciliation | Started | Trigger condition fixed to version-history comparison 2026-09-07 (see Known bugs); no longer the no-op it was when this table was written. `Get_overlapping` gained the `Get_active_jobs`/`Select_active_job_ids`/`Compose_active_job_clause` idiom 2026-09-09, so a double-book alert can no longer name a `Planned` pool that has not been committed yet (see the `Planned`-suppression entry above). **Stop it before any bulk write to Assignments**, since it still fires on every Crew/date edit. |
 | 4 | Nightly Reconciliation | Started | **DONE — built and both tests passed 2026-09-03.** Created fully headless (no designer). Clean sweep = 0 conflicts, no email; seeded double-book caught and emailed. |
 | 5 | Daily + Weekly Summary | Started | **DONE.** Built 2026-09-03 as two flows, HTML body not PDF. **Content reviewed 2026-09-05 and three defects fixed** — weekly compliance counted unfinished work, neither table was sorted, daily footer off by one. Re-verified by manual run. |
 | 6 | Task Tick Batch | Started | **NEW 2026-09-07, verified end to end.** `D2 - Task Tick Batch`, flowId `1a825a83-492a-d47a-0fc0-ec5ef7d43594` (Dataverse workflowid `e8843056-53aa-f111-aaab-6045bd0196b3`). PowerAppV2 trigger `(AssignmentID, TaskUpdates, TasksTotal, TasksComplete, SignedByEmail)`. Resolves the site user once via `ensureuser`, MERGEs each task from a comma-separated `taskId:flag` list, then MERGEs the assignment counters. **This exists because Patch() does not work from the canvas app — see the Patch entry under Known bugs.** |
@@ -1194,7 +1222,7 @@ which belongs to a separate estimator workload and is deliberately not documente
 | 8 | Reopen Sign-off | Started | **Built 2026-09-07, verified.** `D2 - Reopen Sign-off`, flowId `d7bad02d-cbdf-f8e6-c385-9ff41bac3776` (Dataverse workflowid `0f850a63-beaa-f111-aaac-6045bd0195dd`). PowerAppV2 trigger. Clears `InstallerSignOff` and appends who reopened, when, who had signed, and an optional reason to `SignOffNotes`. Was already live but had never been added to this table. |
 | 9 | New Pool | Started | **NEW 2026-09-08, verified.** `D2 - New Pool`, flowId `02905018-4f41-e05a-d140-74e2afc82052` (Dataverse workflowid `d782ee70-2fab-f111-aaab-6045bd0196b3`). Triggered by a new row in **New Pool Requests** (`ProjectManager` is a required field on that list). Reads the 46-row **Sub-phase Template** and 295-row **Task Template** and generates a full pool: one Job, 46 Assignments, ~295 Tasks. See Known bugs and gotchas for the platform constraints found building it. |
 | 10 | Delete Pool | Started | **NEW 2026-09-08, verified.** `D2 - Delete Pool`, flowId `995099f4-76e6-8bc0-89ef-9fd3557138ce` (Dataverse workflowid `83064f1f-47ab-f111-aaac-6045bd0195dd`). Triggered by a new row in **Delete Pool Requests**. Removes a pool's Tasks, Assignments and Job. |
-| 11 | Reschedule Pool | Started | **NEW 2026-09-09, verified.** `D2 - Reschedule Pool`, flowId `2f2cde97-e0fd-5c5c-934a-02f09a1d83a5` (Dataverse workflowid `210f1d70-e2ab-f111-aaab-6045bd0196b3`). Triggered by a new row in **Reschedule Requests**. Walks a job's assignments from a given `Sequence` forward, recomputing working-day spans, skipping rows that are `Locked` or already signed off. See **Staging / integration contracts** for the `Planned`/`Locked`/`SuppressReconcileUntil` mechanics and Known bugs and gotchas for the platform constraints found building it. |
+| 11 | Reschedule Pool | Started | **NEW 2026-09-09, verified.** `D2 - Reschedule Pool`, flowId `2f2cde97-e0fd-5c5c-934a-02f09a1d83a5` (Dataverse workflowid `210f1d70-e2ab-f111-aaab-6045bd0196b3`). Triggered by a new row in **Reschedule Requests**. Walks a job's assignments from a given `Sequence` forward, recomputing working-day spans, skipping rows that are `Locked` or already signed off. See **Staging / integration contracts** for the `Planned`/`Locked`/`SuppressReconcileUntil` mechanics and Known bugs and gotchas for the platform constraints found building it. **Hardened the same day in the final whole-branch review:** the reflow-walk `Foreach` now carries `concurrency: {repetitions: 1}` like every other variable-mutating loop in this flow (it always ran sequentially; this closes the gap between "does" and "is guaranteed to"); the mid-run failure email now names how many sub-phases already moved and says to re-raise the same request from the same `FromSequence` (the walk is idempotent); and `Send_completion_email`, `Send_failure_email_guard` and `Send_failure_email_action` all gained the PM -> requester -> `stratirus@d2pools.com` fallback that `Send_conflict_alert_email` already had, so a blank `Author.Email` (plausible per the UPN-vs-`mail` note above) can no longer produce a silent `400 To Field cannot be null or empty` on the very email meant to explain a failure. |
 
 **PRE-PILOT REALITY AUDIT, 2026-09-08b.** Every load-bearing claim in this file was checked
 against the live tenant, because CLAUDE.md had been caught wrong twice in one morning and the
@@ -1424,16 +1452,20 @@ plain grey table, and none of the seven views built in Phase A was what anyone s
 `DefaultView: true` on the view; SharePoint unsets the previous default itself. Verified by opening
 `/Lists/Assignments/` bare and confirming it redirects to `All Assignments` and renders the cards.
 
-**All eight views are now `Paged=true`.** They were stored `RowLimit=100, Paged=false`, which in
-SharePoint means "return 100 and stop" — no next control, no indication anything is missing.
-`Incomplete Tasks` was showing 100 of 184.
+**All eight of the original views are now `Paged=true`.** They were stored `RowLimit=100,
+Paged=false`, which in SharePoint means "return 100 and stop" — no next control, no indication
+anything is missing. `Incomplete Tasks` was showing 100 of 184.
 
-**All eight views carry a JSON card formatter** (`sharepoint/format-views.js`): status pill,
-progress bar, colour-coded left border on Assignments; tick / strikethrough on Tasks. Two things
-that are load-bearing and were learned by looking at the rendered result:
-`width`/`box-sizing`/`align-items` on the root, without which SharePoint shrink-wraps the card and
-centres it as a narrow floating block; and `hideSelection: true`, without which SharePoint's own
-selection gutter draws a second indicator next to yours.
+**Nine views now carry a JSON card formatter** (`sharepoint/format-views.js`): status pill,
+progress bar, colour-coded left border on Assignments; tick / strikethrough on Tasks; a
+Status-coloured card on Jobs' `Planned Pools`, added 2026-09-09 in the final whole-branch review
+of the `Planned`-suppression / reflow work; it was the only one of the nine built views with no
+formatter, on a view PMs are now sent to (Phase F step 5, confirm a commit), and it rendered as a
+plain grey table beside eight formatted ones. Two things that are load-bearing and were learned
+by looking at the rendered result: `width`/`box-sizing`/`align-items` on the root, without which
+SharePoint shrink-wraps the card and centres it as a narrow floating block; and
+`hideSelection: true`, without which SharePoint's own selection gutter draws a second indicator
+next to yours.
 
 **A view formatter may NOT contain a raw `<` or `&`. Found 2026-09-08 building the timeline
 lane.** A view's `CustomFormatter` is persisted inside the view's **XML** schema and is not
@@ -1720,7 +1752,34 @@ The correct paths are all Dataverse-side:
 2. **PAC solution ALM** (fallback for FlowAgent's ~5KB payload cap on big edits) — `pac solution export/unpack/pack/import` + edit `workflow.json`'s `clientdata` locally between unpack and pack.
 3. **Direct Dataverse Web API** (only when FlowAgent+PAC both blocked) — `PATCH https://<orgurl>/api/data/v9.2/workflows({id})` with `{"clientdata":"<escaped-JSON>"}`, followed by `POST /api/data/v9.2/PublishXml`. Audience token = the org URL, not flow.
 
-Artifacts from the failed REST attempt live under `flows/scripts/` (Import-Flow.ps1, Patch-Flow.ps1, Publish-Flow.ps1) — keep as archaeology for what NOT to try. The definition JSON authoring itself validated (correct expressions, connection refs, list GUIDs) — it's the delivery mechanism that was wrong. Reuse `flows/definitions/*.json` verbatim with FlowAgent.
+Artifacts from the failed REST attempt live under `flows/scripts/` (Import-Flow.ps1, Patch-Flow.ps1, Publish-Flow.ps1) — keep as archaeology for what NOT to try. The definition JSON authoring itself validated (correct expressions, connection refs, list GUIDs) — it's the delivery mechanism that was wrong.
+
+**`flows/definitions/` is HISTORICAL, not a restore source. Found 2026-09-09 in the final
+whole-branch review.** Five of the `*.json` files there are flows this branch touched, and all
+five are stale snapshots missing every action the branch added. `D2-Event-Driven-Reconciliation.json`
+is missing the most: its own `Get_versions`, `Condition_scheduling_changed`, `Get_touched_meta`,
+`Skip_suppressed_row`, `Get_touched_job` and `Skip_non_active_job` from the version-history gate,
+**and** the `Planned`-suppression `Get_active_jobs` / `Select_active_job_ids` /
+`Compose_active_job_clause` idiom added to `Get_overlapping` the same day this entry was written.
+`D2-Nightly-Reconciliation.json`, `D2-Daily-Summary.json`, `D2-Weekly-Summary.json` and
+`D2-Daily-Dispatch-crewfilter-fix.json` each lack that same `Planned`-suppression idiom. Meanwhile
+`D2-Reschedule-Pool.json` in the same folder **was**
+kept current as of this session's start, which is what made the folder look trustworthy as a
+whole: one fresh file sitting next to five stale ones with no marker distinguishing them.
+Importing the Flow 3 file today would have silently deleted the `Planned`-suppression gate and
+the version-history gate together. **This is the same class of defect as `D2 - New Pool`'s stale
+export**, recorded earlier in this file under the pre-pilot reality audit (search "pre-hardening
+snapshot"): a committed artifact quietly falling behind the live flow with nothing to flag it,
+except that time it was `flows/exports/` and a content re-check caught it same-day; this time it
+was `flows/definitions/` and nothing was re-checking it at all.
+
+**Do not reuse `flows/definitions/*.json` verbatim, and do not regenerate them either.**
+`flows/exports/` is already the content-verified artifact (see "Compare exports by content,
+never by date" in the pre-pilot audit above), and maintaining two authored-flow-body folders in
+parallel is a second thing to keep in sync, which is exactly how this happened. **To restore or
+inspect a flow's real definition, read the newest `flows/exports/<Flow-Name>-*.json` and verify
+it against a fresh `get_flow`, never `flows/definitions/`.** The folder is kept for archaeology
+of the original authoring approach, not as a source of truth for any flow's current shape.
 
 **The draft-row mechanism — this explains the whole 2026-09-01 REST wall (discovered 2026-09-02):**
 
