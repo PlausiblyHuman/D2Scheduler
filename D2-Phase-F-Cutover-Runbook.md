@@ -33,27 +33,39 @@ name, address, start date, project manager. All five are required. Each request 
 days only, skipping Sundays and Work Calendar holidays. Roughly 7 minutes per pool, and they can
 be raised back to back.
 
-**3b. Reconcile each pool to its real plan. This is the actual work of the day, not 3a.**
-`D2 - New Pool` generates from the 46-row Sub-phase Template, so it produces a *standard* schedule
-counted forward from a start date. It does not know the PM's real sequencing, which crews were
-actually used, or how far along the pool already is. For a pool part-way through construction the
-generated rows are a starting point, not the answer. For each pool:
+**3b. Reflow each pool to its real start date, then reconcile what remains. This is the actual
+work of the day, not 3a.** `D2 - New Pool` generates from the 46-row Sub-phase Template, so it
+produces a *standard* schedule counted forward from a start date. It does not know the PM's real
+sequencing, which crews were actually used, or how far along the pool already is. Do not hand-edit
+the generated dates. Add a row to **Reschedule Requests** for the pool: `FromSequence = 1` and
+`NewStartDate` set to the pool's real start date. `D2 - Reschedule Pool` walks all 46 rows forward
+from that date across work days, so the whole chain lands correctly in one flow run instead of 46
+hand-edits. For each pool, after the reflow completes:
 
 1. Open the browser tool's plan for that pool side by side with the `All Assignments` view.
-2. Correct `Crew`, `ScheduledStart` and `ScheduledFinish` on every row that differs. The timeline
-   bar on `All Assignments` makes the shape of the divergence obvious at a glance.
-3. Mark sub-phases that are **already complete**, or crews will be dispatched to work that is
-   finished. This is the failure that will actually embarrass us on go-live morning.
+2. Correct `Crew` on every row that differs from the browser tool's real assignment. The timeline
+   bar on `All Assignments` makes the shape of any remaining divergence obvious at a glance.
+3. Mark sub-phases that are **already complete** by setting `InstallerSignOff` and ticking their
+   Tasks, or crews will be dispatched to work that is finished. This is the failure that will
+   actually embarrass us on go-live morning.
+4. If a sub-phase's real dates diverge from what the reflow produced (a delay, a change in
+   sequencing), set `Locked` on it and raise a second Reschedule Request from that sub-phase's
+   `Sequence` to absorb the rest of the chain around it, rather than hand-editing dates piecemeal.
+5. **Commit the pool.** Open the Jobs row and change `Status` from `Planned` to `Active`. Nothing
+   dispatches to crews and no conflict alerts fire until this happens, so a pool reconciled but
+   left `Planned` will silently sit invisible to dispatch on go-live morning. Confirm the commit by
+   checking the pool appears in the `Planned Pools` view's absence, not its presence.
 
 Remember `DurationDays` means **work** days, never the inclusive calendar span, and only the
 endpoints must be work days. A 2-day sub-phase starting Saturday correctly runs Sat + Mon.
 
-**3c. Verify.** Each pool should be 46 assignments and about 295 tasks. Spot-check 2-3 pools
-against the browser tool.
+**3c. Verify.** Each pool should be 46 assignments and about 295 tasks, `Status = Active`, and no
+endpoint on a Sunday or a Work Calendar holiday. Spot-check 2-3 pools against the browser tool.
 
-Estimate: generation is minutes. Reconciliation is 15-30 min per in-flight pool, so budget on the
-count of pools, not on the mechanism. If a pool has not started yet, it needs almost no
-reconciliation and is nearly free.
+Estimate: generation is minutes, and the reflow that used to be manual per-row editing is now one
+flow run per pool. Reconciling crew assignments and marking completed work is still 15-30 min per
+in-flight pool, so budget on the count of pools, not on the mechanism. If a pool has not started
+yet, it needs almost no reconciliation and is nearly free.
 
 **If a pool comes out wrong, delete and redo rather than hand-repairing 341 rows.** Add a row to
 **Delete Pool Requests**, then raise the New Pool request again with corrected inputs.
@@ -65,6 +77,7 @@ Open the `All Assignments` view grouped by Job. Confirm:
 - No orphan Assignments pointing to non-existent Jobs
 - The `Unassigned` view surfaces the same 11 field-supervision sub-phases per pool that the browser tool shows (or none if Don closed the PM-bucket question and we've assigned them)
 - Total task rows ≈ (active pools) × 295
+- Every pool meant to go live has been committed: the `Planned Pools` view on Jobs holds nothing that should already be dispatching
 
 Log any anomalies in the divergence log as "cutover-day-1."
 
@@ -93,6 +106,18 @@ How do I …
     pool for you: 46 sub-phases and about 295 tasks, dated forward from your
     start date, skipping Sundays and holidays. Takes a few minutes. You do
     not need to call Stratirus.
+
+    The new pool starts as "Planned": it will not dispatch to crews and
+    will not raise double-booking alerts yet, so you can adjust it first.
+    If the dates need to shift (a real start date, a delayed sub-phase),
+    raise a row in Reschedule Requests instead of editing dates by hand:
+    give it the job number, the sub-phase number (Sequence) to start from,
+    and the new start date. Everything from that sub-phase onward reflows
+    automatically.
+
+    When the pool is ready, open the Jobs list, open that job, and change
+    Status from "Planned" to "Active". This is the step that turns on
+    dispatch and alerts. A pool left "Planned" never reaches a crew lead.
   Remove a pool?
     Delete Pool Requests > New. This removes the job, all its sub-phases and
     all its tasks. There is no undo, so check the job number first.
@@ -112,9 +137,13 @@ How do I …
   See what's late or unassigned?
     Views: "Sign-off Overdue" and "Unassigned"
   Change a job's dates?
-    Open Jobs list > click the job > edit StartDate, then update the affected
-    rows in Assignments. Changing dates in the browser tool does NOT reach
-    SharePoint — see the PM workflow sheet.
+    Raise a row in Reschedule Requests: job number, the Sequence number of
+    the first sub-phase that needs to move, and the new start date (leave
+    it blank to keep that sub-phase's own start and just reflow what comes
+    after it). Everything from that sub-phase onward is recomputed for you.
+    Do not hand-edit dates on more than one row, that is how the chain
+    stops matching business rule 3. Changing dates in the browser tool does
+    NOT reach SharePoint; see the PM workflow sheet.
 
 When something's weird
   Text Shane at [phone]. Don't fix it yourself if you're not sure what broke.
@@ -139,13 +168,22 @@ Every time you plan or re-plan
      address, start date, project manager. The system builds the job, all
      46 sub-phases and about 295 tasks for you, dated forward across work
      days. You do not need to call Stratirus, and you do not need to plan
-     it in the browser tool first.
-  2. For changes to a pool that is already live (a date shift, a crew swap),
-     edit SharePoint directly. That is what the crews' app reads.
-  3. The browser tool is still your planner and it is still the only Gantt.
+     it in the browser tool first. The pool comes in "Planned" and will not
+     dispatch or alert yet.
+  2. Set the pool's real start date and absorb any date shift with a
+     Reschedule Request (job number, the sub-phase Sequence to start from,
+     the new date), not by hand-editing ScheduledStart/ScheduledFinish.
+     Everything from that sub-phase onward reflows automatically, in order,
+     which is what keeps business rule 3 (sub-phases run in sequence) true.
+     For a crew swap, edit the Crew field on that one row directly, same as
+     before.
+  3. When a pool is ready to go live, change its Status from "Planned" to
+     "Active" in the Jobs list. That is the step that turns on dispatch and
+     double-booking alerts. A pool left "Planned" is invisible to both.
+  4. The browser tool is still your planner and it is still the only Gantt.
      Use it to lay out crew sequencing by eye. Treat it as your notes, not
      as the system of record.
-  4. If a new pool comes out wrong, do not hand-fix 341 rows. Add a row to
+  5. If a new pool comes out wrong, do not hand-fix 341 rows. Add a row to
      Delete Pool Requests and raise the New Pool request again.
 
 Every time a customer or crew calls with a change

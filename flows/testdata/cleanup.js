@@ -18,11 +18,13 @@
  * Idempotent. Deletes Assignments by Title prefix and by parent Job, and Jobs by
  * JobNumber. Safe to re-run; reports what it found and what remains.
  *
- * COVERS FIVE LISTS: Tasks, Assignments, Jobs, New Pool Requests, Delete Pool
- * Requests. The last two were added 2026-09-08b -- this script predated them and
- * silently ignored both, so the pre-pilot gate did not actually clear them and
- * they had to be emptied by hand once already. They are treated more cautiously
- * than the other three: see the comment on REQUEST_LISTS below.
+ * COVERS SIX LISTS: Tasks, Assignments, Jobs, New Pool Requests, Delete Pool
+ * Requests, Reschedule Requests. The three request lists were added after this
+ * script was first written -- New Pool / Delete Pool Requests on 2026-09-08b,
+ * Reschedule Requests on 2026-09-09 -- and each time the script predated the
+ * list and silently ignored it, so the pre-pilot gate did not actually clear it.
+ * All three request lists are treated more cautiously than Tasks/Assignments/
+ * Jobs: see the comment on REQUEST_LISTS below.
  */
 (async () => {
   const site = 'https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler';
@@ -76,21 +78,24 @@
   for (const r of doomedJ) res.push(await del('Jobs', r.ID));
 
   // ---- request lists ------------------------------------------------------
-  // New Pool Requests and Delete Pool Requests are CLIENT-FACING operational
-  // logs, not scratch space -- a PM opens them and sees a history of real
-  // requests. So this deletes only rows it can PROVE are ours (a TEST- job
-  // number, or the demo job) and merely REPORTS anything else. A blanket wipe
-  // here would destroy a PM's real request history the first time someone ran
-  // this script after go-live, which is precisely when it looks harmless.
+  // New Pool Requests, Delete Pool Requests and Reschedule Requests are all
+  // CLIENT-FACING operational logs, not scratch space -- a PM opens them and
+  // sees a history of real requests. So this deletes only rows it can PROVE
+  // are ours (a TEST- job number, or the demo job) and merely REPORTS anything
+  // else. A blanket wipe here would destroy a PM's real request history the
+  // first time someone ran this script after go-live, which is precisely when
+  // it looks harmless.
   //
-  // Both flows trigger on item CREATION, so deleting rows fires nothing.
+  // All three flows trigger on item CREATION, so deleting rows fires nothing.
   //
   // Note these rows are only the REQUEST records. Deleting a New Pool Request
-  // does not remove the pool it created; the Jobs/Assignments/Tasks passes
-  // above do that, and they run first.
+  // does not remove the pool it created, and deleting a Reschedule Request
+  // does not undo the reflow it already ran; the Jobs/Assignments/Tasks passes
+  // above are what actually clear pool data, and they run first.
   const REQUEST_LISTS = [
     ['New Pool Requests', 'JobNumber'],
-    ['Delete Pool Requests', 'ConfirmJobNumber']   // field names differ, read off the live lists
+    ['Delete Pool Requests', 'ConfirmJobNumber'],  // field names differ, read off the live lists
+    ['Reschedule Requests', 'JobNumber']
   ];
   const requests = {};
   for (const [list, jobField] of REQUEST_LISTS) {

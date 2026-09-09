@@ -139,6 +139,67 @@ different way. Whether a sync is still worth building for keeping an *existing* 
 changes in sync, a PM re-sequencing crews on a live pool in the browser tool, is a separate,
 still-open question that this change does not answer.
 
+**RESOLVED 2026-09-09: `Planned` is now a real pool state, not just a column default, and a
+live pool's schedule can be reflowed instead of hand-edited.** Two gaps closed together, per
+`docs/superpowers/specs/2026-09-08-pool-lifecycle-and-reflow-design.md`:
+
+`Jobs.Status` defaults to `Planned` and `D2 - New Pool` already wrote it, but until 2026-09-09
+nothing read it: a freshly generated pool dispatched to crews and raised conflict alerts on the
+same run that created it. Now **Daily Dispatch, Event-Driven Reconciliation, Nightly
+Reconciliation and both Summary flows all resolve the Active job set once per run and filter to
+it.** A pool stays fully visible in the SharePoint views throughout, because the PM is working on
+it; it is only invisible to dispatch, alerting and the summary schedule tables. `On Hold` gets the
+same treatment for free, since every check is `Status eq 'Active'` rather than `Status ne
+'Planned'`, which also gives the office a way to pause a pool without deleting it. **Committing a
+pool is one field: open the Jobs row and change `Status` from `Planned` to `Active`.** Nothing
+dispatches, and nothing alerts, until that happens. Status is deliberately NOT denormalised onto
+the 46 Assignments rows: a `Get_active_jobs` call once per run is cheaper than 46 extra writes at
+creation (and 46 more at commit) and cannot drift, and the two Summary flows already did exactly
+this before the rest were brought into line.
+
+**`Locked` (Boolean, on Assignments) now does something.** It sat Required-but-unused since Phase
+A, seeded `false` on every row. `D2 - Reschedule Pool` is the first thing that reads it: a locked
+row's dates are never moved by a reflow, and the walk resumes from the first working day after its
+existing finish. Same treatment for a row with `InstallerSignOff = true`: signed-off work is
+never silently rescheduled out from under the sign-off. This is what lets a PM pin a booked
+inspection or a delivered-materials date and reflow everything around it.
+
+**`D2 - Reschedule Pool`** is triggered by a row in the new **Reschedule Requests** list
+(`JobNumber`, `FromSequence`, optional `NewStartDate`). It walks the job's Assignments in
+`Sequence` order starting at `FromSequence`, recomputing `ScheduledStart`/`ScheduledFinish` as
+working-day spans exactly as `D2 - New Pool` does (Sundays computed, holidays from Work Calendar),
+skipping `Locked` and signed-off rows and any row with a null or non-positive `DurationDays`
+(logged, not guessed at). One mechanism covers both cases the name promises: scheduling a freshly
+generated pool is a reflow from sequence 1 with a real start date, and absorbing a slip on a live
+pool is a reflow from the sub-phase that moved. Rows before `FromSequence` are never touched, and a
+requested date that lands rows in the past is honoured, not silently clamped: the result email
+says how many rows landed there, which is more useful than a schedule the PM did not ask for.
+
+**`Assignments.SuppressReconcileUntil` (DateTime, NOT required) exists to stop a reflow from
+burning up to 45 conflict-check runs on itself.** A reflow can rewrite every row in a pool, and
+every write changes `ScheduledStart` or `ScheduledFinish`, which is exactly what Event-Driven
+Reconciliation's version-history gate watches for. The reflow sets this field a few minutes ahead
+on every row it writes, in the same MERGE as the dates; Event-Driven Reconciliation gained one
+clause that terminates early when the timestamp is still in the future. **It is a timestamp, not a
+boolean, deliberately.** A boolean has to be reset by a second write, and a reset that fails leaves
+the row permanently invisible to conflict detection with no error anywhere. A timestamp expires on
+its own and cannot mute a row for longer than its window. The accepted cost: a genuine PM edit to
+the same row inside that window is skipped by the real-time check, same as a suppressed reflow
+write. The reflow's own end-of-run conflict sweep and the nightly full sweep both still cover it,
+so the conflict is caught, just not within seconds.
+
+**The reflow's own conflict sweep is tenant-wide, deliberately, and this is an asymmetry worth
+knowing.** Every other conflict surface in this system (Event-Driven Reconciliation, the nightly
+sweep) considers `Active` jobs only, per the `Planned`-suppression change above. The reflow sweep
+does not: it runs against every job regardless of status and can alert that an `Active` pool
+collides with a `Planned` one that has not been committed yet. This was a deliberate ruling on the
+spec's own grounds, not an oversight carried over from before the `Planned` filtering existed. A
+PM choosing dates for a new pool still wants to know it collides with an existing pool on three
+days, at the moment they are choosing the dates, and that is information they asked for rather
+than an alert they need to be protected from. The distinction the design draws is alert versus
+report, not Active versus Planned: the sweep always reports, but only sends an alert email when the
+job being reflowed is `Active`.
+
 **`DurationDays` means WORK days, never the inclusive calendar span.** Two conflicting
 definitions are live in the list right now, and the disagreement only shows on rows that
 cross a Sunday:
@@ -1047,6 +1108,45 @@ Two more, unrelated to nesting:
   `Title` is invisible to `GetOnNewItems`" as a settled platform fact until that variable is
   isolated.
 
+**`D2 - Reschedule Pool` build: five more platform findings, 2026-09-08/09, none caught by
+`validate_flow`.**
+
+- **A `SetVariable` whose value expression reads the same variable it writes fails save-time
+  validation with a misleading error.** The message names an unrelated action and complains about
+  a missing connection reference, which sends you looking at connection references rather than at
+  the self-referential expression that actually caused it. Route the read through a `Compose`
+  intermediate instead of a `SetVariable` reading its own name.
+- **Nesting depth 9 is rejected. The maximum is 8.** This is why Task 7's walk merged
+  `Condition_pinned` and `Condition_bad_duration` into one `Condition_skip_row` rather than the
+  spec's literal two nested `If`s: the walk already sat at exactly 8 containers deep, and the
+  literal structure was unbuildable. Add new containers as siblings, not nested, once you are
+  anywhere near this depth.
+- **The shape of a Choice column depends on how you read it: the fifth instance of this project
+  assuming a field shape instead of reading it.** The SharePoint connector's `GetItems` returns a
+  Choice column as `{Id, Value}`; raw REST via "Send an HTTP request to SharePoint" with
+  `odata=nometadata` returns a plain string; a server-side `$filter` compares it as a string too.
+  This silently made `D2 - Reschedule Pool`'s Active-job check always false: it was written
+  against the `{Id, Value}` shape while reading via raw REST, and no test could see it, because a
+  false comparison and an empty result look identical to "nothing to suppress." Tasks 2-5's
+  Active-job filters were cross-checked against this and are safe: Daily Dispatch, Nightly
+  Reconciliation and both Summary flows filter server-side, and Event-Driven Reconciliation reads
+  via raw REST, so both sides of each comparison agree. This is the same family as the documented
+  `Assignment` vs `AssignmentId` lookup-shape trap, `Crews.Title` vs `CrewID`, and
+  `Assignments.Job.Value` vs `JobNumber`. Read the shape off a real payload for the specific
+  action doing the reading, never assume it carries over from a different action on the same list.
+- **`edit_flow`'s apply step is a full synchronous save-validation, not a draft write.** It can
+  reject with a spurious error naming an action the edit barely touched, the same misleading-error
+  shape as the `SetVariable` finding above. Related and required on these flows:
+  `autoResolveConnectionRefs: false`. The default failed an edit while naming a pre-existing
+  action the edit did not change at all.
+- **FlowAgent `get_run_history` returned stale or absent snapshots repeatedly** while building and
+  testing this flow. SharePoint's own `Status`/`Result` fields on the request row, and FlowAgent
+  `get_run_action_repetitions`, were reliable where `get_run_history` was not. **An empty
+  `get_run_history` result is not evidence a run did not happen.** This is the same shape as the
+  already-documented published-vs-draft split: the read surface lags the write, so a read that
+  shows nothing does not mean nothing happened, and the fix each time is to read from a surface
+  that reflects the write rather than to trust an empty read.
+
 **Concurrent sessions against this shared production tenant are real, not theoretical.** During
 this build, two Assignments rows were modified outside this session's own activity (id 4 at
 2026-09-08T01:53:16Z, id 25 at 2026-09-07T23:32:51Z), and a Jobs row was created and then removed
@@ -1075,10 +1175,11 @@ the same time, and a surprising row is not automatically a bug in this session's
 | Delete Pool Requests | 0 (cleared 2026-09-08, same reason) | `b1ea3db6-7870-4648-80c2-7fe8414ecfd7` |
 | Sub-phase Template | 46 (one row per sub-phase; read by `D2 - New Pool`) | `453e7cd5-f84a-4e2a-9372-73f26019e3f0` |
 | Task Template | 295 (one row per task across the 46 sub-phases) | `61824add-8eaa-4b1b-aed7-a202204bf9f5` |
+| Reschedule Requests | build-time test rows, not yet cleared (see `cleanup.js` below); read by `D2 - Reschedule Pool` | `31ada231-3937-4d72-9abf-8677f07c3fea` |
 
 **Flow status (table originally closed out Phase B on 2026-09-05; rows 6 onward are later
 additions and the table was never renumbered, corrected 2026-09-08 after it undercounted the
-environment by three. There are eleven D2 flows in total plus the unrelated `Generate estimate`,
+environment by three. There are twelve D2 flows in total plus the unrelated `Generate estimate`,
 which belongs to a separate estimator workload and is deliberately not documented here.):**
 
 | # | Flow | State | Notes |
@@ -1093,6 +1194,7 @@ which belongs to a separate estimator workload and is deliberately not documente
 | 8 | Reopen Sign-off | Started | **Built 2026-09-07, verified.** `D2 - Reopen Sign-off`, flowId `d7bad02d-cbdf-f8e6-c385-9ff41bac3776` (Dataverse workflowid `0f850a63-beaa-f111-aaac-6045bd0195dd`). PowerAppV2 trigger. Clears `InstallerSignOff` and appends who reopened, when, who had signed, and an optional reason to `SignOffNotes`. Was already live but had never been added to this table. |
 | 9 | New Pool | Started | **NEW 2026-09-08, verified.** `D2 - New Pool`, flowId `02905018-4f41-e05a-d140-74e2afc82052` (Dataverse workflowid `d782ee70-2fab-f111-aaab-6045bd0196b3`). Triggered by a new row in **New Pool Requests** (`ProjectManager` is a required field on that list). Reads the 46-row **Sub-phase Template** and 295-row **Task Template** and generates a full pool: one Job, 46 Assignments, ~295 Tasks. See Known bugs and gotchas for the platform constraints found building it. |
 | 10 | Delete Pool | Started | **NEW 2026-09-08, verified.** `D2 - Delete Pool`, flowId `995099f4-76e6-8bc0-89ef-9fd3557138ce` (Dataverse workflowid `83064f1f-47ab-f111-aaac-6045bd0195dd`). Triggered by a new row in **Delete Pool Requests**. Removes a pool's Tasks, Assignments and Job. |
+| 11 | Reschedule Pool | Started | **NEW 2026-09-09, verified.** `D2 - Reschedule Pool`, flowId `2f2cde97-e0fd-5c5c-934a-02f09a1d83a5` (Dataverse workflowid `210f1d70-e2ab-f111-aaab-6045bd0196b3`). Triggered by a new row in **Reschedule Requests**. Walks a job's assignments from a given `Sequence` forward, recomputing working-day spans, skipping rows that are `Locked` or already signed off. See **Staging / integration contracts** for the `Planned`/`Locked`/`SuppressReconcileUntil` mechanics and Known bugs and gotchas for the platform constraints found building it. |
 
 **PRE-PILOT REALITY AUDIT, 2026-09-08b.** Every load-bearing claim in this file was checked
 against the live tenant, because CLAUDE.md had been caught wrong twice in one morning and the

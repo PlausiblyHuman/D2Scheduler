@@ -54,14 +54,28 @@ the whole point of a pilot. `D2 - New Pool` generates a standard schedule from t
 it knows nothing about how this specific pool has actually been run. Against the browser tool's
 current state for the pilot pool:
 
-1. Correct `Crew`, `ScheduledStart` and `ScheduledFinish` on every sub-phase that differs.
-2. Set `Locked` / `NotApplicable` to match what the browser tool shows.
-3. Set `InstallerSignOff = Yes` on any sub-phase the browser tool already shows signed off, and
-   tick the corresponding Tasks rows.
+1. Raise a row in **Reschedule Requests** with `FromSequence = 1` and `NewStartDate` set to the
+   pilot pool's real, already-underway start date. `D2 - Reschedule Pool` walks all 46 rows
+   forward from there across work days, so the whole chain lands correctly in one run instead of
+   45 hand-edits. Do not hand-edit `ScheduledStart`/`ScheduledFinish`.
+2. Correct `Crew` on every sub-phase that differs from the browser tool. If a specific sub-phase's
+   date still does not match the browser tool after the reflow (a real slip mid-pool), set
+   `Locked` on it and raise a second Reschedule Request from that sub-phase's `Sequence` to absorb
+   the rest of the chain around it.
+3. Set `NotApplicable` to match what the browser tool shows.
+4. Set `InstallerSignOff = Yes` on any sub-phase the browser tool already shows signed off, and
+   tick the corresponding Tasks rows. `Locked` and signed-off rows are the two things a reflow
+   will never move, so do this before any further reflow of the pool.
 
 Getting step 2 wrong does not just cost setup time, it manufactures divergence that the whole
 pilot then spends the week chasing. Do it carefully and log anything ambiguous before Monday
 rather than discovering it mid-week.
+
+**3. Commit the pool.** Open the Jobs row and change `Status` from `Planned` to `Active`. Nothing
+dispatches to the pilot crew lead and no double-booking alerts fire until this happens, so a pool
+reconciled but left `Planned` will produce a Day 1 morning with no dispatch email and a pilot that
+looks broken before it starts. Do this last, after steps 1-2 above, so the crew lead's first
+dispatch reflects the reconciled state rather than the raw template.
 
 **If the pool comes out wrong, delete and redo.** Add a row to **Delete Pool Requests** and raise
 the New Pool request again, rather than hand-repairing 341 rows.
