@@ -1144,7 +1144,7 @@
               },
               "Condition_send_conflict_alert": {
                 "runAfter": {
-                  "Send_completion_email": [
+                  "Set_status_done": [
                     "Succeeded"
                   ]
                 },
