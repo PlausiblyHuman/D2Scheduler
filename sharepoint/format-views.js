@@ -308,6 +308,11 @@
   const TARGETS = [
     ['Assignments', 'All Assignments', timelineCard],
     ['Assignments', 'This Week by Crew', plainCard],
+    // ADDED 2026-09-09: same card as its sibling "This Week by Crew" -- a
+    // Mon-Sun window is short enough that the plain card reads fine, and the
+    // whole point is that the two views feel like siblings, not that one
+    // looks like a different product because it groups by Job instead of Crew.
+    ['Assignments', 'This Week by Job', plainCard],
     ['Assignments', 'Unassigned', plainCard],
     ['Assignments', 'Sign-off Overdue', plainCard],
     ['Assignments', 'Late-Starting Jobs', timelineCard],

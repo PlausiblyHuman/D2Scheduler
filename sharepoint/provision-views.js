@@ -107,6 +107,32 @@
           "query": "<Where><And><Leq><FieldRef Name=\"WeekMonday\" /><Value Type=\"DateTime\"><Today /></Value></Leq><Geq><FieldRef Name=\"WeekMonday\" /><Value Type=\"DateTime\"><Today OffsetDays=\"-6\" /></Value></Geq></And></Where><GroupBy Collapse=\"FALSE\"><FieldRef Name=\"Crew\" /></GroupBy><OrderBy><FieldRef Name=\"ScheduledStart\" Ascending=\"TRUE\" /></OrderBy>"
       },
       {
+          // ADDED 2026-09-09: the office's by-pool lens for the current week, replacing
+          // "Today by Crew" as the home page hero once six pools were loaded (see
+          // build-home-page.js). Filter is copied VERBATIM from "This Week by Crew" above --
+          // same WeekMonday <= Today AND WeekMonday >= Today-6 window, same reasoning (CAML
+          // has no start-of-week primitive). Only the GroupBy changes, Job instead of Crew,
+          // and Crew is added back as a viewFields column (mirroring "All Assignments", which
+          // also groups by Job and shows Crew) since grouping by Job makes Crew the thing a
+          // reader needs restated per row.
+          "list": "Assignments",
+          "title": "This Week by Job",
+          "viewFields": [
+              "LinkTitle",
+              "SubPhaseNumber",
+              "SubPhaseName",
+              "Crew",
+              "ScheduledStart",
+              "ScheduledFinish",
+              "InstallerSignOff",
+              "TasksComplete",
+              "TasksTotal"
+          ],
+          "rowLimit": 100,
+          "paged": true,
+          "query": "<Where><And><Leq><FieldRef Name=\"WeekMonday\" /><Value Type=\"DateTime\"><Today /></Value></Leq><Geq><FieldRef Name=\"WeekMonday\" /><Value Type=\"DateTime\"><Today OffsetDays=\"-6\" /></Value></Geq></And></Where><GroupBy Collapse=\"FALSE\"><FieldRef Name=\"Job\" /></GroupBy><OrderBy><FieldRef Name=\"ScheduledStart\" Ascending=\"TRUE\" /></OrderBy>"
+      },
+      {
           "list": "Assignments",
           "title": "Unassigned",
           "viewFields": [

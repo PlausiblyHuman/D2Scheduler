@@ -15,8 +15,20 @@
  *
  * The office surface IS the SharePoint views. This page is the front door to
  * them. The List web part in the middle is the point of the whole design: it
- * accepts selectedViewId, so "Today by Crew" renders live ON the landing page
+ * accepts selectedViewId, so the hero view renders live ON the landing page
  * rather than a click away. A PM lands already looking at the answer.
+ *
+ * CHANGED 2026-09-09 -- hero swapped from "Today by Crew" to "This Week by
+ * Job", by Shane's request after using the site with six pools loaded.
+ * "Today by Crew" was right at one pool: the office was thinking about crews,
+ * because there was only ever one job to place them on. At six pools the
+ * office thinks in pools first -- "how is Sandbox Ridge doing this week",
+ * not "where is Devon Crew today" -- so a crew-first hero was the wrong
+ * lens once there was more than one pool to lose track of. "This Week by
+ * Job" is a new view (see provision-views.js), same Mon-Sun WeekMonday
+ * filter as "This Week by Crew", grouped by Job instead of Crew. "Today by
+ * Crew" is not gone -- it is still the right view for "who is on site right
+ * now", so it stays first in the Day to day list below.
  *
  * DO NOT describe mechanisms that do not exist. There is no browser-tool ->
  * Lists nightly sync (descoped from the pilot 2026-09-05) and there are no
@@ -106,6 +118,7 @@
   const U = {
     today: L('Assignments/Today by Crew.aspx'),
     week: L('Assignments/This Week by Crew.aspx'),
+    weekByJob: L('Assignments/This Week by Job.aspx'),
     overdue: L('Assignments/Signoff Overdue.aspx'),
     late: L('Assignments/LateStarting Jobs.aspx'),
     unassigned: L('Assignments/Unassigned.aspx'),
@@ -120,7 +133,10 @@
     app: 'https://apps.powerapps.com/play/e/2710a01b-6cfa-e820-b338-2286f2649300/a/6bad1fae-7f3b-42d7-a63f-48a63e1e8771'
   };
   const ASSIGNMENTS = '49ef7006-d3fe-40a7-a52f-c4c18545bd35';
-  const VIEW_TODAY = 'a9d66854-3e04-48f8-95cf-a8b6c258d2b1';
+  // Hero view for the embedded List web part. Was "Today by Crew"
+  // (a9d66854-3e04-48f8-95cf-a8b6c258d2b1) until 2026-09-09; now "This Week
+  // by Job" -- see the CHANGED note above.
+  const VIEW_HERO = '85da575e-9452-4987-985e-96c8ee4fdb9c';
 
   // SharePoint stores canvas control JSON HTML-entity-encoded inside an
   // attribute, using NUMERIC entities for braces and colons. Plain escaping is
@@ -146,15 +162,17 @@
 
   const a = (u, t) => '<a href="' + u + '">' + t + '</a>';
 
-  const intro = '<h2>Where every crew is today</h2>'
+  const intro = '<h2>Every pool, this week</h2>'
     + '<p>Live schedule, crew assignments and field sign-off for D2 pool builds. '
-    + 'Today&#39;s work is below. Everything else is at the bottom of this page.</p>'
+    + 'This week&#39;s work is below, grouped by pool. Everything else is at the '
+    + 'bottom of this page.</p>'
     + '<p><strong>' + a(U.app, 'Open the D2 Sign-off app') + '</strong>'
     + ' &nbsp;&middot;&nbsp; crew leads tick tasks and sign off from a phone.</p>';
 
   const links = '<h3>Day to day</h3><ul>'
     + '<li>' + a(U.today, 'Today by Crew') + ' &mdash; who is on which site today</li>'
-    + '<li>' + a(U.week, 'This Week by Crew') + ' &mdash; Monday to Saturday</li>'
+    + '<li>' + a(U.week, 'This Week by Crew') + ' &mdash; Monday to Saturday, by crew</li>'
+    + '<li>' + a(U.weekByJob, 'This Week by Job') + ' &mdash; Monday to Saturday, by pool</li>'
     + '<li>' + a(U.overdue, 'Sign-off Overdue') + ' &mdash; finished, but nobody has signed it off</li>'
     + '<li>' + a(U.late, 'Late-Starting Jobs') + ' &mdash; should have started and has not been signed off</li>'
     + '<li>' + a(U.unassigned, 'Unassigned Work') + ' &mdash; scheduled with no crew allocated</li>'
@@ -172,16 +190,16 @@
   const listData = {
     id: 'f92bf067-bc19-489e-a556-7fe95f508720', instanceId: iid(2), title: 'List',
     description: 'Add a list', dataVersion: '1.0',
-    serverProcessedContent: { htmlStrings: {}, searchablePlainTexts: { listTitle: 'Today by Crew' },
+    serverProcessedContent: { htmlStrings: {}, searchablePlainTexts: { listTitle: 'This Week by Job' },
                               imageSources: {}, links: {} },
     properties: {
       isDocumentLibrary: false, selectedListId: ASSIGNMENTS,
       selectedListUrl: '/sites/D2BuildScheduler/Lists/Assignments',
       webRelativeListUrl: 'Lists/Assignments',
-      selectedViewId: VIEW_TODAY, webpartHeightKey: 2, hideCommandBar: true
+      selectedViewId: VIEW_HERO, webpartHeightKey: 2, hideCommandBar: true
       // height 2, not 6: the web part reserves a FIXED height, so a taller
       // setting leaves a large empty gap above the link index on a quiet day.
-      // Three assignments is a normal day for D2, not a busy one.
+      // Six pools a week is a normal week for D2, not a busy one.
     }
   };
 
@@ -210,5 +228,5 @@
     { method: 'POST', credentials: 'include', headers: HD });
 
   return { attempts, finalStatus: status, publishStatus: pub.status, canvasBytes: canvas.length,
-           sections: ['Text intro + app link', 'Today by Crew (live list)', 'Text link index'] };
+           sections: ['Text intro + app link', 'This Week by Job (live list)', 'Text link index'] };
 })();
