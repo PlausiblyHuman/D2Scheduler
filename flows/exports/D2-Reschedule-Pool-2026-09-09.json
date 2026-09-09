@@ -3,7 +3,7 @@
   "displayName": "D2 - Reschedule Pool",
   "workflowEntityId": "210f1d70-e2ab-f111-aaab-6045bd0196b3",
   "state": "Started",
-  "lastModifiedTime": "2026-09-09T16:36:53Z",
+  "lastModifiedTime": "2026-09-09T16:56:08Z",
   "connectionReferences": {
     "shared_sharepointonline": {
       "connectionName": "shared-sharepointonl-20b83f29-d689-437e-b1ff-930f7bf3fda4",
@@ -1100,7 +1100,7 @@
                 "connectionName": "shared_office365"
               },
               "parameters": {
-                "emailMessage/To": "@{if(not(empty(coalesce(first(outputs('Get_job')?['body/value'])?['ProjectManager']?['Email'], ''))), first(outputs('Get_job')?['body/value'])?['ProjectManager']?['Email'], if(not(empty(coalesce(triggerOutputs()?['body/Author']?['Email'], ''))), triggerOutputs()?['body/Author']?['Email'], 'stratirus@d2pools.com'))}",
+                "emailMessage/To": "@{if(not(empty(coalesce(first(coalesce(outputs('Get_job')?['body/value'], json('[]')))?['ProjectManager']?['Email'], ''))), first(coalesce(outputs('Get_job')?['body/value'], json('[]')))?['ProjectManager']?['Email'], if(not(empty(coalesce(triggerOutputs()?['body/Author']?['Email'], ''))), triggerOutputs()?['body/Author']?['Email'], 'stratirus@d2pools.com'))}",
                 "emailMessage/Subject": "Reschedule failed: @{triggerOutputs()?['body/JobNumber']}",
                 "emailMessage/Body": "<p>@{variables('result')}</p>",
                 "emailMessage/Importance": "High"
@@ -1161,7 +1161,7 @@
                   "connectionName": "shared_office365"
                 },
                 "parameters": {
-                  "emailMessage/To": "@{if(not(empty(coalesce(first(outputs('Get_job')?['body/value'])?['ProjectManager']?['Email'], ''))), first(outputs('Get_job')?['body/value'])?['ProjectManager']?['Email'], if(not(empty(coalesce(triggerOutputs()?['body/Author']?['Email'], ''))), triggerOutputs()?['body/Author']?['Email'], 'stratirus@d2pools.com'))}",
+                  "emailMessage/To": "@{if(not(empty(coalesce(first(coalesce(outputs('Get_job')?['body/value'], json('[]')))?['ProjectManager']?['Email'], ''))), first(coalesce(outputs('Get_job')?['body/value'], json('[]')))?['ProjectManager']?['Email'], if(not(empty(coalesce(triggerOutputs()?['body/Author']?['Email'], ''))), triggerOutputs()?['body/Author']?['Email'], 'stratirus@d2pools.com'))}",
                   "emailMessage/Subject": "Reschedule complete: @{triggerOutputs()?['body/JobNumber']}",
                   "emailMessage/Body": "<p>@{outputs('Compose_success_result')}</p>",
                   "emailMessage/Importance": "Normal"
@@ -1262,7 +1262,7 @@
                 "connectionName": "shared_office365"
               },
               "parameters": {
-                "emailMessage/To": "@{if(not(empty(coalesce(first(outputs('Get_job')?['body/value'])?['ProjectManager']?['Email'], ''))), first(outputs('Get_job')?['body/value'])?['ProjectManager']?['Email'], if(not(empty(coalesce(triggerOutputs()?['body/Author']?['Email'], ''))), triggerOutputs()?['body/Author']?['Email'], 'stratirus@d2pools.com'))}",
+                "emailMessage/To": "@{if(not(empty(coalesce(first(coalesce(outputs('Get_job')?['body/value'], json('[]')))?['ProjectManager']?['Email'], ''))), first(coalesce(outputs('Get_job')?['body/value'], json('[]')))?['ProjectManager']?['Email'], if(not(empty(coalesce(triggerOutputs()?['body/Author']?['Email'], ''))), triggerOutputs()?['body/Author']?['Email'], 'stratirus@d2pools.com'))}",
                 "emailMessage/Subject": "URGENT: Reschedule Pool failed: @{triggerOutputs()?['body/JobNumber']}",
                 "emailMessage/Body": "<p>@{outputs('Compose_failure_message')}</p>",
                 "emailMessage/Importance": "High"
