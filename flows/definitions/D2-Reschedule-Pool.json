@@ -1136,10 +1136,46 @@
                   },
                   "parameters": {
                     "emailMessage/To": "@{triggerOutputs()?['body/Author']?['Email']}",
-                    "emailMessage/Subject": "@{if(and(equals(first(outputs('Get_job')?['body/value'])?['Status'], 'Active'), greater(length(variables('conflicts')), 0)), concat('ALERT: crew conflict after reschedule - ', triggerOutputs()?['body/JobNumber']), concat('Reschedule complete: ', triggerOutputs()?['body/JobNumber']))}",
+                    "emailMessage/Subject": "Reschedule complete: @{triggerOutputs()?['body/JobNumber']}",
                     "emailMessage/Body": "<p>@{outputs('Compose_success_result')}</p>",
-                    "emailMessage/Importance": "@{if(and(equals(first(outputs('Get_job')?['body/value'])?['Status'], 'Active'), greater(length(variables('conflicts')), 0)), 'High', 'Normal')}"
+                    "emailMessage/Importance": "Normal"
                   }
+                }
+              },
+              "Condition_send_conflict_alert": {
+                "runAfter": {
+                  "Send_completion_email": [
+                    "Succeeded"
+                  ]
+                },
+                "type": "If",
+                "expression": {
+                  "equals": [
+                    "@and(equals(first(outputs('Get_job')?['body/value'])?['Status']?['Value'], 'Active'), greater(length(variables('conflicts')), 0))",
+                    true
+                  ]
+                },
+                "actions": {
+                  "Send_conflict_alert_email": {
+                    "runAfter": {},
+                    "type": "OpenApiConnection",
+                    "inputs": {
+                      "host": {
+                        "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+                        "operationId": "SendEmailV2",
+                        "connectionName": "shared_office365"
+                      },
+                      "parameters": {
+                        "emailMessage/To": "@{if(not(empty(coalesce(first(outputs('Get_job')?['body/value'])?['ProjectManager']?['Email'], ''))), first(outputs('Get_job')?['body/value'])?['ProjectManager']?['Email'], if(not(empty(coalesce(triggerOutputs()?['body/Author']?['Email'], ''))), triggerOutputs()?['body/Author']?['Email'], 'stratirus@d2pools.com'))}",
+                        "emailMessage/Subject": "@{if(empty(coalesce(first(outputs('Get_job')?['body/value'])?['ProjectManager']?['Email'], '')), '[no PM email] ', '')}ALERT: crew conflict after reschedule - @{triggerOutputs()?['body/JobNumber']}",
+                        "emailMessage/Body": "<p>A reschedule of <strong>@{triggerOutputs()?['body/JobNumber']}</strong> found a crew conflict.</p>@{outputs('Compose_conflict_summary')}",
+                        "emailMessage/Importance": "High"
+                      }
+                    }
+                  }
+                },
+                "else": {
+                  "actions": {}
                 }
               }
             }
