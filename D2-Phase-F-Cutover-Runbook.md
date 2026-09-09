@@ -124,9 +124,17 @@ How do I …
 
     Title and Confirm Job Number must match EXACTLY -- same job number,
     typed twice. If they do not match, nothing is deleted, but nothing
-    tells you that either: the row just sits there marked "Refused (confirm
-    mismatch)" with no email. If a delete request seems to have done
-    nothing, open the row and check Status before re-raising it.
+    tells you that either: the row just sits there marked "Refused" with
+    no email.
+
+    If a delete request seems to have done nothing, open the row and read
+    RESULT, not Status. Status reads plain "Refused" for every reason, so
+    it cannot tell you which one applies. Result names it, and there are
+    several: the two fields did not match, the job number does not exist,
+    a required field was blank, or one you will meet in normal use --
+    "N sub-phase(s) are signed off", which means the pool has real work
+    recorded against it and you must tick Override Signed Off to delete
+    it anyway. That last one is a safety catch, not an error.
   See where my crews are today?
     Views drop-down > "Today by Crew" — grouped by crew, with the site address
   See what my crews are doing this week?
