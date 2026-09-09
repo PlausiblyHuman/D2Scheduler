@@ -487,6 +487,17 @@
                 "emailMessage/Importance": "High"
               }
             }
+          },
+          "Terminate_failed_action": {
+            "runAfter": {
+              "Send_failure_email_action": [
+                "Succeeded"
+              ]
+            },
+            "type": "Terminate",
+            "inputs": {
+              "runStatus": "Failed"
+            }
           }
         }
       }
