@@ -1,0 +1,44 @@
+{
+  "created": "2026-09-09",
+  "createdBy": "stratirus@d2pools.com (D2 Bot)",
+  "why": "Shane asked to see what a fully populated site looks like before the pre-pilot cleanup gate is run. These are DEMONSTRATION pools, not real D2 jobs.",
+  "readThisFirst": [
+    "These use REALISTIC job numbers (D2-10xx) on purpose, so the views, timeline lanes, launchpad and summary emails show what a real multi-pool site looks like. A TEST- prefix would have appeared in every assignment title and defeated the exercise.",
+    "The cost of that choice: flows/testdata/cleanup.js will NOT auto-delete them. Its classifier only removes rows it can prove are ours (a TEST- job number, or the D2-1001 demo job) and reports everything else rather than deleting it. That caution is deliberate and correct, because after go-live those lists hold a PM's real request history.",
+    "So this manifest is the removal record. Delete these by explicit job number, via a Delete Pool Request per pool (Title must equal ConfirmJobNumber exactly), or by direct REST using the ids below.",
+    "If these are still present when the pre-pilot gate runs, cleanup.js will list them in its review table as rows held for a human decision. That is the intended behaviour, not a failure."
+  ],
+  "pools": [
+    {
+      "jobNumber": "D2-1042",
+      "name": "Reyes Residence",
+      "address": "3117 Ladera Vista Drive",
+      "city": "Thousand Oaks",
+      "startDate": "2026-09-14",
+      "newPoolRequestId": 13
+    },
+    {
+      "jobNumber": "D2-1043",
+      "name": "Whitfield Estate",
+      "address": "880 Kanan Road",
+      "city": "Agoura Hills",
+      "startDate": "2026-09-21",
+      "newPoolRequestId": 14
+    },
+    {
+      "jobNumber": "D2-1044",
+      "name": "Salcedo Residence",
+      "address": "2405 Presilla Road",
+      "city": "Camarillo",
+      "startDate": "2026-09-28"
+      ,
+      "newPoolRequestId": 15
+    }
+  ],
+  "expectedShape": {
+    "perPool": "1 Job, 46 Assignments, ~295 Tasks",
+    "arriveAs": "Status = Planned, so they dispatch nothing and raise no conflict alerts until committed to Active",
+    "note": "All 46 template durations are still 2-day placeholders, so each pool spans roughly four and a half months regardless of real size."
+  },
+  "alsoATest": "These three were raised at the same moment, so they generate CONCURRENTLY. Nothing had previously measured concurrent pool generation. A single pool takes 7 to 17 minutes with multi-minute stalls mid-run while the flow stays healthy, so three at once may be considerably slower or may surface throttling. A stalled row count is not evidence of failure; the reliable signals are the run's action list and the request row's Status and Result."
+}
