@@ -12,10 +12,11 @@
 
 ---
 
-## Progress, as of 2026-09-08 evening
+## Progress, as of 2026-09-09 (session 2026-09-08c)
 
-**Tasks 1-5 are DONE, committed and verified against the live tenant. Part 1 of the spec (make
-`Planned` mean something) is complete: all four flows now honour job status.** Resume at Task 6.
+**Tasks 1-8 are DONE, committed and verified against the live tenant. Both parts of the spec are
+built: `Planned` suppresses dispatch and alerting (Part 1), and `D2 - Reschedule Pool` exists and
+works (Parts 2-4). Resume at Task 9, which is documentation plus one end-to-end pass.**
 
 | Task | State | Commit |
 |---|---|---|
@@ -24,31 +25,86 @@
 | 3. Daily Dispatch | done | `d4bd9cf` |
 | 4. Nightly Reconciliation | done | `dbd61e0` |
 | 5. Summary flows | done | `ff91954` |
-| 6-9 | not started | |
+| 6. Reflow skeleton, guards, failure path | done | `16e6d68`, `032a03c` |
+| 7. The reflow walk | done | `6a1060d`, `13c9e50` |
+| 8. Suppression and conflict report | done | `20aa4da`, `a0d8125`, `80f88c9` |
+| 9. Documentation and close-out | **not started** | |
 
-**Three deviations from this plan, all deliberate and all carried forward:**
+**The new flow.** `D2 - Reschedule Pool`, flowId `2f2cde97-e0fd-5c5c-934a-02f09a1d83a5`,
+workflowEntityId `210f1d70-e2ab-f111-aaab-6045bd0196b3`, Started. Trigger list `Reschedule
+Requests` `31ada231-3937-4d72-9abf-8677f07c3fea`. Export is
+`flows/exports/D2-Reschedule-Pool-2026-09-09.json`. Task 9 must record BOTH ids under the correct
+labels; three rows in CLAUDE.md's flow table carry a workflowEntityId mislabelled as a flow id.
 
-1. **The job filter is applied SERVER-SIDE, not in memory.** The plan specified a `Filter array`
-   on `item()?['Job']?['Id']`. Instead a `Select` builds `JobId eq N` clauses, a `Compose` joins
-   them into `(JobId eq 1 or JobId eq 3)`, and that appends to the existing `$filter`. It avoids
-   the connector's lookup output shape entirely, fetches fewer rows, and leaves the existing
-   `Filter array` actions untouched so the `CrewID` join cannot be disturbed. An empty Active set
-   degrades to `JobId eq -1`, matching nothing. Use the same pattern in any remaining task.
-2. **Flow edits use `edit_flow` with surgical operations and a dry run**, not a full-definition
-   resend. Retyping a large definition to change a few things invites transcription error.
-3. **`autoResolveConnectionRefs: false` is required.** With the default, Task 4's edit failed with
-   `The API connection reference '...' could not be found for the operation 'Get_assignments'`,
-   naming a pre-existing action the edit barely touched. Setting it false applied cleanly, and it
-   was then used for Task 5 as well. Treat false as the default for these flows.
+**Deviations from this plan, all deliberate and carried forward:**
 
-**Found and fixed en route, outside this plan's scope:** Daily Dispatch had been failing on every
-real work day since `Crews.LeadEmail` was cleared on 2026-09-05, with `To: null` and
-`400 To Field cannot be null or empty`. Masked because the only intervening days were a Sunday and
-Labor Day, which the flow correctly terminates on. `To` now falls back to `stratirus@d2pools.com`
-with a `[no lead email]` subject prefix. See `d4bd9cf`.
+1. **The job filter is applied SERVER-SIDE**, not in memory: a `Select` builds `JobId eq N`
+   clauses joined into the existing `$filter`. An empty Active set degrades to `JobId eq -1`.
+2. **Flow edits use `edit_flow` with surgical operations and a dry run**, not full-definition
+   resends.
+3. **`autoResolveConnectionRefs: false` is required.** The default failed an edit while naming a
+   pre-existing action it barely touched.
+4. **Task 6's `failed` boolean is a SIXTH top-level `InitializeVariable`.** Step 1 enumerated only
+   five; a container cannot hold one.
+5. **Task 6's post-scope `Succeeded` route branches on `failed`.** As written, a tripped guard
+   would have reached `Set_status_done`, which is the "reports success after doing nothing"
+   outcome the guards exist to prevent.
+6. **Task 7 merged `Condition_pinned` and `Condition_bad_duration` into one `Condition_skip_row`.**
+   Logic Apps rejects nesting depth 9 and the walk sits at exactly 8, so the plan's literal
+   two-`If` structure is unbuildable. Both cursor behaviours are preserved distinctly and this was
+   verified in review.
+7. **Task 8's conflict alert is a SEPARATE email to the job's PM**, not a conditionally styled
+   completion email, per the spec's Part 4. It falls back PM -> requester ->
+   `stratirus@d2pools.com` with a visible subject marker.
+8. **The conflict sweep's comparison set is tenant-wide, deliberately.** An Active pool can be
+   alerted about colliding with a `Planned` pool. Ruled in favour of the spec's "a PM choosing
+   dates still wants to know it collides with an existing pool". Task 9 should document the
+   asymmetry: every other conflict surface considers Active jobs only.
 
-**Tenant state:** at its audited baseline. All three jobs `Active`, every seeded test row restored
-to its prior crew, dates and duration. Nothing is half-applied.
+**Three defects review caught that the tests could not:**
+
+- A guard trip could have reported `Status = Done` after doing nothing (caught in the pre-flight
+  scan, before code existed).
+- `Handle_failure` had no `Terminate`, so a genuine failure showed as a **Succeeded** run in
+  Power Automate's list. Same invisibility as the Daily Dispatch outage.
+- The walk dropped `Condition_span_incomplete`, the guard present in `D2 - New Pool`, leaving a
+  path to MERGEing a partial date span on a corrupt `DurationDays`.
+
+**Findings for Task 9 to write into CLAUDE.md. These cost real time and are not yet recorded:**
+
+1. **A `SetVariable` whose value expression reads the variable it writes** fails save-time
+   validation with a misleading "connection reference not found" error naming an unrelated action.
+2. **Nesting depth 9 is rejected. The maximum is 8.**
+3. **The shape of a Choice column depends on how you read it.** The connector's `GetItems` returns
+   `{Id, Value}`; raw REST via `Send an HTTP request to SharePoint` with `odata=nometadata`
+   returns a plain string; a server-side `$filter` compares it as a string. This made Reschedule
+   Pool's Active-check silently always false. Tasks 2-5 were cross-checked and are safe. Same
+   family as the documented `Assignment` vs `AssignmentId` trap.
+4. **`edit_flow`'s apply step is a full synchronous save-validation**, not a draft write.
+5. **FlowAgent `get_run_history` returned stale or absent snapshots repeatedly.** SharePoint's own
+   `Status`/`Result` fields and `get_run_action_repetitions` were reliable. An empty result is not
+   evidence a run did not happen.
+
+**Deferred minors, for the whole-branch review to triage:** `Set_status_running` is unguarded so a
+failed MERGE strands the request row at `Requested` (`D2 - New Pool` has the identical shape, so
+this is a cross-flow parity question); the guard-trip and genuine-failure MERGE+email pairs are
+structurally duplicated; `pastCount` computes "today" in UTC while the site is Central; the pinned
+test is evaluated twice; the PM email expression is evaluated three times; the new sweep and the
+existing walk use different array-access idioms; and `flows/testdata/cleanup.js` does not cover
+the `Reschedule Requests` list, so the pre-pilot gate would leave test litter in a third
+client-facing operational log.
+
+**Tenant state at hand-off, verified by reading it back:** all three jobs `Active`; `TEST-9001`
+restored; `TEST-9002` PM `null`; 38 test rows all at `DurationDays = 2`; `Locked` 0;
+`InstallerSignOff` 5; **0 rows still suppressed**; **0 chain overlaps**. Endpoint invariant
+violations fell from 4 to 2 — the walk REPAIRED row 25's Labor Day endpoint, a pre-existing
+`generate-seed.py` defect. Only row 21 remains, same known cause. All 12 D2 flows `Started`,
+Flow 3 included.
+
+**Test residue left in place deliberately:** `Reschedule Requests` holds the build's request rows
+as operational history, and a harmless `stl` double-book sits between `TEST-9001`/`TEST-9002`.
+`stl` is an `Unlimited` crew, so it is capacity-exempt by design and does not trip the audit's
+business-rule-2 check.
 
 ---
 
