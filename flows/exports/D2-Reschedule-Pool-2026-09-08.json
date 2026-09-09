@@ -1,0 +1,495 @@
+{
+  "flowId": "2f2cde97-e0fd-5c5c-934a-02f09a1d83a5",
+  "displayName": "D2 - Reschedule Pool",
+  "workflowEntityId": "210f1d70-e2ab-f111-aaab-6045bd0196b3",
+  "state": "Started",
+  "lastModifiedTime": "2026-09-09T00:08:46Z",
+  "connectionReferences": {
+    "shared_sharepointonline": {
+      "connectionName": "shared-sharepointonl-20b83f29-d689-437e-b1ff-930f7bf3fda4",
+      "connectionReferenceLogicalName": "new_sharedsharepointonline_beb06",
+      "source": "Embedded",
+      "id": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+      "displayName": "SharePoint",
+      "iconUri": "https://static.powerapps.com/resource/ppcr/releases/v1.0.1813/1.0.1813.4769/sharepointonline/icon.png",
+      "brandColor": "",
+      "tier": "Standard",
+      "apiName": "sharepointonline",
+      "isProcessSimpleApiReferenceConversionAlreadyDone": false
+    },
+    "shared_office365": {
+      "connectionName": "shared-office365-0bc14d33-bf94-4439-bdbc-d600759333d5",
+      "connectionReferenceLogicalName": "new_sharedoffice365_4d59e",
+      "source": "Embedded",
+      "id": "/providers/Microsoft.PowerApps/apis/shared_office365",
+      "displayName": "Office 365 Outlook",
+      "iconUri": "https://static.powerapps.com/resource/ppcr/releases/v1.0.1819/1.0.1819.4795/office365/icon.png",
+      "brandColor": "#0078D4",
+      "tier": "Standard",
+      "apiName": "office365",
+      "isProcessSimpleApiReferenceConversionAlreadyDone": false
+    }
+  },
+  "definition": {
+    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+      "$connections": {
+        "defaultValue": {},
+        "type": "Object"
+      },
+      "$authentication": {
+        "defaultValue": {},
+        "type": "SecureObject"
+      }
+    },
+    "triggers": {
+      "When_an_item_is_created": {
+        "recurrence": {
+          "frequency": "Minute",
+          "interval": 1
+        },
+        "splitOn": "@triggerOutputs()?['body/value']",
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+            "operationId": "GetOnNewItems",
+            "connectionName": "shared_sharepointonline"
+          },
+          "parameters": {
+            "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+            "table": "31ada231-3937-4d72-9abf-8677f07c3fea"
+          }
+        }
+      }
+    },
+    "actions": {
+      "Init_result": {
+        "runAfter": {},
+        "type": "InitializeVariable",
+        "inputs": {
+          "variables": [
+            {
+              "name": "result",
+              "type": "string",
+              "value": ""
+            }
+          ]
+        }
+      },
+      "Init_moved": {
+        "runAfter": {
+          "Init_result": [
+            "Succeeded"
+          ]
+        },
+        "type": "InitializeVariable",
+        "inputs": {
+          "variables": [
+            {
+              "name": "moved",
+              "type": "integer",
+              "value": 0
+            }
+          ]
+        }
+      },
+      "Init_skipped": {
+        "runAfter": {
+          "Init_moved": [
+            "Succeeded"
+          ]
+        },
+        "type": "InitializeVariable",
+        "inputs": {
+          "variables": [
+            {
+              "name": "skipped",
+              "type": "string",
+              "value": ""
+            }
+          ]
+        }
+      },
+      "Init_cursor": {
+        "runAfter": {
+          "Init_skipped": [
+            "Succeeded"
+          ]
+        },
+        "type": "InitializeVariable",
+        "inputs": {
+          "variables": [
+            {
+              "name": "cursor",
+              "type": "string",
+              "value": ""
+            }
+          ]
+        }
+      },
+      "Init_nonWork": {
+        "runAfter": {
+          "Init_cursor": [
+            "Succeeded"
+          ]
+        },
+        "type": "InitializeVariable",
+        "inputs": {
+          "variables": [
+            {
+              "name": "nonWork",
+              "type": "array",
+              "value": []
+            }
+          ]
+        }
+      },
+      "Init_failed": {
+        "runAfter": {
+          "Init_nonWork": [
+            "Succeeded"
+          ]
+        },
+        "type": "InitializeVariable",
+        "inputs": {
+          "variables": [
+            {
+              "name": "failed",
+              "type": "boolean",
+              "value": false
+            }
+          ]
+        }
+      },
+      "Set_status_running": {
+        "runAfter": {
+          "Init_failed": [
+            "Succeeded"
+          ]
+        },
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+            "operationId": "HttpRequest",
+            "connectionName": "shared_sharepointonline"
+          },
+          "parameters": {
+            "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+            "parameters/method": "POST",
+            "parameters/uri": "_api/web/lists/GetByTitle('Reschedule Requests')/items(@{triggerOutputs()?['body/ID']})",
+            "parameters/headers": {
+              "X-HTTP-Method": "MERGE",
+              "If-Match": "*",
+              "Content-Type": "application/json;odata=verbose",
+              "Accept": "application/json;odata=verbose"
+            },
+            "parameters/body": "{\"__metadata\":{\"type\":\"SP.Data.Reschedule_x0020_RequestsListItem\"},\"Status\":\"Running\"}"
+          }
+        }
+      },
+      "Scope_reflow": {
+        "runAfter": {
+          "Set_status_running": [
+            "Succeeded"
+          ]
+        },
+        "type": "Scope",
+        "actions": {
+          "Get_job": {
+            "runAfter": {},
+            "type": "OpenApiConnection",
+            "inputs": {
+              "host": {
+                "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                "operationId": "GetItems",
+                "connectionName": "shared_sharepointonline"
+              },
+              "parameters": {
+                "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+                "table": "ee0ecabf-2f11-458d-a9ea-641f76d10cc3",
+                "$filter": "@{concat('JobNumber eq ''', triggerOutputs()?['body/JobNumber'], '''')}",
+                "$top": 2
+              }
+            }
+          },
+          "Condition_job_found": {
+            "runAfter": {
+              "Get_job": [
+                "Succeeded"
+              ]
+            },
+            "type": "If",
+            "expression": {
+              "not": [
+                {
+                  "equals": [
+                    "@length(outputs('Get_job')?['body/value'])",
+                    1
+                  ]
+                }
+              ]
+            },
+            "actions": {
+              "Set_result_job_not_found": {
+                "runAfter": {},
+                "type": "SetVariable",
+                "inputs": {
+                  "name": "result",
+                  "value": "Failed: no job found for JobNumber '@{triggerOutputs()?['body/JobNumber']}' (expected exactly 1 match, found @{length(outputs('Get_job')?['body/value'])})."
+                }
+              },
+              "Set_failed_job_not_found": {
+                "runAfter": {
+                  "Set_result_job_not_found": [
+                    "Succeeded"
+                  ]
+                },
+                "type": "SetVariable",
+                "inputs": {
+                  "name": "failed",
+                  "value": true
+                }
+              }
+            },
+            "else": {
+              "actions": {
+                "Get_assignments": {
+                  "runAfter": {},
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "host": {
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                      "operationId": "GetItems",
+                      "connectionName": "shared_sharepointonline"
+                    },
+                    "parameters": {
+                      "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+                      "table": "49ef7006-d3fe-40a7-a52f-c4c18545bd35",
+                      "$filter": "@{concat('JobId eq ', string(first(outputs('Get_job')?['body/value'])?['ID']))}",
+                      "$orderby": "Sequence asc",
+                      "$top": 200
+                    }
+                  }
+                },
+                "Filter_from_sequence": {
+                  "runAfter": {
+                    "Get_assignments": [
+                      "Succeeded"
+                    ]
+                  },
+                  "type": "Query",
+                  "inputs": {
+                    "from": "@body('Get_assignments')?['value']",
+                    "where": "@greaterOrEquals(item()?['Sequence'], triggerOutputs()?['body/FromSequence'])"
+                  }
+                },
+                "Condition_sequence_exists": {
+                  "runAfter": {
+                    "Filter_from_sequence": [
+                      "Succeeded"
+                    ]
+                  },
+                  "type": "If",
+                  "expression": {
+                    "equals": [
+                      "@length(body('Filter_from_sequence'))",
+                      0
+                    ]
+                  },
+                  "actions": {
+                    "Set_result_sequence_not_found": {
+                      "runAfter": {},
+                      "type": "SetVariable",
+                      "inputs": {
+                        "name": "result",
+                        "value": "Failed: no sub-phase with Sequence @{triggerOutputs()?['body/FromSequence']} in job @{triggerOutputs()?['body/JobNumber']}."
+                      }
+                    },
+                    "Set_failed_sequence_not_found": {
+                      "runAfter": {
+                        "Set_result_sequence_not_found": [
+                          "Succeeded"
+                        ]
+                      },
+                      "type": "SetVariable",
+                      "inputs": {
+                        "name": "failed",
+                        "value": true
+                      }
+                    }
+                  },
+                  "else": {
+                    "actions": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "Condition_reflow_outcome": {
+        "runAfter": {
+          "Scope_reflow": [
+            "Succeeded"
+          ]
+        },
+        "type": "If",
+        "expression": {
+          "equals": [
+            "@variables('failed')",
+            true
+          ]
+        },
+        "actions": {
+          "Set_status_failed_guard": {
+            "runAfter": {},
+            "type": "OpenApiConnection",
+            "inputs": {
+              "host": {
+                "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                "operationId": "HttpRequest",
+                "connectionName": "shared_sharepointonline"
+              },
+              "parameters": {
+                "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+                "parameters/method": "POST",
+                "parameters/uri": "_api/web/lists/GetByTitle('Reschedule Requests')/items(@{triggerOutputs()?['body/ID']})",
+                "parameters/headers": {
+                  "X-HTTP-Method": "MERGE",
+                  "If-Match": "*",
+                  "Content-Type": "application/json;odata=verbose",
+                  "Accept": "application/json;odata=verbose"
+                },
+                "parameters/body": "{\"__metadata\":{\"type\":\"SP.Data.Reschedule_x0020_RequestsListItem\"},\"Status\":\"Failed\",\"Result\":\"@{variables('result')}\"}"
+              }
+            }
+          },
+          "Send_failure_email_guard": {
+            "runAfter": {
+              "Set_status_failed_guard": [
+                "Succeeded"
+              ]
+            },
+            "type": "OpenApiConnection",
+            "inputs": {
+              "host": {
+                "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+                "operationId": "SendEmailV2",
+                "connectionName": "shared_office365"
+              },
+              "parameters": {
+                "emailMessage/To": "@{triggerOutputs()?['body/Author']?['Email']}",
+                "emailMessage/Subject": "Reschedule failed: @{triggerOutputs()?['body/JobNumber']}",
+                "emailMessage/Body": "<p>@{variables('result')}</p>",
+                "emailMessage/Importance": "High"
+              }
+            }
+          }
+        },
+        "else": {
+          "actions": {
+            "Compose_success_result": {
+              "runAfter": {},
+              "type": "Compose",
+              "inputs": "@concat('Reflow complete for ', triggerOutputs()?['body/JobNumber'], '. ', string(variables('moved')), ' sub-phase(s) moved.')"
+            },
+            "Set_status_done": {
+              "runAfter": {
+                "Compose_success_result": [
+                  "Succeeded"
+                ]
+              },
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                  "operationId": "HttpRequest",
+                  "connectionName": "shared_sharepointonline"
+                },
+                "parameters": {
+                  "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+                  "parameters/method": "POST",
+                  "parameters/uri": "_api/web/lists/GetByTitle('Reschedule Requests')/items(@{triggerOutputs()?['body/ID']})",
+                  "parameters/headers": {
+                    "X-HTTP-Method": "MERGE",
+                    "If-Match": "*",
+                    "Content-Type": "application/json;odata=verbose",
+                    "Accept": "application/json;odata=verbose"
+                  },
+                  "parameters/body": "{\"__metadata\":{\"type\":\"SP.Data.Reschedule_x0020_RequestsListItem\"},\"Status\":\"Done\",\"Result\":\"@{outputs('Compose_success_result')}\"}"
+                }
+              }
+            }
+          }
+        }
+      },
+      "Handle_failure": {
+        "runAfter": {
+          "Scope_reflow": [
+            "Failed",
+            "TimedOut"
+          ]
+        },
+        "type": "Scope",
+        "actions": {
+          "Compose_failure_message": {
+            "runAfter": {},
+            "type": "Compose",
+            "inputs": "@concat('Failed: unexpected error while reflowing job ', triggerOutputs()?['body/JobNumber'], '. Check the flow run history for details.')"
+          },
+          "Set_status_failed_action": {
+            "runAfter": {
+              "Compose_failure_message": [
+                "Succeeded"
+              ]
+            },
+            "type": "OpenApiConnection",
+            "inputs": {
+              "host": {
+                "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                "operationId": "HttpRequest",
+                "connectionName": "shared_sharepointonline"
+              },
+              "parameters": {
+                "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+                "parameters/method": "POST",
+                "parameters/uri": "_api/web/lists/GetByTitle('Reschedule Requests')/items(@{triggerOutputs()?['body/ID']})",
+                "parameters/headers": {
+                  "X-HTTP-Method": "MERGE",
+                  "If-Match": "*",
+                  "Content-Type": "application/json;odata=verbose",
+                  "Accept": "application/json;odata=verbose"
+                },
+                "parameters/body": "{\"__metadata\":{\"type\":\"SP.Data.Reschedule_x0020_RequestsListItem\"},\"Status\":\"Failed\",\"Result\":\"@{outputs('Compose_failure_message')}\"}"
+              }
+            }
+          },
+          "Send_failure_email_action": {
+            "runAfter": {
+              "Set_status_failed_action": [
+                "Succeeded"
+              ]
+            },
+            "type": "OpenApiConnection",
+            "inputs": {
+              "host": {
+                "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+                "operationId": "SendEmailV2",
+                "connectionName": "shared_office365"
+              },
+              "parameters": {
+                "emailMessage/To": "@{triggerOutputs()?['body/Author']?['Email']}",
+                "emailMessage/Subject": "URGENT: Reschedule Pool failed: @{triggerOutputs()?['body/JobNumber']}",
+                "emailMessage/Body": "<p>@{outputs('Compose_failure_message')}</p>",
+                "emailMessage/Importance": "High"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
