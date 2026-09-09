@@ -140,7 +140,7 @@
   // views, where a month of sub-phases marching across the window is the point.
   // On Today by Crew and This Week by Crew a 28-day window is mostly empty
   // space around a short bar, so those keep the plain card.
-  const makeAssignmentCard = timeline => ({
+  const makeAssignmentCard = (timeline, conflict) => ({
     $schema: 'https://developer.microsoft.com/json-schemas/sp/v2/row-formatting.schema.json',
     hideColumnHeader: true,
     hideSelection: true,
@@ -207,6 +207,22 @@
               style: { 'font-size': '11px', 'color': GREY },
               txtContent: "=[$TasksComplete] + ' / ' + [$TasksTotal] + ' tasks'" }
           ] },
+        // ADDED 2026-09-09, `conflict` param: the Conflicts view's whole reason
+        // to exist is surfacing what `D2 - Conflict Flag` wrote overnight, so
+        // that text needs to read as a warning, not a footnote. Guarded on
+        // [$ConflictWith] == '' anyway (not just view-filter reliance) so this
+        // card stays correct if ever reused on an unfiltered view.
+        ...(conflict ? [{
+          elmType: 'div',
+          style: {
+            'display': "=if([$ConflictWith] == '', 'none', 'flex')",
+            'align-items': 'center', 'gap': '6px', 'margin-top': '2px',
+            'padding': '4px 8px', 'border-radius': '3px',
+            'background-color': '#fff7ed', 'color': AMBER,
+            'font-size': '12px', 'font-weight': '600'
+          },
+          txtContent: "='⚠ ' + [$ConflictWith]"
+        }] : []),
         ...(timeline ? [timelineLane()] : [])
       ]
     }
@@ -304,6 +320,10 @@
 
   const plainCard = makeAssignmentCard(false);
   const timelineCard = makeAssignmentCard(true);
+  // conflict banner, no timeline lane -- a one-day-or-two overlap window is not
+  // the multi-week span the lane earns its place on, and the warning line is
+  // the thing this view exists to show.
+  const conflictCard = makeAssignmentCard(false, true);
 
   const TARGETS = [
     ['Assignments', 'All Assignments', timelineCard],
@@ -317,6 +337,7 @@
     ['Assignments', 'Sign-off Overdue', plainCard],
     ['Assignments', 'Late-Starting Jobs', timelineCard],
     ['Assignments', 'Today by Crew', plainCard],
+    ['Assignments', 'Conflicts', conflictCard],
     ['Tasks', 'All Tasks (by Assignment)', taskRow],
     ['Tasks', 'Incomplete Tasks', taskRow],
     ['Jobs', 'Planned Pools', jobCard]

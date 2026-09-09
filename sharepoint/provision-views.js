@@ -181,6 +181,35 @@
           "query": "<Where><And><Lt><FieldRef Name=\"ScheduledStart\" /><Value Type=\"DateTime\"><Today /></Value></Lt><Eq><FieldRef Name=\"InstallerSignOff\" /><Value Type=\"Integer\">0</Value></Eq></And></Where><GroupBy Collapse=\"FALSE\"><FieldRef Name=\"Job\" /></GroupBy><OrderBy><FieldRef Name=\"ScheduledStart\" Ascending=\"TRUE\" /></OrderBy>"
       },
       {
+          // ADDED 2026-09-09: crew conflicts made visible in SharePoint, not just
+          // email. `ConflictWith` is stamped nightly by `D2 - Conflict Flag`,
+          // which is the only place the same-crew/overlapping-dates/different-job
+          // self-join can be computed -- CAML cannot express it, so this view is
+          // a pure filter on a column a flow already wrote, not a query that
+          // detects anything itself.
+          //
+          // IsNotNull, not Neq against an empty string: this list's clear-write
+          // sets ConflictWith to "", and SharePoint stores that as NULL
+          // internally for a Note field, so IsNotNull is the only filter that
+          // returns just the 10 flagged rows -- Neq "" matched all 181.
+          // Confirmed by rendering both against live data before committing to
+          // this one.
+          "list": "Assignments",
+          "title": "Conflicts",
+          "viewFields": [
+              "LinkTitle",
+              "Job",
+              "SubPhaseNumber",
+              "SubPhaseName",
+              "ScheduledStart",
+              "ScheduledFinish",
+              "ConflictWith"
+          ],
+          "rowLimit": 100,
+          "paged": true,
+          "query": "<Where><IsNotNull><FieldRef Name=\"ConflictWith\" /></IsNotNull></Where><GroupBy Collapse=\"FALSE\"><FieldRef Name=\"Crew\" /></GroupBy><OrderBy><FieldRef Name=\"ScheduledStart\" Ascending=\"TRUE\" /></OrderBy>"
+      },
+      {
           "list": "Assignments",
           "title": "Today by Crew",
           "viewFields": [
