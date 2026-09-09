@@ -723,7 +723,7 @@
                                       }
                                     }
                                   },
-                                  "Condition_changed": {
+                                  "Condition_span_incomplete": {
                                     "runAfter": {
                                       "Do_until_span_complete": [
                                         "Succeeded"
@@ -731,110 +731,147 @@
                                     },
                                     "type": "If",
                                     "expression": {
-                                      "equals": [
-                                        "@or(not(equals(variables('spanStart'), formatDateTime(item()?['ScheduledStart'], 'yyyy-MM-dd'))), not(equals(variables('spanFinish'), formatDateTime(item()?['ScheduledFinish'], 'yyyy-MM-dd'))))",
-                                        true
+                                      "not": [
+                                        {
+                                          "equals": [
+                                            "@variables('daysTaken')",
+                                            "@int(items('Apply_to_each_row')?['DurationDays'])"
+                                          ]
+                                        }
                                       ]
                                     },
                                     "actions": {
-                                      "Merge_dates": {
+                                      "Compose_skipped_incomplete": {
                                         "runAfter": {},
-                                        "type": "OpenApiConnection",
-                                        "inputs": {
-                                          "host": {
-                                            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
-                                            "operationId": "HttpRequest",
-                                            "connectionName": "shared_sharepointonline"
-                                          },
-                                          "parameters": {
-                                            "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
-                                            "parameters/method": "POST",
-                                            "parameters/uri": "_api/web/lists/GetByTitle('Assignments')/items(@{item()?['ID']})",
-                                            "parameters/headers": {
-                                              "X-HTTP-Method": "MERGE",
-                                              "If-Match": "*",
-                                              "Content-Type": "application/json;odata=verbose",
-                                              "Accept": "application/json;odata=verbose"
-                                            },
-                                            "parameters/body": "{\"__metadata\":{\"type\":\"SP.Data.AssignmentsListItem\"},\"ScheduledStart\":\"@{variables('spanStart')}\",\"ScheduledFinish\":\"@{variables('spanFinish')}\"}"
-                                          }
-                                        }
+                                        "type": "Compose",
+                                        "inputs": "@concat(variables('skipped'), if(equals(variables('skipped'), ''), '', '; '), item()?['Title'], ' (could not schedule)')"
                                       },
-                                      "Increment_moved": {
+                                      "Set_skipped_incomplete": {
                                         "runAfter": {
-                                          "Merge_dates": [
+                                          "Compose_skipped_incomplete": [
                                             "Succeeded"
                                           ]
                                         },
-                                        "type": "IncrementVariable",
+                                        "type": "SetVariable",
                                         "inputs": {
-                                          "name": "moved",
-                                          "value": 1
+                                          "name": "skipped",
+                                          "value": "@{outputs('Compose_skipped_incomplete')}"
                                         }
                                       }
                                     },
                                     "else": {
-                                      "actions": {}
-                                    }
-                                  },
-                                  "Compose_poolFinish_moved": {
-                                    "runAfter": {
-                                      "Condition_changed": [
-                                        "Succeeded"
-                                      ]
-                                    },
-                                    "type": "Compose",
-                                    "inputs": "@if(or(empty(variables('poolFinish')), greater(variables('spanFinish'), variables('poolFinish'))), variables('spanFinish'), variables('poolFinish'))"
-                                  },
-                                  "Set_poolFinish_moved": {
-                                    "runAfter": {
-                                      "Compose_poolFinish_moved": [
-                                        "Succeeded"
-                                      ]
-                                    },
-                                    "type": "SetVariable",
-                                    "inputs": {
-                                      "name": "poolFinish",
-                                      "value": "@{outputs('Compose_poolFinish_moved')}"
-                                    }
-                                  },
-                                  "Condition_past_moved": {
-                                    "runAfter": {
-                                      "Set_poolFinish_moved": [
-                                        "Succeeded"
-                                      ]
-                                    },
-                                    "type": "If",
-                                    "expression": {
-                                      "equals": [
-                                        "@less(variables('spanStart'), formatDateTime(utcNow(), 'yyyy-MM-dd'))",
-                                        true
-                                      ]
-                                    },
-                                    "actions": {
-                                      "Increment_pastCount_moved": {
-                                        "runAfter": {},
-                                        "type": "IncrementVariable",
-                                        "inputs": {
-                                          "name": "pastCount",
-                                          "value": 1
+                                      "actions": {
+                                        "Condition_changed": {
+                                          "runAfter": {},
+                                          "type": "If",
+                                          "expression": {
+                                            "equals": [
+                                              "@or(not(equals(variables('spanStart'), formatDateTime(item()?['ScheduledStart'], 'yyyy-MM-dd'))), not(equals(variables('spanFinish'), formatDateTime(item()?['ScheduledFinish'], 'yyyy-MM-dd'))))",
+                                              true
+                                            ]
+                                          },
+                                          "actions": {
+                                            "Merge_dates": {
+                                              "runAfter": {},
+                                              "type": "OpenApiConnection",
+                                              "inputs": {
+                                                "host": {
+                                                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                                                  "operationId": "HttpRequest",
+                                                  "connectionName": "shared_sharepointonline"
+                                                },
+                                                "parameters": {
+                                                  "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+                                                  "parameters/method": "POST",
+                                                  "parameters/uri": "_api/web/lists/GetByTitle('Assignments')/items(@{item()?['ID']})",
+                                                  "parameters/headers": {
+                                                    "X-HTTP-Method": "MERGE",
+                                                    "If-Match": "*",
+                                                    "Content-Type": "application/json;odata=verbose",
+                                                    "Accept": "application/json;odata=verbose"
+                                                  },
+                                                  "parameters/body": "{\"__metadata\":{\"type\":\"SP.Data.AssignmentsListItem\"},\"ScheduledStart\":\"@{variables('spanStart')}\",\"ScheduledFinish\":\"@{variables('spanFinish')}\"}"
+                                                }
+                                              }
+                                            },
+                                            "Increment_moved": {
+                                              "runAfter": {
+                                                "Merge_dates": [
+                                                  "Succeeded"
+                                                ]
+                                              },
+                                              "type": "IncrementVariable",
+                                              "inputs": {
+                                                "name": "moved",
+                                                "value": 1
+                                              }
+                                            }
+                                          },
+                                          "else": {
+                                            "actions": {}
+                                          }
+                                        },
+                                        "Compose_poolFinish_moved": {
+                                          "runAfter": {
+                                            "Condition_changed": [
+                                              "Succeeded"
+                                            ]
+                                          },
+                                          "type": "Compose",
+                                          "inputs": "@if(or(empty(variables('poolFinish')), greater(variables('spanFinish'), variables('poolFinish'))), variables('spanFinish'), variables('poolFinish'))"
+                                        },
+                                        "Set_poolFinish_moved": {
+                                          "runAfter": {
+                                            "Compose_poolFinish_moved": [
+                                              "Succeeded"
+                                            ]
+                                          },
+                                          "type": "SetVariable",
+                                          "inputs": {
+                                            "name": "poolFinish",
+                                            "value": "@{outputs('Compose_poolFinish_moved')}"
+                                          }
+                                        },
+                                        "Condition_past_moved": {
+                                          "runAfter": {
+                                            "Set_poolFinish_moved": [
+                                              "Succeeded"
+                                            ]
+                                          },
+                                          "type": "If",
+                                          "expression": {
+                                            "equals": [
+                                              "@less(variables('spanStart'), formatDateTime(utcNow(), 'yyyy-MM-dd'))",
+                                              true
+                                            ]
+                                          },
+                                          "actions": {
+                                            "Increment_pastCount_moved": {
+                                              "runAfter": {},
+                                              "type": "IncrementVariable",
+                                              "inputs": {
+                                                "name": "pastCount",
+                                                "value": 1
+                                              }
+                                            }
+                                          },
+                                          "else": {
+                                            "actions": {}
+                                          }
+                                        },
+                                        "Set_cursor_moved": {
+                                          "runAfter": {
+                                            "Condition_past_moved": [
+                                              "Succeeded"
+                                            ]
+                                          },
+                                          "type": "SetVariable",
+                                          "inputs": {
+                                            "name": "cursor",
+                                            "value": "@{formatDateTime(addDays(variables('spanFinish'), 1), 'yyyy-MM-dd')}"
+                                          }
                                         }
                                       }
-                                    },
-                                    "else": {
-                                      "actions": {}
-                                    }
-                                  },
-                                  "Set_cursor_moved": {
-                                    "runAfter": {
-                                      "Condition_past_moved": [
-                                        "Succeeded"
-                                      ]
-                                    },
-                                    "type": "SetVariable",
-                                    "inputs": {
-                                      "name": "cursor",
-                                      "value": "@{formatDateTime(addDays(variables('spanFinish'), 1), 'yyyy-MM-dd')}"
                                     }
                                   }
                                 }
