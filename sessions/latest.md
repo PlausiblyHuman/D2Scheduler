@@ -1,124 +1,134 @@
-# 2026-09-08c — D2 - Reschedule Pool, built through Task 8
+# 2026-09-09a — Pool lifecycle plan finished, then a usability round
 
-**Session goal:** recover from a VS Code crash that lost the previous session's context, then
-carry the pool-lifecycle plan forward. Ended with Tasks 6, 7 and 8 done and the new flow live.
+**Session goal:** finish Task 9 and the whole-branch review, then respond to what Shane found by
+actually using the site with real volume in it.
 
-Stopped deliberately after Task 8 at Shane's call. Task 9 and the whole-branch review are the
-only work left.
+Continues directly from `2026-09-08c`, same conversation.
 
-## Recovery
+## Part 1 — the plan is complete
 
-The crash cost conversation context, not work. The tree was clean and everything through 16:03
-was committed. Tasks 1-5 were recoverable because the previous controller had committed a
-Progress section into the plan file itself, which is the only artifact that survived: the SDD
-workspace is gitignored scratch and this plan's ledger was gone. That practice is why the session
-resumed in minutes rather than by re-deriving state from eleven flow exports.
+All 9 tasks done, final whole-branch review clean: 0 Critical, every Important closed.
 
-The 09-08a session log was two workstreams stale. It has been superseded by `2026-09-08b` and
-this log.
+**Task 9** documented the lifecycle and verified the whole loop on the live tenant with a real
+`TEST-9100` pool: arrived `Planned`, dispatched nothing, raised no alerts, reflowed from sequence
+1, committed to `Active`, appeared in the dispatch email (confirmed by reading the sent body, not
+the run status), then deleted back to exact baseline.
 
-## Built
+**The final review found five things no per-task review could see.** All closed:
 
-`D2 - Reschedule Pool` is live and Started. A PM raises a **Reschedule Requests** row and a pool's
-date chain is recomputed from any sub-phase forward: working days only, Sundays and Work Calendar
-holidays skipped, `Locked` and signed-off rows pinned where they are, nothing written when nothing
-moved. A ten-minute `SuppressReconcileUntil` window stops a 19-row reflow firing a conflict check
-per row, and a single end-of-run sweep reports collisions to the requester whatever the pool's
-status while alerting the job's PM only when it is `Active`.
+- The reflow walk was the only variable-mutating loop of ten across twelve flows without pinned
+  concurrency, and the one where iteration order is the algorithm.
+- Flow 3 alerted PMs about collisions with uncommitted `Planned` pools, while the documentation
+  written the same day claimed the opposite.
+- All four edited `flows/definitions/*.json` were stale in exactly the actions this branch added,
+  while CLAUDE.md told the next session to reuse them verbatim.
+- The launchpad lacked both surfaces the rewritten runbooks depend on.
+- Three of four emails in the new flow lacked the null-recipient fallback the fourth had.
 
-- flowId `2f2cde97-e0fd-5c5c-934a-02f09a1d83a5`, workflowEntityId `210f1d70-e2ab-f111-aaab-6045bd0196b3`
-- Task 6: trigger, both guards, failure path. Built first, deliberately, because `D2 - New Pool`
-  shipped without one and a reflow that dies midway leaves a half-reordered schedule.
-- Task 7: the working-day walk and pinning.
-- Task 8: suppression and the conflict sweep.
+**One pattern, seen twice, worth carrying:** a fix that copies a good idiom into a new context
+inherits assumptions the original context guaranteed. Task 8's alert decoupling fixed a design
+flaw and an incidental `runAfter` recreated the outcome. The fix wave's null-recipient fallback
+was copied from a path where `Get_job` had always succeeded into one where it may not have, so
+`first(null)` threw and the failure email broke on the one path it exists for. Both were correct
+in isolation and wrong in place.
 
-## What review caught that testing could not
+Eleven rulings are recorded in the plan file's Progress section, which is the durable record now
+that the SDD workspace is deleted.
 
-Three defects, none of which a passing test would have surfaced:
+## Part 2 — three demonstration pools
 
-1. **A guard trip could have reported `Status = Done` after doing nothing.** Found in the
-   pre-flight scan, before any code existed: the plan put `Set_status_done` on the scope's
-   `Succeeded` route while the guards deliberately do not fail the scope.
-2. **A genuine failure showed as a `Succeeded` run.** `Handle_failure` had no `Terminate`, so the
-   failure was visible only in the SharePoint row and the email. That is the same invisibility
-   that hid the Daily Dispatch outage for days. Settled by reading `D2 - New Pool`'s real payload:
-   it terminates `Succeeded` for expected guard trips and `Failed` for genuine failures.
-3. **The walk dropped a write-safety guard from the pattern it was told to copy.** The loop was
-   copied faithfully but `Condition_span_incomplete`, which sits immediately after it in
-   `D2 - New Pool`, was not. An `Until` exits on its condition or its iteration cap and the two
-   are indistinguishable, so a corrupt `DurationDays` would have MERGEd a partial span — a write
-   that returns 204 and silently corrupts dates.
+Shane asked to see a fully populated site before the cleanup gate. Three pools raised at once:
+`D2-1042` Reyes Residence, `D2-1043` Whitfield Estate, `D2-1044` Salcedo Residence. Site went from
+43 assignments and 282 tasks to **181 and 1,167**.
 
-## The Choice-column bug, and why the tests were blind to it
+**Concurrent generation is faster than sequential, which nobody had measured.** Three pools built
+together took about 13 minutes, against 17 for a single pool the night before. So the multi-minute
+stalls seen during Task 9 are a per-run pacing limit, not a tenant-wide ceiling, and two PMs
+raising pools in the same hour is fine.
 
-Task 8 first shipped the conflict alert as a conditionally-styled completion email rather than a
-separate email to the PM. The spec rules against that: an alert goes to the PM, a report goes to
-the requester, and those are routinely different people. Left merged, the suppression that stops
-Flow 3 raising 19 alerts would also have been the reason the PM got none at all.
+All three arrived `Planned`, so three heavily overlapping pools sharing default crews produced no
+alerts at all. That is Part 1 of the spec doing its job.
 
-Splitting it exposed a latent bug nothing else would have. **`Jobs.Status` from the connector's
-`GetItems` is a Choice object `{Id, Value}`, not a string**, so the flow's Active-check had always
-evaluated false. Under the merged design that check only controlled subject styling, so no test
-could see it.
+They use realistic job numbers deliberately, so the views look real. The cost is that
+`cleanup.js` will not auto-remove them, by design, so `flows/testdata/demo-pools-manifest.json` is
+the removal record.
 
-Both test pools also have a null ProjectManager, which meant an alert addressed to the PM and an
-alert never sent were indistinguishable. The implementer's "both readings pass every test" was
-accurate, and that is exactly why it was not evidence. The spec had to decide.
+## Part 3 — usability, from Shane using it
 
-Cross-checked the same defect against Tasks 2-5, since all four added Active-job filters and a
-shared wrong assumption would have been a plan-wide defect sitting in production. All four are
-safe: Dispatch, Nightly and both Summaries filter server-side, and Flow 3 reads via raw REST with
-`odata=nometadata`, which returns a plain string.
+Five changes, all from his own observations rather than a backlog.
+
+- **The Assignments edit form** showed about 25 fields flat. Now 13, in the order the job runs.
+  The `Locked` / `NotApplicable` / `PMSignOff` Required trap is gone.
+- **The home page hero** was `Today by Crew`, the right lens at one pool and the wrong one at six.
+  Now a new `This Week by Job` view, grouped by pool.
+- **The summary emails** had an over-escaped quote in the daily flow, found by pulling the actual
+  sent body rather than reading the definition. Fixed, plus 16 deep links so a reader can click
+  from "oldest outstanding" straight to the row.
+- **`Crew` is a free-text join key**, which Shane spotted on the edit form. A wrong value does not
+  error, it matches nothing. Now guarded by a validation formula, and the guard turned out to be
+  enforced on REST writes as well as the form: writing `Devon Crew +3`, the exact mistake that
+  already cost this project a session, returns `SPListDataValidationException` with the value
+  unchanged.
+- **Crew conflicts are now visible in SharePoint**, not only in email. New `ConflictWith` column,
+  new flow `D2 - Conflict Flag` (nightly 05:00 Central), a `Conflicts` view, and a launchpad link.
 
 ## Files touched
 
-- `flows/definitions/D2-Reschedule-Pool.json` — new
-- `flows/exports/D2-Reschedule-Pool-2026-09-09.json` — new; the stale `-2026-09-08.json` was
-  deleted, see below
-- `docs/superpowers/plans/2026-09-08-pool-lifecycle-and-reflow.md` — Progress section rewritten
-  for Tasks 6-8, the eight deviations, and the five findings Task 9 must write into CLAUDE.md
-- `sessions/2026-09-08b-audit-and-reflow.md` — the missing log for the prior session
+- `docs/superpowers/plans/2026-09-08-pool-lifecycle-and-reflow.md` — Progress rewritten as the
+  completion record: 11 rulings, 8 deviations, deferred items
+- `flows/definitions/D2-Reschedule-Pool.json`, `flows/exports/*` — the reflow flow and re-exports
+- `D2-Phase-F-Cutover-Runbook.md` — a refused delete shows plain `Refused`; the reason is in `Result`
+- `sharepoint/guard-crew-values.js` — new
+- `sharepoint/format-views.js`, `build-home-page.js`, `provision-views.js` — hero, new views, formatters
+- `flows/testdata/demo-pools-manifest.json` — new
+- `flows/testdata/daily-summary-preview.html`, `weekly-summary-preview.html` — regenerated from live sends
+- `CLAUDE.md` — five platform findings, the flow table, the `office` compliance asymmetry
 
 ## Commits
 
-`f6969b0` through `80f88c9`. Seven commits on the flow plus the session log and plan update.
+`f6969b0` through `df10380`. All pushed to `canvas-app-handoff`.
 
 ## Decisions
 
-- **The conflict alert is a separate email to the job's PM**, falling back PM -> requester ->
-  `stratirus@d2pools.com` with a visible marker, rather than a styled completion email. The
-  distinction the spec draws is about who gets interrupted.
-- **The sweep's comparison set stays tenant-wide**, so an Active pool can be alerted about
-  colliding with a `Planned` one. The spec wants a PM choosing dates to learn about collisions
-  with existing pools, and one alert per reflow is bounded. It does create an asymmetry worth
-  documenting: every other conflict surface here considers Active jobs only.
-- **Task 7's two skip conditions were merged into one.** Logic Apps rejects nesting depth 9 and
-  the walk sits at exactly 8, so the plan's literal structure is unbuildable. Review verified both
-  cursor behaviours survived the merge.
+- **PM-proxy sign-off only to start.** Crew-lead licensing deferred; decide later whether to add
+  seats. The app already supports this with no rebuild, since the proxy picker had to exist anyway
+  for the four subcontractor crews.
+- **Shane runs the first real pool himself**, as stage one of two. He will validate mechanics; a
+  real D2 PM is still needed for domain fit, because whether 46 sub-phases in that order at those
+  durations matches how D2 builds a pool is not something he can answer.
+- **The conflict annotator is a separate flow from the nightly sweep.** One alerts, one annotates,
+  and the annotator covers `Planned` pools so a PM can see collisions while choosing dates.
+- **`Crew` gets a validation guard now, a dropdown later.** Converting it to Choice would give a
+  real picker but breaks all nine in-memory `?['Crew']` reads across five published flows plus the
+  canvas app, which is its own considered change.
+- **Machine-owned fields are hidden from the display form too**, accepted rather than reverted.
+  SharePoint shares one visibility set across New, Edit and Display on this list, established by
+  A/B test. The emails already carry the sign-off status and task counts the form now omits.
 
-## Adjacent defects fixed past scope
+## Corrections worth keeping
 
-- **`Sequence` was null on all 38 test assignment rows.** Backfilled from the Sub-phase Template.
-  It blocked Task 6's own guard test and would have blocked Tasks 7 and 8, which order by it.
-  A production data change with no git diff, verified independently against the template map.
-- **A stale duplicate export.** The UTC date rollover left two files for the same flow. Compared
-  by content, the `2026-09-08` one was a pre-Task-8 snapshot missing the entire conflict sweep.
-  Deleted. This is the same trap the pre-pilot audit found on `D2 - New Pool`, where restoring
-  from a committed export would have silently deleted a fix.
+- I told Shane the three demo pools had **34 crew-day collisions**. The real figure is **10**. My
+  count included the seven `Unlimited` buckets, which are capacity-exempt by design and can never
+  conflict. The implementer built its own oracle, got 10, and flagged the discrepancy rather than
+  matching my number.
+- I told the Task 9 implementer its throttling diagnosis was wrong, based on the fast phase of a
+  run. It was right. The generation loop pauses and resumes rather than degrading smoothly.
+- `D2 - Conflict Flag`'s ids were reported as one value. They are two: flowId
+  `972c139d-e55f-6743-a76c-fbd2f08eeb45`, workflowEntityId `f0dd9a1d-8bac-f111-aaab-002248043e80`.
+  Fourth instance of this labelling mistake on this project.
 
 ## Open
 
-- **Task 9 not started:** CLAUDE.md, both runbooks, the starter guide, and one end-to-end pass
-  (raise `TEST-9100`, reflow it, commit it to Active, confirm dispatch, delete it).
-- **The whole-branch review has not run.** Seven deferred minors are listed in the plan's Progress
-  section for it to triage, including that `cleanup.js` does not cover `Reschedule Requests`.
-- **Five platform findings are still undocumented** and are the highest-value part of Task 9: the
-  self-referencing `SetVariable` error, the depth-8 ceiling, the Choice-column shape, `edit_flow`'s
-  synchronous validation, and `get_run_history` returning stale snapshots.
-- The unexplained writes to the tenant remain unexplained. The peer session running tonight was
-  ruled out as a candidate.
+- **The cleanup gate has not been run.** Harrison, both TEST pools and the three demo pools are
+  all still live. `cleanup.js` handles the first three; the demo pools need the manifest.
+- **Dispatch will mail seven `[no lead email]` emails every morning** while no crew lead has a
+  mailbox. Decide whether to point it at the PM for the pilot.
+- Every template duration is still a 2-day placeholder, so every generated pool is the same length
+  regardless of size. Most visible now that three sit side by side.
+- `flows/exports/` still keeps multiple dated generations per flow. Pre-pilot housekeeping.
+- Seven deferred minors from the whole-branch review, listed in the plan's Progress section.
 
 ## Next action
 
-Task 9: documentation, runbooks and the end-to-end pass, then the whole-branch review. The plan's
-Progress section carries everything needed to resume cold.
+Run the cleanup gate when Shane has finished looking at the populated site, then set up his first
+real pool.
