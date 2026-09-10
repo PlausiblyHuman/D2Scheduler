@@ -1267,8 +1267,11 @@ the same time, and a surprising row is not automatically a bug in this session's
 
 **Flow status (table originally closed out Phase B on 2026-09-05; rows 6 onward are later
 additions and the table was never renumbered, corrected 2026-09-08 after it undercounted the
-environment by three. There are twelve D2 flows in total plus the unrelated `Generate estimate`,
-which belongs to a separate estimator workload and is deliberately not documented here.):**
+environment by three. There are fourteen D2 flows in total plus the unrelated `Generate estimate`,
+which belongs to a separate estimator workload and is deliberately not documented here. Row 12 is
+`D2 - Conflict Flag`, added 2026-09-09 and missing from this table until 2026-09-10; row 13 is
+`D2 - Calendar Sync`, added 2026-09-10. Note the row numbers do NOT equal the flow count: row 5
+covers two flows, the daily and weekly summaries.):**
 
 | # | Flow | State | Notes |
 |---|---|---|---|
@@ -1283,6 +1286,67 @@ which belongs to a separate estimator workload and is deliberately not documente
 | 9 | New Pool | Started | **NEW 2026-09-08, verified.** `D2 - New Pool`, flowId `02905018-4f41-e05a-d140-74e2afc82052` (Dataverse workflowid `d782ee70-2fab-f111-aaab-6045bd0196b3`). Triggered by a new row in **New Pool Requests** (`ProjectManager` is a required field on that list). Reads the 46-row **Sub-phase Template** and 295-row **Task Template** and generates a full pool: one Job, 46 Assignments, ~295 Tasks. See Known bugs and gotchas for the platform constraints found building it. |
 | 10 | Delete Pool | Started | **NEW 2026-09-08, verified.** `D2 - Delete Pool`, flowId `995099f4-76e6-8bc0-89ef-9fd3557138ce` (Dataverse workflowid `83064f1f-47ab-f111-aaac-6045bd0195dd`). Triggered by a new row in **Delete Pool Requests**. Removes a pool's Tasks, Assignments and Job. |
 | 11 | Reschedule Pool | Started | **NEW 2026-09-09, verified.** `D2 - Reschedule Pool`, flowId `2f2cde97-e0fd-5c5c-934a-02f09a1d83a5` (Dataverse workflowid `210f1d70-e2ab-f111-aaab-6045bd0196b3`). Triggered by a new row in **Reschedule Requests**. Walks a job's assignments from a given `Sequence` forward, recomputing working-day spans, skipping rows that are `Locked` or already signed off. See **Staging / integration contracts** for the `Planned`/`Locked`/`SuppressReconcileUntil` mechanics and Known bugs and gotchas for the platform constraints found building it. **Hardened the same day in the final whole-branch review:** the reflow-walk `Foreach` now carries `concurrency: {repetitions: 1}` like every other variable-mutating loop in this flow (it always ran sequentially; this closes the gap between "does" and "is guaranteed to"); the mid-run failure email now names how many sub-phases already moved and says to re-raise the same request from the same `FromSequence` (the walk is idempotent); and `Send_completion_email`, `Send_failure_email_guard` and `Send_failure_email_action` all gained the PM -> requester -> `stratirus@d2pools.com` fallback that `Send_conflict_alert_email` already had, so a blank `Author.Email` (plausible per the UPN-vs-`mail` note above) can no longer produce a silent `400 To Field cannot be null or empty` on the very email meant to explain a failure. |
+
+| 12 | Conflict Flag | Started | **NEW 2026-09-09, verified.** `D2 - Conflict Flag`, flowId `972c139d-e55f-6743-a76c-fbd2f08eeb45` (Dataverse workflowid `f0dd9a1d-8bac-f111-aaab-002248043e80`). Nightly 05:00 Central. Annotates `Assignments.ConflictWith` so a crew double-book is visible in SharePoint and not only in email; unlike the alerting flows it deliberately covers `Planned` pools too, so a PM can see collisions while choosing dates. Was missing from this table until 2026-09-10. |
+| 13 | Calendar Sync | Started | **NEW 2026-09-10, verified.** `D2 - Calendar Sync`, flowId / workflowEntityId `f890f891-48ad-f111-aaab-6045bd0196b3`. Nightly 04:30 Central. Writes one all-day event per in-scope Assignment to the **M365 group calendar** behind the site. See "Group calendar" below. |
+
+**THE GROUP CALENDAR — built 2026-09-10, and the route is not the obvious one.**
+
+Shane wanted schedules to "drop to a shared calendar somewhere, so they can see what's happening
+when". They now do: `D2 - Calendar Sync` maintains the **D2 Build Scheduler** M365 group calendar
+(`D2BuildScheduler@NETORGFT15040037.onmicrosoft.com`, group id
+`7b305c56-ceea-4838-9e58-90050a846204`, which is the group behind the SharePoint site).
+
+**The Office 365 Outlook connector CANNOT reach a group calendar. Do not spend time trying.**
+`CalendarGetTables` returns only D2 Bot's own three calendars, and the connector's Graph
+passthrough (`HttpRequest`) rejects the segment outright:
+
+> `URI path is not a valid Graph endpoint … Invalid resource, Allowed values: me,users.`
+
+**The route that works is the `shared_office365groups` connector, which is Standard tier**, and
+carries `CreateCalendarEventV2` / `UpdateCalendarEvent` / `CalendarDeleteItem_V2` — a full
+lifecycle for free. Its connection was created **silently** by FlowAgent
+`pick_or_create_connection` (`shared-office365grou-2b5c4977`), with no interactive consent, which
+is worth knowing given the OneDrive connection was once treated as a blocker for exactly this
+reason.
+
+**Shape, captured from a real create rather than assumed:** the `body` parameter is the
+**Graph-native event resource** — `subject`, `body{contentType,content}`, `start{dateTime,timeZone}`,
+`end{dateTime,timeZone}`, `isAllDay`, `showAs`, `location{displayName}` — and the response returns
+the event id as **`id`**. Two details that matter:
+
+- **An all-day event's `end` is EXCLUSIVE.** A sub-phase finishing 09-10 must be written
+  `end = addDays(ScheduledFinish, 1)`, or it renders a day short. Verified against the rendered
+  calendar: a 2-day sub-phase reads `2026-08-19 -> 2026-08-21`.
+- **The connector rewrites `timeZone` to `UTC`** even when `Central Standard Time` is sent. Harmless
+  for all-day events because they key off the date part, but do not be surprised by it, and do not
+  use this action for timed events without re-checking.
+
+**Idempotency is via `Assignments.CalendarEventId`** (Text, hidden from New/Edit like the other
+machine-owned fields). Empty → create and store the id; present → update in place; row no longer in
+scope → delete the event and clear the id. **Scope is `Status eq 'Active'` only**, consistent with
+dispatch, alerting and the summaries, so a `Planned` pool is invisible until committed. Rows with a
+null `ScheduledStart`/`ScheduledFinish` are excluded server-side rather than guarded in the loop.
+
+All three legs were verified against the rendered calendar, not the run status: first run created
+43 events; an immediate second run created 0, updated 43 and produced **zero duplicates**; taking a
+row out of scope deleted its event and nulled the id; putting it back recreated it, still with no
+duplicates.
+
+**Two things to know before this goes to the client:**
+
+- **The group has exactly ONE member — D2 Bot.** David, Don, Cody and Emon will not see this
+  calendar until they are added to the group. That is the same gate as SharePoint site access,
+  which also has not been granted, so it is consistent with the site being internal-only for now.
+- **Starting a Recurrence flow fires it immediately**, on top of any manual run. A probe flow
+  during this build produced two events instead of one for exactly that reason. Create such flows
+  `Stopped`, test with `run_flow`, and expect one extra run at the moment you start them.
+
+Accepted cost: the first run writes `CalendarEventId` to every row, so it fires one Event-Driven
+Reconciliation run per assignment. All of them terminate cheaply at the version-history gate,
+because `CalendarEventId` is not `Crew` or a date — the same accepted trade as `D2 - New Pool`'s 92.
+Runtime is ~90s for 43 assignments on a cold first run and ~30-45s thereafter, so a tenant with
+five real pools should expect a few minutes nightly.
 
 **PRE-PILOT REALITY AUDIT, 2026-09-08b.** Every load-bearing claim in this file was checked
 against the live tenant, because CLAUDE.md had been caught wrong twice in one morning and the

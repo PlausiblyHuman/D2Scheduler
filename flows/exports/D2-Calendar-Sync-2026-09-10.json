@@ -1,0 +1,531 @@
+{
+  "flowId": "f890f891-48ad-f111-aaab-6045bd0196b3",
+  "displayName": "D2 - Calendar Sync",
+  "workflowEntityId": "f890f891-48ad-f111-aaab-6045bd0196b3",
+  "state": "Started",
+  "lastModifiedTime": "2026-09-10T18:51:46Z",
+  "connectionReferences": {
+    "shared_office365groups": {
+      "connectionName": "shared-office365grou-2b5c4977",
+      "connectionReferenceLogicalName": "new_sharedoffice365groups_79b3c",
+      "source": "Embedded",
+      "id": "/providers/Microsoft.PowerApps/apis/shared_office365groups",
+      "displayName": "Office 365 Groups",
+      "iconUri": "https://conn-afd-prod-endpoint-bmc9bqahasf3grgk.b01.azurefd.net/releases/v1.0.1777/1.0.1777.4410/office365groups/icon.png",
+      "brandColor": "#EB3C00",
+      "tier": "Standard",
+      "apiName": "office365groups",
+      "isProcessSimpleApiReferenceConversionAlreadyDone": false
+    },
+    "shared_sharepointonline": {
+      "connectionName": "shared-sharepointonl-20b83f29-d689-437e-b1ff-930f7bf3fda4",
+      "connectionReferenceLogicalName": "new_sharedsharepointonline_beb06",
+      "source": "Embedded",
+      "id": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+      "displayName": "SharePoint",
+      "iconUri": "https://static.powerapps.com/resource/ppcr/releases/v1.0.1813/1.0.1813.4769/sharepointonline/icon.png",
+      "brandColor": "",
+      "tier": "Standard",
+      "apiName": "sharepointonline",
+      "isProcessSimpleApiReferenceConversionAlreadyDone": false
+    },
+    "shared_office365": {
+      "connectionName": "shared-office365-0bc14d33-bf94-4439-bdbc-d600759333d5",
+      "connectionReferenceLogicalName": "new_sharedoffice365_4d59e",
+      "source": "Embedded",
+      "id": "/providers/Microsoft.PowerApps/apis/shared_office365",
+      "displayName": "Office 365 Outlook",
+      "iconUri": "https://static.powerapps.com/resource/ppcr/releases/v1.0.1819/1.0.1819.4795/office365/icon.png",
+      "brandColor": "#0078D4",
+      "tier": "Standard",
+      "apiName": "office365",
+      "isProcessSimpleApiReferenceConversionAlreadyDone": false
+    }
+  },
+  "definition": {
+    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+      "$authentication": {
+        "defaultValue": {},
+        "type": "SecureObject"
+      },
+      "$connections": {
+        "defaultValue": {},
+        "type": "Object"
+      }
+    },
+    "triggers": {
+      "Recurrence": {
+        "recurrence": {
+          "frequency": "Day",
+          "interval": 1,
+          "timeZone": "Central Standard Time",
+          "schedule": {
+            "hours": [
+              "4"
+            ],
+            "minutes": [
+              30
+            ]
+          }
+        },
+        "type": "Recurrence"
+      }
+    },
+    "actions": {
+      "Initialize_created": {
+        "runAfter": {},
+        "type": "InitializeVariable",
+        "inputs": {
+          "variables": [
+            {
+              "name": "created",
+              "type": "integer",
+              "value": 0
+            }
+          ]
+        }
+      },
+      "Initialize_updated": {
+        "runAfter": {
+          "Initialize_created": [
+            "Succeeded"
+          ]
+        },
+        "type": "InitializeVariable",
+        "inputs": {
+          "variables": [
+            {
+              "name": "updated",
+              "type": "integer",
+              "value": 0
+            }
+          ]
+        }
+      },
+      "Initialize_removed": {
+        "runAfter": {
+          "Initialize_updated": [
+            "Succeeded"
+          ]
+        },
+        "type": "InitializeVariable",
+        "inputs": {
+          "variables": [
+            {
+              "name": "removed",
+              "type": "integer",
+              "value": 0
+            }
+          ]
+        }
+      },
+      "Get_active_jobs": {
+        "runAfter": {
+          "Initialize_removed": [
+            "Succeeded"
+          ]
+        },
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_sharepointonline",
+            "operationId": "GetItems",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+          },
+          "parameters": {
+            "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+            "table": "ee0ecabf-2f11-458d-a9ea-641f76d10cc3",
+            "$filter": "Status eq 'Active'",
+            "$top": 500
+          }
+        }
+      },
+      "Select_active_job_ids": {
+        "runAfter": {
+          "Get_active_jobs": [
+            "Succeeded"
+          ]
+        },
+        "type": "Select",
+        "inputs": {
+          "from": "@outputs('Get_active_jobs')?['body/value']",
+          "select": "@concat('JobId eq ', string(item()?['ID']))"
+        }
+      },
+      "Compose_active_job_clause": {
+        "runAfter": {
+          "Select_active_job_ids": [
+            "Succeeded"
+          ]
+        },
+        "type": "Compose",
+        "inputs": "@if(empty(body('Select_active_job_ids')), 'JobId eq -1', concat('(', join(body('Select_active_job_ids'), ' or '), ')'))"
+      },
+      "Get_crews": {
+        "runAfter": {
+          "Compose_active_job_clause": [
+            "Succeeded"
+          ]
+        },
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_sharepointonline",
+            "operationId": "GetItems",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+          },
+          "parameters": {
+            "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+            "table": "45e9ff1f-bf36-4ab5-929d-25ab9a80d460",
+            "$top": 100
+          }
+        }
+      },
+      "Get_jobs": {
+        "runAfter": {
+          "Get_crews": [
+            "Succeeded"
+          ]
+        },
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_sharepointonline",
+            "operationId": "GetItems",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+          },
+          "parameters": {
+            "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+            "table": "ee0ecabf-2f11-458d-a9ea-641f76d10cc3",
+            "$top": 500
+          }
+        }
+      },
+      "Get_in_scope": {
+        "runAfter": {
+          "Get_jobs": [
+            "Succeeded"
+          ]
+        },
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_sharepointonline",
+            "operationId": "GetItems",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+          },
+          "parameters": {
+            "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+            "table": "49ef7006-d3fe-40a7-a52f-c4c18545bd35",
+            "$filter": "NotApplicable ne 1 and ScheduledStart ne null and ScheduledFinish ne null and @{outputs('Compose_active_job_clause')}",
+            "$top": 500
+          }
+        }
+      },
+      "Get_with_event": {
+        "runAfter": {
+          "Get_in_scope": [
+            "Succeeded"
+          ]
+        },
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_sharepointonline",
+            "operationId": "GetItems",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+          },
+          "parameters": {
+            "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+            "table": "49ef7006-d3fe-40a7-a52f-c4c18545bd35",
+            "$filter": "CalendarEventId ne null",
+            "$top": 500
+          }
+        }
+      },
+      "Select_in_scope_ids": {
+        "runAfter": {
+          "Get_with_event": [
+            "Succeeded"
+          ]
+        },
+        "type": "Select",
+        "inputs": {
+          "from": "@outputs('Get_in_scope')?['body/value']",
+          "select": "@item()?['ID']"
+        }
+      },
+      "Filter_orphans": {
+        "runAfter": {
+          "Select_in_scope_ids": [
+            "Succeeded"
+          ]
+        },
+        "type": "Query",
+        "inputs": {
+          "from": "@outputs('Get_with_event')?['body/value']",
+          "where": "@not(contains(body('Select_in_scope_ids'), item()?['ID']))"
+        }
+      },
+      "For_each_in_scope": {
+        "foreach": "@outputs('Get_in_scope')?['body/value']",
+        "actions": {
+          "Filter_crew": {
+            "runAfter": {},
+            "type": "Query",
+            "inputs": {
+              "from": "@outputs('Get_crews')?['body/value']",
+              "where": "@equals(item()?['CrewID'], items('For_each_in_scope')?['Crew']?['Value'])"
+            }
+          },
+          "Filter_job": {
+            "runAfter": {},
+            "type": "Query",
+            "inputs": {
+              "from": "@outputs('Get_jobs')?['body/value']",
+              "where": "@equals(item()?['ID'], items('For_each_in_scope')?['Job']?['Id'])"
+            }
+          },
+          "Compose_event_body": {
+            "runAfter": {
+              "Filter_crew": [
+                "Succeeded"
+              ],
+              "Filter_job": [
+                "Succeeded"
+              ]
+            },
+            "type": "Compose",
+            "inputs": {
+              "subject": "@{coalesce(items('For_each_in_scope')?['Job']?['Value'],'-')} \u00b7 @{coalesce(items('For_each_in_scope')?['SubPhaseNumber'],'')} @{coalesce(items('For_each_in_scope')?['SubPhaseName'],'')}",
+              "body": {
+                "contentType": "HTML",
+                "content": "<p><strong>Crew:</strong> @{coalesce(first(body('Filter_crew'))?['Title'], items('For_each_in_scope')?['Crew']?['Value'], 'Unassigned')}<br><strong>Tasks:</strong> @{string(coalesce(items('For_each_in_scope')?['TasksComplete'],0))}/@{string(coalesce(items('For_each_in_scope')?['TasksTotal'],0))}<br><strong>Sign-off:</strong> @{if(equals(items('For_each_in_scope')?['InstallerSignOff'], true), 'Signed off', 'Not signed off')}</p><p><a href=\"https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler/Lists/Assignments/DispForm.aspx?ID=@{items('For_each_in_scope')?['ID']}\">Open sub-phase in D2 Build Scheduler</a></p><p style=\"color:#888;font-size:11px\">Maintained automatically by D2 - Calendar Sync. Edits made here are overwritten nightly.</p>"
+              },
+              "start": {
+                "dateTime": "@{formatDateTime(items('For_each_in_scope')?['ScheduledStart'],'yyyy-MM-dd')}T00:00:00",
+                "timeZone": "UTC"
+              },
+              "end": {
+                "dateTime": "@{formatDateTime(addDays(items('For_each_in_scope')?['ScheduledFinish'],1),'yyyy-MM-dd')}T00:00:00",
+                "timeZone": "UTC"
+              },
+              "isAllDay": true,
+              "showAs": "free",
+              "location": {
+                "displayName": "@{coalesce(first(body('Filter_job'))?['Address'],'')}@{if(empty(coalesce(first(body('Filter_job'))?['City'],'')),'',concat(', ', first(body('Filter_job'))?['City']))}"
+              }
+            }
+          },
+          "Condition_has_event": {
+            "actions": {
+              "Create_event": {
+                "runAfter": {},
+                "type": "OpenApiConnection",
+                "inputs": {
+                  "host": {
+                    "connectionName": "shared_office365groups",
+                    "operationId": "CreateCalendarEventV2",
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365groups"
+                  },
+                  "parameters": {
+                    "groupId": "7b305c56-ceea-4838-9e58-90050a846204",
+                    "body": "@outputs('Compose_event_body')"
+                  }
+                }
+              },
+              "Store_event_id": {
+                "runAfter": {
+                  "Create_event": [
+                    "Succeeded"
+                  ]
+                },
+                "type": "OpenApiConnection",
+                "inputs": {
+                  "host": {
+                    "connectionName": "shared_sharepointonline",
+                    "operationId": "HttpRequest",
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+                  },
+                  "parameters": {
+                    "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+                    "parameters/method": "POST",
+                    "parameters/uri": "_api/web/lists/GetByTitle('Assignments')/items(@{items('For_each_in_scope')?['ID']})",
+                    "parameters/headers": {
+                      "X-HTTP-Method": "MERGE",
+                      "If-Match": "*",
+                      "Content-Type": "application/json;odata=verbose",
+                      "Accept": "application/json;odata=verbose"
+                    },
+                    "parameters/body": "{\"__metadata\":{\"type\":\"SP.Data.AssignmentsListItem\"},\"CalendarEventId\":\"@{body('Create_event')?['id']}\"}"
+                  }
+                }
+              },
+              "Increment_created": {
+                "runAfter": {
+                  "Store_event_id": [
+                    "Succeeded"
+                  ]
+                },
+                "type": "IncrementVariable",
+                "inputs": {
+                  "name": "created",
+                  "value": 1
+                }
+              }
+            },
+            "runAfter": {
+              "Compose_event_body": [
+                "Succeeded"
+              ]
+            },
+            "else": {
+              "actions": {
+                "Update_event": {
+                  "runAfter": {},
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "host": {
+                      "connectionName": "shared_office365groups",
+                      "operationId": "UpdateCalendarEvent",
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365groups"
+                    },
+                    "parameters": {
+                      "groupId": "7b305c56-ceea-4838-9e58-90050a846204",
+                      "event": "@{items('For_each_in_scope')?['CalendarEventId']}",
+                      "body": "@outputs('Compose_event_body')"
+                    }
+                  }
+                },
+                "Increment_updated": {
+                  "runAfter": {
+                    "Update_event": [
+                      "Succeeded"
+                    ]
+                  },
+                  "type": "IncrementVariable",
+                  "inputs": {
+                    "name": "updated",
+                    "value": 1
+                  }
+                }
+              }
+            },
+            "expression": {
+              "equals": [
+                "@empty(coalesce(items('For_each_in_scope')?['CalendarEventId'],''))",
+                true
+              ]
+            },
+            "type": "If"
+          }
+        },
+        "runAfter": {
+          "Filter_orphans": [
+            "Succeeded"
+          ]
+        },
+        "type": "Foreach",
+        "runtimeConfiguration": {
+          "concurrency": {
+            "repetitions": 1
+          }
+        }
+      },
+      "For_each_orphan": {
+        "foreach": "@body('Filter_orphans')",
+        "actions": {
+          "Delete_event": {
+            "runAfter": {},
+            "type": "OpenApiConnection",
+            "inputs": {
+              "host": {
+                "connectionName": "shared_office365groups",
+                "operationId": "CalendarDeleteItem_V2",
+                "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365groups"
+              },
+              "parameters": {
+                "groupId": "7b305c56-ceea-4838-9e58-90050a846204",
+                "event": "@{items('For_each_orphan')?['CalendarEventId']}"
+              }
+            }
+          },
+          "Clear_event_id": {
+            "runAfter": {
+              "Delete_event": [
+                "Succeeded",
+                "Failed"
+              ]
+            },
+            "type": "OpenApiConnection",
+            "inputs": {
+              "host": {
+                "connectionName": "shared_sharepointonline",
+                "operationId": "HttpRequest",
+                "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+              },
+              "parameters": {
+                "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+                "parameters/method": "POST",
+                "parameters/uri": "_api/web/lists/GetByTitle('Assignments')/items(@{items('For_each_orphan')?['ID']})",
+                "parameters/headers": {
+                  "X-HTTP-Method": "MERGE",
+                  "If-Match": "*",
+                  "Content-Type": "application/json;odata=verbose",
+                  "Accept": "application/json;odata=verbose"
+                },
+                "parameters/body": "{\"__metadata\":{\"type\":\"SP.Data.AssignmentsListItem\"},\"CalendarEventId\":null}"
+              }
+            }
+          },
+          "Increment_removed": {
+            "runAfter": {
+              "Clear_event_id": [
+                "Succeeded"
+              ]
+            },
+            "type": "IncrementVariable",
+            "inputs": {
+              "name": "removed",
+              "value": 1
+            }
+          }
+        },
+        "runAfter": {
+          "For_each_in_scope": [
+            "Succeeded"
+          ]
+        },
+        "type": "Foreach",
+        "runtimeConfiguration": {
+          "concurrency": {
+            "repetitions": 1
+          }
+        }
+      },
+      "Send_report": {
+        "runAfter": {
+          "For_each_orphan": [
+            "Succeeded"
+          ]
+        },
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_office365",
+            "operationId": "SendEmailV2",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365"
+          },
+          "parameters": {
+            "emailMessage/To": "stratirus@d2pools.com",
+            "emailMessage/Subject": "D2 Calendar Sync - @{variables('created')} added, @{variables('updated')} updated, @{variables('removed')} removed",
+            "emailMessage/Body": "<div style=\"font-family:Segoe UI,sans-serif;font-size:14px;color:#1a2332\"><h2 style=\"color:#082544;margin-bottom:4px\">D2 Calendar Sync</h2><p style=\"color:#666;margin-top:0\">@{length(outputs('Get_active_jobs')?['body/value'])} active job(s) \u00b7 @{length(outputs('Get_in_scope')?['body/value'])} sub-phase(s) in scope</p><p>Added: <strong>@{variables('created')}</strong><br>Updated: <strong>@{variables('updated')}</strong><br>Removed: <strong>@{variables('removed')}</strong></p><p><a href=\"https://outlook.office365.com/calendar/group/NETORGFT15040037.onmicrosoft.com/D2BuildScheduler/view/month\" style=\"color:#0b594b;text-decoration:underline\">Open the D2 Build Scheduler group calendar</a></p><p style=\"color:#888;font-size:11px;margin-top:18px\">Only jobs with Status = Active appear. A Planned pool is invisible here until it is committed.</p></div>",
+            "emailMessage/Importance": "Normal"
+          }
+        }
+      }
+    }
+  }
+}
