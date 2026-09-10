@@ -449,6 +449,66 @@ Fixed:
 
 **Any future flow, the canvas app, and the nightly browser-tool→Lists sync must write and join on `CrewID`.** The Flow 4 Select projection in `D2-Phase-B-Automations-Runbook.md` still needs this treatment.
 
+**`Assignments.Crew` IS NOW A CHOICE COLUMN, converted 2026-09-10.** Shane's ask: free text on the
+edit form meant "anybody can type anything in there and I feel like that's going to break flows
+down the chain." It is now a native dropdown of the 14 crew codes (`FillInChoice=FALSE`,
+`Required=FALSE`), so a PM picks rather than types. All 181 rows survived with 12 distinct values.
+
+**A CHOICE COLUMN DOES NOT VALIDATE REST WRITES. This is the single most important thing on this
+entry and it is counter-intuitive.** Proven on a throwaway list before touching Assignments:
+
+| Write to a Choice column | Result |
+|---|---|
+| `Create item` with `Crew = "Devon Crew +3"` | **201, accepted** |
+| `MERGE` with `Crew = "NOT_A_CREW"` | **204, accepted** |
+
+Choice constrains the **form only**. The thing that actually blocks a bad value is the column
+**validation formula** from 2026-09-09, which still returns `SPListDataValidationException`. So
+the guard and the Choice list are complements, not alternatives — **do not remove the guard**, and
+when a crew is added, update **both** the choice list and the validation formula.
+
+**Converting via a `SchemaXml` MERGE SILENTLY WIPES `ValidationFormula`.** It was gone immediately
+after the conversion and had to be restored in a second MERGE (`ValidationFormula` +
+`ValidationMessage` only — never `SchemaXml`, which would clobber the choices back). Caught only
+by reading the field back. If you ever re-run a SchemaXml write on this column, re-assert the
+guard afterwards and re-prove it bites.
+
+**The shapes, read off a real payload rather than assumed:**
+
+| Read via | `Crew` comes back as |
+|---|---|
+| SharePoint **connector** `GetItems` / trigger | `{"@odata.type":"…SPListExpandedReference","Id":8,"Value":"harrison"}`, plus a sibling `Crew#Id` |
+| **raw REST** (`Send an HTTP request`, `odata=nometadata`) | plain string `"harrison"` |
+| server-side `$filter` | compares as a string — `Crew eq 'unassigned'` still returns all 41 rows |
+| SharePoint **view** render / JSON view formatter `[$Crew]` | plain string |
+| **Power Fx** | a record — `ThisItem.Crew.Value` |
+
+**Ten sites were changed across seven flows; three deliberately were NOT.** Changed to
+`?['Crew']?['Value']`: Daily Dispatch (`Filter_array`, `Filter_array_2`), Daily Summary
+(`Filter_crew`, `Append_row`), Weekly Summary (same two), Nightly Reconciliation
+(`Filter_crew_assignments`), Conflict Flag (same), Reschedule Pool (`Filter_job_rows_for_crew`,
+`Filter_other_job_overlaps`), and Event-Driven Reconciliation's `Initialize_touchedCrew`
+(`triggerOutputs()?['body/Crew']?['Value']` — it reads the **connector** trigger). Left alone,
+correctly: Flow 3's two `body('Get_versions')?['value'][n]?['Crew']` reads (raw REST, plain
+string), every `$filter` clause, and **`D2 - New Pool`'s write**, which posts a plain string via
+raw REST and is the correct shape for a Choice column.
+
+**The canvas app needed `.Value` in three places AND a data-source refresh in Studio.** Formulas:
+`Crew.Value = gblCrewFilter`, `ThisItem.Crew.Value`, and — the one that is easy to miss —
+`Distinct(…, Crew.Value)` feeding `galCrewList`, which otherwise makes `ThisItem.Value` a Record
+and produces `can't be compared: Text, Record`. **Fixing the formulas is not enough**: the app
+caches the SharePoint schema, so until **Data pane → Assignments → … → Refresh**, every `.Value`
+resolves to `Error` and Studio shows `Incompatible types for comparison: Text, Error`. The refresh
+does **not** by itself dirty the document, so the 1px nudge is still required before Ctrl+S.
+Verified end to end in the **player**, not the download: three rows rendering `Harrison +2`,
+`Saul +2`, `STL Shotcrete`, and the crew picker listing them.
+
+**Related finding, pre-existing and NOT caused by this change:** the `Unassigned` view shows **0 of
+the 41 rows** whose crew is `unassigned`, because its CAML also requires `IsNotNull Trade` and none
+of those rows has a Trade. CLAUDE.md previously said it was "0 rows because the seed always sets a
+crew", which is no longer true. Whether `Unassigned` should require a Trade is a design question
+for Don's trade-mapping decision, not a typo to fix.
+
 **`az rest` output on Windows silently DROPS characters outside cp1252 — never rebuild a flow definition from an `az rest` capture.** Redirecting `az rest` to a file loses U+26A0 (warning sign), U+2192 (right arrow) and U+2013 (en dash) entirely — they vanish rather than becoming mojibake, and `PYTHONIOENCODING=utf-8` does **not** fix it. Characters that *are* in cp1252 (U+00B7 middle dot, U+2014 em dash) survive, which makes the loss look selective and easy to miss. Writing such a capture back would strip those glyphs from the live flow.
 
 - To read a definition you intend to modify, use FlowAgent `get_flow` (MCP channel, faithful UTF-8). It confirmed Flow 3's glyphs are intact in production.

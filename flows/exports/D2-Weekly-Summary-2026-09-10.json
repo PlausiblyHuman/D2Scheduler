@@ -3,7 +3,7 @@
   "displayName": "D2 - Weekly Summary",
   "workflowEntityId": "53b4dfa3-e6a7-f111-b8de-6045bd0195dd",
   "state": "Started",
-  "lastModifiedTime": "2026-09-10T17:39:36Z",
+  "lastModifiedTime": "2026-09-10T18:16:59Z",
   "connectionReferences": {
     "shared_sharepointonline": {
       "connectionName": "shared-sharepointonl-20b83f29-d689-437e-b1ff-930f7bf3fda4",
@@ -233,7 +233,7 @@
             "type": "AppendToArrayVariable",
             "inputs": {
               "name": "rows",
-              "value": "@{concat('<tr><td>', coalesce(items('For_each_week')?['Job']?['Value'],'-'), '</td><td><a href=\"https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler/Lists/Assignments/DispForm.aspx?ID=', string(items('For_each_week')?['ID']), '\" style=\"color:#0b594b;text-decoration:underline\">', coalesce(items('For_each_week')?['SubPhaseNumber'],''), ' ', coalesce(items('For_each_week')?['SubPhaseName'],''), '</a></td><td>', coalesce(first(body('Filter_crew'))?['Title'], items('For_each_week')?['Crew'], 'Unassigned'), '</td><td>', if(empty(coalesce(items('For_each_week')?['ScheduledStart'],'')),'',formatDateTime(items('For_each_week')?['ScheduledStart'],'ddd MM/dd')), ' to ', if(empty(coalesce(items('For_each_week')?['ScheduledFinish'],'')),'',formatDateTime(items('For_each_week')?['ScheduledFinish'],'ddd MM/dd')), '</td><td align=\"center\">', string(coalesce(items('For_each_week')?['TasksComplete'],0)), '/', string(coalesce(items('For_each_week')?['TasksTotal'],0)), '</td></tr>')}"
+              "value": "@{concat('<tr><td>', coalesce(items('For_each_week')?['Job']?['Value'],'-'), '</td><td><a href=\"https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler/Lists/Assignments/DispForm.aspx?ID=', string(items('For_each_week')?['ID']), '\" style=\"color:#0b594b;text-decoration:underline\">', coalesce(items('For_each_week')?['SubPhaseNumber'],''), ' ', coalesce(items('For_each_week')?['SubPhaseName'],''), '</a></td><td>', coalesce(first(body('Filter_crew'))?['Title'], items('For_each_week')?['Crew']?['Value'], 'Unassigned'), '</td><td>', if(empty(coalesce(items('For_each_week')?['ScheduledStart'],'')),'',formatDateTime(items('For_each_week')?['ScheduledStart'],'ddd MM/dd')), ' to ', if(empty(coalesce(items('For_each_week')?['ScheduledFinish'],'')),'',formatDateTime(items('For_each_week')?['ScheduledFinish'],'ddd MM/dd')), '</td><td align=\"center\">', string(coalesce(items('For_each_week')?['TasksComplete'],0)), '/', string(coalesce(items('For_each_week')?['TasksTotal'],0)), '</td></tr>')}"
             }
           },
           "Filter_crew": {
@@ -241,7 +241,7 @@
             "type": "Query",
             "inputs": {
               "from": "@outputs('Get_crews')?['body/value']",
-              "where": "@equals(item()?['CrewID'], items('For_each_week')?['Crew'])"
+              "where": "@equals(item()?['CrewID'], items('For_each_week')?['Crew']?['Value'])"
             }
           }
         },

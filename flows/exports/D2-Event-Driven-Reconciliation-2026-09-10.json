@@ -1,0 +1,512 @@
+{
+  "flowId": "523d99c0-bc2e-7819-5d96-6faab60734f1",
+  "displayName": "D2 - Event-Driven Reconciliation",
+  "workflowEntityId": "2764968c-4aa6-f111-b8dd-6045bd0196b3",
+  "state": "Started",
+  "lastModifiedTime": "2026-09-10T18:19:29Z",
+  "connectionReferences": {
+    "shared_sharepointonline": {
+      "connectionName": "shared-sharepointonl-20b83f29-d689-437e-b1ff-930f7bf3fda4",
+      "connectionReferenceLogicalName": "new_sharedsharepointonline_beb06",
+      "source": "Embedded",
+      "id": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+      "displayName": "SharePoint",
+      "iconUri": "https://static.powerapps.com/resource/ppcr/releases/v1.0.1813/1.0.1813.4769/sharepointonline/icon.png",
+      "brandColor": "",
+      "tier": "Standard",
+      "apiName": "sharepointonline",
+      "isProcessSimpleApiReferenceConversionAlreadyDone": false
+    },
+    "shared_office365": {
+      "connectionName": "shared-office365-0bc14d33-bf94-4439-bdbc-d600759333d5",
+      "connectionReferenceLogicalName": "new_sharedoffice365_4d59e",
+      "source": "Embedded",
+      "id": "/providers/Microsoft.PowerApps/apis/shared_office365",
+      "displayName": "Office 365 Outlook",
+      "iconUri": "https://static.powerapps.com/resource/ppcr/releases/v1.0.1819/1.0.1819.4795/office365/icon.png",
+      "brandColor": "#0078D4",
+      "tier": "Standard",
+      "apiName": "office365",
+      "isProcessSimpleApiReferenceConversionAlreadyDone": false
+    }
+  },
+  "definition": {
+    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+      "$connections": {
+        "defaultValue": {},
+        "type": "Object"
+      },
+      "$authentication": {
+        "defaultValue": {},
+        "type": "SecureObject"
+      }
+    },
+    "triggers": {
+      "When_an_item_is_created_or_modified": {
+        "recurrence": {
+          "frequency": "Minute",
+          "interval": 1
+        },
+        "splitOn": "@triggerOutputs()?['body/value']",
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_sharepointonline",
+            "operationId": "GetOnUpdatedItems",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+          },
+          "parameters": {
+            "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+            "table": "49ef7006-d3fe-40a7-a52f-c4c18545bd35"
+          }
+        }
+      }
+    },
+    "actions": {
+      "Initialize_touchedId": {
+        "runAfter": {},
+        "type": "InitializeVariable",
+        "inputs": {
+          "variables": [
+            {
+              "name": "touchedId",
+              "type": "integer",
+              "value": "@triggerOutputs()?['body/ID']"
+            }
+          ]
+        }
+      },
+      "Initialize_touchedCrew": {
+        "runAfter": {
+          "Initialize_touchedId": [
+            "Succeeded"
+          ]
+        },
+        "type": "InitializeVariable",
+        "inputs": {
+          "variables": [
+            {
+              "name": "touchedCrew",
+              "type": "string",
+              "value": "@{coalesce(triggerOutputs()?['body/Crew']?['Value'], '')}"
+            }
+          ]
+        }
+      },
+      "Initialize_startDate": {
+        "runAfter": {
+          "Initialize_touchedCrew": [
+            "Succeeded"
+          ]
+        },
+        "type": "InitializeVariable",
+        "inputs": {
+          "variables": [
+            {
+              "name": "startDate",
+              "type": "string",
+              "value": "@{formatDateTime(triggerOutputs()?['body/ScheduledStart'], 'yyyy-MM-dd')}"
+            }
+          ]
+        }
+      },
+      "Initialize_duration": {
+        "runAfter": {
+          "Initialize_startDate": [
+            "Succeeded"
+          ]
+        },
+        "type": "InitializeVariable",
+        "inputs": {
+          "variables": [
+            {
+              "name": "duration",
+              "type": "integer",
+              "value": "@int(coalesce(triggerOutputs()?['body/DurationDays'], 1))"
+            }
+          ]
+        }
+      },
+      "Initialize_endDate": {
+        "runAfter": {
+          "Initialize_duration": [
+            "Succeeded"
+          ]
+        },
+        "type": "InitializeVariable",
+        "inputs": {
+          "variables": [
+            {
+              "name": "endDate",
+              "type": "string",
+              "value": "@{formatDateTime(addDays(variables('startDate'), sub(variables('duration'), 1)), 'yyyy-MM-dd')}"
+            }
+          ]
+        }
+      },
+      "Get_touched_assignment": {
+        "runAfter": {
+          "Condition_scheduling_changed": [
+            "Succeeded"
+          ]
+        },
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_sharepointonline",
+            "operationId": "GetItem",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+          },
+          "parameters": {
+            "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+            "table": "49ef7006-d3fe-40a7-a52f-c4c18545bd35",
+            "id": "@variables('touchedId')"
+          }
+        }
+      },
+      "Get_crew": {
+        "runAfter": {
+          "Skip_non_active_job": [
+            "Succeeded"
+          ]
+        },
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_sharepointonline",
+            "operationId": "GetItems",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+          },
+          "parameters": {
+            "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+            "table": "45e9ff1f-bf36-4ab5-929d-25ab9a80d460",
+            "$filter": "CrewID eq '@{variables('touchedCrew')}'",
+            "$top": 1
+          }
+        }
+      },
+      "Condition_unlimited": {
+        "actions": {
+          "Terminate_unlimited_crew": {
+            "runAfter": {},
+            "type": "Terminate",
+            "inputs": {
+              "runStatus": "Succeeded"
+            }
+          }
+        },
+        "runAfter": {
+          "Get_crew": [
+            "Succeeded"
+          ]
+        },
+        "else": {
+          "actions": {}
+        },
+        "expression": {
+          "and": [
+            {
+              "equals": [
+                "@length(outputs('Get_crew')?['body/value'])",
+                1
+              ]
+            },
+            {
+              "equals": [
+                "@coalesce(first(outputs('Get_crew')?['body/value'])?['Unlimited'], false)",
+                true
+              ]
+            }
+          ]
+        },
+        "type": "If"
+      },
+      "Get_overlapping": {
+        "runAfter": {
+          "Compose_active_job_clause": [
+            "Succeeded"
+          ]
+        },
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_sharepointonline",
+            "operationId": "GetItems",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+          },
+          "parameters": {
+            "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+            "table": "49ef7006-d3fe-40a7-a52f-c4c18545bd35",
+            "$filter": "Crew eq '@{variables('touchedCrew')}' and ScheduledStart le '@{variables('endDate')}' and ScheduledFinish ge '@{variables('startDate')}' and Id ne @{variables('touchedId')} and NotApplicable ne 1 and @{outputs('Compose_active_job_clause')}",
+            "$top": 20
+          }
+        }
+      },
+      "Compose_conflict_count": {
+        "runAfter": {
+          "Get_overlapping": [
+            "Succeeded"
+          ]
+        },
+        "type": "Compose",
+        "inputs": "@length(outputs('Get_overlapping')?['body/value'])"
+      },
+      "Condition_conflict": {
+        "actions": {
+          "Get_job": {
+            "runAfter": {},
+            "type": "OpenApiConnection",
+            "inputs": {
+              "host": {
+                "connectionName": "shared_sharepointonline",
+                "operationId": "GetItem",
+                "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+              },
+              "parameters": {
+                "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+                "table": "ee0ecabf-2f11-458d-a9ea-641f76d10cc3",
+                "id": "@coalesce(outputs('Get_touched_assignment')?['body/Job']?['Id'], outputs('Get_touched_assignment')?['body/JobId'], outputs('Get_touched_assignment')?['body/JobLookupId'])"
+              }
+            }
+          },
+          "Compose_alert_body": {
+            "runAfter": {
+              "Get_job": [
+                "Succeeded"
+              ]
+            },
+            "type": "Compose",
+            "inputs": "<div style=\"font-family:Segoe UI,sans-serif;font-size:14px;color:#1a2332\"><h2 style=\"color:#a84a18\">\u26a0 Double-book detected on @{variables('touchedCrew')}</h2><p><strong>Touched sub-phase:</strong> @{outputs('Get_touched_assignment')?['body/Job']?['Value']} \u2192 @{outputs('Get_touched_assignment')?['body/SubPhaseNumber']} @{outputs('Get_touched_assignment')?['body/SubPhaseName']}<br><strong>Dates:</strong> @{variables('startDate')} through @{variables('endDate')}</p><p><strong>Overlaps with (@{outputs('Compose_conflict_count')} total):</strong> @{first(outputs('Get_overlapping')?['body/value'])?['Job']?['Value']} \u2192 @{first(outputs('Get_overlapping')?['body/value'])?['SubPhaseNumber']} @{first(outputs('Get_overlapping')?['body/value'])?['SubPhaseName']} (@{formatDateTime(first(outputs('Get_overlapping')?['body/value'])?['ScheduledStart'], 'MM/dd')}\u2013@{formatDateTime(first(outputs('Get_overlapping')?['body/value'])?['ScheduledFinish'], 'MM/dd')})</p><p><a href=\"https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler/Lists/Assignments/DispForm.aspx?ID=@{variables('touchedId')}\">Open the touched sub-phase</a></p></div>"
+          },
+          "Send_email_alert": {
+            "runAfter": {
+              "Compose_alert_body": [
+                "Succeeded"
+              ]
+            },
+            "type": "OpenApiConnection",
+            "inputs": {
+              "host": {
+                "connectionName": "shared_office365",
+                "operationId": "SendEmailV2",
+                "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365"
+              },
+              "parameters": {
+                "emailMessage/To": "@{coalesce(outputs('Get_job')?['body/ProjectManager']?['Email'], 'stratirus@d2pools.com')}",
+                "emailMessage/Subject": "D2 \u26a0 Double-book on @{variables('touchedCrew')} \u2014 @{outputs('Get_touched_assignment')?['body/Job']?['Value']}",
+                "emailMessage/Body": "@{outputs('Compose_alert_body')}",
+                "emailMessage/Importance": "High"
+              }
+            }
+          }
+        },
+        "runAfter": {
+          "Compose_conflict_count": [
+            "Succeeded"
+          ]
+        },
+        "else": {
+          "actions": {}
+        },
+        "expression": {
+          "greater": [
+            "@outputs('Compose_conflict_count')",
+            0
+          ]
+        },
+        "type": "If"
+      },
+      "Get_versions": {
+        "runAfter": {
+          "Initialize_endDate": [
+            "Succeeded"
+          ]
+        },
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_sharepointonline",
+            "operationId": "HttpRequest",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+          },
+          "parameters": {
+            "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+            "parameters/method": "GET",
+            "parameters/uri": "_api/web/lists/GetByTitle('Assignments')/items(@{variables('touchedId')})/versions?$top=2&$select=VersionLabel,Crew,ScheduledStart,ScheduledFinish",
+            "parameters/headers": {
+              "Accept": "application/json;odata=nometadata"
+            }
+          }
+        }
+      },
+      "Condition_scheduling_changed": {
+        "actions": {},
+        "runAfter": {
+          "Get_versions": [
+            "Succeeded"
+          ]
+        },
+        "else": {
+          "actions": {
+            "Skip_non_scheduling_edit": {
+              "runAfter": {},
+              "type": "Terminate",
+              "inputs": {
+                "runStatus": "Succeeded"
+              }
+            }
+          }
+        },
+        "expression": {
+          "equals": [
+            "@or(less(length(coalesce(body('Get_versions')?['value'], json('[]'))), 2), not(equals(string(body('Get_versions')?['value'][0]?['Crew']), string(body('Get_versions')?['value'][1]?['Crew']))), not(equals(string(body('Get_versions')?['value'][0]?['ScheduledStart']), string(body('Get_versions')?['value'][1]?['ScheduledStart']))), not(equals(string(body('Get_versions')?['value'][0]?['ScheduledFinish']), string(body('Get_versions')?['value'][1]?['ScheduledFinish']))))",
+            true
+          ]
+        },
+        "type": "If"
+      },
+      "Get_touched_meta": {
+        "runAfter": {
+          "Get_touched_assignment": [
+            "Succeeded"
+          ]
+        },
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_sharepointonline",
+            "operationId": "HttpRequest",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+          },
+          "parameters": {
+            "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+            "parameters/method": "GET",
+            "parameters/uri": "_api/web/lists/GetByTitle('Assignments')/items(@{variables('touchedId')})?$select=JobId,SuppressReconcileUntil",
+            "parameters/headers": {
+              "Accept": "application/json;odata=nometadata"
+            }
+          }
+        }
+      },
+      "Skip_suppressed_row": {
+        "actions": {
+          "Terminate_suppressed": {
+            "runAfter": {},
+            "type": "Terminate",
+            "inputs": {
+              "runStatus": "Succeeded"
+            }
+          }
+        },
+        "runAfter": {
+          "Get_touched_meta": [
+            "Succeeded"
+          ]
+        },
+        "else": {
+          "actions": {}
+        },
+        "expression": {
+          "equals": [
+            "@greater(ticks(coalesce(body('Get_touched_meta')?['SuppressReconcileUntil'], '1900-01-01T00:00:00Z')), ticks(utcNow()))",
+            true
+          ]
+        },
+        "type": "If"
+      },
+      "Get_touched_job": {
+        "runAfter": {
+          "Skip_suppressed_row": [
+            "Succeeded"
+          ]
+        },
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_sharepointonline",
+            "operationId": "HttpRequest",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+          },
+          "parameters": {
+            "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+            "parameters/method": "GET",
+            "parameters/uri": "_api/web/lists/GetByTitle('Jobs')/items(@{body('Get_touched_meta')?['JobId']})?$select=Status",
+            "parameters/headers": {
+              "Accept": "application/json;odata=nometadata"
+            }
+          }
+        }
+      },
+      "Skip_non_active_job": {
+        "actions": {
+          "Terminate_not_active": {
+            "runAfter": {},
+            "type": "Terminate",
+            "inputs": {
+              "runStatus": "Succeeded"
+            }
+          }
+        },
+        "runAfter": {
+          "Get_touched_job": [
+            "Succeeded"
+          ]
+        },
+        "else": {
+          "actions": {}
+        },
+        "expression": {
+          "equals": [
+            "@not(equals(string(body('Get_touched_job')?['Status']), 'Active'))",
+            true
+          ]
+        },
+        "type": "If"
+      },
+      "Get_active_jobs": {
+        "runAfter": {
+          "Condition_unlimited": [
+            "Succeeded"
+          ]
+        },
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_sharepointonline",
+            "operationId": "GetItems",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+          },
+          "parameters": {
+            "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+            "table": "ee0ecabf-2f11-458d-a9ea-641f76d10cc3",
+            "$filter": "Status eq 'Active'",
+            "$top": 500
+          }
+        }
+      },
+      "Select_active_job_ids": {
+        "runAfter": {
+          "Get_active_jobs": [
+            "Succeeded"
+          ]
+        },
+        "type": "Select",
+        "inputs": {
+          "from": "@outputs('Get_active_jobs')?['body/value']",
+          "select": "@concat('JobId eq ', string(item()?['ID']))"
+        }
+      },
+      "Compose_active_job_clause": {
+        "runAfter": {
+          "Select_active_job_ids": [
+            "Succeeded"
+          ]
+        },
+        "type": "Compose",
+        "inputs": "@if(empty(body('Select_active_job_ids')), 'JobId eq -1', concat('(', join(body('Select_active_job_ids'), ' or '), ')'))"
+      }
+    }
+  }
+}

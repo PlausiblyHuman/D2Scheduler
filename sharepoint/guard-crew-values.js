@@ -1,3 +1,21 @@
+/* NOTE 2026-09-10: Crew is now a CHOICE column, not Text.
+ *
+ * THE GUARD IS STILL LOAD-BEARING AND MUST NOT BE REMOVED. A Choice column
+ * constrains the FORM only -- it accepts anything on a REST write. Proven on a
+ * throwaway list before the conversion: creating an item with
+ * Crew = "Devon Crew +3" returned 201, and a MERGE with "NOT_A_CREW" returned
+ * 204. Both were accepted. This validation formula is the ONLY thing that
+ * rejects them (SPListDataValidationException).
+ *
+ * So adding a crew now means updating BOTH the column's choice list AND the
+ * formula below. They are complements, not alternatives.
+ *
+ * The __metadata type is SP.FieldChoice since the conversion. This script
+ * MERGEs ValidationFormula/ValidationMessage ONLY and never SchemaXml -- a
+ * SchemaXml write clobbers the choice list, and (found the hard way) a
+ * SchemaXml write also SILENTLY WIPES ValidationFormula, which is how the
+ * guard was lost for a few minutes during the conversion itself.
+ */
 /**
  * Assignments.Crew is a TEXT column and it is the JOIN KEY to Crews.CrewID.
  *
@@ -49,7 +67,7 @@ async function run() {
     method:'POST',
     headers:{'Accept':'application/json;odata=nometadata','Content-Type':'application/json;odata=verbose',
              'X-RequestDigest':digest,'X-HTTP-Method':'MERGE','If-Match':'*'},
-    body: JSON.stringify({__metadata:{type:'SP.Field'}, ValidationFormula: formula, ValidationMessage: message})
+    body: JSON.stringify({__metadata:{type:'SP.FieldChoice'}, ValidationFormula: formula, ValidationMessage: message})
   });
   console.log('crew validation ..... ' + r.status + (r.ok ? '' : ' ' + (await r.text()).slice(0,300)));
   console.log('valid codes ......... ' + ids.join(', '));

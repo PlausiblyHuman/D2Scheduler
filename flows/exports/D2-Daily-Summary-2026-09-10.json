@@ -3,7 +3,7 @@
   "displayName": "D2 - Daily Summary",
   "workflowEntityId": "b13e0cd8-e5a7-f111-b8dd-6045bd0196b3",
   "state": "Started",
-  "lastModifiedTime": "2026-09-10T17:39:14Z",
+  "lastModifiedTime": "2026-09-10T18:16:36Z",
   "connectionReferences": {
     "shared_sharepointonline": {
       "connectionName": "shared-sharepointonl-20b83f29-d689-437e-b1ff-930f7bf3fda4",
@@ -221,7 +221,7 @@
             "type": "AppendToArrayVariable",
             "inputs": {
               "name": "rows",
-              "value": "@{concat('<tr><td><strong>', coalesce(first(body('Filter_crew'))?['Title'], items('For_each_today')?['Crew'], 'Unassigned'), '</strong></td><td>', coalesce(items('For_each_today')?['Job']?['Value'],'-'), '</td><td>', coalesce(first(body('Filter_job'))?['Address'],''), if(empty(coalesce(first(body('Filter_job'))?['City'],'')),'',concat(', ', first(body('Filter_job'))?['City'])), '</td><td><a href=\"https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler/Lists/Assignments/DispForm.aspx?ID=', string(items('For_each_today')?['ID']), '\" style=\"color:#0b594b;text-decoration:underline\">', coalesce(items('For_each_today')?['SubPhaseNumber'],''), ' ', coalesce(items('For_each_today')?['SubPhaseName'],''), '</a></td><td>', if(empty(coalesce(items('For_each_today')?['ScheduledStart'],'')),'',formatDateTime(items('For_each_today')?['ScheduledStart'],'ddd MM/dd')), ' to ', if(empty(coalesce(items('For_each_today')?['ScheduledFinish'],'')),'',formatDateTime(items('For_each_today')?['ScheduledFinish'],'ddd MM/dd')), '</td><td align=\"center\">', string(coalesce(items('For_each_today')?['TasksComplete'],0)), '/', string(coalesce(items('For_each_today')?['TasksTotal'],0)), '</td></tr>')}"
+              "value": "@{concat('<tr><td><strong>', coalesce(first(body('Filter_crew'))?['Title'], items('For_each_today')?['Crew']?['Value'], 'Unassigned'), '</strong></td><td>', coalesce(items('For_each_today')?['Job']?['Value'],'-'), '</td><td>', coalesce(first(body('Filter_job'))?['Address'],''), if(empty(coalesce(first(body('Filter_job'))?['City'],'')),'',concat(', ', first(body('Filter_job'))?['City'])), '</td><td><a href=\"https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler/Lists/Assignments/DispForm.aspx?ID=', string(items('For_each_today')?['ID']), '\" style=\"color:#0b594b;text-decoration:underline\">', coalesce(items('For_each_today')?['SubPhaseNumber'],''), ' ', coalesce(items('For_each_today')?['SubPhaseName'],''), '</a></td><td>', if(empty(coalesce(items('For_each_today')?['ScheduledStart'],'')),'',formatDateTime(items('For_each_today')?['ScheduledStart'],'ddd MM/dd')), ' to ', if(empty(coalesce(items('For_each_today')?['ScheduledFinish'],'')),'',formatDateTime(items('For_each_today')?['ScheduledFinish'],'ddd MM/dd')), '</td><td align=\"center\">', string(coalesce(items('For_each_today')?['TasksComplete'],0)), '/', string(coalesce(items('For_each_today')?['TasksTotal'],0)), '</td></tr>')}"
             }
           },
           "Filter_crew": {
@@ -229,7 +229,7 @@
             "type": "Query",
             "inputs": {
               "from": "@outputs('Get_crews')?['body/value']",
-              "where": "@equals(item()?['CrewID'], items('For_each_today')?['Crew'])"
+              "where": "@equals(item()?['CrewID'], items('For_each_today')?['Crew']?['Value'])"
             }
           },
           "Filter_job": {

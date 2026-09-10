@@ -136,7 +136,7 @@ Screens:
                       ScheduledStart <= gblToday,
                       ScheduledFinish >= gblToday,
                       NotApplicable = false,
-                      Crew = gblCrewFilter
+                      Crew.Value = gblCrewFilter
                   )
               )
             OnSelect: |
@@ -180,7 +180,7 @@ Screens:
                 Control: Label@2.5.1
                 Properties:
                   Text: |
-                    =Coalesce(LookUp(Crews, CrewID = ThisItem.Crew, Title), ThisItem.Crew, "Unassigned")
+                    =Coalesce(LookUp(Crews, CrewID = ThisItem.Crew.Value, Title), ThisItem.Crew.Value, "Unassigned")
                      & "   "
                      & Text(Coalesce(ThisItem.TasksComplete, 0)) & "/"
                      & Text(Coalesce(ThisItem.TasksTotal, 0)) & " tasks"
@@ -296,7 +296,7 @@ Screens:
                       ScheduledFinish >= gblToday,
                       NotApplicable = false
                   ),
-                  Crew
+                  Crew.Value
               )
             TemplateSize: =52
             BorderColor: =RGBA(0, 18, 107, 1)
