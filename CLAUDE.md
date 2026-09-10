@@ -1488,6 +1488,48 @@ as a nested `if` instead of `&&`. A raw `>` is legal as XML content and is fine.
 500 at write time, so unlike bad CAML or a bad formatter body it does **not** silently render
 wrong later. It is the rare SharePoint failure that is loud.
 
+**LIST FORM formatting works, and the wrapper key names are `headerJSONFormatter` /
+`bodyJSONFormatter` / `footerJSONFormatter`. Found 2026-09-10; do not re-guess them.**
+
+The Assignments edit form now has a navy header, four named sections and a footer carrying the
+crew-code rule (`sharepoint/configure-assignments-form.js` step 5). The formatter is one JSON
+string on the **list content type's** `ClientFormCustomFormatter`.
+
+Microsoft documents the JSON for each *region's contents* but never the wrapper that holds all
+three, and the wrapper is where the time goes. Three plausible shapes were tried first and **all
+three returned 204, round-tripped byte-for-byte, and rendered absolutely nothing** — the exact
+failure signature this file opens with:
+
+| Tried | Result |
+|---|---|
+| `{"Header":"<stringified json>", ...}` | stored, ignored |
+| `{"Header":{...}, ...}` | stored, ignored |
+| `{"header":{...}, ...}` | stored, ignored |
+| `{"headerJSONFormatter":{...}, ...}` | **works** |
+
+The real shape was captured the way the rule says: paste a header into SharePoint's own Format
+pane, save, then read `ClientFormCustomFormatter` back over REST.
+
+**Reaching that pane is itself the fiddly part, and is worth writing down.** The `Edit form >
+Configure layout` command does **not** exist on the full-page `DispForm.aspx` or `EditForm.aspx`,
+nor on `DispForm.aspx?...&env=WebViewList`. It appears **only on the item panel opened from a list
+view**, and the row must be opened with a **real CDP click** (`chrome-devtools` `click` against a
+snapshot uid). Synthetic `MouseEvent`s dispatched at the title cell only *select* the row, because
+Fluent ignores untrusted events. That cost several attempts before the panel would open at all.
+
+Two behaviours confirmed by opening the form rather than trusting the write:
+
+- **`fieldsettings: [{name, readonly: true}]` is real** and is what makes `SubPhaseNumber` /
+  `SubPhaseName` non-editable. Microsoft's own page still labels this "proposed". On this tenant
+  it **omits the field from the Edit form entirely** rather than rendering it as read-only text,
+  which is why the header repeats the sub-phase number and name.
+- **Sections did NOT produce the multi-column layout** the docs promise. The form stays
+  single-column with section headings and rules. Cosmetically fine, but do not promise two columns.
+
+**A Power Apps custom form would REPLACE all of this**, per Microsoft's own docs — the two are
+mutually exclusive, not layered. Relevant because a Crew dropdown needs either that or a Choice
+column: form JSON explicitly cannot supply a picker, only layout, sections and visibility.
+
 **Hero and Quick links web parts do NOT bind `serverProcessedContent` when a page is written via
 list-item MERGE.** They store correctly, they mount, and they render as nothing — titles and URLs
 live under keys like `content[0].link` and `items[0].sourceItem.url` which are persisted but never
@@ -1698,6 +1740,22 @@ Two more defects fixed in the same pass:
 Cosmetics in the same pass: dates render as `Wed 09/02 to Sat 09/05` instead of ISO (matching Flow 1's dispatch), guarded with `if(empty(coalesce(x,'')),'',formatDateTime(x,'ddd MM/dd'))` so a null date cannot fail the run; and a `&#183;` separator after the title.
 
 Both verified by manual runs on 2026-09-05 with the rendered HTML pulled back from the run and committed to `flows/testdata/`.
+
+**REPAINTED into the D2 palette 2026-09-10, and the colours live in TWO actions, not one.** Both
+summaries were teal `#0b6e78` throughout, a colour that appears nowhere else in this system, while
+the site theme, the list-view cards and the canvas app already shared the measured navy/green. The
+summaries were the last surface without it. Now: headings `#082544` navy, links and the
+healthy-compliance figure `#0b594b` green, table header row `#f6f3ed` cream. Rust `#a84a18` stays
+as the warning signal. The invalid `<p>@{outputs('Compose_body')}</p>` wrapper in `Send_summary`
+was removed in the same pass — a `<p>` cannot contain a `<div>`, so every renderer silently closed
+it early.
+
+**The trap worth remembering: `Compose_body` is not the only place colours live.** Each table
+row's sub-phase deep link is built by **`Append_row` inside the `For_each_today` /
+`For_each_week` loop**, which carries its own `style="color:..."`. Repainting `Compose_body` alone
+left every row link teal, and **the flow definition read clean while the emails did not**. It was
+caught only by re-running both flows, pulling the sent bodies from `Send_summary`'s `inputsLink`,
+and counting hex codes. Verify a mail change by reading the sent body, never the definition.
 
 **The `Tasks` column reads counters that nothing currently maintains.** `Append_row` projects `TasksComplete`/`TasksTotal` off the Assignment row, and those are only ever written by **Flow 2 at sign-off**. Every real (Harrison) row therefore shows `0/0` despite the Tasks list holding 6 rows for each. It is accurate — nothing has been ticked yet — but it means the column is blank until sign-off and redundant after it.
 

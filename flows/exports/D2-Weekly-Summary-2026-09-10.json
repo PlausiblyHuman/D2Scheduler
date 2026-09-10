@@ -1,0 +1,313 @@
+{
+  "flowId": "aefcc38c-f6ff-221c-558c-8e521916a8cf",
+  "displayName": "D2 - Weekly Summary",
+  "workflowEntityId": "53b4dfa3-e6a7-f111-b8de-6045bd0195dd",
+  "state": "Started",
+  "lastModifiedTime": "2026-09-10T17:39:36Z",
+  "connectionReferences": {
+    "shared_sharepointonline": {
+      "connectionName": "shared-sharepointonl-20b83f29-d689-437e-b1ff-930f7bf3fda4",
+      "connectionReferenceLogicalName": "new_sharedsharepointonline_beb06",
+      "source": "Embedded",
+      "id": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+      "displayName": "SharePoint",
+      "iconUri": "https://static.powerapps.com/resource/ppcr/releases/v1.0.1813/1.0.1813.4769/sharepointonline/icon.png",
+      "brandColor": "",
+      "tier": "Standard",
+      "apiName": "sharepointonline",
+      "isProcessSimpleApiReferenceConversionAlreadyDone": false
+    },
+    "shared_office365": {
+      "connectionName": "shared-office365-0bc14d33-bf94-4439-bdbc-d600759333d5",
+      "connectionReferenceLogicalName": "new_sharedoffice365_4d59e",
+      "source": "Embedded",
+      "id": "/providers/Microsoft.PowerApps/apis/shared_office365",
+      "displayName": "Office 365 Outlook",
+      "iconUri": "https://static.powerapps.com/resource/ppcr/releases/v1.0.1819/1.0.1819.4795/office365/icon.png",
+      "brandColor": "#0078D4",
+      "tier": "Standard",
+      "apiName": "office365",
+      "isProcessSimpleApiReferenceConversionAlreadyDone": false
+    }
+  },
+  "definition": {
+    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+      "$connections": {
+        "defaultValue": {},
+        "type": "Object"
+      },
+      "$authentication": {
+        "defaultValue": {},
+        "type": "SecureObject"
+      }
+    },
+    "triggers": {
+      "Recurrence": {
+        "recurrence": {
+          "frequency": "Week",
+          "interval": 1,
+          "timeZone": "Central Standard Time",
+          "startTime": "2026-09-04T15:00:00",
+          "schedule": {
+            "weekDays": [
+              "Friday"
+            ],
+            "hours": [
+              "15"
+            ],
+            "minutes": [
+              0
+            ]
+          }
+        },
+        "type": "Recurrence"
+      }
+    },
+    "actions": {
+      "Initialize_weekStart": {
+        "runAfter": {},
+        "type": "InitializeVariable",
+        "inputs": {
+          "variables": [
+            {
+              "name": "weekStart",
+              "type": "string",
+              "value": "@{formatDateTime(addDays(convertFromUtc(utcNow(),'Central Standard Time'), sub(1, dayOfWeek(convertFromUtc(utcNow(),'Central Standard Time')))),'yyyy-MM-dd')}"
+            }
+          ]
+        }
+      },
+      "Initialize_weekEnd": {
+        "runAfter": {
+          "Initialize_weekStart": [
+            "Succeeded"
+          ]
+        },
+        "type": "InitializeVariable",
+        "inputs": {
+          "variables": [
+            {
+              "name": "weekEnd",
+              "type": "string",
+              "value": "@{formatDateTime(addDays(variables('weekStart'),5),'yyyy-MM-dd')}"
+            }
+          ]
+        }
+      },
+      "Initialize_rows": {
+        "runAfter": {
+          "Initialize_weekEnd": [
+            "Succeeded"
+          ]
+        },
+        "type": "InitializeVariable",
+        "inputs": {
+          "variables": [
+            {
+              "name": "rows",
+              "type": "array",
+              "value": []
+            }
+          ]
+        }
+      },
+      "Get_active_jobs": {
+        "runAfter": {
+          "Initialize_rows": [
+            "Succeeded"
+          ]
+        },
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_sharepointonline",
+            "operationId": "GetItems",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+          },
+          "parameters": {
+            "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+            "table": "ee0ecabf-2f11-458d-a9ea-641f76d10cc3",
+            "$filter": "Status eq 'Active'",
+            "$top": 200
+          }
+        }
+      },
+      "Get_crews": {
+        "runAfter": {
+          "Compose_active_job_clause": [
+            "Succeeded"
+          ]
+        },
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_sharepointonline",
+            "operationId": "GetItems",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+          },
+          "parameters": {
+            "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+            "table": "45e9ff1f-bf36-4ab5-929d-25ab9a80d460",
+            "$top": 100
+          }
+        }
+      },
+      "Get_week_assignments": {
+        "runAfter": {
+          "Get_crews": [
+            "Succeeded"
+          ]
+        },
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_sharepointonline",
+            "operationId": "GetItems",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+          },
+          "parameters": {
+            "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+            "table": "49ef7006-d3fe-40a7-a52f-c4c18545bd35",
+            "$filter": "ScheduledFinish ge '@{variables('weekStart')}' and ScheduledStart le '@{variables('weekEnd')}' and NotApplicable ne 1 and @{outputs('Compose_active_job_clause')}",
+            "$top": 500,
+            "$orderby": "ScheduledStart asc"
+          }
+        }
+      },
+      "Get_week_finished": {
+        "runAfter": {
+          "Get_week_assignments": [
+            "Succeeded"
+          ]
+        },
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_sharepointonline",
+            "operationId": "GetItems",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+          },
+          "parameters": {
+            "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+            "table": "49ef7006-d3fe-40a7-a52f-c4c18545bd35",
+            "$filter": "ScheduledFinish ge '@{variables('weekStart')}' and ScheduledFinish lt '@{formatDateTime(convertFromUtc(utcNow(),'Central Standard Time'),'yyyy-MM-dd')}' and NotApplicable ne 1 and @{outputs('Compose_active_job_clause')}",
+            "$top": 500
+          }
+        }
+      },
+      "Filter_signed": {
+        "runAfter": {
+          "Get_week_finished": [
+            "Succeeded"
+          ]
+        },
+        "type": "Query",
+        "inputs": {
+          "from": "@outputs('Get_week_finished')?['body/value']",
+          "where": "@equals(item()?['InstallerSignOff'], true)"
+        }
+      },
+      "Filter_unsigned": {
+        "runAfter": {
+          "Filter_signed": [
+            "Succeeded"
+          ]
+        },
+        "type": "Query",
+        "inputs": {
+          "from": "@outputs('Get_week_finished')?['body/value']",
+          "where": "@not(equals(item()?['InstallerSignOff'], true))"
+        }
+      },
+      "For_each_week": {
+        "foreach": "@outputs('Get_week_assignments')?['body/value']",
+        "actions": {
+          "Append_row": {
+            "runAfter": {
+              "Filter_crew": [
+                "Succeeded"
+              ]
+            },
+            "type": "AppendToArrayVariable",
+            "inputs": {
+              "name": "rows",
+              "value": "@{concat('<tr><td>', coalesce(items('For_each_week')?['Job']?['Value'],'-'), '</td><td><a href=\"https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler/Lists/Assignments/DispForm.aspx?ID=', string(items('For_each_week')?['ID']), '\" style=\"color:#0b594b;text-decoration:underline\">', coalesce(items('For_each_week')?['SubPhaseNumber'],''), ' ', coalesce(items('For_each_week')?['SubPhaseName'],''), '</a></td><td>', coalesce(first(body('Filter_crew'))?['Title'], items('For_each_week')?['Crew'], 'Unassigned'), '</td><td>', if(empty(coalesce(items('For_each_week')?['ScheduledStart'],'')),'',formatDateTime(items('For_each_week')?['ScheduledStart'],'ddd MM/dd')), ' to ', if(empty(coalesce(items('For_each_week')?['ScheduledFinish'],'')),'',formatDateTime(items('For_each_week')?['ScheduledFinish'],'ddd MM/dd')), '</td><td align=\"center\">', string(coalesce(items('For_each_week')?['TasksComplete'],0)), '/', string(coalesce(items('For_each_week')?['TasksTotal'],0)), '</td></tr>')}"
+            }
+          },
+          "Filter_crew": {
+            "runAfter": {},
+            "type": "Query",
+            "inputs": {
+              "from": "@outputs('Get_crews')?['body/value']",
+              "where": "@equals(item()?['CrewID'], items('For_each_week')?['Crew'])"
+            }
+          }
+        },
+        "runAfter": {
+          "Filter_unsigned": [
+            "Succeeded"
+          ]
+        },
+        "type": "Foreach",
+        "runtimeConfiguration": {
+          "concurrency": {
+            "repetitions": 1
+          }
+        }
+      },
+      "Compose_body": {
+        "runAfter": {
+          "For_each_week": [
+            "Succeeded"
+          ]
+        },
+        "type": "Compose",
+        "inputs": "<div style=\"font-family:Segoe UI,sans-serif;font-size:14px;color:#1a2332;max-width:820px\"><h2 style=\"color:#082544;margin-bottom:4px\">D2 Weekly Summary &#183; @{variables('weekStart')} to @{variables('weekEnd')}</h2><p style=\"color:#666;margin-top:0\">@{length(outputs('Get_active_jobs')?['body/value'])} active job(s) &#183; @{length(outputs('Get_week_assignments')?['body/value'])} sub-phase(s) scheduled this week</p><h3 style=\"color:#082544\"><a href=\"https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler/Lists/Assignments/This%20Week%20by%20Job.aspx\" style=\"color:#0b594b;text-decoration:underline\">Scheduled this week</a></h3>@{if(equals(length(variables('rows')),0),'<p><em>Nothing scheduled this week.</em></p>',concat('<table border=\"1\" cellpadding=\"6\" cellspacing=\"0\" style=\"border-collapse:collapse;font-size:13px\"><tr style=\"background:#f6f3ed\"><th align=\"left\">Job</th><th align=\"left\">Sub-phase</th><th align=\"left\">Crew</th><th align=\"left\">Dates</th><th>Tasks</th></tr>',join(variables('rows'),''),'</table>'))}<h3 style=\"color:#082544\"><a href=\"https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler/Lists/Assignments/Signoff%20Overdue.aspx\" style=\"color:#0b594b;text-decoration:underline\">Sign-off compliance</a></h3><p>Finished so far this week: <strong>@{length(outputs('Get_week_finished')?['body/value'])}</strong> &#183; signed off: <strong>@{length(body('Filter_signed'))}</strong> &#183; outstanding: <strong style=\"color:#a84a18\">@{length(body('Filter_unsigned'))}</strong></p><p style=\"font-size:22px;margin:4px 0;color:@{if(greaterOrEquals(if(equals(length(outputs('Get_week_finished')?['body/value']),0),100,div(mul(length(body('Filter_signed')),100),length(outputs('Get_week_finished')?['body/value']))),80),'#0b594b','#a84a18')}\"><strong>@{if(equals(length(outputs('Get_week_finished')?['body/value']),0),100,div(mul(length(body('Filter_signed')),100),length(outputs('Get_week_finished')?['body/value'])))}%</strong></p>@{if(equals(length(body('Filter_unsigned')),0),'<p style=\"color:#0b594b\">All work finished this week is signed off.</p>',concat('<p style=\"color:#a84a18\">Oldest outstanding: <a href=\"https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler/Lists/Assignments/DispForm.aspx?ID=',string(first(body('Filter_unsigned'))?['ID']),'\" style=\"color:#0b594b;text-decoration:underline\">',coalesce(first(body('Filter_unsigned'))?['Title'],'-'),'</a></p>'))}<p style=\"color:#888;font-size:11px;margin-top:18px\">Generated automatically by D2 Build Scheduler. Compliance covers sub-phases finishing between @{variables('weekStart')} and @{formatDateTime(addDays(convertFromUtc(utcNow(),'Central Standard Time'),-1),'yyyy-MM-dd')}.</p></div>"
+      },
+      "Send_summary": {
+        "runAfter": {
+          "Compose_body": [
+            "Succeeded"
+          ]
+        },
+        "type": "OpenApiConnection",
+        "inputs": {
+          "host": {
+            "connectionName": "shared_office365",
+            "operationId": "SendEmailV2",
+            "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365"
+          },
+          "parameters": {
+            "emailMessage/To": "stratirus@d2pools.com",
+            "emailMessage/Subject": "D2 Weekly Summary - week of @{variables('weekStart')} - @{length(outputs('Get_week_assignments')?['body/value'])} scheduled, @{length(body('Filter_unsigned'))} awaiting sign-off",
+            "emailMessage/Body": "@{outputs('Compose_body')}",
+            "emailMessage/Importance": "Normal"
+          }
+        }
+      },
+      "Select_active_job_ids": {
+        "runAfter": {
+          "Get_active_jobs": [
+            "Succeeded"
+          ]
+        },
+        "type": "Select",
+        "inputs": {
+          "from": "@outputs('Get_active_jobs')?['body/value']",
+          "select": "@concat('JobId eq ', string(item()?['ID']))"
+        }
+      },
+      "Compose_active_job_clause": {
+        "runAfter": {
+          "Select_active_job_ids": [
+            "Succeeded"
+          ]
+        },
+        "type": "Compose",
+        "inputs": "@if(empty(body('Select_active_job_ids')), 'JobId eq -1', concat('(', join(body('Select_active_job_ids'), ' or '), ')'))"
+      }
+    }
+  }
+}
