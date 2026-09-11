@@ -6,6 +6,7 @@ browser actually executes rather than a copy of the logic.
 
 ```
 npm install jsdom          # once, anywhere on the path
+node fixtures/planner/freshness.js
 node fixtures/planner/determinism.js
 node fixtures/planner/roundtrip.js
 node fixtures/planner/empty.js
@@ -17,6 +18,7 @@ node oracle-test.js         # the original 16-invariant harness (repo root)
 
 | File | What it pins |
 |---|---|
+| `freshness.js` | The planner says whether what is on screen is the live schedule (D11). A `Load from D2` stamps `S.settings.loadedAt`/`exportedOn` and records a per-sub-phase baseline (`s.base`) of exactly the fields SharePoint owns; Auto-Schedule, the drawer save, sign-off and bulk tick all mark the pool `touchedAt`; `divergedSecs(j)` diffs current state against the baseline field-by-field. Confirms a crew or date change is divergence, a task tick is not (sign-off and ticks are deliberately outside the baseline — the planner is never their authority), and the header renders a "Live as of" stamp. |
 | `determinism.js` | Auto-Schedule is idempotent from a settled state. Before the 2026-09-11 patch, 4 of 138 crew picks oscillated on every re-run. Seeds 3 pools itself (the planner ships with none) so the comparison is over 138 real assignments rather than the 0 it silently ran on between 2026-09-11 and the fix round below. |
 | `roundtrip.js` | `Load from D2` merges a SharePoint export correctly: live pools update, local-only pools survive, sign-offs lock against Auto-Schedule, task text stays local. |
 | `empty.js` | A first-run browser seeds no phantom pools and still renders. |

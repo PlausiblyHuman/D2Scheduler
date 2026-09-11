@@ -44,6 +44,7 @@ input[type=checkbox]{width:auto;accent-color:var(--accent);cursor:pointer}
 .chip.jb.hold{background:#e5e7eb;color:#4b5563;border-color:#d1d5db}
 .chip.jb.other{background:#e0e7ff;color:#3730a3;border-color:#c7d2fe}
 .chip.jb.local{background:#f1f5f9;color:#64748b;border-color:#e2e8f0}
+.chip.jb.edited{background:#fff7ed;color:#9a3412;border-color:#fed7aa}
 .muted{color:var(--muted)}.small{font-size:11.5px}
 .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
 /* timeline */
@@ -131,6 +132,7 @@ tr.phrow .nm{background:#f8fafc;font-weight:650}
   <input type="file" id="restoreFile" accept="application/json,.json" style="display:none">
   <button class="btn" id="d2Btn" title="Load the live schedule exported from the D2 Build Scheduler SharePoint site. Merges by job number - it never touches pools that only exist here.">Load from D2</button>
   <input type="file" id="d2File" accept="application/json,.json" style="display:none">
+  <span id="freshness" class="small" style="opacity:.75"></span>
   <button class="btn" id="resetBtn">Reset</button>
 </header>
 
@@ -275,10 +277,11 @@ const fullAddr=j=>[j.addr,j.city,[j.state,j.zip].filter(Boolean).join(' ')].filt
    why the reflow's own conflict sweep is tenant-wide too. Only the label was
    missing, not the behaviour. */
 function jobBadge(j){
-  if(!j.status)return '<span class="chip jb local" title="Sketched here, not yet raised in D2">Local only</span>';
-  if(j.status==='Active')return '';
+  const edited=j.touchedAt?'<span class="chip jb edited" title="Changed here since the last Load from D2">edited here</span>':'';
+  if(!j.status)return '<span class="chip jb local" title="Sketched here, not yet raised in D2">Local only</span>'+edited;
+  if(j.status==='Active')return edited;
   const cls=j.status==='Planned'?'planned':j.status==='On Hold'?'hold':'other';
-  return `<span class="chip jb ${cls}" title="Jobs.Status in D2">${esc(j.status)}</span>`;
+  return `<span class="chip jb ${cls}" title="Jobs.Status in D2">${esc(j.status)}</span>`+edited;
 }
 function load(){
   try{const raw=localStorage.getItem(KEY);if(raw){S=JSON.parse(raw);S.settings=S.settings||{};syncNonWork();return;}}catch(e){}
@@ -336,6 +339,7 @@ function autoSchedule(){
     if(s.locked&&s.crewId&&s.start&&!s.skip)load[s.crewId]=(load[s.crewId]||0)+s.days;
   }));
   [...S.jobs].sort((a,b)=>jobStart(a).localeCompare(jobStart(b))).forEach(j=>{
+    touch(j);
     let cursor=nextWork(jobStart(j));
     allSecs(j).forEach(({s})=>{
       if(s.skip)return;
@@ -384,6 +388,25 @@ function jobStart(j){
   return a||todayStr();
 }
 
+/* Marks a pool as diverged from the last Load from D2. Everything that rewrites
+   schedule or sign-off state calls this, so the header can say plainly whether
+   what is on screen is still the live schedule. */
+function touch(j){ if(j) j.touchedAt=new Date().toISOString(); }
+
+/* Which sub-phases of this pool no longer match what SharePoint sent. Compares
+   only the fields SharePoint owns; sign-off and task ticks are deliberately not
+   in the baseline, because the planner has no attribution model for them and must
+   never be the authority on either. */
+function divergedSecs(j){
+  const out=[];
+  allSecs(j).forEach(({s})=>{
+    const b=s.base; if(!b)return;
+    if((s.crewId??null)!==b.crewId || (s.start??null)!==b.start ||
+       (s.days??null)!==b.days || !!s.locked!==b.locked || !!s.skip!==b.skip) out.push(s);
+  });
+  return out;
+}
+
 /* ============================== sign-off + tasks ============================== */
 /* Resolved, not done. Every task is Done, N/A or still to do; N/A is deliberate
    exclusion carrying a reason on the SharePoint side, so a sub-phase with one N/A
@@ -401,6 +424,7 @@ function sign(jobId,gi,si,k,val){
   const j=S.jobs.find(x=>x.id===jobId);
   if(si===null||si===undefined){j.groups[gi][k]=val;j.groups[gi].sections.forEach(s=>{if(!s.skip)s[k]=val;});}
   else{j.groups[gi].sections[si][k]=val;j.groups[gi][k]=grpSign(j.groups[gi],k)==='all';}
+  touch(j);
   save();render();
 }
 function sgHTML(jobId,gi,si,o){
@@ -498,6 +522,16 @@ const emptyRow=ax=>`<td class="cell" colspan="${ax.days.length}"></td>`;
 /* ============================== views ============================== */
 let TAB='board';
 function render(){
+  const fz=document.getElementById('freshness');
+  if(fz){
+    const st=S.settings||{};
+    const edited=S.jobs.filter(j=>j.touchedAt).length;
+    fz.innerHTML = st.loadedAt
+      ? `Live as of ${new Date(st.loadedAt).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}`
+        + (st.exportedOn?` · export ${st.exportedOn}`:'')
+        + (edited?` · <b>${edited} pool${edited===1?'':'s'} edited here since (${S.jobs.reduce((n,j)=>n+divergedSecs(j).length,0)} sub-phases)</b>`:'')
+      : 'Not loaded from D2';
+  }
   document.getElementById('main').innerHTML=
     ({board:vBoard,crewboard:vCrewBoard,dispatch:vDispatch,signoff:vSignoff,jobs:vJobs,crews:vCrews,phases:vPhases})[TAB]();
   document.querySelectorAll('input[data-ind]').forEach(el=>el.indeterminate=true);
@@ -768,9 +802,9 @@ function editSec(jobId,gi,si){
   showAvail();
 }
 function cur(){const j=S.jobs.find(x=>x.id===CUR.jobId);return j.groups[CUR.gi].sections[CUR.si];}
-function tick(ti,v){const t=cur().tasks[ti];t.done=v;if(v)t.na=false;save();}
-function toggleNA(ti){const t=cur().tasks[ti];t.na=!t.na;if(t.na)t.done=false;save();editSec(CUR.jobId,CUR.gi,CUR.si);}
-function allTasks(v){cur().tasks.forEach(t=>{if(!t.na)t.done=v;});save();editSec(CUR.jobId,CUR.gi,CUR.si);}
+function tick(ti,v){const t=cur().tasks[ti];t.done=v;if(v)t.na=false;touch(S.jobs.find(x=>x.id===CUR.jobId));save();}
+function toggleNA(ti){const t=cur().tasks[ti];t.na=!t.na;if(t.na)t.done=false;touch(S.jobs.find(x=>x.id===CUR.jobId));save();editSec(CUR.jobId,CUR.gi,CUR.si);}
+function allTasks(v){cur().tasks.forEach(t=>{if(!t.na)t.done=v;});touch(S.jobs.find(x=>x.id===CUR.jobId));save();editSec(CUR.jobId,CUR.gi,CUR.si);}
 function showAvail(){
   const s=cur(),start=document.getElementById('fStart').value,days=+document.getElementById('fDays').value||1;
   const el=document.getElementById('avail');
@@ -791,6 +825,7 @@ function saveSec(){
   s.inst=document.getElementById('fInst').checked;
   s.pm=document.getElementById('fPM').checked;
   g.inst=grpSign(g,'inst')==='all';g.pm=grpSign(g,'pm')==='all';
+  touch(j);
   closeDrawer();render();
 }
 const closeDrawer=()=>document.getElementById('drawer').classList.remove('open');
@@ -908,6 +943,9 @@ function importFromD2(file){
 
     // Take the tenant's work calendar before anything recomputes a span.
     if(Array.isArray(d.nonWork)){ S.settings=S.settings||{}; S.settings.nonWork=d.nonWork; syncNonWork(); }
+    S.settings=S.settings||{};
+    S.settings.exportedOn=d.exported||null;
+    S.settings.loadedAt=new Date().toISOString();
 
     plan.forEach(({inj,existing})=>{
       let j=existing;
@@ -942,8 +980,14 @@ function importFromD2(file){
             if(t){t.done=!!it.done;t.na=t.done?false:!!it.na;}
           });
         }
+        /* Baseline: exactly the fields SharePoint owns, as they arrived. Divergence
+           is a diff against this rather than a flag, so the same structure answers
+           "has this pool been edited here" and "what would a write-back send". */
+        s.base={id:is.id??null,crewId:s.crewId??null,start:s.start??null,
+                days:s.days??null,locked:!!s.locked,skip:!!s.skip};
       });
     });
+    plan.forEach(({inj})=>{const j=S.jobs.find(x=>String(x.jobno)===String(inj.jobno));if(j)delete j.touchedAt;});
 
     save(); UI={collapsed:{}}; render();
     alert('Loaded from D2.\n\n'+updated+' updated, '+added+' added, '+untouched+' left alone.'+
