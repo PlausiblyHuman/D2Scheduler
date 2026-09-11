@@ -1538,9 +1538,41 @@ duplicates.
 
 **Two things to know before this goes to the client:**
 
-- **The group has exactly ONE member — D2 Bot.** David, Don, Cody and Emon will not see this
-  calendar until they are added to the group. That is the same gate as SharePoint site access,
-  which also has not been granted, so it is consistent with the site being internal-only for now.
+- **RESOLVED 2026-09-11c — the four are now members.** Verified on Graph: five members
+  (`don@`, `david@`, `emon@`, `cody@` and `stratirus@`), owners still **D2 Bot alone**. Group
+  membership is also what grants site access, via the `D2 Build Scheduler Members` SharePoint group
+  backed by the `federateddirectoryclaimprovider` claim, so the four have site Edit rights too. The
+  long-standing "client-gated, blocking everything" item is closed.
+
+  **ADDING A MEMBER SENDS A WELCOME EMAIL, AND GRAPH WILL TELL YOU IT DOES NOT.** This was live on
+  this group and was caught only because Shane required no notifications. Three surfaces, only one
+  of them authoritative:
+
+  | Read via | Reported |
+  |---|---|
+  | Graph `resourceBehaviorOptions` | `[]` — looks like nothing is set |
+  | `Get-UnifiedGroup` | `UnifiedGroupWelcomeMessageEnabled` **blank**, which is not False |
+  | `Get-UnifiedGroup -IncludeAllProperties` | **`WelcomeMessageEnabled = True`** — the truth |
+
+  **Exchange is the authority, because Exchange sends the mail. Never check this on Graph.**
+  `resourceBehaviorOptions` is a *creation-time* array that `Set-UnifiedGroup` does not update, so
+  the two disagree permanently and Graph keeps reading `[]` even after the setting is off. Same
+  family as every other shape trap in this file: the read surface and the write surface are
+  different things.
+
+  Current state, set 2026-09-11c and verified by read-back: `WelcomeMessageEnabled = False`,
+  `AutoSubscribeNewMembers = False`, `AlwaysSubscribeMembersToCalendarEvents = False`. The third was
+  `True` and was turned off deliberately: the group calendar holds 138 events and Calendar Sync
+  rewrites it hourly, which is an email path that could not be ruled out. **Both are left off**,
+  because re-arming welcome mail would also fire for the ~7 crew leads added later. Turn them back
+  on only deliberately.
+
+- **The tenant has DUPLICATE accounts for two of these people. Join on `userPrincipalName`.**
+  Don Borgeson exists as both `don@d2pools.com` and `contact@d2pools.com`, both enabled, same
+  display name. David Taylor exists as `david@d2pools.com` and as a **guest**
+  `david_d2install.com#EXT#@...`, which is the `d2install.com` debris recorded elsewhere in this
+  file. The `@d2pools.com` accounts are the right ones and are the ones now in the group and stored
+  in `Jobs.ProjectManager`. A display-name match would have picked either.
 - **Starting a Recurrence flow fires it immediately**, on top of any manual run. A probe flow
   during this build produced two events instead of one for exactly that reason. Create such flows
   `Stopped`, test with `run_flow`, and expect one extra run at the moment you start them.
@@ -1690,6 +1722,21 @@ becomes the single copy.
 or five items and Pools and Calendar were buried by exactly that once before. Put it back in the
 same place in Phase H, pointing at the Static Web App rather than `download.aspx`. **The file must
 be uploaded before the nav script runs**, or the link 404s.
+
+**HEADLESS EXCHANGE ONLINE — no interactive sign-in needed. Found 2026-09-11c.**
+
+Exchange Online holds settings Graph cannot see or change (the group welcome-message trap above is
+the worked example). It is reachable with the token `az` already has:
+
+```powershell
+$t = az account get-access-token --resource https://outlook.office365.com --query accessToken -o tsv
+Connect-ExchangeOnline -AccessToken $t -Organization netorgft15040037.onmicrosoft.com
+```
+
+Confirm the token's `upn` claim is `stratirus@d2pools.com` before trusting it, the same cached-tenant
+discipline `az`, `pac` and `Add-PowerAppsAccount` all need. **And read group settings with
+`Get-UnifiedGroup -IncludeAllProperties`**: without that flag the interesting properties come back
+blank, and blank is not False.
 
 **HEADLESS SHAREPOINT READS WITHOUT A BROWSER — the recipe, now exercised end to end.**
 
