@@ -120,6 +120,8 @@ tr.phrow .nm{background:#f8fafc;font-weight:650}
   <button class="btn" id="backupBtn" title="Download everything — jobs, crews, template, sign-offs — as a .json file">Backup</button>
   <button class="btn" id="restoreBtn" title="Load a .json backup, replacing what is in this browser">Restore</button>
   <input type="file" id="restoreFile" accept="application/json,.json" style="display:none">
+  <button class="btn" id="d2Btn" title="Load the live schedule exported from the D2 Build Scheduler SharePoint site. Merges by job number - it never touches pools that only exist here.">Load from D2</button>
+  <input type="file" id="d2File" accept="application/json,.json" style="display:none">
   <button class="btn" id="resetBtn">Reset</button>
 </header>
 
@@ -187,14 +189,14 @@ const SEED_CREWS = [
     skills:['hardscape','demolition','masonry','veneer'], note:'Other 2 members unidentified'},
   {id:'harrison', name:'Harrison +2',   members:['Harrison','Ian','?'], size:3,
     skills:['dig','form','rebar','automation','poolschool','plumbing'], note:'Third member unidentified'},
-  {id:'george',   name:'George Crew',   members:[], size:null,
-    skills:['masonry','cmu'], note:'Crew size / members not specified'},
-  {id:'armondo',  name:'Armondo Crew',  members:[], size:null,
-    skills:['hardscape','coping'], note:'Crew size / members not specified'},
-  {id:'stl',      name:'STL Shotcrete', members:[], size:null,
-    skills:['dig','form','rebar','shotcrete','plumbing','pebbletech','plaster'], note:'Advanced pebbletech · size not specified'},
-  {id:'brothers', name:'Brothers Crew', members:[], size:null,
-    skills:['plaster','pebbletech'], note:'Crew size / members not specified'},
+  {id:'george',   name:'George Crew',   members:[], size:null, unlimited:true,
+    skills:['masonry','cmu'], note:'Subcontractor · capacity-exempt · no roster'},
+  {id:'armondo',  name:'Armondo Crew',  members:[], size:null, unlimited:true,
+    skills:['hardscape','coping'], note:'Subcontractor · capacity-exempt · no roster'},
+  {id:'stl',      name:'STL Shotcrete', members:[], size:null, unlimited:true,
+    skills:['dig','form','rebar','shotcrete','plumbing','pebbletech','plaster'], note:'Subcontractor · capacity-exempt · no roster'},
+  {id:'brothers', name:'Brothers Crew', members:[], size:null, unlimited:true,
+    skills:['plaster','pebbletech'], note:'Subcontractor · capacity-exempt · no roster'},
   /* Capacity-exempt buckets: not field crews, so they are never "double-booked"
      and can carry the same day across every job at once. */
   {id:'office',    name:'Main Office',   members:[], size:null, skills:[], unlimited:true, color:'#334155',
@@ -253,12 +255,15 @@ const fullAddr=j=>[j.addr,j.city,[j.state,j.zip].filter(Boolean).join(' ')].filt
 function load(){
   try{const raw=localStorage.getItem(KEY);if(raw){S=JSON.parse(raw);return;}}catch(e){}
   S={crews:JSON.parse(JSON.stringify(SEED_CREWS)),template:mkTemplate(),jobs:[],settings:{}};
-  const mon=(()=>{let d=new Date();while(d.getDay()!==1)d.setDate(d.getDate()+1);return fmt(d);})();
+  /* NO DEMO POOLS. Removed 2026-09-11.
+     This used to seed Harrison Residence, Vasquez Pool & Spa and Bell Canyon
+     Remodel, three fictional California pools invented before this tool was
+     connected to anything. They were the first thing anyone saw, they are not
+     the pools in SharePoint, and a PM had no way to tell they were fake.
+     ("Harrison Residence" also leaked into the SharePoint seed as D2-1001 and
+     had to be deleted from the live tenant later -- see CLAUDE.md.)
+     A first-run browser now starts empty and points at "Load from D2". */
   S.jobs=[];
-  S.jobs.push(newJob('Harrison Residence','1420 Camino Real','Thousand Oaks','CA','91360',mon));
-  S.jobs.push(newJob('Vasquez Pool & Spa','88 Ridgeline Dr','Simi Valley','CA','93065',addCal(mon,21)));
-  S.jobs.push(newJob('Bell Canyon Remodel','3 Bell Canyon Rd','Bell Canyon','CA','91307',addCal(mon,42)));
-  autoSchedule();
 }
 const save=()=>localStorage.setItem(KEY,JSON.stringify(S));
 const crew=id=>S.crews.find(c=>c.id===id);
@@ -294,7 +299,13 @@ function autoSchedule(){
       let set=busy.get(s.crewId);if(!set){set=new Set();busy.set(s.crewId,set);}
       workSpan(s.start,s.days).forEach(d=>set.add(d));
     }}));
-  const load=crewLoad();
+  // DETERMINISM FIX (1 of 2): seed load from LOCKED assignments only, exactly as
+  // `busy` above is seeded. crewLoad() counts EVERY assignment, so a second run
+  // inherits the first run's own tiebreak results and drifts. Ryan Meyer, 2026-08.
+  const load={};S.crews.forEach(c=>load[c.id]=0);
+  S.jobs.forEach(j=>allSecs(j).forEach(({s})=>{
+    if(s.locked&&s.crewId&&s.start&&!s.skip)load[s.crewId]=(load[s.crewId]||0)+s.days;
+  }));
   [...S.jobs].sort((a,b)=>a.start.localeCompare(b.start)).forEach(j=>{
     let cursor=nextWork(j.start);
     allSecs(j).forEach(({s})=>{
@@ -309,7 +320,7 @@ function autoSchedule(){
       let at=cursor,found=null;
       for(let tries=0;tries<600&&!found;tries++){
         const span=workSpan(at,s.days);
-        for(const c of [...cands].sort((a,b)=>(load[a.id]||0)-(load[b.id]||0))){
+        for(const c of [...cands].sort((a,b)=>((load[a.id]||0)-(load[b.id]||0))||a.id.localeCompare(b.id))){
           const set=busy.get(c.id)||new Set();
           if(span.every(d=>!set.has(d))){found={c,span};break;}
         }
@@ -793,6 +804,91 @@ function restore(file){
   r.readAsText(file);
 }
 
+
+/* ===================== import from the SharePoint site =====================
+   Reads the payload produced by sharepoint/export-to-planner.js and MERGES it
+   into whatever is already in this browser.
+
+   Merge, not replace, deliberately. `restore()` above swaps the whole state,
+   which would destroy any pool a PM had sketched here but not yet raised in
+   SharePoint. This matches on `jobno` and leaves local-only pools alone.
+
+   Structure always comes from the local phase template, never from the file.
+   Only the things SharePoint actually owns are overlaid: crew, dates, duration,
+   the skip/lock flags, sign-off state, and which tasks are ticked. That keeps
+   sub-phase names, skills and task text authoritative here and makes the import
+   impossible to corrupt with a partial payload.
+
+   Sections that are signed off, or that SharePoint has locked, are imported as
+   `locked:true` so a later Auto-Schedule cannot move completed work. That is the
+   same rule `D2 - Reschedule Pool` applies on the SharePoint side. */
+function importFromD2(file){
+  const r=new FileReader();
+  r.onload=()=>{
+    let d;
+    try{d=JSON.parse(r.result);}catch(e){alert('That file is not valid JSON.');return;}
+    if(!d||d.kind!=='d2-sharepoint-export'||!Array.isArray(d.jobs)){
+      alert('That is not a D2 SharePoint export.\n\nUse the Backup/Restore buttons for a scheduler backup file.');return;}
+
+    const bySec=j=>{const m={};allSecs(j).forEach(({s})=>m[s.num]=s);return m;};
+    let added=0,updated=0,secs=0,unmatched=[];
+    const plan=d.jobs.map(inj=>{
+      const existing=S.jobs.find(j=>String(j.jobno)===String(inj.jobno));
+      return {inj,existing};
+    });
+    added=plan.filter(p=>!p.existing).length;
+    updated=plan.filter(p=>p.existing).length;
+    plan.forEach(p=>{(p.inj.sections||[]).forEach(()=>secs++);});
+    const untouched=S.jobs.filter(j=>!d.jobs.some(i=>String(i.jobno)===String(j.jobno))).length;
+
+    if(!confirm(
+      'Load the live D2 schedule exported '+(d.exported||'(unknown date)')+'?\n\n'+
+      updated+' pool(s) already here will be updated\n'+
+      added+' pool(s) will be added\n'+
+      untouched+' pool(s) that exist only in this browser will be left alone\n\n'+
+      secs+' sub-phases carrying crew, dates and sign-off state.'))return;
+
+    plan.forEach(({inj,existing})=>{
+      let j=existing;
+      if(!j){
+        j=newJob(inj.name||'Pool',inj.addr||'',inj.city||'',inj.state||'',inj.zip||'',inj.start||todayStr());
+        j.jobno=inj.jobno; S.jobs.push(j);
+      }else{
+        if(inj.name)j.name=inj.name;
+        if(inj.addr!=null)j.addr=inj.addr;
+        if(inj.city!=null)j.city=inj.city;
+        if(inj.start)j.start=inj.start;
+      }
+      const map=bySec(j);
+      (inj.sections||[]).forEach(is=>{
+        const s=map[is.num];
+        if(!s){unmatched.push((inj.jobno||'?')+' '+is.num);return;}
+        if(is.crewId!=null)s.crewId=is.crewId;
+        if(is.start)s.start=is.start;
+        if(is.days)s.days=is.days;
+        s.skip=!!is.skip;
+        s.inst=!!is.inst;
+        s.pm=!!is.pm;
+        s.locked=!!(is.locked||is.inst);
+        if(Array.isArray(is.tasks)&&Array.isArray(s.tasks)){
+          is.tasks.forEach((it,i)=>{
+            let t=(it.seq!=null&&s.tasks[it.seq-1])?s.tasks[it.seq-1]:s.tasks[i];
+            if(!t&&it.title)t=s.tasks.find(x=>x.t===it.title);
+            if(t)t.done=!!it.done;
+          });
+        }
+      });
+    });
+
+    save(); UI={collapsed:{}}; render();
+    alert('Loaded from D2.\n\n'+updated+' updated, '+added+' added, '+untouched+' left alone.'+
+      (unmatched.length?'\n\n'+unmatched.length+' sub-phase(s) in the file matched nothing in this phase template:\n'+
+        unmatched.slice(0,8).join(', ')+(unmatched.length>8?' ...':'')+
+        '\n\nThat means the template here is out of step with SharePoint.':''));
+  };
+  r.readAsText(file);
+}
+
 /* ============================== boot ============================== */
 document.getElementById('tabs').addEventListener('click',e=>{
   const b=e.target.closest('button');if(!b)return;
@@ -805,7 +901,9 @@ document.getElementById('csvBtn').onclick=exportCSV;
 document.getElementById('backupBtn').onclick=backup;
 document.getElementById('restoreBtn').onclick=()=>document.getElementById('restoreFile').click();
 document.getElementById('restoreFile').onchange=e=>{const f=e.target.files[0];if(f)restore(f);e.target.value='';};
-document.getElementById('resetBtn').onclick=()=>{if(confirm('Reset to the imported template, seeded crews, and demo jobs?')){localStorage.removeItem(KEY);load();render();}};
+document.getElementById('d2Btn').onclick=()=>document.getElementById('d2File').click();
+document.getElementById('d2File').onchange=e=>{const f=e.target.files[0];if(f)importFromD2(f);e.target.value='';};
+document.getElementById('resetBtn').onclick=()=>{if(confirm('Reset to the imported template and seeded crews? Any pools loaded here will be cleared.')){localStorage.removeItem(KEY);load();render();}};
 load();render();
 </script>
 </body>

@@ -1,6 +1,9 @@
-const {JSDOM, VirtualConsole} = require('/tmp/node_modules/jsdom');
+const {JSDOM, VirtualConsole} = require('jsdom');
 const fs = require('fs');
-const path = '/sessions/sweet-great-mayer/mnt/outputs/D2-Build-Scheduler/D2-Build-Scheduler/app/pool-scheduler.html';
+// Repaired 2026-09-11: this pointed at a build sandbox that no longer exists,
+// so the harness could not run at all. Now resolves inside the repo.
+const nodepath = require('path');
+const path = process.argv[2] || nodepath.resolve(__dirname,'D2-Build-Scheduler/D2-Build-Scheduler/app/pool-scheduler.html');
 let html = fs.readFileSync(path, 'utf8');
 
 // Append an expose script so we can introspect the module-scoped `let` bindings.
@@ -18,6 +21,18 @@ const win = dom.window;
 await new Promise(r => setTimeout(r, 400));
 const S = win.S;
 if (!S) { console.log('FAIL: state not loaded'); process.exit(2); }
+
+// The planner no longer seeds demo pools (removed 2026-09-11 -- they were three
+// fictional California jobs that matched nothing in SharePoint). Without jobs,
+// most invariants below pass VACUOUSLY: "no Sunday in any span" over zero spans,
+// "no crew double-booked" over zero assignments. So the harness builds its own
+// two pools. Two, not one, because the double-book check needs a second job.
+if (S.jobs.length === 0) {
+  const btn = win.document.getElementById('addJobBtn');
+  btn.click(); btn.click();
+  win.autoSchedule();
+  console.log(`(harness seeded ${S.jobs.length} pools -- the tool ships with none)`);
+}
 
 const results = [];
 const check = (label, cond, detail='') => { results.push({label, pass: !!cond, detail}); console.log((cond?'PASS':'FAIL')+' · '+label+(detail?'  ['+detail+']':'')); };
