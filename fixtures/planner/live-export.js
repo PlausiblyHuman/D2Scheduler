@@ -13,10 +13,10 @@
 const fs = require('fs');
 const path = require('path');
 const { JSDOM, VirtualConsole } = require('jsdom');
+const { runExport } = require('./run-export');
 
 const ROOT = path.resolve(__dirname, '../..');
 const PLANNER = path.join(ROOT, 'D2-Build-Scheduler/D2-Build-Scheduler/app/pool-scheduler.html');
-const SCRIPT = path.join(ROOT, 'sharepoint/export-to-planner.js');
 const FIXTURE = path.join(__dirname, 'live-payloads.json');
 
 let fail = 0;
@@ -28,47 +28,9 @@ if (!fs.existsSync(FIXTURE)) {
 }
 const live = JSON.parse(fs.readFileSync(FIXTURE, 'utf8'));
 
-/* ---- 1. run the real export script with fetch stubbed ---------------- */
-function runExport() {
-  return new Promise((resolve, reject) => {
-    let captured = null;
-    const pick = url =>
-      /GetByTitle\('Jobs'\)/.test(url) ? live.jobs :
-      /GetByTitle\('Assignments'\)/.test(url) ? live.asg :
-      /GetByTitle\('Tasks'\)/.test(url) ? live.tasks : null;
-
-    const sandbox = {
-      console: { log: () => {}, warn: () => {} },
-      Date,
-      Promise,
-      Blob: class { constructor(parts) { this.parts = parts; } },
-      URL: { createObjectURL: b => { captured = b.parts.join(''); return 'blob:stub'; } },
-      document: {
-        createElement: () => ({ set href(v) {}, download: '', click() {} })
-      },
-      fetch: async url => {
-        const rows = pick(url);
-        if (!rows) throw new Error('unexpected URL: ' + url);
-        return { ok: true, status: 200, json: async () => ({ value: rows }) };
-      }
-    };
-    sandbox.globalThis = sandbox;
-    const vm = require('vm');
-    vm.createContext(sandbox);
-    const src = fs.readFileSync(SCRIPT, 'utf8');
-    try {
-      const p = vm.runInContext(src, sandbox);
-      Promise.resolve(p).then(() => {
-        // the anchor click happens synchronously before the summary
-        setTimeout(() => captured ? resolve(JSON.parse(captured)) : reject(new Error('nothing downloaded')), 10);
-      }, reject);
-    } catch (e) { reject(e); }
-  });
-}
-
 (async () => {
   let payload;
-  try { payload = await runExport(); }
+  try { payload = await runExport(live); }
   catch (e) { console.log('FAIL · export script threw: ' + e.message); process.exit(1); }
 
   ok('export produced a payload', !!payload);
@@ -89,6 +51,19 @@ function runExport() {
   const done = payload.jobs.reduce((n, j) => n + j.sections.reduce((m, s) => m + s.tasks.filter(t => t.done).length, 0), 0);
   const liveDone = live.tasks.filter(t => t.Complete).length;
   ok('ticked-task count preserved', done === liveDone, done + ' of ' + liveDone);
+  ok('export carries the work calendar', Array.isArray(payload.nonWork) && payload.nonWork.length > 200,
+     (payload.nonWork ? payload.nonWork.length : 0) + ' non-work days');
+  ok('work calendar includes a known holiday', (payload.nonWork || []).includes('2026-10-12'));
+  ok('work calendar dates are bare yyyy-mm-dd',
+     (payload.nonWork || []).every(d => /^\d{4}-\d{2}-\d{2}$/.test(d)));
+  const allTasks = payload.jobs.flatMap(j => j.sections.flatMap(s => s.tasks));
+  ok('every exported task carries an N/A flag', allTasks.length > 0 && allTasks.every(t => 'na' in t),
+     allTasks.length + ' tasks');
+  ok('every job carries its SharePoint row id', payload.jobs.every(j => Number.isInteger(j.id)),
+     payload.jobs.map(j => j.jobno + '#' + j.id).join(' '));
+  ok('every sub-phase carries its SharePoint row id',
+     payload.jobs.every(j => j.sections.every(s => Number.isInteger(s.id))),
+     'ids present');
 
   /* ---- 2. import it into the real planner --------------------------- */
   let html = fs.readFileSync(PLANNER, 'utf8').replace('</body>',

@@ -33,6 +33,10 @@
  *     {Id, Value} instead. See CLAUDE.md on Choice column shapes.
  *   - The Tasks lookup is `AssignmentId` in REST/OData. (`Assignment` +
  *     `Assignment#Id` is the *connector* shape -- not what we get here.)
+ *   - `Work Calendar.Date` is a DateOnly column stored at site-local midnight, so
+ *     the first 10 characters are already the intended day. It holds Sundays as
+ *     well as holidays; `D2 - New Pool` reads the same list and computes Sunday
+ *     separately, so carrying both is faithful rather than redundant.
  */
 (async () => {
   const site = 'https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler';
@@ -53,7 +57,7 @@
   }
 
   const T0 = Date.now();
-  const [jobs, asg, tasks] = await Promise.all([
+  const [jobs, asg, tasks, cal] = await Promise.all([
     all("/_api/web/lists/GetByTitle('Jobs')/items"
       + "?$select=Id,Title,JobNumber,Address,City,StartDate,Status,ProjectManager/Title"
       + "&$expand=ProjectManager&$top=500"),
@@ -62,7 +66,9 @@
       + "ScheduledFinish,DurationDays,Locked,NotApplicable,InstallerSignOff,PMSignOff"
       + "&$top=2000&$orderby=Id"),
     all("/_api/web/lists/GetByTitle('Tasks')/items"
-      + "?$select=Id,AssignmentId,Sequence,Title,Complete&$top=5000&$orderby=Id")
+      + "?$select=Id,AssignmentId,Sequence,Title,Complete,NotApplicable&$top=5000&$orderby=Id"),
+    all("/_api/web/lists/GetByTitle('Work Calendar')/items"
+      + "?$select=Id,Title,Date&$top=1000&$orderby=Id")
   ]);
 
   // SharePoint stores these DateOnly columns at site-local midnight, so the date
@@ -88,7 +94,14 @@
     kind: 'd2-sharepoint-export',
     exported: new Date().toISOString().slice(0, 10),
     site,
+    // Every non-work day the flows know about: 175 Sundays and 35 holidays.
+    // `D2 - New Pool` and `D2 - Reschedule Pool` both compute Sunday AND test this
+    // set, so the planner has to do the same or its spans disagree with the
+    // schedule SharePoint actually built. Sundays are in here as well as being
+    // computed, which is harmless and keeps this a faithful mirror of the list.
+    nonWork: [...new Set(cal.map(c => day(c.Date)).filter(Boolean))].sort(),
     jobs: jobs.map(j => ({
+      id: j.Id,
       jobno: j.JobNumber,
       name: j.Title,
       addr: j.Address || '',
@@ -99,6 +112,7 @@
       sections: (asgByJob.get(j.Id) || [])
         .sort((a, b) => (a.Sequence || 0) - (b.Sequence || 0))
         .map(a => ({
+          id: a.Id,
           num: a.SubPhaseNumber,
           name: a.SubPhaseName,
           crewId: a.Crew || null,
@@ -111,7 +125,8 @@
           pm: !!a.PMSignOff,
           tasks: (tasksByAsg.get(a.Id) || [])
             .sort((x, y) => (x.Sequence || 0) - (y.Sequence || 0))
-            .map(t => ({ seq: t.Sequence, title: t.Title, done: !!t.Complete }))
+            .map(t => ({ seq: t.Sequence, title: t.Title, done: !!t.Complete,
+                         na: !!t.NotApplicable }))
         }))
     }))
   };
@@ -136,6 +151,9 @@
     signedOff: payload.jobs.reduce((n, j) => n + j.sections.filter(s => s.inst).length, 0),
     ticked: payload.jobs.reduce((n, j) =>
       n + j.sections.reduce((m, s) => m + s.tasks.filter(t => t.done).length, 0), 0),
+    nonWorkDays: payload.nonWork.length,
+    tasksNA: payload.jobs.reduce((n, j) =>
+      n + j.sections.reduce((m, s) => m + s.tasks.filter(t => t.na).length, 0), 0),
     byPool: payload.jobs.map(j => j.jobno + ' ' + j.name + ' [' + j.status + '] '
       + j.sections.length + ' sub-phases'),
     // Non-zero here means rows exist that the planner will never see.
