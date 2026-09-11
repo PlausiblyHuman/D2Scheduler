@@ -843,7 +843,12 @@ function toggleSkill(id,sk){const c=crew(id);c.skills=c.skills.includes(sk)?c.sk
 function addCrew(){S.crews.push({id:'c'+Math.random().toString(36).slice(2,7),name:'New Crew',members:[],size:1,skills:[]});render();}
 function delCrew(id){if(!confirm('Delete this crew? Its assignments clear.'))return;
   S.crews=S.crews.filter(c=>c.id!==id);
-  S.jobs.forEach(j=>allSecs(j).forEach(({s})=>{if(s.crewId===id){s.crewId=null;s.locked=false;}}));render();}
+  S.jobs.forEach(j=>{
+    let hit=false;
+    allSecs(j).forEach(({s})=>{if(s.crewId===id){s.crewId=null;s.locked=false;hit=true;}});
+    if(hit)touch(j);
+  });
+  render();}
 function setGrp(gi,k,v){S.template[gi][k]=v;save();}
 function setSec(gi,si,k,v){S.template[gi].sections[si][k]= k==='days'?Math.max(1,+v||1):(k==='skill'?(v||null):v);save();}
 function moveSec(gi,si,d){const a=S.template[gi].sections,n=si+d;if(n<0||n>=a.length)return;a.splice(n,0,a.splice(si,1)[0]);render();}
