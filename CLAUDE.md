@@ -42,7 +42,40 @@ Site URL: `https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler` (site
 
 The four load-bearing invariants (enforced by the design, not by a database primary key — SharePoint Lists has no composite alternate key equivalent):
 
-1. **A crew is only assigned to a sub-phase whose required trade it actually holds.** Verified via the Crew-Trades intersect list.
+1. **A crew is only assigned to a sub-phase whose required trade it actually holds.**
+   **NOT ENFORCED ANYWHERE ON THE SHAREPOINT SIDE. Audited 2026-09-11; the previous wording here,
+   "Verified via the Crew-Trades intersect list", was misleading and had been read as a statement of
+   fact by earlier sessions.** The crew-to-trade join ran **once, offline, in Python**
+   (`tools/gen-template-seed.py`) on 2026-09-07, and its answer was baked into
+   `Sub-phase Template.DefaultCrew` as **plain text with no validation**. `D2 - New Pool` transcribes
+   that text and the row's `Trade` side by side into each Assignment and **never compares them**.
+   Nothing re-evaluates the join afterwards.
+
+   **`Crew-Trades` (51 rows) and `Trades` (26 rows) are inert at runtime.** `Crew-Trades` appears in
+   zero flows, zero views, zero forms, and is not a canvas-app data source; it is not even reachable
+   from the site navigation. `Trades` survives only as a lookup display label.
+
+   **The `Assignments.Crew` guard is a VOCABULARY check, not a qualification check, and this
+   distinction is the whole point.** `guard-crew-values.js` writes
+   `=OR(ISBLANK([Crew]),[Crew]="antonio",...)` over the 14 crew codes. It asks "is this one of the
+   known crews", never "does this crew hold this row's trade" — and a SharePoint column validation
+   formula **cannot** ask the latter, because it cannot traverse the `Trade` lookup into `Trades` and
+   on into the intersect list. The Choice conversion adds nothing here either; it constrains the form
+   only. Two vocabulary guards, zero qualification guards.
+
+   **How it was lost:** `tools/add_pool.py` *does* carry the check (`pick_crew()`, and an explicit
+   `UNQUALIFIED` assertion). That tool was superseded by `D2 - New Pool` as the user-facing path, and
+   **the rule-1 check was left behind in the retired tool.** The browser planner still enforces it
+   properly via crew skills, so the two halves of the system disagree.
+
+   **A check must treat a null `Trade` as a PASS.** The 11 field-supervision sub-phases carry no
+   trade, so `Assignments.Trade` is null on 11 rows of every pool. A naive check fires on all of them
+   from the first run and gets ignored within a week. (This is also the real reason the `Unassigned`
+   view renders empty: its CAML requires `IsNotNull Trade`.)
+
+   **Don's trade mapping makes this worse, not better.** Closing that gap puts `george` and `armondo`
+   into rotation and forces a template regeneration, widening the surface this rule is failing to
+   police. See the recommended fix under Known bugs.
 2. **A field crew is never on two pools the same day.** Detection is post-hoc within one Power Automate polling interval (event-driven flow scoped to touched Crew + date range), with a nightly full-sweep safety net. This is "acceptable degradation, not equivalence" vs. the Dataverse alternate-key approach — see Rev D §07 for honest framing.
 3. **Sub-phases run in order — one cannot start before the one before it ends.** Enforced by the browser tool's Auto-Schedule; re-enforced by the conflicts checker.
 4. **Mon–Sat are work days. Sunday is not.** Extended in the Lists path to include Work Calendar entries (Holidays, Weather days, per-crew shutdowns).
