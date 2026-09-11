@@ -1819,7 +1819,27 @@ SharePoint's white header. A real header photo must come from D2's own project p
 
 ---
 
-## NEXT SESSION: one task (Shane, 2026-09-07)
+## NEXT SESSION (checkpoint written 2026-09-11b)
+
+**Read `sessions/latest.md` first.** It carries the full checkpoint: what shipped, Shane's rulings,
+and the prioritised next tasks with the detail needed to act on them. Short version:
+
+1. **Client-gated and overdue** — add David, Don, Emon and Cody to the M365 group, and repoint both
+   summary flows at the real audience. The group still has one member, so every link in the PM guide
+   fails for all four.
+2. **Finish the trade check** — `D2 - Crew Trade Check` runs nightly and writes `TradeMismatch`, but
+   **no view surfaces it**, so the flag is invisible. Add the view, formatter and nav entry. Shane
+   also wants the **hourly diff flow** so a PM does not wait until morning.
+3. **Crew-trade mappings from the browser HTML** as the standing source. Note they already match
+   `Crew-Trades` exactly, so this is about authority and drift, not a one-time import.
+4. **Canvas app Day / Week / Month, defaulting to Week.** Design approved; spec owed before code.
+5. **HOLD** the Work Calendar-into-the-planner fix. Shane's call.
+
+The older note below is kept for the reasoning it records, not as a current task list.
+
+---
+
+## Superseded: NEXT SESSION: one task (Shane, 2026-09-07)
 
 ### ~~1. Calendar / schedule visualisation~~ (DONE 2026-09-08b)
 

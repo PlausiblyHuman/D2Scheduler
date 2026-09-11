@@ -1,135 +1,232 @@
-# 2026-09-11a — The planner gets connected, and an overnight quality review
+# 2026-09-11b — Crew Trade Check, the parity audit, and a checkpoint
 
-**Session goal:** Shane asked where to host `pool-scheduler.html` so the PM guide could link to it.
-Checking the file first turned that into a different question: *"this is a bigger fox that just got
-missed. if the html isn't up to date what's the point?"* It wasn't up to date, in three separate
-ways. The session became: connect the planner to SharePoint, then review the whole solution.
+**Session goal:** started as "review the tasks, new screenshots for the artifact". Became: business
+rule 1 has never been enforced anywhere on the SharePoint side, which Shane spotted and called
+priority 1. Built the enforcer, audited the planner against SharePoint, and answered the site-AI
+question.
 
-## The finding that reframed the night
+> **This session ran CONCURRENTLY with 2026-09-11a.** Both were writing to this repo and to the
+> live tenant. If something in the history looks like it appeared from nowhere, that is why.
 
-The browser planner had **no connection to SharePoint at all**. Zero `fetch`, `localStorage` only,
-manual Backup/Restore. It seeded three fictional California pools of its own (Harrison, Vasquez,
-Bell Canyon) that match nothing in the tenant. It had sat untouched since **2026-08-13** while every
-design decision in this project happened around it.
-
-Worse, **two patches the repo said were applied were not.** CLAUDE.md described
-`patched-tool/pool-scheduler.html` carrying an Auto-Schedule determinism fix, with a README and a
-diff beside it. `git log --diff-filter=D` shows **that directory never existed** — described in the
-original handoff, never migrated. Same for `seed-data/`. So the only copy of the planner had
-neither patch, and CLAUDE.md had been telling every session otherwise for three weeks.
-
-Hosting was the wrong question. A URL would have published a stale tool.
+---
 
 ## What shipped
 
-**1. Both missing patches applied, and measured.**
+**1. `D2 - Crew Trade Check` — the first thing in this system to enforce business rule 1.**
+Flow id / workflowEntityId `a5f50628-eead-f111-aaac-6045bd0195dd`. Nightly **05:15 Central**.
+Joins `Assignments.Crew` → `Crews.CrewID` → `Crew-Trades` → `Assignments.Trade` and writes
+`Assignments.TradeMismatch` (Note, hidden from New/Edit). Writes only rows that changed.
 
-- Determinism: the load table was seeded from `crewLoad()`, which counts *every* assignment, so run
-  2 inherited run 1's own tiebreaks. Now seeded from **locked** assignments only, matching how
-  `busy` is seeded, plus `|| a.id.localeCompare(b.id)` as a stable secondary sort key.
-  **4 of 138 crew picks drifted per re-run before; 0 after.**
-- Subcontractors: `unlimited:true` on george, armondo, stl, brothers, so they are capacity-exempt
-  per business rule 2. The diff had been sitting unapplied in `Subcontractor-Crew-Patch.md`.
+Verified by **breaking it on purpose**, because a clean run of a checking flow proves nothing:
+assignment 342 set to `brothers` (holds only pebbletech + plaster) on a Dig/Excavation sub-phase →
+one row flagged, 65 untouched; reverted → cleared. Tenant back as it was.
 
-**2. `sharepoint/export-to-planner.js`** — reads Jobs + Assignments + Tasks from the site and
-downloads the live schedule. Read-only. Field names read off the write bodies in
-`flows/exports/D2-New-Pool-*.json`, then **verified against live rows**.
+**Scope, stated plainly:** only **22 of 46** sub-phases per pool carry a trade. The other 24 ride
+the pseudo-trades `@office` / `@sub` / `@unassigned`, which resolve to **no Trade lookup**, are
+bucket-routed by design, and are therefore a **PASS**. `Unlimited` crews ARE trade-checked —
+unlimited means capacity-exempt (rule 2), never trade-exempt (rule 1).
 
-**3. The planner gained "Load from D2", which MERGES by job number.** `Restore` swaps the whole
-state and would destroy a pool a PM had sketched locally; this leaves local-only pools alone.
-Structure always comes from the local phase template, so only what SharePoint owns is overlaid:
-crew, dates, duration, flags, task ticks. **Signed-off and locked sub-phases import as `locked`**,
-so a later Auto-Schedule cannot move completed work — the same rule `D2 - Reschedule Pool` applies
-server-side.
+**2. It cost 66 wrong writes first, and the fix is structural.** See "Traps" below. The flow now
+terminates with `QualificationSetEmpty` rather than writing, if the join yields an empty set from a
+non-empty source list.
 
-**4. The three phantom demo pools are gone.** A first run now opens empty and points at Load from D2.
+**3. Parity map: `docs/planner-vs-sharepoint-parity.md`.** Eleven divergences between the browser
+planner and this system, bucketed matched / easy / hard-with-the-wall-named / gap.
 
-**5. Tests, where there were none.** `oracle-test.js` **could not run at all**: it required jsdom
-from `/tmp/node_modules` and read the planner from a build-sandbox path. Repaired, and it now seeds
-its own two pools, because with the demo pools removed most of its invariants passed **vacuously**
-over zero assignments. `fixtures/planner/` adds four harnesses. `npm test` runs all five: **46
-passing, 2 failing**, both failures the long-documented data gaps.
+**4. CLAUDE.md corrected in three places** that were actively misleading: business rule 1's
+"Verified via the Crew-Trades intersect list" (it was not), the `Unassigned` view's emptiness
+(explained wrongly twice; the real cause is its CAML requiring `IsNotNull Trade` while the rows it
+targets deliberately carry no trade), and `Jobs.StartDate` being "display-only" (it stopped being
+true when the planner started importing it).
 
-Scores on the same harness: **committed file 13/16 with idempotency FAILING, patched file 14/16.**
-14/16 is exactly what CLAUDE.md always claimed for the phantom `patched-tool/`.
+**5. PM guide artifact** → https://claude.ai/code/artifact/1cc7b6be-3fdb-4fc8-93b6-1899108bd6da
+Now **Version 13**: welcome section cut, all seven screenshots retaken against the header-tabs site,
+measured 9-10 minute build-time callout, delete-confirmation rule documented, **planner section
+removed entirely** at Shane's request, overnight trap broadened. Guide sources now live in
+`docs/pm-guide/` with a rebuild script — they were previously only in a session scratchpad.
 
-**6. End-to-end proof against real data.** `fixtures/planner/live-export.js` runs the real export
-script with `fetch` stubbed to serve live payloads, then imports the result into the real planner.
-**138 assignments, 885 tasks, 47 sign-offs, 398 ticks, nothing dropped.**
+**6. Request lists made usable.** All three (`New Pool Requests`, `Delete Pool Requests`,
+`Reschedule Requests`) showed only `LinkTitle`, so a PM told to "refresh until Status says Done"
+could not see Status. Real columns + `Paged=true`. `Status`/`Result` hidden from the New forms.
+Script: `sharepoint/configure-request-lists.js`.
 
-## Quality review
+**7. Site header is white** (`HeaderEmphasis = 0`), separating it from the green hero band.
 
-Read headlessly via a throwaway probe flow (created, used, **deleted** — the environment is back to
-14 D2 flows plus `Generate estimate`, all Started).
+**8. Three research agents.** Crew audit, planner parity, and site-AI options. Findings folded into
+CLAUDE.md, the parity doc, and the decisions below.
 
-**Repaired:** ten Assignments rows carried `ConflictWith` text describing dates the rows no longer
-had, e.g. a row scheduled `2026-06-29 -> 06-30` flagged *"harrison also on D2-1042, 2 day(s) from
-2026-10-05"*. Conflict Flag is nightly at 05:00 and the pools were reflowed at 14:33, so the flags
-had been wrong and visible in the Conflicts view for ~16 hours. Ran Conflict Flag: **10 -> 0**,
-verified by re-reading the rows.
+---
 
-**Corrected:** *"The Office 365 Groups connector has no list-events operation, so Calendar Sync
-cannot self-heal"* was half right, and the wrong half closed off the better fix. There is no list
-*operation*, but the connector exposes **`HttpRequestV2`**, a Graph passthrough, and
-`GET /groups/{id}/events` through it **succeeded in 124 ms** with paging. So the Delete Pool
-ghost-events gap can be closed inside Calendar Sync by enumerating the calendar, which heals
-orphans from any cause. Deliberately not implemented: enumeration means a sweep no longer needs a
-row to find an event, so a wrong "what should exist" set could delete the whole calendar.
+## Decisions Shane made
 
-**Everything else green:** row counts exact; demo staging matches; 0 signed-off sub-phases
-scheduled into the future; 0 required-but-null; 0 counter drift; 0 unknown crew codes; 0
-double-books; calendar 138 events / 138 event ids / 138 distinct, no orphans; **all 14 flow exports
-match live by content**, all Started; one failure in 48h, from that flow's own build session.
+- **Business rule 1 is priority 1.** *"That was a huge point that you couldn't plan plumbing jobs
+  for a carpentry crew."*
+- **Detection, not prevention, is accepted** — matching the grammar already used for rule 2, which
+  is also post-hoc. Column validation cannot do better; it cannot traverse a lookup into a second
+  list.
+- **Planner removed from the guide.** *"Just not quite ready to marry those yet. It can stay on the
+  site, but it's not ready."*
+- **Canvas app gets Day / Week / Month, defaulting to WEEK.** *"Daily is too myopic."* Second
+  screens acceptable but not required; the requirement is that the first view is weekly.
+- **Month is a grouped list by day, not a calendar grid.** One component, three ranges.
+- **Planned pools shown with a badge**, not hidden. Shane's call, made after being told the risk.
+- **Site AI agent: not now.** Blocked on capability, not cost — see below.
+- **Work Calendar into the planner: HOLD.**
 
-## Files touched
+---
 
-- `D2-Build-Scheduler/D2-Build-Scheduler/app/pool-scheduler.html` — both patches, Load from D2, seed removed
-- `sharepoint/export-to-planner.js` — new
-- `fixtures/planner/` — new: 4 harnesses, a 148 KB live capture, README
-- `oracle-test.js` — repaired so it can run, and self-seeds
-- `CLAUDE.md` — the phantom directories, the Groups correction, the reflow findings, the audit
-- `README.md`, `package.json`, `.gitignore`
+## NEXT TASKS
 
-## Commits
+### 1. Client-gated, and overdue — do first
 
-`a02db78`, `deb3906`, `201e680`, `a4fa58a`
+Held deliberately overnight so nobody stumbled on the system before the introduction email.
+**That reason has expired.**
 
-## Decisions
+- **Add `david@`, `don@`, `emon@`, `cody@d2pools.com` to the M365 group**
+  (`7b305c56-ceea-4838-9e58-90050a846204`). Adding to the **group** grants the site *and* the
+  group calendar in one step. As of now the group has **one member, D2 Bot**, so every link in the
+  PM guide fails for all four of them.
+  Watch the duplicates: David Taylor and Amy Stevens each have a second `#EXT#` identity from
+  `d2install.com`. Use the `@d2pools.com` ones.
+- **Repoint `D2 - Daily Summary` and `D2 - Weekly Summary`** at the real audience. Currently both
+  send only to `stratirus@d2pools.com`. One-token edit in each `Send_summary`. The guide promises
+  these arrive.
 
-- **Merge by job number, not replace.** Safe whether the planner is a viewer or still a planning
-  surface, so it did not need Shane awake to decide.
-- **Carry progress, not just dates**, so a Gantt bar reads done / in flight / not started.
-- **One way only.** The planner has no sign-off model (bare `inst`/`pm` booleans, no attribution),
-  so writing back would overwrite attested work with a flag. The nightly sync stays descoped.
-- **Structure from the local template, never the file**, so a partial payload cannot corrupt it.
-- **No test pool created.** Verifying the Delete Pool fix end to end needs a create/delete cycle,
-  and the cleanup would leave rows in client-facing request lists that cannot be removed without
-  browser access.
-- **The guide was not republished.** The planner paragraph is still accurate, and improving it is
-  tied to the hosting decision.
+### 2. Finish the trade check — it is currently INVISIBLE
 
-## Open / needs Shane
+**I verified this and it is my omission, not a design choice: no view surfaces `TradeMismatch`.**
+All nine Assignments views were checked; none includes the column. The flag is written and nobody
+can see it.
 
-1. **Hosting.** Still Azure Static Web Apps free tier at an unguessable URL, now worth doing because
-   the tool is current. Open question: wide open, or behind Entra restricted to the D2 tenant.
-2. **`D2 - Reschedule Pool` never writes `Jobs.StartDate`**, so it drifts permanently. Whitfield
-   reads `2026-09-21` on the Jobs list while its first assignment starts `2026-06-15` and the pool
-   finishes `2026-09-30`. Verified display-only: nothing reads the field after creation and nothing
-   triggers on the Jobs list, so realigning it is safe.
-   **`sharepoint/fix-job-startdates.js` is ready to paste** and fixes the three demo rows (it has a
-   `DRY_RUN` flag). Attempting it unattended was blocked by the write gate, correctly, so it is
-   yours to run. The flow gap behind it is still a product call: probably "write it only when
-   `FromSequence` is 1", since a reflow from sequence 5 clearly should not move the job's start.
-3. **`ConflictWith` staleness window** between a reflow and the next 05:00 sweep. Cheap fix: the
-   reflow calls Conflict Flag, or nulls `ConflictWith` on rows it moves.
-4. **Calendar Sync self-healing sweep** now unblocked. Needs the guards written down in CLAUDE.md.
-5. **This morning, before anything else:** add David, Don, Emon and Cody to the group, and repoint
-   the summary emails. Deliberately still undone — access must not land before the introduction
-   email.
-6. **First unattended hourly Calendar Sync fires 04:30 Central today.** Had not run at wrap
-   (00:54 CT). Worth a glance.
+- Add a **Trade Mismatch** view on Assignments, filtered `TradeMismatch IsNotNull`, with the card
+  formatter, and a nav entry under **Attention**. Model on the `Conflicts` view
+  (`sharepoint/provision-views.js`, `sharepoint/format-views.js`, `sharepoint/build-navigation.js`).
+- A view formatter **may not contain a raw `<` or `&`** — it is persisted inside the view's XML and
+  fails the whole MERGE with HTTP 500. Flip operands to use `>`/`>=`, express AND as a nested `if`.
+
+**Also in scope per Shane: the hourly diff flow.** Conflict Flag and Crew Trade Check both make a PM
+wait until morning. Two precedents already exist in this repo, read both before designing:
+
+- **`D2 - Calendar Sync` was made hourly AND incremental** by the parallel session (commit
+  `23d3c18`). That is the closest working template for "hourly but cheap".
+- **`D2 - Event-Driven Reconciliation`** already has a **version-history gate** that fires on an
+  Assignments edit and proceeds only when `Crew` or the dates changed. A `Crew` change is exactly
+  the trigger a trade check wants, so this may be an addition to an existing flow rather than a new
+  one.
+
+Watch the cost: every Assignments write fires Flow 3. Do not add a write-per-tick path.
+
+### 3. Crew↔trade mappings: use the browser HTML as the source
+
+Shane: *"The HTML has all the correct mappings for all crews. Use that as a source."*
+
+Source is `D2-Build-Scheduler/D2-Build-Scheduler/app/pool-scheduler.html`:
+`SEED_CREWS` (L175-208) carries `skills: []` per crew; `SEED_TEMPLATE` (L137) carries one `skill`
+per sub-phase.
+
+**Read this before starting, it will save a wasted pass.** The parity audit verified that all 14
+crews' `SEED_CREWS.skills` **already match the live `Crew-Trades` join exactly** — because
+`Crew-Trades` was seeded *from* `SEED_CREWS`. So for crew→trade this is currently a **no-op**, and
+the value is in making the HTML the standing authority and adding a drift check, not in a one-time
+import.
+
+**The 10 unmapped trades are NOT solved by this**, and it is important not to chase that: the
+planner does not map them either. 16 of 26 trades are used by the 46 sub-phases; `cmu`, `form`,
+`grade`, `landscaping`, `masonry`, `materials`, `pavers`, `veneer`, `walls`, `waterline` are not.
+`george` holds only `cmu` and `masonry`, both unmapped, which is why he is scheduled zero days.
+That still needs Don, or an explicit decision to drop those trades.
+
+**Confirm with Shane** whether he also meant sub-phase→trade, i.e. populating
+`Sub-phase Template.Trade` from `SEED_TEMPLATE.skill`. Do not assume.
+
+### 4. Canvas app: Day / Week / Month on Screen1 — BUILD
+
+Design settled and approved. **A spec was promised and never written; write it first** to
+`docs/superpowers/specs/`, then plan, then build.
+
+- Query changes from "spans today" to **overlaps the range**:
+  `ScheduledStart <= gblRangeEnd AND ScheduledFinish >= gblRangeStart AND NotApplicable = false`.
+  Same two date comparisons, so delegability is unchanged.
+- Globals `gblRangeStart` / `gblRangeEnd` / `gblRangeMode`. **Default Week, Mon–Sat.**
+- Range result into a **local collection**; day headings computed from it. Keeps grouping out of
+  delegation's way and leaves the existing row card untouched.
+- **The crew picker filters on today too** (`Screen1.pa.yaml` ~L291) and must move to the same
+  range, or the screen contradicts itself.
+- **Mark today's rows and open scrolled to today**, so a crew lead still lands on their own day.
+- Planned pools shown **with a badge**. Proxy refinement offered and not answered: crew leads see
+  Active only, proxies see everything badged. Written in as one guarded condition, easy to delete.
+- **Two defects to fix in the same pass:** `gblToday` is set once in `App.OnStart` and never
+  refreshed, so an app left open overnight shows the wrong day — move to `Screen1.OnVisible`. And
+  the gallery has no `Jobs.Status` filter at all.
+- **Do not touch `scr_Tasks`.** The sign-off path works and is verified.
+- Deploy loop: `python canvas-app/deploy.py`, then the Studio save + publish. **Batch the work and
+  ask for ONE publish.**
+
+### 5. HOLD — Work Calendar into the planner
+
+Shane: hold. Recorded so it is not re-raised: the planner's `isWork` is `d.getDay() !== 0` and
+nothing else, `importFromD2` never reads the imported finish date, so every holiday-crossing span
+renders a day short and those wrong spans feed its own conflict checks. About 30 lines when it
+comes back. `oracle-test.js` invariant #9 already fails on it.
+
+---
+
+## Open, not urgent
+
+- **`D2 - Delete Pool` strands calendar events.** Cause understood. Blocked on a Dataverse
+  connection reference that does not exist; two `edit_flow` attempts failed and rolled back cleanly.
+  Better fix now known: the Groups connector exposes `HttpRequestV2`, so Calendar Sync could
+  enumerate `GET /groups/{id}/events` and self-heal.
+- **Work Calendar expires 2029-12-30** and nothing maintains it. Sundays are computed so they are
+  correct forever; holidays are list-driven and silently become work days past the horizon.
+- **Durations are still a 2-day placeholder** on every template row. Client-gated.
+- **The `Unassigned` view shows 0 rows** because its CAML requires `IsNotNull Trade` while the 11
+  rows it targets carry no trade. A design question for Don's mapping, not a typo.
+- **`PMSignOff` exists on both sides, wired on neither.** Consequence: the planner's Schedule Check
+  will warn on every finished sub-phase forever once it imports.
+- **Site AI agent — revisit only if the free test passes.** Blocked on capability not cost: a
+  SharePoint agent grounds on **one list at a time** and cannot combine Jobs + Assignments + Tasks,
+  and counting/filtering queries are documented as unsupported. D2 is on **Copilot Business
+  ($21/user/mo)**, not the $30 SKU. All four Copilot seats are consumed by Don, David, **Amy and
+  Carolyn** — neither PM has one, so covering Cody and Emon may be a reassignment rather than a
+  purchase. Free 20-minute test: Don or David creates an agent on the Assignments list and asks five
+  questions with known answers; if the single-row lookup fails, the idea is dead.
+- **`flows/definitions/` is stale and must not be used to restore anything.** Use
+  `flows/exports/`, compared by **content**, never by filename date.
+
+---
+
+## Traps learned this session
+
+**The connector-vs-REST shape trap, sixth instance, and it cost 66 wrong writes.**
+`Crew-Trades`' lookup columns are named `Crew` and `Trade`, so **raw REST** exposes
+`CrewId`/`TradeId` while the **connector** returns `Crew`/`Trade` as `{Id, Value}`. The flow read
+connector output using the REST names, the filter matched nothing, the qualification set stayed
+empty, and **every checkable row was flagged unqualified with every action green**.
+
+Three fixes applied, only one of which is prose:
+
+1. **The flow guards itself.** `Guard_qual_not_empty` terminates with `QualificationSetEmpty` if a
+   join yields an empty set from a non-empty source. Copy this into any future cross-list join.
+2. **The skill `power-automate-flow-mechanics` now leads with an observable predicate** — which
+   action produced this output decides the naming — and its description now triggers *before*
+   authoring. **Invoke it before writing any expression that reads a SharePoint column.**
+3. CLAUDE.md routes to the skill instead of carrying a seventh retelling.
+
+**Two insights worth keeping:**
+
+- **Reading a column's internal name off the list schema tells you nothing about its shape.** That
+  is the mechanism: you look up `CrewId` over REST, where it is genuinely correct, and carry it into
+  a connector expression without noticing the surface changed.
+- **A REST probe cannot validate a connector expression.** Mine returned 0 mismatches and was
+  correct, and proved nothing. Evidence about a flow has to come from the flow.
+
+**A clean run of a checking flow proves nothing.** Break it on purpose, both directions, and confirm
+the source data is restored.
+
+---
 
 ## Next action
 
-Decide hosting, then publish the planner and add the link to the guide. Grant the four their access
-in the morning.
+Grant the four D2 accounts group access and repoint the two summary flows, then build the Trade
+Mismatch view and the hourly diff flow.
