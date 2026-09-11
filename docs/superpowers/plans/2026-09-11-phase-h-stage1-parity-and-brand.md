@@ -310,6 +310,11 @@ ok('work calendar dates are bare yyyy-mm-dd',
 const allTasks = payload.jobs.flatMap(j => j.sections.flatMap(s => s.tasks));
 ok('every exported task carries an N/A flag', allTasks.length > 0 && allTasks.every(t => 'na' in t),
    allTasks.length + ' tasks');
+ok('every job carries its SharePoint row id', payload.jobs.every(j => Number.isInteger(j.id)),
+   payload.jobs.map(j => j.jobno + '#' + j.id).join(' '));
+ok('every sub-phase carries its SharePoint row id',
+   payload.jobs.every(j => j.sections.every(s => Number.isInteger(s.id))),
+   'ids present');
 ```
 
 - [ ] **Step 4: Run it to confirm the new assertions fail**
@@ -369,6 +374,27 @@ and the task projection:
             .map(t => ({ seq: t.Sequence, title: t.Title, done: !!t.Complete,
                          na: !!t.NotApplicable }))
 ```
+
+- [ ] **Step 7b: Carry the SharePoint row ids**
+
+A batch write-back has to address a row to write to it, and the export carries **no ids at all**
+today. Adding them is one field each now and a re-capture plus a re-export later. Nothing in this
+plan reads them; they exist so the write-back does not start by changing the export again.
+
+In the job projection, as the first key:
+
+```js
+      id: j.Id,
+```
+
+and in the section projection, as the first key:
+
+```js
+          id: a.Id,
+```
+
+Do not add an id to the task projection. Tasks are ticked in the field app and the planner has no
+business writing them back, which is the same reason sign-off is not a write-back field.
 
 - [ ] **Step 8: Add the two new counts to the console summary**
 
@@ -545,11 +571,33 @@ through `isWork` and inherits the fix.
 
 - [ ] **Step 4: Rebuild the Set wherever state is replaced**
 
-Three call sites. In `load()`, after both branches have set `S`:
+Four insertion points, and `load()` needs **two of them**. Read `load()` before editing it — it has
+an **early return** on the localStorage path:
+
+```js
+function load(){
+  try{const raw=localStorage.getItem(KEY);if(raw){S=JSON.parse(raw);return;}}catch(e){}
+  S={crews:...,template:mkTemplate(),jobs:[],settings:{}};
+  ...
+  S.jobs=[];
+}
+```
+
+A single call at the end of the function would run **only on a first visit**. The returning user is
+the one who actually has a stored calendar, so holidays would silently stop applying on every visit
+after the first. Patch both paths:
+
+```js
+  try{const raw=localStorage.getItem(KEY);if(raw){S=JSON.parse(raw);S.settings=S.settings||{};syncNonWork();return;}}catch(e){}
+```
+
+and again as the last line of the function body, after `S.jobs=[];`:
 
 ```js
   syncNonWork();
 ```
+
+`syncNonWork()` is idempotent, so calling it on both paths is safe.
 
 In `restore()`, immediately after `S=st; S.settings=S.settings||{};`:
 
@@ -705,10 +753,12 @@ function secDone(s){const c=secCounts(s);if(!c.n)return 1;return (c.done+c.na)/c
 
 - [ ] **Step 5: Show N/A in the three places a checklist count is rendered**
 
-The drawer label (currently line 704):
+The drawer label (currently line 704). Hoist the counts to a `const` above the template rather than
+calling `secCounts(s)` three times inside it — find the line where the drawer body template begins
+and add `const c=secCounts(s);` before it:
 
 ```js
-    <div class="fld"><label>Checklist — ${secCounts(s).done}/${secCounts(s).n}${secCounts(s).na?` · ${secCounts(s).na} N/A`:''}
+    <div class="fld"><label>Checklist — ${c.done}/${c.n}${c.na?` · ${c.na} N/A`:''}
 ```
 
 The Sign-Offs per-pool roll-up (currently line 583) — add an N/A total beside the done total:
@@ -838,8 +888,7 @@ let fail = 0;
 const ok = (l, c, d = '') => { console.log((c ? 'PASS' : 'FAIL') + ' · ' + l + (d ? '  [' + d + ']' : '')); if (!c) fail = 1; };
 
 const html = fs.readFileSync(PLANNER, 'utf8').replace('</body>',
-  `<script>window.__x=()=>{window.S=S;window.allSecs=allSecs;window.conflicts=conflicts;
-    window.autoSchedule=autoSchedule;};</script><script>__x();</script></body>`);
+  `<script>window.__x=()=>{window.S=S;window.allSecs=allSecs;window.conflicts=conflicts;};</script><script>__x();</script></body>`);
 const vc = new VirtualConsole(); vc.on('jsdomError', e => console.log('[jsdom]', e.message));
 const dom = new JSDOM(html, { runScripts: 'dangerously', pretendToBeVisual: true, url: 'http://localhost/', virtualConsole: vc });
 const win = dom.window;
@@ -855,7 +904,6 @@ win.confirm = () => true; win.alert = () => {};
   await new Promise(r => setTimeout(r, 100));
   const j = S.jobs[0];
   j.start = '2026-01-05';
-  win.autoSchedule();
   win.allSecs(j).forEach(({ s }) => { s.start = '2026-01-05'; s.days = 1; s.inst = true; s.pm = false; s.skip = false; });
 
   const msgs = win.conflicts().map(c => c.msg);
@@ -1226,9 +1274,17 @@ reflowed twenty minutes ago. Tolerable in a local scratchpad, not tolerable in a
 - Create: `fixtures/planner/freshness.js`
 
 **Interfaces:**
-- Consumes: `S.settings` (Task 3 established it is always an object).
+- Consumes: `S.settings` (Task 3 established it is always an object); `sections[].id` (Task 2).
 - Produces: `S.settings.loadedAt` (ISO string), `S.settings.exportedOn` (the payload's own date),
-  and `j.touchedAt` per pool.
+  `j.touchedAt` per pool, `s.base` per sub-phase (the imported baseline), and `divergedSecs(j)`.
+
+**Scope note, added mid-session.** Shane has asked for a batch write-back — "when finished press
+save to batch write back". That is spec Stage 2 and is **not** built here. But it changes the shape
+of this task, because a write-back's payload is precisely "what diverged from the last load", and
+computing that from a per-pool boolean is impossible. So this task records the baseline **per
+sub-phase** and derives the pool-level marker from it. The result is the same badge, over a
+structure the write-back can actually read. Cost of being wrong: a small snapshot in `localStorage`
+that nothing reads.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -1251,7 +1307,8 @@ const ok = (l, c, d = '') => { console.log((c ? 'PASS' : 'FAIL') + ' · ' + l + 
 
 const html = fs.readFileSync(PLANNER, 'utf8').replace('</body>',
   `<script>window.__x=()=>{window.S=S;window.allSecs=allSecs;window.importFromD2=importFromD2;
-    window.autoSchedule=autoSchedule;window.SEED_TEMPLATE=SEED_TEMPLATE;};</script><script>__x();</script></body>`);
+    window.autoSchedule=autoSchedule;window.SEED_TEMPLATE=SEED_TEMPLATE;
+    window.divergedSecs=divergedSecs;};</script><script>__x();</script></body>`);
 const vc = new VirtualConsole(); vc.on('jsdomError', e => console.log('[jsdom]', e.message));
 const dom = new JSDOM(html, { runScripts: 'dangerously', pretendToBeVisual: true, url: 'http://localhost/', virtualConsole: vc });
 const win = dom.window;
@@ -1267,10 +1324,11 @@ win.confirm = () => true; win.alert = () => {};
     app: 'D2 Pool Build Scheduler', kind: 'd2-sharepoint-export', exported: '2026-09-11',
     site: 'https://example', nonWork: ['2026-10-12'],
     jobs: [{
-      jobno: 'D2-1042', name: 'Reyes Residence', addr: '', city: '', start: '2026-09-08',
+      id: 19, jobno: 'D2-1042', name: 'Reyes Residence', addr: '', city: '', start: '2026-09-08',
       status: 'Active', pm: 'Cody Campbell',
       sections: secDefs.map((s, i) => ({
-        num: s.num, name: s.name, crewId: 'devon', start: '2026-09-08', finish: '2026-09-09',
+        id: 1000 + i, num: s.num, name: s.name, crewId: 'devon',
+        start: '2026-09-08', finish: '2026-09-09',
         days: 2, skip: false, locked: false, inst: false, pm: false,
         tasks: s.tasks.map((t, k) => ({ seq: k + 1, title: t, done: false, na: false }))
       }))
@@ -1292,6 +1350,23 @@ win.confirm = () => true; win.alert = () => {};
 
   const header = win.document.querySelector('header').textContent;
   ok('the header says how fresh the data is', /Live as of/i.test(header), header.slice(0, 120));
+
+  // --- the baseline, which the batch write-back will diff against (spec Stage 2) ---
+  const j2 = S.jobs.find(x => x.jobno === 'D2-1042');
+  ok('every imported sub-phase carries a baseline',
+     win.allSecs(j2).every(({ s }) => s.base && 'crewId' in s.base),
+     win.allSecs(j2).filter(({ s }) => s.base).length + ' of ' + win.allSecs(j2).length);
+  ok('the baseline holds the SharePoint row id',
+     win.allSecs(j2).every(({ s }) => s.base.id !== undefined));
+
+  // A crew change is divergence; a task tick is not -- the planner is not the
+  // authority on sign-off or ticks and must never write them back.
+  win.allSecs(j2)[0].s.crewId = 'antonio';
+  ok('a crew change shows as divergence', win.divergedSecs(j2).length === 1,
+     win.divergedSecs(j2).length + ' diverged');
+  win.allSecs(j2)[1].s.tasks[0].done = true;
+  ok('a task tick is NOT divergence', win.divergedSecs(j2).length === 1,
+     win.divergedSecs(j2).length + ' diverged');
 
   process.exit(fail);
 })();
@@ -1318,22 +1393,51 @@ In `importFromD2`, beside the `nonWork` assignment added in Task 3 — same posi
     S.settings.loadedAt=new Date().toISOString();
 ```
 
-and after the `plan.forEach` that writes the sections, clear the edited marker on every pool the
+and, still inside the `(inj.sections||[]).forEach(is=>{ ... })` loop that overlays each section,
+record what SharePoint said as the last statement of that loop body:
+
+```js
+        /* Baseline: exactly the fields SharePoint owns, as they arrived. Divergence
+           is a diff against this rather than a flag, so the same structure answers
+           "has this pool been edited here" and "what would a write-back send". */
+        s.base={id:is.id??null,crewId:s.crewId??null,start:s.start??null,
+                days:s.days??null,locked:!!s.locked,skip:!!s.skip};
+```
+
+Then after the `plan.forEach` that writes the sections, clear the edited marker on every pool the
 import touched, since it now matches D2 again:
 
 ```js
     plan.forEach(({inj})=>{const j=S.jobs.find(x=>String(x.jobno)===String(inj.jobno));if(j)delete j.touchedAt;});
 ```
 
+Note `s.base` is written **after** the overlay, so it captures the imported values rather than
+whatever was in the browser beforehand. A sub-phase the payload did not mention keeps no baseline,
+which is correct — SharePoint has never owned it.
+
 - [ ] **Step 4: Mark a pool edited when something rewrites it**
 
-Add the helper beside `jobStart`:
+Add two helpers beside `jobStart`:
 
 ```js
 /* Marks a pool as diverged from the last Load from D2. Everything that rewrites
    schedule or sign-off state calls this, so the header can say plainly whether
    what is on screen is still the live schedule. */
 function touch(j){ if(j) j.touchedAt=new Date().toISOString(); }
+
+/* Which sub-phases of this pool no longer match what SharePoint sent. Compares
+   only the fields SharePoint owns; sign-off and task ticks are deliberately not
+   in the baseline, because the planner has no attribution model for them and must
+   never be the authority on either. */
+function divergedSecs(j){
+  const out=[];
+  allSecs(j).forEach(({s})=>{
+    const b=s.base; if(!b)return;
+    if((s.crewId??null)!==b.crewId || (s.start??null)!==b.start ||
+       (s.days??null)!==b.days || !!s.locked!==b.locked || !!s.skip!==b.skip) out.push(s);
+  });
+  return out;
+}
 ```
 
 Call it from the four mutating paths:
@@ -1376,7 +1480,7 @@ and update it from `render()` — find the function and add near its top:
     fz.innerHTML = st.loadedAt
       ? `Live as of ${new Date(st.loadedAt).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}`
         + (st.exportedOn?` · export ${st.exportedOn}`:'')
-        + (edited?` · <b>${edited} pool${edited===1?'':'s'} edited here since</b>`:'')
+        + (edited?` · <b>${edited} pool${edited===1?'':'s'} edited here since (${S.jobs.reduce((n,j)=>n+divergedSecs(j).length,0)} sub-phases)</b>`:'')
       : 'Not loaded from D2';
   }
 ```
@@ -1671,7 +1775,21 @@ Stated so the boundary is explicit and a later reader does not think these were 
   hosting lane. `sharepoint/build-navigation.js` already carries the link commented out with the
   reasoning, and `pull-planner-link.js` removed it deliberately; leave both alone until there is
   somewhere to point.
-- **No write-back.** Stage 2.
+- **No write-back.** Stage 2, and now an explicit requirement rather than a someday: Shane asked
+  mid-session for "some sort of batch write-back — when finished press save to batch write back".
+  Two things here exist to serve it and nothing more: Task 2 exports the SharePoint row ids, and
+  Task 8 records a per-sub-phase baseline so divergence is a diff rather than a flag. The write-back
+  itself needs its own spec, because three questions are open and none has an obvious default — how
+  it authenticates (there is no credential from `file://`, so it is gated on the hosting and auth
+  lane, or on a companion console script mirroring how the export works today); what happens when
+  two PMs push overlapping edits (the spec says ETags with `If-Match` for direct row writes); and
+  whether a reflow goes as a `Reschedule Requests` row rather than as direct date writes, which is
+  what `D2 - Reschedule Pool` exists for.
+  **The field scope is already settled and must not widen:** crew, dates, duration, locked and skip.
+  Never sign-off, never task ticks. The planner's `inst`/`pm` are bare booleans with no attribution,
+  timestamp or notes, while SharePoint holds `InstallerSignOffBy`/`On` and `SignOffNotes`, so
+  writing them back would replace an attested sign-off with a flag. That is the standing reason the
+  nightly sync was descoped and it does not change.
 - **No fix for D8's other half** — the drawer's `all` / `none` bulk-tick links still offer a
   one-click route around the sign-off gate. Task 4 narrows them so they cannot silently resolve an
   N/A row, but the bulk tick itself stays. It only matters once the planner writes back, which is
