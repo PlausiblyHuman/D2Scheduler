@@ -89,6 +89,10 @@ tr.phrow .nm{background:#f8fafc;font-weight:650}
 .tk{display:flex;gap:7px;align-items:flex-start;padding:3px 0;font-size:12.5px;border-bottom:1px solid #f4f5f6}
 .tk input{margin-top:2px}
 .tk.done span{text-decoration:line-through;color:var(--muted)}
+.tk.na span{text-decoration:line-through;color:var(--muted)}
+.tk .natog{margin-left:auto;padding-left:8px;color:var(--muted);text-decoration:none;flex:0 0 auto}
+.tk .natog:hover{color:var(--ink)}
+.tk.na .natog{color:var(--warn);font-weight:600}
 .legend{display:flex;flex-wrap:wrap;gap:9px;padding:8px 13px;font-size:11.5px;align-items:center;border-bottom:1px solid var(--line)}
 .legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:4px;vertical-align:-1px}
 .bars{height:9px;background:#e5e7eb;border-radius:5px;overflow:hidden;min-width:110px}
@@ -246,7 +250,7 @@ function mkJobGroups(tpl){
   return tpl.map(g=>({tid:g.id,num:g.num,name:g.name,inst:false,pm:false,
     sections:g.sections.map(s=>({sid:s.id,num:s.num,name:s.name,skill:s.skill,days:s.days,
       crewId:null,start:null,skip:false,locked:false,inst:false,pm:false,
-      tasks:s.tasks.map(t=>({t,done:false}))}))}));
+      tasks:s.tasks.map(t=>({t,done:false,na:false}))}))}));
 }
 function nextJobNo(){
   const n=S&&S.jobs?S.jobs.reduce((m,j)=>{const t=String(j.jobno||'').match(/(\d+)\s*$/);
@@ -354,7 +358,14 @@ function spanOf(list){
 const jobSpan=j=>spanOf(allSecs(j).map(x=>x.s));
 
 /* ============================== sign-off + tasks ============================== */
-function secDone(s){const n=s.tasks.length;if(!n)return 1;return s.tasks.filter(t=>t.done).length/n;}
+/* Resolved, not done. Every task is Done, N/A or still to do; N/A is deliberate
+   exclusion carrying a reason on the SharePoint side, so a sub-phase with one N/A
+   and five done is FINISHED. The numeric label still reads 5/6, because
+   Assignments.TasksComplete counts genuinely-done only and this has to agree
+   with it. */
+function secCounts(s){const n=s.tasks.length;
+  return {n, done:s.tasks.filter(t=>t.done).length, na:s.tasks.filter(t=>t.na&&!t.done).length};}
+function secDone(s){const c=secCounts(s);if(!c.n)return 1;return (c.done+c.na)/c.n;}
 function grpSign(g,k){const act=g.sections.filter(s=>!s.skip);
   if(!act.length)return 'none';
   const n=act.filter(s=>s[k]).length;
@@ -588,9 +599,11 @@ function vSignoff(){
   return S.jobs.map(j=>{
     const secs=allSecs(j).filter(x=>!x.s.skip);
     const i=secs.filter(x=>x.s.inst).length,p=secs.filter(x=>x.s.pm).length;
-    const tot=secs.reduce((a,x)=>a+x.s.tasks.length,0),dn=secs.reduce((a,x)=>a+x.s.tasks.filter(t=>t.done).length,0);
+    const tot=secs.reduce((a,x)=>a+x.s.tasks.length,0),
+          dn=secs.reduce((a,x)=>a+secCounts(x.s).done,0),
+          na=secs.reduce((a,x)=>a+secCounts(x.s).na,0);
     return `<div class="card"><h2>${j.name} <span class="muted mono" style="text-transform:none">${esc(j.jobno||'')}</span><span class="sp"></span>
-      <span class="small" style="text-transform:none">Installer ${i}/${secs.length} · PM ${p}/${secs.length} · checklist ${dn}/${tot}</span></h2>
+      <span class="small" style="text-transform:none">Installer ${i}/${secs.length} · PM ${p}/${secs.length} · checklist ${dn}/${tot}${na?` · ${na} N/A`:''}</span></h2>
       <div class="pad" style="padding-bottom:0"><div class="tw2"><i style="width:${tot?dn/tot*100:0}%"></i></div></div>
       <table><thead><tr><th style="width:70px">#</th><th>Sub-phase</th><th style="width:130px">Crew</th><th style="width:150px">Dates</th>
         <th style="width:110px">Checklist</th><th style="width:130px">Sign-off</th></tr></thead><tbody>
@@ -693,6 +706,7 @@ let CUR=null;
 function editSec(jobId,gi,si){
   const j=S.jobs.find(x=>x.id===jobId),g=j.groups[gi],s=g.sections[si];CUR={jobId,gi,si};
   const cands=s.skill?qualified(s.skill):[],other=S.crews.filter(c=>!cands.includes(c));
+  const c=secCounts(s);
   document.getElementById('dTitle').textContent=`${j.name} › ${s.num} ${s.name}`;
   document.getElementById('dBody').innerHTML=`
     <div class="small muted" style="margin-bottom:9px">Phase ${g.num}.0 ${g.name}</div>
@@ -709,19 +723,22 @@ function editSec(jobId,gi,si){
       <label style="text-transform:none;font-size:13px;color:var(--ink)"><input type="checkbox" id="fInst" ${s.inst?'checked':''}> Installer</label>
       <label style="text-transform:none;font-size:13px;color:var(--ink)"><input type="checkbox" id="fPM" ${s.pm?'checked':''}> Project Manager</label></div>
     <div class="fld"><label>Crew availability on these dates</label><div id="avail" class="small"></div></div>
-    <div class="fld"><label>Checklist — ${s.tasks.filter(t=>t.done).length}/${s.tasks.length}
+    <div class="fld"><label>Checklist — ${c.done}/${c.n}${c.na?` · ${c.na} N/A`:''}
       <a href="#" class="small" style="text-transform:none" onclick="allTasks(true);return false">all</a> /
       <a href="#" class="small" style="text-transform:none" onclick="allTasks(false);return false">none</a></label>
-      <div id="tasks">${s.tasks.map((t,ti)=>`<div class="tk${t.done?' done':''}">
-        <input type="checkbox" ${t.done?'checked':''} onchange="tick(${ti},this.checked)"><span>${esc(t.t)}</span></div>`).join('')||'<span class="muted small">No tasks.</span>'}</div></div>`;
+      <div id="tasks">${s.tasks.map((t,ti)=>`<div class="tk${t.done?' done':''}${t.na&&!t.done?' na':''}">
+        <input type="checkbox" ${t.done?'checked':''} onchange="tick(${ti},this.checked)"><span>${esc(t.t)}</span>
+        <a href="#" class="small natog" title="Not applicable on this pool"
+           onclick="toggleNA(${ti});return false">${t.na?'N/A ✕':'N/A'}</a></div>`).join('')||'<span class="muted small">No tasks.</span>'}</div></div>`;
   document.getElementById('dFoot').innerHTML=`<button class="btn p" onclick="saveSec()">Save</button><button class="btn" onclick="closeDrawer()">Cancel</button>`;
   document.getElementById('drawer').classList.add('open');
   ['fCrew','fStart','fDays'].forEach(id=>document.getElementById(id).addEventListener('input',showAvail));
   showAvail();
 }
 function cur(){const j=S.jobs.find(x=>x.id===CUR.jobId);return j.groups[CUR.gi].sections[CUR.si];}
-function tick(ti,v){cur().tasks[ti].done=v;save();}
-function allTasks(v){cur().tasks.forEach(t=>t.done=v);save();editSec(CUR.jobId,CUR.gi,CUR.si);}
+function tick(ti,v){const t=cur().tasks[ti];t.done=v;if(v)t.na=false;save();}
+function toggleNA(ti){const t=cur().tasks[ti];t.na=!t.na;if(t.na)t.done=false;save();editSec(CUR.jobId,CUR.gi,CUR.si);}
+function allTasks(v){cur().tasks.forEach(t=>{if(!t.na)t.done=v;});save();editSec(CUR.jobId,CUR.gi,CUR.si);}
 function showAvail(){
   const s=cur(),start=document.getElementById('fStart').value,days=+document.getElementById('fDays').value||1;
   const el=document.getElementById('avail');
@@ -776,14 +793,14 @@ function applyTemplate(){if(!confirm('Rebuild every job from the template? Crew 
   S.jobs.forEach(j=>j.groups=mkJobGroups(S.template));autoSchedule();render();}
 
 function exportCSV(){
-  const rows=[['Job ID','Job Name','Street Address','City','State','ZIP','Phase #','Phase','Sub #','Sub-phase','Trade','Crew','Members','Start','End','Days','Checklist done','Checklist total','Installer','PM','Status']];
+  const rows=[['Job ID','Job Name','Street Address','City','State','ZIP','Phase #','Phase','Sub #','Sub-phase','Trade','Crew','Members','Start','End','Days','Checklist done','Checklist total','Checklist N/A','Installer','PM','Status']];
   S.jobs.forEach(j=>allSecs(j).forEach(({g,s})=>{
     if(s.skip)return;
     const c=s.crewId?crew(s.crewId):null,span=s.start?workSpan(s.start,s.days):[];
     const bad=s.skill&&(!c||!isQualified(c,s.skill));
     rows.push([j.jobno||'',j.name,j.addr,j.city||'',j.state||'',j.zip||'',g.num+'.0',g.name,s.num,s.name,s.skill?skillLabel(s.skill):'—',
       c?c.name:'',c?c.members.join(' / '):'',span[0]||'',span[span.length-1]||'',s.days,
-      s.tasks.filter(t=>t.done).length,s.tasks.length,s.inst?'YES':'',s.pm?'YES':'',bad?'NEEDS ATTENTION':'OK']);
+      secCounts(s).done,s.tasks.length,secCounts(s).na,s.inst?'YES':'',s.pm?'YES':'',bad?'NEEDS ATTENTION':'OK']);
   }));
   const csv=rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
   const a=document.createElement('a');
@@ -886,7 +903,7 @@ function importFromD2(file){
           is.tasks.forEach((it,i)=>{
             let t=(it.seq!=null&&s.tasks[it.seq-1])?s.tasks[it.seq-1]:s.tasks[i];
             if(!t&&it.title)t=s.tasks.find(x=>x.t===it.title);
-            if(t)t.done=!!it.done;
+            if(t){t.done=!!it.done;t.na=!!it.na;}
           });
         }
       });

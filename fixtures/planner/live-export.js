@@ -67,7 +67,7 @@ const live = JSON.parse(fs.readFileSync(FIXTURE, 'utf8'));
 
   /* ---- 2. import it into the real planner --------------------------- */
   let html = fs.readFileSync(PLANNER, 'utf8').replace('</body>',
-    `<script>window.__x=()=>{window.S=S;window.importFromD2=importFromD2;window.allSecs=allSecs;window.autoSchedule=autoSchedule;};</script><script>__x();</script></body>`);
+    `<script>window.__x=()=>{window.S=S;window.importFromD2=importFromD2;window.allSecs=allSecs;window.autoSchedule=autoSchedule;window.secDone=secDone;};</script><script>__x();</script></body>`);
   const vc = new VirtualConsole(); vc.on('jsdomError', e => console.log('[jsdom]', e.message));
   const dom = new JSDOM(html, { runScripts: 'dangerously', pretendToBeVisual: true, url: 'http://localhost/', virtualConsole: vc });
   const win = dom.window;
@@ -95,6 +95,17 @@ const live = JSON.parse(fs.readFileSync(FIXTURE, 'utf8'));
   const after = S.jobs.flatMap(j => win.allSecs(j).map(x => x.s));
   const movedSigned = after.filter((s, i) => s.inst && (s.crewId + '|' + s.start + '|' + s.inst) !== before[i]).length;
   ok('Auto-Schedule left signed work alone', movedSigned === 0, movedSigned + ' moved');
+
+  const naInPayload = payload.jobs.reduce((n, j) =>
+    n + j.sections.reduce((m, s) => m + s.tasks.filter(t => t.na).length, 0), 0);
+  const naInPlanner = win.S.jobs.reduce((n, j) =>
+    n + win.allSecs(j).reduce((m, x) => m + x.s.tasks.filter(t => t.na).length, 0), 0);
+  ok('N/A ticks landed in the planner', naInPlanner === naInPayload, naInPlanner + ' of ' + naInPayload);
+  ok('an all-resolved sub-phase reads 100%', (() => {
+    const s = win.S.jobs.flatMap(j => win.allSecs(j).map(x => x.s))
+      .find(s => s.tasks.length && s.tasks.every(t => t.done || t.na) && s.tasks.some(t => t.na));
+    return !s || win.secDone(s) === 1;
+  })(), 'resolved = done + N/A');
 
   console.log('\n' + (fail ? 'FAILURES ABOVE' : 'Live export round-trip clean: '
     + live.asg.length + ' assignments, ' + live.tasks.length + ' tasks, '
