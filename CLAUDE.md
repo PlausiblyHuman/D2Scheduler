@@ -1878,6 +1878,26 @@ first build used "Needs Attention" and pushed **Pools and Calendar into the over
 two things a PM opens most. Short labels, most-used first. Do not lengthen them without re-checking
 what survives the cut.
 
+**DEFAULT-VIEW SWEEP FINISHED 2026-09-11c, just before the client invite.** Two lists still
+landed on an unformatted `All Items`, the same defect already fixed on Assignments:
+
+| List | Was | Now |
+|---|---|---|
+| `Tasks` | `All Items`, ungrouped, 885 rows | **`All Tasks (by Assignment)`**, grouped and formatted |
+| `Jobs` | `All Items`, right columns but a plain grey table | `All Items` **with the `jobCard` formatter** |
+
+`Jobs` had no better view to promote, since `Planned Pools` is filtered to `Planned` only, so the
+card went onto `All Items` instead of switching the default. `format-views.js` now carries
+`['Jobs', 'All Items', jobCard]` so re-running it reproduces the tenant.
+
+**Verified as stored, NOT as rendered**, and the difference matters on this platform: the
+`chrome-devtools` MCP would not attach (its profile was locked by a running Chrome), so this was
+done through a throwaway probe flow, which can confirm `DefaultView` and a 1,483-character
+`CustomFormatter` are persisted but cannot prove the card paints. The formatter is byte-identical
+to the one already rendering correctly on `Planned Pools` over the same list and columns, which is
+why this was accepted. **Open both views in a browser when convenient** and treat it as unproven
+until then.
+
 **`Jobs` All Items showed only the Title column until 2026-09-10.** It is the list a PM is sent to
 for committing a pool, and it rendered three pool names and nothing else, which made the
 instruction "change Status to Active" impossible to follow. Now shows JobNumber, Status, Project

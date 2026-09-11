@@ -338,7 +338,13 @@
     ['Assignments', 'Conflicts', conflictCard],
     ['Tasks', 'All Tasks (by Assignment)', taskRow],
     ['Tasks', 'Incomplete Tasks', taskRow],
-    ['Jobs', 'Planned Pools', jobCard]
+    ['Jobs', 'Planned Pools', jobCard],
+    // Jobs' DEFAULT view. Added 2026-09-11c: it was the only list a PM is sent to
+    // whose landing view rendered as a plain grey table, which is the same defect
+    // already fixed on Assignments by making 'All Assignments' the default. Jobs has
+    // no better view to promote (Planned Pools is filtered to Planned only), so the
+    // card goes on All Items instead.
+    ['Jobs', 'All Items', jobCard]
   ];
 
   const results = [];
