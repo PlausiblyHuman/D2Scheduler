@@ -65,6 +65,24 @@
   const CALENDAR = '/sites/D2BuildScheduler/_layouts/15/groupstatus.aspx?Target=CALENDAR&Source=QuickLaunch';
   const APP = 'https://apps.powerapps.com/play/e/2710a01b-6cfa-e820-b338-2286f2649300/a/6bad1fae-7f3b-42d7-a63f-48a63e1e8771';
 
+  /* The browser planner, served as a DOWNLOAD rather than a page. An .html file
+     in a document library cannot render on this site (that IS the custom-script
+     mechanism, blocked by default and it reverts within 24 hours), but it can be
+     downloaded and opened locally, which is all this tool needs: it is entirely
+     self-contained and never touches the network.
+
+     download.aspx forces the download regardless of what SharePoint would
+     otherwise do with the file, so the link does not depend on preview
+     behaviour. Verified 2026-09-11 that the planner runs from file:// in Chrome
+     with localStorage working, and that a re-downloaded copy inherits the
+     previous copy's saved work (all local files share one storage bucket, and
+     the key is namespaced `poolsched.v6`).
+
+     DEPENDENCY: pool-scheduler.html must already be in the site's Documents
+     library or this link 404s. Upload it before running this script. */
+  const PLANNER = '/sites/D2BuildScheduler/_layouts/15/download.aspx'
+                + '?SourceUrl=/sites/D2BuildScheduler/Shared%20Documents/pool-scheduler.html';
+
   // 1 + 2. Site chrome.
   const chrome = await fetch(site + '/_api/web', {
     method: 'POST', credentials: 'include',
@@ -102,6 +120,10 @@
   await kid(pools, 'Start a New Pool',  L + 'New%20Pool%20Requests/AllItems.aspx');
   await kid(pools, 'Reschedule a Pool', L + 'Reschedule%20Requests/AllItems.aspx');
   await kid(pools, 'Remove a Pool',     L + 'Delete%20Pool%20Requests/AllItems.aspx');
+  // Sits under Pools rather than as its own tab: the horizontal bar overflows at
+  // four or five top-level items and Pools/Calendar were buried once already.
+  // Children are a flyout and cost nothing.
+  await kid(pools, 'Planner (download)', PLANNER);
 
   const attn = await top('Attention', A + 'Signoff%20Overdue.aspx');
   await kid(attn, 'Sign-off Overdue',   A + 'Signoff%20Overdue.aspx');

@@ -1456,6 +1456,47 @@ enumeration means it no longer needs a row to find an event. Any implementation 
 runs only (never incremental), a guard that refuses to delete when the Assignments read returned
 zero rows, and probably a cap on how many events one run may delete.
 
+**THE PLANNER IS DISTRIBUTED AS A SHAREPOINT DOWNLOAD, not a hosted page. Decided by Shane
+2026-09-11, and the constraint that forced it is the same custom-script block as ever.**
+
+An `.html` file in a document library cannot RENDER on this site. But it can be **downloaded** and
+opened locally, and that is all this tool needs, because it is entirely self-contained: no external
+scripts, no stylesheets, no `fetch`, no network of any kind.
+
+Link it with `download.aspx` so the link never depends on what SharePoint would otherwise do with
+an `.html` file:
+
+```
+/sites/D2BuildScheduler/_layouts/15/download.aspx?SourceUrl=/sites/D2BuildScheduler/Shared%20Documents/pool-scheduler.html
+```
+
+Living in the Documents library also means only people with site access can reach it, which
+settles the "public URL versus Entra sign-in" question without hosting anything.
+
+**Verified from `file://` in real Chrome on 2026-09-11, not assumed** (Playwright refuses the
+`file:` protocol, so this was driven with `chrome --headless=new --dump-dom` against an isolated
+profile):
+
+| Check | Result |
+|---|---|
+| Planner initialises from a local file | 14 crews, 46 sub-phases, Load from D2 button present |
+| `localStorage` on `file://` | **works**; `location.origin` is `file://` |
+| Work survives close and reopen | yes, `poolsched.v6` written and reloaded |
+| Work survives **re-download under a new name** (`pool-scheduler (1).html`) | **yes** |
+
+That last row is the one that makes this viable rather than a compromise: **all local files share
+one `file://` storage bucket per browser profile**, so shipping an updated planner does not cost a
+PM their saved work. The key is namespaced, so nothing else collides with it.
+
+**The tool can go stale even though the data cannot.** Every PM holds their own copy, while the
+schedule they load through "Load from D2" is always current. Keep the filename stable, replace in
+place, and tell people when to re-download. This is the same drift that produced the whole
+2026-09-11 episode, so it is worth a line in the guide rather than a hope.
+
+**`build-navigation.js` links it as a child of Pools**, not a top-level tab, because the horizontal
+bar overflows at four or five items and Pools and Calendar were buried by exactly that once before.
+**The file must be uploaded before the nav script runs**, or the link 404s.
+
 **HEADLESS SHAREPOINT READS WITHOUT A BROWSER — the recipe, now exercised end to end.**
 
 The `az` routes do **not** work for SharePoint list data, both confirmed 2026-09-11: an
