@@ -1,135 +1,131 @@
-# 2026-09-10a — Edit form, Crew as Choice, the group calendar, and a client-facing PM guide
+# 2026-09-11a — The planner gets connected, and an overnight quality review
 
-**Session goal:** Shane opened on the edit form still looking messy, free-text fields that invite
-errors, and wanting the calendar reassessed. It ended with a client-facing guide, a staged tenant
-and the pre-pilot cleanup gate run.
+**Session goal:** Shane asked where to host `pool-scheduler.html` so the PM guide could link to it.
+Checking the file first turned that into a different question: *"this is a bigger fox that just got
+missed. if the html isn't up to date what's the point?"* It wasn't up to date, in three separate
+ways. The session became: connect the planner to SharePoint, then review the whole solution.
+
+## The finding that reframed the night
+
+The browser planner had **no connection to SharePoint at all**. Zero `fetch`, `localStorage` only,
+manual Backup/Restore. It seeded three fictional California pools of its own (Harrison, Vasquez,
+Bell Canyon) that match nothing in the tenant. It had sat untouched since **2026-08-13** while every
+design decision in this project happened around it.
+
+Worse, **two patches the repo said were applied were not.** CLAUDE.md described
+`patched-tool/pool-scheduler.html` carrying an Auto-Schedule determinism fix, with a README and a
+diff beside it. `git log --diff-filter=D` shows **that directory never existed** — described in the
+original handoff, never migrated. Same for `seed-data/`. So the only copy of the planner had
+neither patch, and CLAUDE.md had been telling every session otherwise for three weeks.
+
+Hosting was the wrong question. A URL would have published a stale tool.
 
 ## What shipped
 
-**1. The Assignments edit form is formatted.** Navy header carrying the title plus crew and
-sign-off chips, the 13 fields grouped into four named sections in job order, and a footer stating
-the crew-code rule where the mistake happens. `SubPhaseNumber` / `SubPhaseName` marked readonly.
+**1. Both missing patches applied, and measured.**
 
-The wrapper key names are **`headerJSONFormatter` / `bodyJSONFormatter` / `footerJSONFormatter`**
-and are documented nowhere. Three plausible shapes were tried first and all three returned 204,
-round-tripped byte-for-byte, and rendered nothing. The real shape was captured by making
-SharePoint's own Format pane write one. Reaching that pane needs a real CDP click on a list-view
-row; synthetic events only select it.
+- Determinism: the load table was seeded from `crewLoad()`, which counts *every* assignment, so run
+  2 inherited run 1's own tiebreaks. Now seeded from **locked** assignments only, matching how
+  `busy` is seeded, plus `|| a.id.localeCompare(b.id)` as a stable secondary sort key.
+  **4 of 138 crew picks drifted per re-run before; 0 after.**
+- Subcontractors: `unlimited:true` on george, armondo, stl, brothers, so they are capacity-exempt
+  per business rule 2. The diff had been sitting unapplied in `Subcontractor-Crew-Patch.md`.
 
-**2. Summary emails repainted** into navy/green/cream, and the invalid `<p><div>` wrapper removed.
-**The colours live in two actions, not one:** repainting `Compose_body` left every table deep link
-teal, because those rows come from `Append_row` inside the loop. The definition read clean while
-the emails did not.
+**2. `sharepoint/export-to-planner.js`** — reads Jobs + Assignments + Tasks from the site and
+downloads the live schedule. Read-only. Field names read off the write bodies in
+`flows/exports/D2-New-Pool-*.json`, then **verified against live rows**.
 
-**3. `Assignments.Crew` converted Text to Choice.** A real dropdown of the 14 codes. Ten sites
-changed across seven flows, plus three in the canvas app, each read off a real payload. The canvas
-app also needed its **data source refreshed in Studio** or every `.Value` resolved to `Error`.
+**3. The planner gained "Load from D2", which MERGES by job number.** `Restore` swaps the whole
+state and would destroy a pool a PM had sketched locally; this leaves local-only pools alone.
+Structure always comes from the local phase template, so only what SharePoint owns is overlaid:
+crew, dates, duration, flags, task ticks. **Signed-off and locked sub-phases import as `locked`**,
+so a later Auto-Schedule cannot move completed work — the same rule `D2 - Reschedule Pool` applies
+server-side.
 
-The counter-intuitive finding, proven on a throwaway list first: **a Choice column does not
-validate REST writes.** `Devon Crew +3` returns 201. The validation guard is still the only thing
-that rejects it, so both are needed. A `SchemaXml` MERGE also **silently wipes ValidationFormula**.
+**4. The three phantom demo pools are gone.** A first run now opens empty and points at Load from D2.
 
-**4. `D2 - Calendar Sync` built** (flow 13). Nightly 04:30 Central, one all-day event per in-scope
-sub-phase on the site's M365 group calendar. The Outlook connector **cannot reach a group
-calendar** (`Invalid resource, Allowed values: me,users`); `shared_office365groups` is Standard tier
-and can. Its connection created silently, no consent needed. All-day `end` is **exclusive**.
+**5. Tests, where there were none.** `oracle-test.js` **could not run at all**: it required jsdom
+from `/tmp/node_modules` and read the planner from a build-sandbox path. Repaired, and it now seeds
+its own two pools, because with the demo pools removed most of its invariants passed **vacuously**
+over zero assignments. `fixtures/planner/` adds four harnesses. `npm test` runs all five: **46
+passing, 2 failing**, both failures the long-documented data gaps.
 
-**5. Tenant staged and the cleanup gate run.** Harrison and both TEST pools deleted (282 tasks, 43
-assignments, 3 jobs, zero failures). The three demo pools reflowed to 85% / 28% / 2% complete with
-sign-offs attributed to Cody and Emon and four deliberate misses.
+Scores on the same harness: **committed file 13/16 with idempotency FAILING, patched file 14/16.**
+14/16 is exactly what CLAUDE.md always claimed for the phantom `patched-tool/`.
 
-**6. Site chrome is app-shaped.** `HorizontalQuickLaunch` gives real header tabs on a GROUP site,
-`HeaderEmphasis` paints the band, and `zoneEmphasis` gives the home page colour bands where inline
-CSS would be sanitised away. Nav rebuilt around what a PM opens.
+**6. End-to-end proof against real data.** `fixtures/planner/live-export.js` runs the real export
+script with `fetch` stubbed to serve live payloads, then imports the result into the real planner.
+**138 assignments, 885 tasks, 47 sign-offs, 398 ticks, nothing dropped.**
 
-**7. A client-facing PM guide**, eight drafts, published as an artifact.
+## Quality review
+
+Read headlessly via a throwaway probe flow (created, used, **deleted** — the environment is back to
+14 D2 flows plus `Generate estimate`, all Started).
+
+**Repaired:** ten Assignments rows carried `ConflictWith` text describing dates the rows no longer
+had, e.g. a row scheduled `2026-06-29 -> 06-30` flagged *"harrison also on D2-1042, 2 day(s) from
+2026-10-05"*. Conflict Flag is nightly at 05:00 and the pools were reflowed at 14:33, so the flags
+had been wrong and visible in the Conflicts view for ~16 hours. Ran Conflict Flag: **10 -> 0**,
+verified by re-reading the rows.
+
+**Corrected:** *"The Office 365 Groups connector has no list-events operation, so Calendar Sync
+cannot self-heal"* was half right, and the wrong half closed off the better fix. There is no list
+*operation*, but the connector exposes **`HttpRequestV2`**, a Graph passthrough, and
+`GET /groups/{id}/events` through it **succeeded in 124 ms** with paging. So the Delete Pool
+ghost-events gap can be closed inside Calendar Sync by enumerating the calendar, which heals
+orphans from any cause. Deliberately not implemented: enumeration means a sweep no longer needs a
+row to find an event, so a wrong "what should exist" set could delete the whole calendar.
+
+**Everything else green:** row counts exact; demo staging matches; 0 signed-off sub-phases
+scheduled into the future; 0 required-but-null; 0 counter drift; 0 unknown crew codes; 0
+double-books; calendar 138 events / 138 event ids / 138 distinct, no orphans; **all 14 flow exports
+match live by content**, all Started; one failure in 48h, from that flow's own build session.
 
 ## Files touched
 
-- `CLAUDE.md` — form-formatter shape, the Choice conversion, the group calendar, cleanup-gate state, site chrome, the Delete Pool gap
-- `sharepoint/configure-assignments-form.js` — step 5, the form formatter
-- `sharepoint/guard-crew-values.js` — `SP.FieldChoice`, and why the guard must stay
-- `sharepoint/build-navigation.js` — new
-- `sharepoint/build-home-page.js` — calendar link, section emphasis
-- `canvas-app/src/Src/Screen1.pa.yaml` — `Crew.Value` in three places
-- `flows/exports/*` — eight flows re-exported, each verified by content
+- `D2-Build-Scheduler/D2-Build-Scheduler/app/pool-scheduler.html` — both patches, Load from D2, seed removed
+- `sharepoint/export-to-planner.js` — new
+- `fixtures/planner/` — new: 4 harnesses, a 148 KB live capture, README
+- `oracle-test.js` — repaired so it can run, and self-seeds
+- `CLAUDE.md` — the phantom directories, the Groups correction, the reflow findings, the audit
+- `README.md`, `package.json`, `.gitignore`
 
 ## Commits
 
-`6e6b76d`, `3c808e3`, `a3b2065`, plus this one.
+`a02db78`, `deb3906`, `201e680`, `a4fa58a`
 
 ## Decisions
 
-- **Choice over a Power Apps custom form** for the crew picker. Bounded and enumerable work versus
-  unbounded UI construction that would also have replaced the form formatter built the same day.
-- **The validation guard stays** alongside the Choice column. They are complements: Choice
-  constrains the form, the guard constrains REST.
-- **Active pools only on the calendar**, consistent with dispatch and the summaries.
-- **Cleanup gate run early** so the guide's screenshots would not carry `TEST-9002` to a client.
-- **Sign-offs attributed to Cody and Emon**, matching the pilot model rather than inventing users.
-- **Guide is third person throughout**, no second person and no em dashes. Shane: it is targeted at
-  the PMs, not written to them.
-- **The "why this exists" opening was cut.** It read as preachy and spoke on Don and David's behalf.
+- **Merge by job number, not replace.** Safe whether the planner is a viewer or still a planning
+  surface, so it did not need Shane awake to decide.
+- **Carry progress, not just dates**, so a Gantt bar reads done / in flight / not started.
+- **One way only.** The planner has no sign-off model (bare `inst`/`pm` booleans, no attribution),
+  so writing back would overwrite attested work with a flag. The nightly sync stays descoped.
+- **Structure from the local template, never the file**, so a partial payload cannot corrupt it.
+- **No test pool created.** Verifying the Delete Pool fix end to end needs a create/delete cycle,
+  and the cleanup would leave rows in client-facing request lists that cannot be removed without
+  browser access.
+- **The guide was not republished.** The planner paragraph is still accurate, and improving it is
+  tied to the hosting decision.
 
-## Open
+## Open / needs Shane
 
-- **`D2 - Delete Pool` leaves ghost calendar events.** Cause understood, fix blocked on a Dataverse
-  connection reference; two edit attempts failed and rolled back cleanly.
-- **Nobody at D2 has access yet.** The group has one member, so every link in the guide fails for
-  the four of them, and the summaries still send only to `stratirus@d2pools.com`.
-- **Whether members can be stopped from editing the group calendar** directly. Unverified Exchange
-  route recorded; the guide already warns that edits are overwritten nightly.
-- Durations are still a 2-day placeholder on every template row.
-
-## Later the same session (after the first checkpoint)
-
-**8. Site chrome and navigation.** `sharepoint/build-navigation.js`. Three native levers, none
-needing the page editor: `Web.HorizontalQuickLaunch` turns a GROUP team site's left rail into
-**header tabs**; `Web.HeaderEmphasis` paints the header band; and `zoneEmphasis` on a canvas
-section gives the home page real colour bands, which matters because inline CSS inside
-`data-sp-rte` is stripped by the rich-text sanitiser.
-
-Nav rebuilt around what a PM opens: Home, Today, This Week, Pools, Attention, Calendar, Sign-off
-App, Lists. The horizontal bar cuts to an overflow at four or five items and the owner-only "Edit
-navigation" link competes for the space, so the first build buried Pools and Calendar. Short
-labels, most-used first.
-
-`Jobs` All Items showed only the Title column, which made the guide's own instruction to change
-Status impossible to follow. Fixed.
-
-**9. Calendar Sync went hourly and incremental.** 04:30 full sweep plus 06:30 to 18:30 Central.
-Going hourly without changing anything else would have cost ~1,800 Groups calls a day at three
-pools and ~6,000 at ten, against a shared seeded-licence allowance. `Compose_mode` branches on the
-Central hour; incremental runs append `and Modified ge '<utcNow-2h>'`. The overlapping window
-self-heals a missed run with no state row to corrupt.
-
-**The safety property:** `Filter_orphans` is fed an empty array on incremental runs. Without it an
-incremental run sees only recently-changed rows and concludes every other event is an orphan,
-deleting the whole calendar. Tested that case first: idle incremental 3.8s with 138 events intact;
-touch one row and re-run, 5s, `Update_event` fires exactly once, still 138, zero duplicates.
-
-**10. The PM guide went through eight drafts**, mostly on voice. Second person removed entirely
-(Shane: it is targeted at the PMs, not written to them), em dashes removed, and a "why this exists"
-opening cut for reading as preachy and speaking on Don and David's behalf. Instructions rewritten
-click-by-click after Shane pointed out they assumed the reader already knew SharePoint. Shane then
-edited it directly from the artifact page, removing the beta/welcome framing entirely so it reads
-as a reference guide; the fictional-pools note and feedback routing survive in the footer and
-closing section. Local source was rebased onto his version and the placeholder build pipeline
-retired, so a stale rebuild cannot resurrect the cut section.
-
-## Open at wrap
-
-- **`D2 - Delete Pool` still leaves ghost calendar events.** Cause understood, fix blocked on a
-  Dataverse connection reference for the Groups connector.
-- **`HeaderEmphasis` was changed 3 to 0 in the script but may not be applied to the live site.**
-  The browser profile was locked and the `az` SharePoint token is not consented, so it could not be
-  verified. Re-run `build-navigation.js` in the browser console and hard-reload to confirm.
-- **Nobody at D2 has access**, and the summary emails still send only to `stratirus@d2pools.com`.
-- **First hourly Calendar Sync runs fire 04:30 Central on 2026-09-11.** Worth a glance at the first
-  few, since that schedule has never run unattended.
-- `flows/exports/` still keeps multiple dated generations per flow.
+1. **Hosting.** Still Azure Static Web Apps free tier at an unguessable URL, now worth doing because
+   the tool is current. Open question: wide open, or behind Entra restricted to the D2 tenant.
+2. **`D2 - Reschedule Pool` never writes `Jobs.StartDate`**, so it drifts permanently. Whitfield
+   reads `2026-09-21` on the Jobs list while its first assignment starts `2026-06-15` and the pool
+   finishes `2026-09-30`. Likely fix: write it only when `FromSequence` is 1. That is a product
+   call.
+3. **`ConflictWith` staleness window** between a reflow and the next 05:00 sweep. Cheap fix: the
+   reflow calls Conflict Flag, or nulls `ConflictWith` on rows it moves.
+4. **Calendar Sync self-healing sweep** now unblocked. Needs the guards written down in CLAUDE.md.
+5. **This morning, before anything else:** add David, Don, Emon and Cody to the group, and repoint
+   the summary emails. Deliberately still undone — access must not land before the introduction
+   email.
+6. **First unattended hourly Calendar Sync fires 04:30 Central today.** Had not run at wrap
+   (00:54 CT). Worth a glance.
 
 ## Next action
 
-Add David, Don, Emon and Cody to the group, set the PMs on the three pools, point the summary
-emails at the real audience, then send the guide.
+Decide hosting, then publish the planner and add the link to the guide. Grant the four their access
+in the morning.
