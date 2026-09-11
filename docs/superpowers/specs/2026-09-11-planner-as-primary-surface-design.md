@@ -6,9 +6,15 @@ Design spec, 2026-09-11. Author: Claude, for Shane Talbot.
 client-facing **Phase 2**. Two numbering schemes are in play deliberately: D2 hears "Phase 2",
 the repo says "Phase H", and H continues the A-G lettering that matches the AzDo epics.
 
-**It is NOT pre-pilot work.** Shane's call at the go-live cut: ship the current system today on
-the SharePoint surface, then shift gears. That takes the Azure subscription off the critical
-path of a calendar-locked week, which was the largest risk in the first draft of this spec.
+**RESEQUENCED: H RUNS AHEAD OF PHASES E AND F.** Shane's call on 2026-09-11c, as an immediate
+need. An earlier note here said the opposite; that reasoning rested on the Azure subscription
+being client-gated, which turned out to be false, and the remainder of it now argues for going
+first. The office gets trained **once**, on the surface it keeps, rather than on SharePoint views
+in Phase F and again afterwards.
+
+Consequences, carried in full under Risks below: Phase F's Day 2 training material has to be
+rewritten, the PM guide already sent to the client needs reissuing, and the five parity
+divergences move onto the critical path.
 
 ---
 
@@ -346,11 +352,16 @@ picking STL Shotcrete for an `@office` sub-phase raises no error at all; and `au
 busy map does not exempt `unlimited` crews while `busyMap()` does, so a subcontractor can be
 skipped as busy in violation of rule 2's capacity exemption. Fix both in Stage 2.
 
-**Training twice, accepted deliberately.** Phase F trains the office on SharePoint views, and
-Phase H retrains them on the hosted planner. The first draft of this spec avoided that by
-shipping before the pilot; the 2026-09-11c decision takes the retraining cost in exchange for
-not putting a client-gated Azure signup in front of a calendar-locked phase. Budget the
-retraining into Phase 2 rather than discovering it there.
+**Training once, now that H goes first.** Phase F trains the office on whatever the office
+surface is when it runs, so with H ahead of it that is the hosted planner and there is no
+retraining. **But Phase F's Day 2 material currently documents the SharePoint views** and has to
+be rewritten before Phase F runs. That is a tracked task, not an afterthought.
+
+**Piloting on a new interface is the risk this sequencing buys.** Phase E exists to test the
+system under real work. If the UI is also new, interface bugs and system bugs surface together
+and are hard to tell apart, which is exactly the failure mode recorded for the canvas app, where
+three simultaneous faults produced a confident wrong conclusion. Mitigate by exercising the
+planner against the three demo pools before Phase E, so the pilot is not its first real use.
 
 **The client has already seen the planner and is expecting that finish.** They get the
 SharePoint surface first. Someone needs to tell David and Don explicitly that the UI is Phase 2,

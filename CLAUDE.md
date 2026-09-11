@@ -297,10 +297,10 @@ workstreams had no week and were silently lost as a result.
 | **B** | Automation — the flows | **Discovery** | **Done** | `D2-Phase-B-Automations-Runbook.md` |
 | **C** | Field app — canvas sign-off | Effort + discovery | **Done** | `D2-Phase-C-Field-App-Spec.md` |
 | **D** | Readiness — office surface, client prerequisites, real data | **Human-gated** | **In progress, blocking** | `D2-Phase-D-Readiness-Runbook.md` |
-| **E** | Pilot — one real pool, parallel run | **Calendar** | Not started | `D2-Phase-E-Pilot-Runbook.md` |
-| **F** | Cutover — training, go-live, support | **Calendar** | Not started | `D2-Phase-F-Cutover-Runbook.md` |
+| **E** | Pilot — one real pool, parallel run | **Calendar** | Not started, **after H** | `D2-Phase-E-Pilot-Runbook.md` |
+| **F** | Cutover — training, go-live, support | **Calendar** | Not started, **after H** | `D2-Phase-F-Cutover-Runbook.md` |
 | **G** | Deferred backlog — post-go-live | Effort | Not started | (below) |
-| **H** | Presentation layer — the hosted planner becomes the office surface | **Effort** | Not started | `docs/superpowers/specs/2026-09-11-planner-as-primary-surface-design.md` |
+| **H** | Presentation layer — the hosted planner becomes the office surface | **Effort** | **NEXT, runs ahead of E and F** | `docs/superpowers/specs/2026-09-11-planner-as-primary-surface-design.md` |
 
 **Phase H is the build phase inside the client-facing "Phase 2". Two numbering schemes are
 deliberate:** D2 hears "Phase 2", the repo says "Phase H", and H continues the A-G lettering
@@ -313,8 +313,33 @@ answer is to host the thing they already approved rather than build a rival to i
 Web Apps in D2's own tenant, MSAL delegated Graph reads, D2 brand repaint, with SharePoint
 Lists still the database and all fourteen flows still the engine. The sequencing decision that
 matters is that **this is explicitly NOT pre-pilot work** — ship the current system on the
-SharePoint surface, then shift gears — which keeps a client-gated Azure signup off the critical
-path of a calendar-locked week. Cost of that choice, accepted: the office gets trained twice.
+SharePoint surface, then shift gears.
+
+**RESEQUENCED 2026-09-11c, later the same day: H RUNS AHEAD OF E AND F.** Shane's call, an
+immediate need. The morning's reasoning for putting it after the pilot rested on the Azure signup
+being client-gated, and that turned out to be false (Shane holds admin rights). What is left of
+that reasoning argues the other way: shipping H first means the office is **trained once**, on the
+surface they will actually keep, instead of being trained on SharePoint views in Phase F and again
+afterwards.
+
+**Three knock-on effects, all real work rather than blockers:**
+
+1. **Phase F's Day 2 office training material is now wrong.** It walks through
+   "Views drop-down > This Week by Crew" and the rest of the SharePoint surface. It has to be
+   rewritten against the hosted planner before Phase F runs. This file already records what
+   happens when training docs go stale, so treat it as a tracked task, not a detail.
+2. **The PM guide just went to the client describing the surface H replaces.** Version 5 of
+   `a84a2e1a-…` was sent on 2026-09-11c. It needs reissuing once H lands, and the client will see
+   the churn, so the Phase 2 framing in the invite is doing real work.
+3. **The five parity divergences are now on the critical path**, not deferred. D7, D2, D8, D9 and
+   D4 all produce visibly wrong output once the planner is primary, and the Work Calendar HOLD
+   lifts immediately rather than eventually.
+
+**The risk to hold in mind:** Phase E exists to test the system under real work. Piloting on a
+brand-new UI means interface bugs and system bugs arrive together, and this file already records
+how expensive that is — three faults masking each other on the canvas app produced a confident
+wrong answer. If H lands close to E, get the planner exercised on the demo pools first so the
+pilot is not the first real use.
 
 Three things a future session should not have to rediscover:
 
@@ -337,6 +362,10 @@ Three things a future session should not have to rediscover:
 
 **A–F match the AzDo Epic letters**, which is why the letters were preserved rather than
 renumbered when G was added.
+
+**THE LETTERS ARE NOT THE RUNNING ORDER.** They are AzDo Epic labels and creation order. As of
+2026-09-11c the actual sequence is **A, B, C, D, H, E, F**, with G as a standing backlog. H was
+specced last and runs next.
 
 **Phase D is not sequential.** It runs alongside A–C and **gates E**. Almost all of it moves at
 client speed, so it must be tracked separately from work that compresses. The honest status line
@@ -1993,8 +2022,11 @@ SharePoint's white header. A real header photo must come from D2's own project p
 ## NEXT SESSION — PHASE H (checkpoint written 2026-09-11c)
 
 **Read `sessions/latest.md` first.** The system went live to the client this session: David, Don,
-Emon and Cody have access, both summaries reach them, and the invite email has been sent. The
-office surface is SharePoint and stays that way through the pilot.
+Emon and Cody have access, both summaries reach them, and the invite email has been sent.
+
+**PHASE H IS NEXT AND RUNS AHEAD OF THE PILOT.** Resequenced late on 2026-09-11c. The office
+surface is SharePoint *today*, but it is not what Phase F will train on, so do not invest in the
+SharePoint surface beyond keeping it working.
 
 **The next phase is the presentation layer.** Spec is written and approved in principle:
 `docs/superpowers/specs/2026-09-11-planner-as-primary-surface-design.md`. Host the browser planner
@@ -2031,6 +2063,15 @@ palette, and let it become the office surface while SharePoint stays the databas
 5. **Capture a real Graph payload before writing any mapping code**, into
    `fixtures/planner/live-payloads-graph.json`. Graph is a **third** field-shape surface alongside
    raw REST and the connector, and the existing REST fixture does not validate it.
+
+**Created by the resequencing, and easy to forget:**
+
+- **Rewrite Phase F Day 2 office training.** It documents the SharePoint views and will be wrong
+  once H lands. `D2-Phase-F-Cutover-Runbook.md`, Steps 5 and 6.
+- **Reissue the PM guide.** Version 5 of `a84a2e1a-…` went to the client on 2026-09-11c describing
+  the surface H replaces.
+- **Exercise the planner on the three demo pools before Phase E**, so the pilot is not the first
+  real use of a new interface. Piloting on an untested UI mixes interface bugs with system bugs.
 
 **Carried over, not Phase H:**
 
