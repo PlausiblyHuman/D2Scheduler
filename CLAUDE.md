@@ -366,6 +366,35 @@ model could not express, because it implied we were mid-Phase-C and on schedule.
   closing, add a `SuppressReconcile` boolean set in the same `Create item` call and one clause in
   Flow 3's gate.
 
+- **Editing a duration should reflow the pool by itself. Raised by Shane 2026-09-11c.** Today
+  `DurationDays` is recorded and *nothing moves*: the dates only change when someone raises a
+  `Reschedule Requests` row. That is two steps for what reads like one action, and the PM guide has
+  to carry a callout explaining it, which is the tell that the behaviour is wrong rather than the
+  documentation. Likely shape: add `DurationDays` to Event-Driven Reconciliation's version-history
+  gate (which already watches `Crew`, `ScheduledStart` and `ScheduledFinish`) and have it raise a
+  Reschedule request from that row's `Sequence`. Think about two things first: a PM correcting six
+  durations in a row would fire six reflows, so it wants debouncing or a "reflow now" action rather
+  than a per-edit trigger; and `D2 - Reschedule Pool` sets `SuppressReconcileUntil` on every row it
+  writes, so the interaction between that suppression window and a duration-triggered reflow needs
+  working through rather than assuming.
+
+- **Conflict detection should cover the subcontractor crews. Raised by Shane 2026-09-11c.**
+  `D2 - Conflict Flag`'s `Get_crews` filters `Active eq 1 and Unlimited ne 1`, and Event-Driven and
+  Nightly Reconciliation carry the same `Unlimited` exemption, so `stl`, `george`, `armondo`,
+  `brothers`, `subcon`, `unassigned` and `office` are never flagged as double-booked.
+
+  **This is a business-rule change, not a filter change, and that is the whole difficulty.** Rule 2
+  as written says an `Unlimited` crew never contributes to the busy map, deliberately, because a
+  subcontractor can field more than one team on a day. Removing the exemption outright would flag
+  every legitimate two-pool day STL works and the alerts would be ignored within a week, which is
+  the same failure already documented for a naive rule-1 check firing on null trades. What is
+  actually wanted is a *capacity* per crew rather than a boolean: `stl` can be on two pools but
+  probably not five. `Crews.Size` already exists and is unused for this. Until someone decides what
+  each subcontractor's real limit is, which is a question for Don, there is nothing to build.
+
+  The PM guide no longer claims subcontractors are excluded, so nothing client-facing has to change
+  when this lands.
+
 ---
 
 ## Estimating — measure what bounds the work, not hours
