@@ -270,7 +270,7 @@
       <table>
         <tr><td>The site</td><td>Every pool's schedule, and the views for reading it by day, by week, by crew or by pool.</td></tr>
         <tr><td>The calendar</td><td>Which pool is being worked on when, in Outlook and Teams.</td></tr>
-        <tr><td>The morning email</td><td>What is scheduled today, and how much recently finished work has been signed off.</td></tr>
+        <tr><td>The email summaries</td><td>What is scheduled today, and how much recently finished work has been signed off. Daily, plus a weekly on Friday.</td></tr>
         <tr><td>The phone app</td><td>Today's tasks, ticked off and signed on site.</td></tr>
       </table>
     </div>
@@ -281,10 +281,9 @@
     </div>
 
     <div class="note watch">
-      <span class="label">Two things are still to be switched on</span>
+      <span class="label">Still to be switched on</span>
       <p><strong>Field crew leads do not have D2 accounts yet.</strong> The crews are in the system and can be scheduled normally, but they carry no email address, so the automatic dispatch to crews is not being sent. Cody and Emon sign off on the crews' behalf in the meantime, which is why the sign-offs already recorded carry their names.</p>
-      <p><strong>The daily and weekly summaries are going to Stratirus for review</strong> rather than to Don and David. Pointing them at the real recipients is a one-line change once the content has been read on a real week.</p>
-      <p>Both are switch-ons rather than build work, and neither changes anything described in this guide.</p>
+      <p>That is a switch-on rather than build work, and it changes nothing described in this guide.</p>
     </div>
   </section>
   <section id="calendar">
@@ -303,12 +302,12 @@
           <table>
             <tr><td>What appears</td><td>Every sub-phase of every <strong>Active</strong> pool. A pool becomes Active when the PM commits it, which is covered under <a href="#life">The life of a pool</a> below. Planned and On Hold pools are not shown.</td></tr>
             <tr><td>Marked free</td><td>Blocks are set to "free", so they never make anyone look busy or block a meeting invitation.</td></tr>
-            <tr><td>Updates</td><td>Overnight. A change made this afternoon appears on the calendar in the morning.</td></tr>
+            <tr><td>Updates</td><td>Hourly through the working day, 06:30 to 18:30, with a full rebuild at 04:30. A change made this morning is on the calendar within the hour.</td></tr>
           </table>
         </div>
         <div class="note watch">
           <span class="label">Edits made here do not stick</span>
-          <p>The calendar is rebuilt from the schedule each night, so anything changed directly on a calendar entry is overwritten. Change the sub-phase in the Build Scheduler and the calendar follows.</p>
+          <p>The calendar is rebuilt from the schedule, so anything changed directly on a calendar entry is overwritten at the next refresh. Change the sub-phase in the Build Scheduler and the calendar follows.</p>
         </div>
       </div>
     </div>
@@ -602,6 +601,37 @@
 
 
 
+  <section id="tasks">
+    <p class="eyebrow">Day to day</p>
+    <h2>Changing a checklist</h2>
+    <p class="lede">Every sub-phase carries its own list of tasks, around six of them, written when the pool is built. Roughly 295 across a whole pool.</p>
+    <div class="task">
+      <div class="task-body">
+        <p>Ticking tasks off is normally done on site, in the sign-off app. This is how to correct a checklist from the office: fixing wording, excluding something that does not apply, or adding a step the template did not know about.</p>
+        <p><strong>To find them:</strong> in the top menu click <strong>Lists</strong>, then <strong>Incomplete Tasks</strong> for everything still outstanding, grouped by sub-phase. Each group header is the sub-phase the tasks belong to.</p>
+        <div class="tablewrap">
+          <table>
+            <tr><th>To do this</th><th>Change this</th></tr>
+            <tr><td>Tick one off</td><td>Set <strong>Complete</strong> to Yes.</td></tr>
+            <tr><td>Exclude one</td><td>Set <strong>Not Applicable</strong> to Yes and type why in <strong>Note</strong>. For materials that never arrived, an inspection still pending, or a step that does not apply to this pool.</td></tr>
+            <tr><td>Reword one</td><td>Edit <strong>Title</strong>.</td></tr>
+            <tr><td>Change the order</td><td>Edit <strong>Sequence</strong>. Tasks show in this order everywhere.</td></tr>
+            <tr><td>Add one</td><td><strong>New</strong>, then set <strong>Assignment</strong> to the sub-phase it belongs to and give it a Sequence.</td></tr>
+            <tr><td>Remove one</td><td>Select the row and delete it. Excluding it is usually better, because a Not Applicable task keeps its reason on the record.</td></tr>
+          </table>
+        </div>
+        <div class="note watch">
+          <span class="label">The count catches up the next morning</span>
+          <p>The "5 of 6" figure on a sub-phase, in the summary emails and on the calendar, is stored on the sub-phase rather than counted fresh each time. <strong>Adding or deleting a task leaves that figure disagreeing with the list until 05:30 the following morning</strong>, when it is recalculated automatically. Ticking a task off is reflected as soon as you leave the sub-phase. Nothing is lost either way, the number is just briefly behind.</p>
+        </div>
+        <div class="note watch">
+          <span class="label">The site does not enforce the sign-off rules</span>
+          <p>In the app, a signed-off sub-phase is locked, and reopening it records who did it and when. Editing tasks here goes around that. <strong>If something was signed off and the work was not actually done, reopen it in the app</strong> rather than changing the tasks underneath a signature that says the work was finished.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <section id="signoff">
     <p class="eyebrow">In the field</p>
     <h2>The sign-off app</h2>
@@ -663,10 +693,11 @@
       </div>
 
       <div class="trap">
-        <h3>The overnight jobs run once a night</h3>
-        <p>The calendar, the summary emails and the nightly checks are all built once a night, before the working day.
-           <strong>The views on the site are always live</strong>, so anything entered during the day shows immediately
-           there. It is the calendar, the emails and the flags that catch up the following morning.</p>
+        <h3>Some things catch up later</h3>
+        <p><strong>The views on the site are always live</strong>, so anything entered during the day shows there
+           immediately. The shared calendar refreshes hourly through the working day. The summary emails and the
+           overnight checks, including the conflict and crew-qualification flags and the task counts, are built once
+           a night before the working day starts, so those catch up the following morning.</p>
       </div>
 
       <div class="trap">
