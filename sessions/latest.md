@@ -81,6 +81,54 @@ CSS would be sanitised away. Nav rebuilt around what a PM opens.
   route recorded; the guide already warns that edits are overwritten nightly.
 - Durations are still a 2-day placeholder on every template row.
 
+## Later the same session (after the first checkpoint)
+
+**8. Site chrome and navigation.** `sharepoint/build-navigation.js`. Three native levers, none
+needing the page editor: `Web.HorizontalQuickLaunch` turns a GROUP team site's left rail into
+**header tabs**; `Web.HeaderEmphasis` paints the header band; and `zoneEmphasis` on a canvas
+section gives the home page real colour bands, which matters because inline CSS inside
+`data-sp-rte` is stripped by the rich-text sanitiser.
+
+Nav rebuilt around what a PM opens: Home, Today, This Week, Pools, Attention, Calendar, Sign-off
+App, Lists. The horizontal bar cuts to an overflow at four or five items and the owner-only "Edit
+navigation" link competes for the space, so the first build buried Pools and Calendar. Short
+labels, most-used first.
+
+`Jobs` All Items showed only the Title column, which made the guide's own instruction to change
+Status impossible to follow. Fixed.
+
+**9. Calendar Sync went hourly and incremental.** 04:30 full sweep plus 06:30 to 18:30 Central.
+Going hourly without changing anything else would have cost ~1,800 Groups calls a day at three
+pools and ~6,000 at ten, against a shared seeded-licence allowance. `Compose_mode` branches on the
+Central hour; incremental runs append `and Modified ge '<utcNow-2h>'`. The overlapping window
+self-heals a missed run with no state row to corrupt.
+
+**The safety property:** `Filter_orphans` is fed an empty array on incremental runs. Without it an
+incremental run sees only recently-changed rows and concludes every other event is an orphan,
+deleting the whole calendar. Tested that case first: idle incremental 3.8s with 138 events intact;
+touch one row and re-run, 5s, `Update_event` fires exactly once, still 138, zero duplicates.
+
+**10. The PM guide went through eight drafts**, mostly on voice. Second person removed entirely
+(Shane: it is targeted at the PMs, not written to them), em dashes removed, and a "why this exists"
+opening cut for reading as preachy and speaking on Don and David's behalf. Instructions rewritten
+click-by-click after Shane pointed out they assumed the reader already knew SharePoint. Shane then
+edited it directly from the artifact page, removing the beta/welcome framing entirely so it reads
+as a reference guide; the fictional-pools note and feedback routing survive in the footer and
+closing section. Local source was rebased onto his version and the placeholder build pipeline
+retired, so a stale rebuild cannot resurrect the cut section.
+
+## Open at wrap
+
+- **`D2 - Delete Pool` still leaves ghost calendar events.** Cause understood, fix blocked on a
+  Dataverse connection reference for the Groups connector.
+- **`HeaderEmphasis` was changed 3 to 0 in the script but may not be applied to the live site.**
+  The browser profile was locked and the `az` SharePoint token is not consented, so it could not be
+  verified. Re-run `build-navigation.js` in the browser console and hard-reload to confirm.
+- **Nobody at D2 has access**, and the summary emails still send only to `stratirus@d2pools.com`.
+- **First hourly Calendar Sync runs fire 04:30 Central on 2026-09-11.** Worth a glance at the first
+  few, since that schedule has never run unattended.
+- `flows/exports/` still keeps multiple dated generations per flow.
+
 ## Next action
 
 Add David, Don, Emon and Cody to the group, set the PMs on the three pools, point the summary
