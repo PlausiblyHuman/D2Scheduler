@@ -39,6 +39,11 @@ input[type=checkbox]{width:auto;accent-color:var(--accent);cursor:pointer}
 .skill{background:#eef2ff;color:#3730a3;margin:1px 3px 1px 0;cursor:pointer;user-select:none;border-color:#e0e7ff}
 .skill.off{background:#f3f4f6;color:#9ca3af;border-color:#e5e7eb}
 .sub{background:#f1f5f9;color:#475569;border-color:#e2e8f0}
+.chip.jb{margin-left:6px;text-transform:none;letter-spacing:0}
+.chip.jb.planned{background:#fef3c7;color:#92400e;border-color:#fde68a}
+.chip.jb.hold{background:#e5e7eb;color:#4b5563;border-color:#d1d5db}
+.chip.jb.other{background:#e0e7ff;color:#3730a3;border-color:#c7d2fe}
+.chip.jb.local{background:#f1f5f9;color:#64748b;border-color:#e2e8f0}
 .muted{color:var(--muted)}.small{font-size:11.5px}
 .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
 /* timeline */
@@ -260,9 +265,21 @@ function nextJobNo(){
 function newJob(name,addr,city,state,zip,start){
   return {id:'j'+Math.random().toString(36).slice(2,8),jobno:nextJobNo(),
     name,addr,city:city||'',state:state||'',zip:zip||'',start,
+    status:null,          // null = exists only in this browser, never raised in D2
     groups:mkJobGroups(S?S.template:mkTemplate())};
 }
 const fullAddr=j=>[j.addr,j.city,[j.state,j.zip].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+/* A pool's state, from `Jobs.Status` on the SharePoint side. Planned and On Hold
+   pools are deliberately still drawn on every board and still raise conflicts --
+   a PM choosing dates wants to know a new pool collides with a live one, which is
+   why the reflow's own conflict sweep is tenant-wide too. Only the label was
+   missing, not the behaviour. */
+function jobBadge(j){
+  if(!j.status)return '<span class="chip jb local" title="Sketched here, not yet raised in D2">Local only</span>';
+  if(j.status==='Active')return '';
+  const cls=j.status==='Planned'?'planned':j.status==='On Hold'?'hold':'other';
+  return `<span class="chip jb ${cls}" title="Jobs.Status in D2">${esc(j.status)}</span>`;
+}
 function load(){
   try{const raw=localStorage.getItem(KEY);if(raw){S=JSON.parse(raw);S.settings=S.settings||{};syncNonWork();return;}}catch(e){}
   S={crews:JSON.parse(JSON.stringify(SEED_CREWS)),template:mkTemplate(),jobs:[],settings:{}};
@@ -496,7 +513,7 @@ function vBoard(){
     const jbar=(js&&ax.idx[js]!=null)
       ? bandRow(ax,ax.idx[js],Math.max(1,(ax.idx[je]??ax.idx[js])-ax.idx[js]+1),`<div class="jobbar" style="background:#94a3b8"></div>`)
       : emptyRow(ax);
-    let html=`<tr class="jobrow"><td class="nm"><div class="nmflex"><span class="t">${j.name} <span class="muted small mono">${esc(j.jobno||'')}</span></span>
+    let html=`<tr class="jobrow"><td class="nm"><div class="nmflex"><span class="t">${j.name} <span class="muted small mono">${esc(j.jobno||'')}</span>${jobBadge(j)}</span>
       <span class="muted small">${pretty(js)} → ${pretty(je)}</span></div></td>${jbar}</tr>`;
     j.groups.forEach((g,gi)=>{
       const ck=`${j.id}/${gi}`, col=UI.collapsed[ck];
@@ -607,7 +624,7 @@ function vSignoff(){
     const tot=secs.reduce((a,x)=>a+x.s.tasks.length,0),
           dn=secs.reduce((a,x)=>a+secCounts(x.s).done,0),
           na=secs.reduce((a,x)=>a+secCounts(x.s).na,0);
-    return `<div class="card"><h2>${j.name} <span class="muted mono" style="text-transform:none">${esc(j.jobno||'')}</span><span class="sp"></span>
+    return `<div class="card"><h2>${j.name} <span class="muted mono" style="text-transform:none">${esc(j.jobno||'')}</span>${jobBadge(j)}<span class="sp"></span>
       <span class="small" style="text-transform:none">Installer ${i}/${secs.length} · PM ${p}/${secs.length} · checklist ${dn}/${tot}${na?` · ${na} N/A`:''}</span></h2>
       <div class="pad" style="padding-bottom:0"><div class="tw2"><i style="width:${tot?(dn+na)/tot*100:0}%"></i></div></div>
       <table><thead><tr><th style="width:70px">#</th><th>Sub-phase</th><th style="width:130px">Crew</th><th style="width:150px">Dates</th>
@@ -645,7 +662,7 @@ function vJobs(){
     <td><input value="${esc(j.zip)}" onchange="setJob('${j.id}','zip',this.value)" style="width:72px" placeholder="ZIP"></td>
     <td><input type="date" value="${j.start}" onchange="setJob('${j.id}','start',this.value)"></td>
     <td class="small muted">${pretty(a)} → ${pretty(b)}</td>
-    <td class="small">${allSecs(j).filter(x=>!x.s.skip).length} active</td>
+    <td class="small">${allSecs(j).filter(x=>!x.s.skip).length} active ${jobBadge(j)}</td>
     <td style="text-align:right"><button class="btn sm d" onclick="delJob('${j.id}')">Delete</button></td></tr>`;}).join('')}
   </tbody></table>
   <div class="hint">New jobs are built from the Phase Template. Mark a sub-phase "not applicable" in its editor to skip it on one pool.</div></div>`;
@@ -886,12 +903,13 @@ function importFromD2(file){
       let j=existing;
       if(!j){
         j=newJob(inj.name||'Pool',inj.addr||'',inj.city||'',inj.state||'',inj.zip||'',inj.start||todayStr());
-        j.jobno=inj.jobno; S.jobs.push(j);
+        j.jobno=inj.jobno; j.status=inj.status||'Active'; S.jobs.push(j);
       }else{
         if(inj.name)j.name=inj.name;
         if(inj.addr!=null)j.addr=inj.addr;
         if(inj.city!=null)j.city=inj.city;
         if(inj.start)j.start=inj.start;
+        if(inj.status)j.status=inj.status;
       }
       const map=bySec(j);
       (inj.sections||[]).forEach(is=>{

@@ -83,6 +83,8 @@ const live = JSON.parse(fs.readFileSync(FIXTURE, 'utf8'));
   ok('no sub-phase failed to match the template', !alerts.some(a => /matched nothing/.test(a)),
      alerts.join(' | ').slice(0, 120));
   ok('3 pools in the planner', S.jobs.length === 3, S.jobs.map(j => j.jobno).join(','));
+  ok('pool status landed', win.S.jobs.every(j => typeof j.status === 'string' && j.status.length > 0),
+     win.S.jobs.map(j => j.jobno + '=' + j.status).join(' '));
   const all = S.jobs.flatMap(j => win.allSecs(j).map(x => x.s));
   ok('138 sub-phases landed', all.length === live.asg.length, all.length + '');
   ok('sign-offs landed', all.filter(s => s.inst).length === liveSigned, all.filter(s => s.inst).length + '');
