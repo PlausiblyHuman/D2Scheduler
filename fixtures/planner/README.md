@@ -10,6 +10,7 @@ node fixtures/planner/determinism.js
 node fixtures/planner/roundtrip.js
 node fixtures/planner/empty.js
 node fixtures/planner/workcalendar.js
+node fixtures/planner/schedulecheck.js
 node oracle-test.js         # the original 16-invariant harness (repo root)
 ```
 
@@ -20,6 +21,7 @@ node oracle-test.js         # the original 16-invariant harness (repo root)
 | `empty.js` | A first-run browser seeds no phantom pools and still renders. |
 | `live-export.js` | The real `sharepoint/export-to-planner.js` run against **captured live payloads**, then imported into the real planner. Pins the whole pipeline: 138 assignments, 885 tasks, 47 sign-offs, 398 ticks, nothing dropped. |
 | `workcalendar.js` | The planner's spans match SharePoint's. Before the fix, 2 of 138 live assignments rendered a day short, both crossing Columbus Day 2026-10-12. |
+| `schedulecheck.js` | Schedule Check no longer warns on PM sign-off, which `PMSignOff` never gets set by anything real. Installer sign-off is still checked. |
 
 `roundtrip.js` builds its payload from the planner's own `SEED_TEMPLATE`, in the
 exact shape `sharepoint/export-to-planner.js` emits. `live-export.js` goes further

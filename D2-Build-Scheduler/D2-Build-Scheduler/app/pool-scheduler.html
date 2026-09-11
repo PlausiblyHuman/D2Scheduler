@@ -402,7 +402,12 @@ function conflicts(){
       if(prevEnd&&s.start<=prevEnd)out.push({lvl:'err',msg:`<b>${ref}</b> — starts ${pretty(s.start)}, on or before the prior sub-phase ends (${pretty(prevEnd)}).`});
       const end=workSpan(s.start,s.days).pop();
       prevEnd=end;
-      if(end<T&&(!s.inst||!s.pm))out.push({lvl:'warn',msg:`<b>${ref}</b> — finished ${pretty(end)} but still missing ${!s.inst&&!s.pm?'Installer and PM sign-off':(!s.inst?'Installer sign-off':'PM sign-off')}.`});
+      /* Installer sign-off only. `Assignments.PMSignOff` is written false once at
+         pool creation and read by no flow, no view and not by the field app, so
+         warning on it produced one unclearable item per finished sub-phase and
+         drowned the checks that are real. The PM checkboxes and counts stay --
+         when PM sign-off becomes a workflow, this check comes back with it. */
+      if(end<T&&!s.inst)out.push({lvl:'warn',msg:`<b>${ref}</b> — finished ${pretty(end)} but still missing Installer sign-off.`});
       const cc=s.crewId?crew(s.crewId):null;
       if(cc&&!cc.unlimited)workSpan(s.start,s.days).forEach(d=>{byDay[s.crewId]=byDay[s.crewId]||{};(byDay[s.crewId][d]=byDay[s.crewId][d]||[]).push({j,s});});
     });
