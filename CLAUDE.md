@@ -1567,6 +1567,25 @@ duplicates.
   because re-arming welcome mail would also fire for the ~7 crew leads added later. Turn them back
   on only deliberately.
 
+- **SITE RIGHTS VERIFIED 2026-09-11c: the four can edit pools, sub-phases and tasks.** Read from
+  the live site rather than inferred, via a throwaway probe flow:
+
+  | Checked | Result |
+  |---|---|
+  | `D2 Build Scheduler Members` role | **Edit** |
+  | `D2 Build Scheduler Owners` / `Visitors` | Full Control / Read |
+  | What is in the Members group | one principal, the claim `c:0o.c\|federateddirectoryclaimprovider\|7b305c56-…`, i.e. the M365 group itself |
+  | Lists breaking permission inheritance | **0 of 18** |
+
+  So M365 group membership flows straight through to Edit on every list, `Jobs`, `Assignments`,
+  `Tasks` and all three request lists included, with no list-level exception to trip over. Edit
+  covers add, edit and delete of items, which is everything the PM guide asks a PM to do.
+
+  Two consequences worth knowing rather than acting on. Edit on a team site also permits creating
+  and deleting **lists**, which is more than a PM needs but is the standard Members level and not
+  worth tightening. And a PM can delete `Assignments` and `Tasks` rows by hand rather than through
+  `D2 - Delete Pool`; the guide steers them to the request list, but nothing enforces it.
+
 - **The tenant has DUPLICATE accounts for two of these people. Join on `userPrincipalName`.**
   Don Borgeson exists as both `don@d2pools.com` and `contact@d2pools.com`, both enabled, same
   display name. David Taylor exists as `david@d2pools.com` and as a **guest**
@@ -2504,7 +2523,22 @@ Two implementation details worth keeping:
 - **Crew is displayed by `Crews.Title`, joined on `CrewID`.** A per-row `Filter_crew` inside the loop resolves the short code to the friendly name, so ownership sees `Devon Crew +3`, not `devon`. Same join rule as everywhere else.
 - Week boundaries: `weekStart = today + (1 - dayOfWeek(today))` -> Monday, `weekEnd = weekStart + 5` -> Saturday. Verified from a Thursday run producing 2026-08-31..2026-09-05.
 
-**Recipient is `stratirus@d2pools.com` on both, deliberately.** Switching to Don (or Don + David) is a one-token edit in each `Send_summary` action. Do not point these at a client inbox until the content has been reviewed on a real cadence. Reaffirmed 2026-09-05: still internal, because ~90% of the rows either summary can see are `TEST-900x`.
+**BOTH SUMMARIES NOW GO TO THE REAL AUDIENCE. Changed 2026-09-11c on Shane's call.**
+`emailMessage/To` on each `Send_summary` is now
+`stratirus@d2pools.com;david@d2pools.com;don@d2pools.com;cody@d2pools.com;emon@d2pools.com`.
+Stratirus stays on the list deliberately, so a broken summary is seen by us at the same time as by
+the client. The previous instruction here, to keep them internal until the content had been reviewed
+on a real cadence, is satisfied: the content was reviewed 2026-09-05, three defects were fixed, the
+palette was corrected 2026-09-10, and the `TEST-900x` rows that made the figures meaningless were
+deleted 2026-09-10.
+
+Edited with FlowAgent `edit_flow` using **`merge` on `actions/Send_summary/inputs/parameters`**,
+which is the right shape here for two reasons worth remembering. The parameter key is literally
+`emailMessage/To`, so it **contains the `/` that `edit_flow` uses as a path separator** and cannot
+be addressed as a path at all. And `merge` leaves `Subject`, `Body` and `Importance` untouched, so
+the 2,700-character HTML body never has to be retyped. Verified on the published row after
+`PublishXml`: `To` correct on both, all four parameter keys intact, `Body` still the 26-character
+`@{outputs('Compose_body')}` reference with `Compose_body` holding the full navy/green HTML.
 
 **RESOLVED 2026-09-05 — the weekly compliance percentage was measuring work that had not happened yet.** Found by reviewing the rendered previews rather than the run status; both flows had been green since they were built.
 
