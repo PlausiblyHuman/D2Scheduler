@@ -1263,7 +1263,7 @@ the same time, and a surprising row is not automatically a bug in this session's
 | Delete Pool Requests | 0 (cleared 2026-09-08, same reason) | `b1ea3db6-7870-4648-80c2-7fe8414ecfd7` |
 | Sub-phase Template | 46 (one row per sub-phase; read by `D2 - New Pool`) | `453e7cd5-f84a-4e2a-9372-73f26019e3f0` |
 | Task Template | 295 (one row per task across the 46 sub-phases) | `61824add-8eaa-4b1b-aed7-a202204bf9f5` |
-| Reschedule Requests | build-time test rows, not yet cleared (see `cleanup.js` below); read by `D2 - Reschedule Pool` | `31ada231-3937-4d72-9abf-8677f07c3fea` |
+| Reschedule Requests | **3** (the 2026-09-10 demo-pool reflows, all `Done` -- legitimate history, not test litter) | `31ada231-3937-4d72-9abf-8677f07c3fea` |
 
 **Flow status (table originally closed out Phase B on 2026-09-05; rows 6 onward are later
 additions and the table was never renumbered, corrected 2026-09-08 after it undercounted the
@@ -1413,14 +1413,137 @@ real-looking job numbers.
 **KNOWN GAP, unfixed: `D2 - Delete Pool` does not remove calendar events, so deleting a pool
 strands them.** `D2 - Calendar Sync` finds orphans by querying Assignments rows that still carry a
 `CalendarEventId`; once the row is deleted the event is unreachable. The cleanup gate proved it by
-stranding 43 events, which were cleared by hand over Graph. **The Office 365 Groups connector has no
-list-events operation**, so Calendar Sync cannot self-heal; the fix has to be Delete Pool removing
-each event before its row. Two `edit_flow` attempts failed and rolled back cleanly (flow untouched,
+stranding 43 events, which were cleared by hand over Graph. **CORRECTED 2026-09-11: the connector has no list-events *operation*, but it DOES have a Graph
+passthrough that reaches group events, so Calendar Sync CAN be made to self-heal.** See the
+Groups-passthrough entry below. The original claim here was half right and the wrong half was
+load-bearing: it closed off the better fix. Delete Pool removing each event before its row is
+still an option, but it only covers orphans that Delete Pool itself creates. Two `edit_flow` attempts failed and rolled back cleanly (flow untouched,
 48 actions): adding a *new* connector to that solution-aware flow needs a Dataverse connection
 reference that does not exist, and **both `autoResolveConnectionRefs: true` and `false` fail with
 the same misleading error**, naming `new_sharedsharepointonline_beb06` and the pre-existing
 `Set_status_deleting` action rather than the connector actually missing. Next attempt should create
 the connection reference first, or add the action in the designer.
+
+**THE OFFICE 365 GROUPS CONNECTOR HAS A GRAPH PASSTHROUGH THAT REACHES GROUP EVENTS. Proven
+2026-09-11, and it reopens the Delete Pool ghost-events fix.**
+
+`shared_office365groups` exposes **`HttpRequestV2`** ("Send an HTTP request V2", params `Uri`,
+`Method`, `Body`, `ContentType`, `CustomHeader1..5`). A probe flow called:
+
+```
+GET https://graph.microsoft.com/v1.0/groups/7b305c56-.../events?$select=id,subject&$top=3
+```
+
+and it **succeeded in 124 ms**, returning `value` plus an `@odata.nextLink`. So the calendar can be
+enumerated after all.
+
+**Do not confuse this with the Outlook connector's passthrough**, which is genuinely restricted
+(`Invalid resource, Allowed values: me,users`) and is what the 2026-09-10 note was about. Two
+different connectors, two different scopes. That note's conclusion, "Calendar Sync cannot
+self-heal", does not follow and has been corrected above.
+
+**What this unblocks.** Calendar Sync's `Filter_orphans` currently finds orphans by looking at
+Assignments rows that still carry a `CalendarEventId` but have fallen out of scope. An event whose
+row was *deleted* is unreachable that way. With the passthrough it could instead enumerate the
+calendar, diff against the set of `CalendarEventId` values held in Assignments, and delete whatever
+is left over. That heals ghosts from **any** cause, not just Delete Pool, and needs no change to the
+destructive Delete Pool flow.
+
+**NOT IMPLEMENTED, deliberately, and think hard before doing it.** This makes a full sweep capable
+of deleting every event on the calendar if the "what should exist" side is ever computed wrong. It
+is the same hazard already documented for `Filter_orphans` on incremental runs, but worse, because
+enumeration means it no longer needs a row to find an event. Any implementation needs: full-sweep
+runs only (never incremental), a guard that refuses to delete when the Assignments read returned
+zero rows, and probably a cap on how many events one run may delete.
+
+**HEADLESS SHAREPOINT READS WITHOUT A BROWSER — the recipe, now exercised end to end.**
+
+The `az` routes do **not** work for SharePoint list data, both confirmed 2026-09-11: an
+`az account get-access-token --resource https://netorgft15040037.sharepoint.com` token is issued
+but every REST call returns **401**, and the `az` Graph token carries no `Sites.*` scope (it has
+`Directory.AccessAsUser.All`, `Group.ReadWrite.All`, `User.ReadWrite.All` and friends, which is why
+*group calendar* reads over Graph do work while *list* reads do not).
+
+The throwaway-probe-flow route works and takes about five minutes:
+
+1. `create_flow` with a `Recurrence` trigger, `state: "Stopped"`, and read-only
+   `HttpRequest` actions against `shared_sharepointonline`.
+2. Dataverse `PublishXml` against the returned workflowid, then `publish_flow`, then `run_flow`.
+3. Read each action's `outputsLink` — **SAS-signed, so fetch it with no auth header**.
+4. `delete_flow`.
+
+**The `connectionRefs` shape is FLAT and getting it wrong costs a 400.** Not
+`{"connection": {"connectionReferenceLogicalName": ...}}`, which is how some export readers present
+it. Copy it verbatim from an export's `connectionReferences`:
+
+```json
+{"shared_sharepointonline": {
+   "connectionName": "shared-sharepointonl-20b83f29-d689-437e-b1ff-930f7bf3fda4",
+   "connectionReferenceLogicalName": "new_sharedsharepointonline_beb06",
+   "source": "Embedded",
+   "id": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+   "tier": "Standard", "apiName": "sharepointonline"}}
+```
+
+Two more: **`create_flow` auto-injects the `$authentication` / `$connections` parameters but
+`update_flow` does not** (`InvalidPowerFlow ... missing the required parameter '$authentication'`),
+so include them yourself on any update. And the SharePoint action is
+`operationId: "HttpRequest"` with the flattened parameter keys `parameters/method`,
+`parameters/uri`, `parameters/headers`, `parameters/body`.
+
+**A REFLOW LEAVES TWO DERIVED SURFACES STALE. Found 2026-09-11 by auditing live data.**
+
+`D2 - Reschedule Pool` rewrites Assignments dates correctly, but two things computed from those
+dates are not refreshed, and both are visible to a PM.
+
+- **`Jobs.StartDate` is never written by a reflow.** The flow reads `NewStartDate` off its trigger
+  to decide where the walk begins and never writes it back to the Jobs row. Live proof: all three
+  demo pools show a `Jobs.StartDate` weeks to months adrift from their own first assignment.
+
+  | Pool | `Jobs.StartDate` | first assignment actually starts |
+  |---|---|---|
+  | D2-1042 Reyes | 2026-09-14 | 2026-09-08 |
+  | D2-1043 Whitfield | 2026-09-21 | **2026-06-15** |
+  | D2-1044 Salcedo | 2026-09-28 | **2026-08-10** |
+
+  Whitfield reads as starting in ten days on the Jobs list while it has been running since June and
+  finishes 2026-09-30. `Jobs` is the list a PM is sent to in order to commit a pool, so this is on a
+  screen people use. Not fixed here: whether a reflow *should* move the job's own start date is a
+  product decision (a reflow from sequence 5 clearly should not), and the honest fix is probably
+  "write it only when `FromSequence` is 1".
+
+- **`Assignments.ConflictWith` goes stale between a reflow and the next 05:00 sweep.**
+  `D2 - Conflict Flag` is nightly, so a reflow during the day leaves the previous night's flags in
+  place, describing dates the rows no longer have. Ten rows were carrying exactly that, e.g. a row
+  scheduled `2026-06-29 -> 06-30` flagged *"harrison also on D2-1042 Reyes Residence, 2 day(s) from
+  2026-10-05"*. **Cleared 2026-09-11** by running Conflict Flag manually; 10 flagged rows became 0,
+  which also proves `Condition_needs_clear` / `Send_conflict_clear` work. The window remains: the
+  cheap fix is for the reflow to call Conflict Flag, or at minimum to null `ConflictWith` on every
+  row it moves.
+
+**LIVE DATA AUDIT, 2026-09-11 (read headlessly via the probe recipe above). Everything else green:**
+
+| Checked | Result |
+|---|---|
+| Row counts vs this file | **exact** — Jobs 3, Assignments 138, Tasks 885, Work Calendar 210, Sub-phase Template 46, Task Template 295, Crews 14, Trades 26, Crew-Trades 51 |
+| Demo pool staging vs the table above | **matches** — Whitfield 37 past / 35 signed / 251 of 295 tasks, Salcedo 13 / 11 / 121, Reyes 1 / 1 / 26 |
+| Four deliberately-unsigned sub-phases | present (jobs 19 and 21) |
+| Signed-off work scheduled to finish in the future | **0** (the reflow's lock rule held) |
+| Required-but-null `Locked`/`NotApplicable`/`PMSignOff`/`DurationDays` | **0 rows** |
+| `TasksComplete > TasksTotal` | **0** |
+| Unknown crew codes | **none** |
+| Business rule 2, non-`Unlimited` crew on two pools the same day | **0 double-books** |
+| Group calendar | **138 events, 138 rows carrying an event id, 138 distinct — no orphans, no duplicates** |
+| All 14 D2 flow exports vs live, **by content** | **14/14 match**, all `Started` |
+| Flow failures in the last 48h | 1, `D2 - Reschedule Pool` on 2026-09-09 11:57 during its own build session; 6 successes since |
+| `Crews.LeadEmail` | still blank on all 7 field crews (client-gated, expected) |
+| Durations | still uniformly 2.0 (the documented placeholder) |
+
+**`Reschedule Requests` is NOT holding test litter, corrected 2026-09-11.** The deployed-state table
+above said "build-time test rows, not yet cleared". The three rows in it are the legitimate
+2026-09-10 demo-pool reflows (`D2-1042`, `D2-1043`, `D2-1044`, all `Done`). Leave them: like the
+three `New Pool Requests` rows they read as a PM's real request history, which is what those lists
+are for.
 
 **SITE CHROME: the site now has HEADER TABS, and all three levers are native and scriptable
 (2026-09-10).** `sharepoint/build-navigation.js`. The left rail was stock SharePoint noise (Home,
