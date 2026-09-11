@@ -335,8 +335,8 @@ function autoSchedule(){
   S.jobs.forEach(j=>allSecs(j).forEach(({s})=>{
     if(s.locked&&s.crewId&&s.start&&!s.skip)load[s.crewId]=(load[s.crewId]||0)+s.days;
   }));
-  [...S.jobs].sort((a,b)=>a.start.localeCompare(b.start)).forEach(j=>{
-    let cursor=nextWork(j.start);
+  [...S.jobs].sort((a,b)=>jobStart(a).localeCompare(jobStart(b))).forEach(j=>{
+    let cursor=nextWork(jobStart(j));
     allSecs(j).forEach(({s})=>{
       if(s.skip)return;
       const adv=st=>nextWork(addCal(workSpan(st,s.days).pop(),1));
@@ -373,6 +373,16 @@ function spanOf(list){
   return [a,b];
 }
 const jobSpan=j=>spanOf(allSecs(j).map(x=>x.s));
+/* The earliest date this pool actually has work on, which is NOT always
+   `j.start`. `D2 - Reschedule Pool` rewrites the Assignments dates without
+   writing Jobs.StartDate back, so an imported pool's own field can sit months
+   after its first sub-phase. autoSchedule() uses this to order pools and to seed
+   each pool's cursor, and a drifted value anchors the whole pool late. */
+function jobStart(j){
+  let a=j.start||null;
+  allSecs(j).forEach(({s})=>{if(s.skip||!s.start)return;if(!a||s.start<a)a=s.start;});
+  return a||todayStr();
+}
 
 /* ============================== sign-off + tasks ============================== */
 /* Resolved, not done. Every task is Done, N/A or still to do; N/A is deliberate
