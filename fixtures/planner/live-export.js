@@ -67,7 +67,7 @@ const live = JSON.parse(fs.readFileSync(FIXTURE, 'utf8'));
 
   /* ---- 2. import it into the real planner --------------------------- */
   let html = fs.readFileSync(PLANNER, 'utf8').replace('</body>',
-    `<script>window.__x=()=>{window.S=S;window.importFromD2=importFromD2;window.allSecs=allSecs;window.autoSchedule=autoSchedule;window.secDone=secDone;};</script><script>__x();</script></body>`);
+    `<script>window.__x=()=>{window.S=S;window.importFromD2=importFromD2;window.allSecs=allSecs;window.autoSchedule=autoSchedule;window.secDone=secDone;window.secCounts=secCounts;};</script><script>__x();</script></body>`);
   const vc = new VirtualConsole(); vc.on('jsdomError', e => console.log('[jsdom]', e.message));
   const dom = new JSDOM(html, { runScripts: 'dangerously', pretendToBeVisual: true, url: 'http://localhost/', virtualConsole: vc });
   const win = dom.window;
@@ -106,6 +106,26 @@ const live = JSON.parse(fs.readFileSync(FIXTURE, 'utf8'));
       .find(s => s.tasks.length && s.tasks.every(t => t.done || t.na) && s.tasks.some(t => t.na));
     return !s || win.secDone(s) === 1;
   })(), 'resolved = done + N/A');
+
+  // Fix round 1, finding 1: no live row sets Complete && NotApplicable together today,
+  // but importFromD2 must not trust that forever. Feed it a task claiming both and
+  // confirm it normalizes to exactly one state (done wins) rather than storing both.
+  const targetJob = payload.jobs[0], targetSec = targetJob.sections[0];
+  const bothFlagsPayload = {
+    kind: 'd2-sharepoint-export',
+    jobs: [{ jobno: targetJob.jobno, sections: [{ num: targetSec.num, tasks: [{ seq: 1, done: true, na: true }] }] }]
+  };
+  win.importFromD2(new win.File([JSON.stringify(bothFlagsPayload)], 'both-flags.json', { type: 'application/json' }));
+  await new Promise(r => setTimeout(r, 300));
+  const jAfter = win.S.jobs.find(x => String(x.jobno) === String(targetJob.jobno));
+  const secAfter = win.allSecs(jAfter).find(x => x.s.num === targetSec.num).s;
+  const t0 = secAfter.tasks[0];
+  ok('a task claiming both Done and N/A resolves to exactly one state',
+     t0.done === true && t0.na === false, JSON.stringify(t0));
+  const cAfter = win.secCounts(secAfter);
+  ok('secCounts counts a Done+N/A task once (as done, not also as N/A)',
+     cAfter.done >= 1 && cAfter.done + cAfter.na <= cAfter.n,
+     'done=' + cAfter.done + ' na=' + cAfter.na + ' n=' + cAfter.n);
 
   console.log('\n' + (fail ? 'FAILURES ABOVE' : 'Live export round-trip clean: '
     + live.asg.length + ' assignments, ' + live.tasks.length + ' tasks, '

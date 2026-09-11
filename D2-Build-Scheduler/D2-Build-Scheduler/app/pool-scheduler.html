@@ -604,7 +604,7 @@ function vSignoff(){
           na=secs.reduce((a,x)=>a+secCounts(x.s).na,0);
     return `<div class="card"><h2>${j.name} <span class="muted mono" style="text-transform:none">${esc(j.jobno||'')}</span><span class="sp"></span>
       <span class="small" style="text-transform:none">Installer ${i}/${secs.length} · PM ${p}/${secs.length} · checklist ${dn}/${tot}${na?` · ${na} N/A`:''}</span></h2>
-      <div class="pad" style="padding-bottom:0"><div class="tw2"><i style="width:${tot?dn/tot*100:0}%"></i></div></div>
+      <div class="pad" style="padding-bottom:0"><div class="tw2"><i style="width:${tot?(dn+na)/tot*100:0}%"></i></div></div>
       <table><thead><tr><th style="width:70px">#</th><th>Sub-phase</th><th style="width:130px">Crew</th><th style="width:150px">Dates</th>
         <th style="width:110px">Checklist</th><th style="width:130px">Sign-off</th></tr></thead><tbody>
       ${j.groups.map((g,gi)=>{
@@ -903,7 +903,10 @@ function importFromD2(file){
           is.tasks.forEach((it,i)=>{
             let t=(it.seq!=null&&s.tasks[it.seq-1])?s.tasks[it.seq-1]:s.tasks[i];
             if(!t&&it.title)t=s.tasks.find(x=>x.t===it.title);
-            if(t){t.done=!!it.done;t.na=!!it.na;}
+            // A task cannot be both done and N/A. No live row sets both today, but
+            // normalize on the way in rather than trust the source: done wins, same
+            // as tick() already clearing na when a task is ticked.
+            if(t){t.done=!!it.done;t.na=t.done?false:!!it.na;}
           });
         }
       });
