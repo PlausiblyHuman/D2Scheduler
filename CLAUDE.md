@@ -1990,23 +1990,52 @@ SharePoint's white header. A real header photo must come from D2's own project p
 
 ---
 
-## NEXT SESSION (checkpoint written 2026-09-11b)
+## NEXT SESSION — PHASE H (checkpoint written 2026-09-11c)
 
-**Read `sessions/latest.md` first.** It carries the full checkpoint: what shipped, Shane's rulings,
-and the prioritised next tasks with the detail needed to act on them. Short version:
+**Read `sessions/latest.md` first.** The system went live to the client this session: David, Don,
+Emon and Cody have access, both summaries reach them, and the invite email has been sent. The
+office surface is SharePoint and stays that way through the pilot.
 
-1. **Client-gated and overdue** — add David, Don, Emon and Cody to the M365 group, and repoint both
-   summary flows at the real audience. The group still has one member, so every link in the PM guide
-   fails for all four.
-2. **Finish the trade check** — `D2 - Crew Trade Check` runs nightly and writes `TradeMismatch`, but
-   **no view surfaces it**, so the flag is invisible. Add the view, formatter and nav entry. Shane
-   also wants the **hourly diff flow** so a PM does not wait until morning.
-3. **Crew-trade mappings from the browser HTML** as the standing source. Note they already match
-   `Crew-Trades` exactly, so this is about authority and drift, not a one-time import.
-4. **Canvas app Day / Week / Month, defaulting to Week.** Design approved; spec owed before code.
-5. **HOLD** the Work Calendar-into-the-planner fix. Shane's call.
+**The next phase is the presentation layer.** Spec is written and approved in principle:
+`docs/superpowers/specs/2026-09-11-planner-as-primary-surface-design.md`. Host the browser planner
+on Azure Static Web Apps in D2's tenant with MSAL delegated Graph reads, repaint it into the D2
+palette, and let it become the office surface while SharePoint stays the database.
 
-The older note below is kept for the reasoning it records, not as a current task list.
+**Start here, in order:**
+
+1. **Check the guide artifact is actually shared.** New artifacts start private, and the invite has
+   already gone out. If it is still private, all four are hitting a permission wall right now.
+   https://claude.ai/code/artifact/a84a2e1a-6395-4f3a-b050-8cf53cefa2b5
+2. **Put the Azure subscription ask to David and Don.** **D2 has no Azure subscription** (verified,
+   `az` returns `N/A(tenant level account)`). Creating one is free and SWA Free tier is free, so the
+   ask is a signup and a payment method, not spend. This is the only hard gate on Phase H, and it
+   moves at client speed, so it goes first. Netlify on a Stratirus account is the documented
+   fallback if it stalls before a demo.
+3. **Review the spec, then turn it into an implementation plan.** It has not had a proper read-through
+   yet. The brainstorming path says spec → `writing-plans` → build.
+4. **Remember the hosting is the cheap part.** Five of the eleven parity-map divergences produce
+   visibly wrong output once the planner is primary and are the real work: **D7** Work Calendar,
+   **D2** PM sign-off crying wolf on 51 rows, **D8** `NotApplicable` not exported, **D9**
+   `Jobs.Status` discarded, **D4** `Jobs.StartDate` drift. Cost them separately from the hosting.
+   **D7 also lifts the standing HOLD on the Work Calendar fix** — that hold was right while the
+   planner was a scratchpad and does not survive it becoming primary.
+5. **Capture a real Graph payload before writing any mapping code**, into
+   `fixtures/planner/live-payloads-graph.json`. Graph is a **third** field-shape surface alongside
+   raw REST and the connector, and the existing REST fixture does not validate it.
+
+**Carried over, not Phase H:**
+
+- **`TradeMismatch` still has no view**, so business rule 1 is enforced nightly and invisible. The
+  last item outstanding from the 2026-09-11b checkpoint. Shane also wanted an hourly diff flow so a
+  PM does not wait until morning.
+- **Crew-trade mappings from the browser HTML** as the standing source. They already match
+  `Crew-Trades` exactly, so this is about authority and drift.
+- **Canvas app Day / Week / Month, defaulting to Week.** Design approved, spec owed before code.
+  Worth re-reading against Phase H first, since the canvas app's future is a Stage 3 question.
+- **Verify the Jobs and Tasks view formatters by OPENING them.** They were applied through a probe
+  flow and are verified as stored, not as rendered.
+
+The older notes below are kept for the reasoning they record, not as a current task list.
 
 ---
 
