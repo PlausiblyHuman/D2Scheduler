@@ -300,6 +300,40 @@ workstreams had no week and were silently lost as a result.
 | **E** | Pilot — one real pool, parallel run | **Calendar** | Not started | `D2-Phase-E-Pilot-Runbook.md` |
 | **F** | Cutover — training, go-live, support | **Calendar** | Not started | `D2-Phase-F-Cutover-Runbook.md` |
 | **G** | Deferred backlog — post-go-live | Effort | Not started | (below) |
+| **H** | Presentation layer — the hosted planner becomes the office surface | Effort + **client-gated** (Azure signup) | Not started | `docs/superpowers/specs/2026-09-11-planner-as-primary-surface-design.md` |
+
+**Phase H is the build phase inside the client-facing "Phase 2". Two numbering schemes are
+deliberate:** D2 hears "Phase 2", the repo says "Phase H", and H continues the A-G lettering
+that matches the AzDo epics. Do not renumber A-G to match, and do not write "Phase 2" in the
+repo without saying which one is meant.
+
+**Decided 2026-09-11c by Shane, at the go-live cut.** Ryan raised that the presentation layer
+looks cookie-cutter, and the client has seen `pool-scheduler.html` and expects that finish. The
+answer is to host the thing they already approved rather than build a rival to it: Azure Static
+Web Apps in D2's own tenant, MSAL delegated Graph reads, D2 brand repaint, with SharePoint
+Lists still the database and all fourteen flows still the engine. The sequencing decision that
+matters is that **this is explicitly NOT pre-pilot work** — ship the current system on the
+SharePoint surface, then shift gears — which keeps a client-gated Azure signup off the critical
+path of a calendar-locked week. Cost of that choice, accepted: the office gets trained twice.
+
+Three things a future session should not have to rediscover:
+
+- **D2 HAS NO AZURE SUBSCRIPTION.** Verified 2026-09-11 as `stratirus@d2pools.com`:
+  `az account list` returns `N/A(tenant level account)` against tenant `f24d9b39-…` and the ARM
+  subscriptions call returns empty. The only subscription on Shane's machine is `INTERNAL_BILL`,
+  in **Tennetech's** tenant. Creating a subscription is free and SWA Free tier is free, so the
+  ask to D2 is a signup and a payment method, not spend.
+- **The read layer has to move from SharePoint REST to Graph.** `export-to-planner.js` works
+  only because it runs on the SharePoint origin with `credentials: 'include'`. SharePoint REST
+  does not serve CORS to arbitrary origins. Graph is a **third** field-shape surface alongside
+  REST and the connector, so capture a real Graph payload into
+  `fixtures/planner/live-payloads-graph.json` before writing any mapping. A REST probe does not
+  validate a Graph expression, exactly as it does not validate a connector expression.
+- **The hosting is the cheap part.** Five of the eleven parity-map divergences produce visibly
+  wrong output once the planner is primary and are the real work: D7 Work Calendar, D2 PM
+  sign-off crying wolf on 51 rows, D8 `NotApplicable` not exported, D9 `Jobs.Status` discarded,
+  D4 `Jobs.StartDate` drift. Netlify on a Stratirus account is the documented fallback host if
+  the Azure signup stalls before a client demo.
 
 **A–F match the AzDo Epic letters**, which is why the letters were preserved rather than
 renumbered when G was added.
@@ -1602,9 +1636,31 @@ schedule they load through "Load from D2" is always current. Keep the filename s
 place, and tell people when to re-download. This is the same drift that produced the whole
 2026-09-11 episode, so it is worth a line in the guide rather than a hope.
 
-**`build-navigation.js` links it as a child of Pools**, not a top-level tab, because the horizontal
-bar overflows at four or five items and Pools and Calendar were buried by exactly that once before.
-**The file must be uploaded before the nav script runs**, or the link 404s.
+**THE NAV LINK WAS PULLED AT GO-LIVE, 2026-09-11c. The download mechanism above still works and
+is still the Phase H starting point, but nothing on the site points at it today.**
+
+Shane's call. The planner is absent from the PM guide, so nobody is trained on it, while the nav
+link made it discoverable to anyone browsing the site. Opened untrained it produces a **wrong
+plan** rather than an incomplete one: `isWork = d => d.getDay() !== 0` is its entire work-calendar
+model, so any span stepping over one of the 35 Work Calendar holidays draws a day short, and the
+shortened span then feeds its own `conflicts()` checks, which can miss a real overlap and invent a
+sequence error. Auto-Schedule will also place crews on Thanksgiving, and `Jobs.StartDate` drift
+anchors an imported pool's Auto-Schedule months late. See `docs/planner-vs-sharepoint-parity.md`
+D7 and D4.
+
+Removed by `sharepoint/pull-planner-link.js`, which deletes that one node and re-reads the nav to
+prove it, rather than re-running `build-navigation.js` (that script clears and rebuilds every node,
+which is too much blast radius for removing one link on a go-live morning). `build-navigation.js`
+carries the link commented out with the same reasoning, so re-running it will not restore it.
+
+**`pool-scheduler.html` is still in the Documents library**, deliberately, because Phase H wants
+it. So it remains reachable by browsing that library. Delete it in Phase H, when the hosted app
+becomes the single copy.
+
+**It sat as a child of Pools**, not a top-level tab, because the horizontal bar overflows at four
+or five items and Pools and Calendar were buried by exactly that once before. Put it back in the
+same place in Phase H, pointing at the Static Web App rather than `download.aspx`. **The file must
+be uploaded before the nav script runs**, or the link 404s.
 
 **HEADLESS SHAREPOINT READS WITHOUT A BROWSER — the recipe, now exercised end to end.**
 
@@ -2137,7 +2193,7 @@ design splits four audiences across four surfaces, and only one of them is the a
 
 | Need | Surface | Status |
 |---|---|---|
-| Planning / scheduling | the browser tool `pool-scheduler.html` | **fed from SharePoint 2026-09-11**, PM-only |
+| Planning / scheduling | the browser tool `pool-scheduler.html` | fed from SharePoint 2026-09-11; **nav link pulled at go-live, becomes the primary surface in Phase H** |
 | Office day-to-day | **SharePoint list views** | built 2026-09-07 |
 | Ownership visibility | daily + weekly HTML summary emails | built, Phase B |
 | Field sign-off | the canvas app | built, Phase C |

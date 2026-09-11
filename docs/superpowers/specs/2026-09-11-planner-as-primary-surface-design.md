@@ -1,7 +1,14 @@
 # Promoting the browser planner to the primary surface
 
 Design spec, 2026-09-11. Author: Claude, for Shane Talbot.
-Status: approved in principle, awaiting review of this document.
+
+**Status: approved and sequenced as Phase H, 2026-09-11c.** This is the build phase inside the
+client-facing **Phase 2**. Two numbering schemes are in play deliberately: D2 hears "Phase 2",
+the repo says "Phase H", and H continues the A-G lettering that matches the AzDo epics.
+
+**It is NOT pre-pilot work.** Shane's call at the go-live cut: ship the current system today on
+the SharePoint surface, then shift gears. That takes the Azure subscription off the critical
+path of a calendar-locked week, which was the largest risk in the first draft of this spec.
 
 ---
 
@@ -233,9 +240,14 @@ bars need to stay mutually distinguishable and are not brand surfaces.
 
 ### 1.8 What retires
 
-The SharePoint download distribution of the planner goes away. `build-navigation.js` repoints
-the Pools child link from the `download.aspx` URL to the Static Web App. The
-`Shared Documents/pool-scheduler.html` copy is deleted so there is one planner, not two.
+**Already done at the go-live cut:** the `Planner (download)` nav link was pulled on
+2026-09-11c by `sharepoint/pull-planner-link.js`, because the planner was discoverable in the
+nav while absent from the PM guide, and untrained use of it produces a wrong plan rather than
+an incomplete one. `build-navigation.js` carries the same link commented out with the reasoning.
+
+Phase H restores it in the same position under Pools, pointing at the Static Web App instead of
+`download.aspx`. Delete `Shared Documents/pool-scheduler.html` at that point so there is one
+planner and not two. It was deliberately left in the library at go-live, since Phase H wants it.
 
 The PM guide artifact had its planner section removed at Shane's request. It goes back in,
 pointing at a URL this time.
@@ -308,10 +320,10 @@ That decision is deferred. It is recorded here so Stage 2 does not accidentally 
 
 ## Risks and gates
 
-**The Azure subscription is a client gate on a calendar-locked phase.** D2 still has four
-outstanding group memberships from an ask made days ago. Set a go/no-go date: if the
-subscription is not live by then, Stage 1 moves to post-pilot and Phase E runs on SharePoint
-views as built. Decide the date when the ask goes to David and Don.
+**The Azure subscription is a client gate, and it is no longer on the critical path.** The
+2026-09-11c sequencing resolved this: the pilot runs on SharePoint, so a stalled subscription
+delays Phase H rather than Phase E. Make the ask part of the Phase 2 kickoff. D2 sat on four
+group memberships for days, so assume it takes longer than it should.
 
 **Graph shape assumptions.** Mitigated by the capture rule above, which is the only mitigation
 that has ever worked on this project.
@@ -322,8 +334,16 @@ picking STL Shotcrete for an `@office` sub-phase raises no error at all; and `au
 busy map does not exempt `unlimited` crews while `busyMap()` does, so a subcontractor can be
 skipped as busy in violation of rule 2's capacity exemption. Fix both in Stage 2.
 
-**Training twice.** Avoided by shipping Stage 1 before Phase E, which is the reason for that
-sequencing.
+**Training twice, accepted deliberately.** Phase F trains the office on SharePoint views, and
+Phase H retrains them on the hosted planner. The first draft of this spec avoided that by
+shipping before the pilot; the 2026-09-11c decision takes the retraining cost in exchange for
+not putting a client-gated Azure signup in front of a calendar-locked phase. Budget the
+retraining into Phase 2 rather than discovering it there.
+
+**The client has already seen the planner and is expecting that finish.** They get the
+SharePoint surface first. Someone needs to tell David and Don explicitly that the UI is Phase 2,
+or pilot feedback comes back as comments on the interface rather than on whether the system
+works. This is a positioning task, not an engineering one, and it belongs to Shane.
 
 ## Cost
 
