@@ -2529,11 +2529,31 @@ Rendered previews of what the summaries produced against this data: `flows/testd
 
 Shane's call: send a rich HTML body instead. Same content, zero new connections, no temp-file lifecycle, readable on a phone without opening an attachment. If Don later wants an attachment, the PDF path is four extra actions on top of what exists.
 
+**THE MORNING RUN ORDER MOVED EARLIER, 2026-09-11c. Shane: the crews are up around 05:00, so
+everything has to have landed before then.**
+
+| Central | Flow | Was |
+|---|---|---|
+| **03:30** | `D2 - Counter Reconciliation` | 05:30 |
+| **04:00** | `D2 — Daily Dispatch + Reminders` | 06:00 |
+| **04:30** | `D2 - Daily Summary` | 06:30 |
+
+**Counter Reconciliation had to move too, and that is the part worth remembering.** It repairs
+`TasksTotal`/`TasksComplete`, and the Daily Summary reads `TasksComplete` (verified in the
+definition, not assumed), so it has to stay ahead of the summary or the compliance figures are
+computed from unrepaired counters. That ordering was already deliberate at 05:30/06:30 and would
+have been silently broken by moving only the summary. **If either is ever rescheduled again, move
+both.**
+
+Deliberately NOT moved: `D2 - Conflict Flag` (05:00) and `D2 - Crew Trade Check` (05:15) now run
+*after* the morning emails. Neither summary reads `ConflictWith` or `TradeMismatch` (checked), so
+nothing depends on the old order; their flags are read from the views during the day.
+
 **Built as two flows** (schedules in **Central**, correcting the runbook's Pacific):
 
 | Flow | Schedule | Window |
 |---|---|---|
-| `D2 - Daily Summary` | 06:30, **Mon-Sat** (no Sunday - not a work day) | today, plus 7-day trailing compliance |
+| `D2 - Daily Summary` | **04:30**, **Mon-Sat** (no Sunday - not a work day) | today, plus 7-day trailing compliance |
 | `D2 - Weekly Summary` | Friday 15:00 | Mon-Sat of the current week |
 
 Both render: active job count, a table of scheduled sub-phases (Job / Sub-phase / Crew / Dates / Tasks), and sign-off compliance as `signed / finished (pct)` with the oldest outstanding item named.
