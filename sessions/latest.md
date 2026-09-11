@@ -1,134 +1,87 @@
-# 2026-09-09a — Pool lifecycle plan finished, then a usability round
+# 2026-09-10a — Edit form, Crew as Choice, the group calendar, and a client-facing PM guide
 
-**Session goal:** finish Task 9 and the whole-branch review, then respond to what Shane found by
-actually using the site with real volume in it.
+**Session goal:** Shane opened on the edit form still looking messy, free-text fields that invite
+errors, and wanting the calendar reassessed. It ended with a client-facing guide, a staged tenant
+and the pre-pilot cleanup gate run.
 
-Continues directly from `2026-09-08c`, same conversation.
+## What shipped
 
-## Part 1 — the plan is complete
+**1. The Assignments edit form is formatted.** Navy header carrying the title plus crew and
+sign-off chips, the 13 fields grouped into four named sections in job order, and a footer stating
+the crew-code rule where the mistake happens. `SubPhaseNumber` / `SubPhaseName` marked readonly.
 
-All 9 tasks done, final whole-branch review clean: 0 Critical, every Important closed.
+The wrapper key names are **`headerJSONFormatter` / `bodyJSONFormatter` / `footerJSONFormatter`**
+and are documented nowhere. Three plausible shapes were tried first and all three returned 204,
+round-tripped byte-for-byte, and rendered nothing. The real shape was captured by making
+SharePoint's own Format pane write one. Reaching that pane needs a real CDP click on a list-view
+row; synthetic events only select it.
 
-**Task 9** documented the lifecycle and verified the whole loop on the live tenant with a real
-`TEST-9100` pool: arrived `Planned`, dispatched nothing, raised no alerts, reflowed from sequence
-1, committed to `Active`, appeared in the dispatch email (confirmed by reading the sent body, not
-the run status), then deleted back to exact baseline.
+**2. Summary emails repainted** into navy/green/cream, and the invalid `<p><div>` wrapper removed.
+**The colours live in two actions, not one:** repainting `Compose_body` left every table deep link
+teal, because those rows come from `Append_row` inside the loop. The definition read clean while
+the emails did not.
 
-**The final review found five things no per-task review could see.** All closed:
+**3. `Assignments.Crew` converted Text to Choice.** A real dropdown of the 14 codes. Ten sites
+changed across seven flows, plus three in the canvas app, each read off a real payload. The canvas
+app also needed its **data source refreshed in Studio** or every `.Value` resolved to `Error`.
 
-- The reflow walk was the only variable-mutating loop of ten across twelve flows without pinned
-  concurrency, and the one where iteration order is the algorithm.
-- Flow 3 alerted PMs about collisions with uncommitted `Planned` pools, while the documentation
-  written the same day claimed the opposite.
-- All four edited `flows/definitions/*.json` were stale in exactly the actions this branch added,
-  while CLAUDE.md told the next session to reuse them verbatim.
-- The launchpad lacked both surfaces the rewritten runbooks depend on.
-- Three of four emails in the new flow lacked the null-recipient fallback the fourth had.
+The counter-intuitive finding, proven on a throwaway list first: **a Choice column does not
+validate REST writes.** `Devon Crew +3` returns 201. The validation guard is still the only thing
+that rejects it, so both are needed. A `SchemaXml` MERGE also **silently wipes ValidationFormula**.
 
-**One pattern, seen twice, worth carrying:** a fix that copies a good idiom into a new context
-inherits assumptions the original context guaranteed. Task 8's alert decoupling fixed a design
-flaw and an incidental `runAfter` recreated the outcome. The fix wave's null-recipient fallback
-was copied from a path where `Get_job` had always succeeded into one where it may not have, so
-`first(null)` threw and the failure email broke on the one path it exists for. Both were correct
-in isolation and wrong in place.
+**4. `D2 - Calendar Sync` built** (flow 13). Nightly 04:30 Central, one all-day event per in-scope
+sub-phase on the site's M365 group calendar. The Outlook connector **cannot reach a group
+calendar** (`Invalid resource, Allowed values: me,users`); `shared_office365groups` is Standard tier
+and can. Its connection created silently, no consent needed. All-day `end` is **exclusive**.
 
-Eleven rulings are recorded in the plan file's Progress section, which is the durable record now
-that the SDD workspace is deleted.
+**5. Tenant staged and the cleanup gate run.** Harrison and both TEST pools deleted (282 tasks, 43
+assignments, 3 jobs, zero failures). The three demo pools reflowed to 85% / 28% / 2% complete with
+sign-offs attributed to Cody and Emon and four deliberate misses.
 
-## Part 2 — three demonstration pools
+**6. Site chrome is app-shaped.** `HorizontalQuickLaunch` gives real header tabs on a GROUP site,
+`HeaderEmphasis` paints the band, and `zoneEmphasis` gives the home page colour bands where inline
+CSS would be sanitised away. Nav rebuilt around what a PM opens.
 
-Shane asked to see a fully populated site before the cleanup gate. Three pools raised at once:
-`D2-1042` Reyes Residence, `D2-1043` Whitfield Estate, `D2-1044` Salcedo Residence. Site went from
-43 assignments and 282 tasks to **181 and 1,167**.
-
-**Concurrent generation is faster than sequential, which nobody had measured.** Three pools built
-together took about 13 minutes, against 17 for a single pool the night before. So the multi-minute
-stalls seen during Task 9 are a per-run pacing limit, not a tenant-wide ceiling, and two PMs
-raising pools in the same hour is fine.
-
-All three arrived `Planned`, so three heavily overlapping pools sharing default crews produced no
-alerts at all. That is Part 1 of the spec doing its job.
-
-They use realistic job numbers deliberately, so the views look real. The cost is that
-`cleanup.js` will not auto-remove them, by design, so `flows/testdata/demo-pools-manifest.json` is
-the removal record.
-
-## Part 3 — usability, from Shane using it
-
-Five changes, all from his own observations rather than a backlog.
-
-- **The Assignments edit form** showed about 25 fields flat. Now 13, in the order the job runs.
-  The `Locked` / `NotApplicable` / `PMSignOff` Required trap is gone.
-- **The home page hero** was `Today by Crew`, the right lens at one pool and the wrong one at six.
-  Now a new `This Week by Job` view, grouped by pool.
-- **The summary emails** had an over-escaped quote in the daily flow, found by pulling the actual
-  sent body rather than reading the definition. Fixed, plus 16 deep links so a reader can click
-  from "oldest outstanding" straight to the row.
-- **`Crew` is a free-text join key**, which Shane spotted on the edit form. A wrong value does not
-  error, it matches nothing. Now guarded by a validation formula, and the guard turned out to be
-  enforced on REST writes as well as the form: writing `Devon Crew +3`, the exact mistake that
-  already cost this project a session, returns `SPListDataValidationException` with the value
-  unchanged.
-- **Crew conflicts are now visible in SharePoint**, not only in email. New `ConflictWith` column,
-  new flow `D2 - Conflict Flag` (nightly 05:00 Central), a `Conflicts` view, and a launchpad link.
+**7. A client-facing PM guide**, eight drafts, published as an artifact.
 
 ## Files touched
 
-- `docs/superpowers/plans/2026-09-08-pool-lifecycle-and-reflow.md` — Progress rewritten as the
-  completion record: 11 rulings, 8 deviations, deferred items
-- `flows/definitions/D2-Reschedule-Pool.json`, `flows/exports/*` — the reflow flow and re-exports
-- `D2-Phase-F-Cutover-Runbook.md` — a refused delete shows plain `Refused`; the reason is in `Result`
-- `sharepoint/guard-crew-values.js` — new
-- `sharepoint/format-views.js`, `build-home-page.js`, `provision-views.js` — hero, new views, formatters
-- `flows/testdata/demo-pools-manifest.json` — new
-- `flows/testdata/daily-summary-preview.html`, `weekly-summary-preview.html` — regenerated from live sends
-- `CLAUDE.md` — five platform findings, the flow table, the `office` compliance asymmetry
+- `CLAUDE.md` — form-formatter shape, the Choice conversion, the group calendar, cleanup-gate state, site chrome, the Delete Pool gap
+- `sharepoint/configure-assignments-form.js` — step 5, the form formatter
+- `sharepoint/guard-crew-values.js` — `SP.FieldChoice`, and why the guard must stay
+- `sharepoint/build-navigation.js` — new
+- `sharepoint/build-home-page.js` — calendar link, section emphasis
+- `canvas-app/src/Src/Screen1.pa.yaml` — `Crew.Value` in three places
+- `flows/exports/*` — eight flows re-exported, each verified by content
 
 ## Commits
 
-`f6969b0` through `df10380`. All pushed to `canvas-app-handoff`.
+`6e6b76d`, `3c808e3`, `a3b2065`, plus this one.
 
 ## Decisions
 
-- **PM-proxy sign-off only to start.** Crew-lead licensing deferred; decide later whether to add
-  seats. The app already supports this with no rebuild, since the proxy picker had to exist anyway
-  for the four subcontractor crews.
-- **Shane runs the first real pool himself**, as stage one of two. He will validate mechanics; a
-  real D2 PM is still needed for domain fit, because whether 46 sub-phases in that order at those
-  durations matches how D2 builds a pool is not something he can answer.
-- **The conflict annotator is a separate flow from the nightly sweep.** One alerts, one annotates,
-  and the annotator covers `Planned` pools so a PM can see collisions while choosing dates.
-- **`Crew` gets a validation guard now, a dropdown later.** Converting it to Choice would give a
-  real picker but breaks all nine in-memory `?['Crew']` reads across five published flows plus the
-  canvas app, which is its own considered change.
-- **Machine-owned fields are hidden from the display form too**, accepted rather than reverted.
-  SharePoint shares one visibility set across New, Edit and Display on this list, established by
-  A/B test. The emails already carry the sign-off status and task counts the form now omits.
-
-## Corrections worth keeping
-
-- I told Shane the three demo pools had **34 crew-day collisions**. The real figure is **10**. My
-  count included the seven `Unlimited` buckets, which are capacity-exempt by design and can never
-  conflict. The implementer built its own oracle, got 10, and flagged the discrepancy rather than
-  matching my number.
-- I told the Task 9 implementer its throttling diagnosis was wrong, based on the fast phase of a
-  run. It was right. The generation loop pauses and resumes rather than degrading smoothly.
-- `D2 - Conflict Flag`'s ids were reported as one value. They are two: flowId
-  `972c139d-e55f-6743-a76c-fbd2f08eeb45`, workflowEntityId `f0dd9a1d-8bac-f111-aaab-002248043e80`.
-  Fourth instance of this labelling mistake on this project.
+- **Choice over a Power Apps custom form** for the crew picker. Bounded and enumerable work versus
+  unbounded UI construction that would also have replaced the form formatter built the same day.
+- **The validation guard stays** alongside the Choice column. They are complements: Choice
+  constrains the form, the guard constrains REST.
+- **Active pools only on the calendar**, consistent with dispatch and the summaries.
+- **Cleanup gate run early** so the guide's screenshots would not carry `TEST-9002` to a client.
+- **Sign-offs attributed to Cody and Emon**, matching the pilot model rather than inventing users.
+- **Guide is third person throughout**, no second person and no em dashes. Shane: it is targeted at
+  the PMs, not written to them.
+- **The "why this exists" opening was cut.** It read as preachy and spoke on Don and David's behalf.
 
 ## Open
 
-- **The cleanup gate has not been run.** Harrison, both TEST pools and the three demo pools are
-  all still live. `cleanup.js` handles the first three; the demo pools need the manifest.
-- **Dispatch will mail seven `[no lead email]` emails every morning** while no crew lead has a
-  mailbox. Decide whether to point it at the PM for the pilot.
-- Every template duration is still a 2-day placeholder, so every generated pool is the same length
-  regardless of size. Most visible now that three sit side by side.
-- `flows/exports/` still keeps multiple dated generations per flow. Pre-pilot housekeeping.
-- Seven deferred minors from the whole-branch review, listed in the plan's Progress section.
+- **`D2 - Delete Pool` leaves ghost calendar events.** Cause understood, fix blocked on a Dataverse
+  connection reference; two edit attempts failed and rolled back cleanly.
+- **Nobody at D2 has access yet.** The group has one member, so every link in the guide fails for
+  the four of them, and the summaries still send only to `stratirus@d2pools.com`.
+- **Whether members can be stopped from editing the group calendar** directly. Unverified Exchange
+  route recorded; the guide already warns that edits are overwritten nightly.
+- Durations are still a 2-day placeholder on every template row.
 
 ## Next action
 
-Run the cleanup gate when Shane has finished looking at the populated site, then set up his first
-real pool.
+Add David, Don, Emon and Cody to the group, set the PMs on the three pools, point the summary
+emails at the real audience, then send the guide.

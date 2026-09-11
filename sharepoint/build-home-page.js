@@ -131,6 +131,7 @@
     deletePool: L('Delete Pool Requests/AllItems.aspx'),
     reschedulePool: L('Reschedule Requests/AllItems.aspx'),
     plannedPools: L('Jobs/Planned Pools.aspx'),
+    calendar: '/sites/D2BuildScheduler/_layouts/15/groupstatus.aspx?Target=CALENDAR&Source=QuickLaunch',
     app: 'https://apps.powerapps.com/play/e/2710a01b-6cfa-e820-b338-2286f2649300/a/6bad1fae-7f3b-42d7-a63f-48a63e1e8771'
   };
   const ASSIGNMENTS = '49ef7006-d3fe-40a7-a52f-c4c18545bd35';
@@ -150,25 +151,31 @@
                          zoneId: null, sectionFactor: 12, layoutIndex: 1 });
 
   // controlType 4 = Text (rich text). Inner HTML is raw, not encoded.
-  const text = (zone, id, innerHtml) =>
+  // zoneEmphasis paints the whole section band from the site theme. This is the
+  // lever for colour on this page: inline style attributes inside data-sp-rte are
+  // stripped by the rich-text sanitiser, but section emphasis is native and sticks.
+  // 0 none, 1 neutral, 2 soft, 3 strong (theme primary, which is D2 green).
+  const text = (zone, id, innerHtml, zoneEmphasis = 0) =>
     '<div data-sp-canvascontrol="" data-sp-canvasdataversion="1.0" data-sp-controldata="'
-    + enc({ controlType: 4, id, position: pos(zone), emphasis: {} })
+    + enc({ controlType: 4, id, position: pos(zone), emphasis: { zoneEmphasis } })
     + '"><div data-sp-rte="">' + innerHtml + '</div></div>';
 
   // controlType 3 = a web part.
-  const webpart = (zone, id, webPartId, ver, data) =>
+  const webpart = (zone, id, webPartId, ver, data, zoneEmphasis = 0) =>
     '<div data-sp-canvascontrol="" data-sp-canvasdataversion="1.0" data-sp-controldata="'
-    + enc({ controlType: 3, id, position: pos(zone), webPartId, emphasis: {}, addedFromPersistedData: true })
+    + enc({ controlType: 3, id, position: pos(zone), webPartId, emphasis: { zoneEmphasis }, addedFromPersistedData: true })
     + '"><div data-sp-webpart="" data-sp-webpartdataversion="' + ver + '" data-sp-webpartdata="' + enc(data) + '"></div></div>';
 
   const a = (u, t) => '<a href="' + u + '">' + t + '</a>';
 
   const intro = '<h2>Every pool, this week</h2>'
     + '<p>Live schedule, crew assignments and field sign-off for D2 pool builds. '
-    + 'This week&#39;s work is below, grouped by pool. Everything else is at the '
-    + 'bottom of this page.</p>'
+    + 'This week&#39;s work is below, grouped by pool. Use the tabs at the top of '
+    + 'the page to jump anywhere else.</p>'
     + '<p><strong>' + a(U.app, 'Open the D2 Sign-off app') + '</strong>'
-    + ' &nbsp;&middot;&nbsp; crew leads tick tasks and sign off from a phone.</p>';
+    + ' &nbsp;&middot;&nbsp; tick tasks and sign off from a phone'
+    + ' &nbsp;&nbsp;|&nbsp;&nbsp; <strong>' + a(U.calendar, 'Open the pool calendar') + '</strong>'
+    + ' &nbsp;&middot;&nbsp; every live pool, in Outlook and Teams</p>';
 
   const links = '<h3>Day to day</h3><ul>'
     + '<li>' + a(U.today, 'Today by Crew') + ' &mdash; who is on which site today</li>'
@@ -206,9 +213,9 @@
   };
 
   const canvas = '<div>'
-    + text(1, iid(11), intro)
-    + webpart(2, iid(2), listData.id, '1.0', listData)
-    + text(3, iid(13), links)
+    + text(1, iid(11), intro, 3)            // green hero band, flows out of the header
+    + webpart(2, iid(2), listData.id, '1.0', listData, 0)   // live schedule stays on white
+    + text(3, iid(13), links, 2)            // soft tint, so the index reads as a separate shelf
     + '</div>';
 
   // Release any editor coauthoring lock before writing (see LOCKING above).

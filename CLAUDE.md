@@ -1252,9 +1252,9 @@ the same time, and a surprising row is not automatically a bug in this session's
 
 | List | Rows | GUID |
 |---|---|---|
-| Jobs | **3** (Harrison D2-1001 demo + TEST-9001 + TEST-9002 — no real pool yet) | `ee0ecabf-2f11-458d-a9ea-641f76d10cc3` |
-| Assignments | **43** (5 Harrison + 38 TEST-900x; 22 fields incl full Phase A schema) | `49ef7006-d3fe-40a7-a52f-c4c18545bd35` |
-| Tasks | **282** (30 Harrison + 252 TEST-900x backfill) | `22c45847-ff0d-417a-b53e-1ea018fbb6d3` |
+| Jobs | **3** (`D2-1042` Reyes, `D2-1043` Whitfield, `D2-1044` Salcedo — all Active, all fictional; Harrison and both TEST pools deleted 2026-09-10) | `ee0ecabf-2f11-458d-a9ea-641f76d10cc3` |
+| Assignments | **138** (3 pools x 46; 24 fields — `ConflictWith` and `CalendarEventId` added since Phase A) | `49ef7006-d3fe-40a7-a52f-c4c18545bd35` |
+| Tasks | **885** (3 pools x 295) | `22c45847-ff0d-417a-b53e-1ea018fbb6d3` |
 | Trades | 26 | `05038f7f-a6cb-4f57-b1a1-3ff9c7126ba5` |
 | Crews | 14 (subcontractor patch applied) | `45e9ff1f-bf36-4ab5-929d-25ab9a80d460` |
 | Crew-Trades | 51 | (see viewlsts.aspx) |
@@ -1347,6 +1347,65 @@ Reconciliation run per assignment. All of them terminate cheaply at the version-
 because `CalendarEventId` is not `Crew` or a date — the same accepted trade as `D2 - New Pool`'s 92.
 Runtime is ~90s for 43 assignments on a cold first run and ~30-45s thereafter, so a tenant with
 five real pools should expect a few minutes nightly.
+
+**THE PRE-PILOT CLEANUP GATE WAS RUN 2026-09-10, and the tenant now holds three fictional pools
+and nothing else.** `cleanup.js` removed 282 Tasks, 43 Assignments and 3 Jobs (`D2-1001` Harrison,
+`TEST-9001`, `TEST-9002`) with zero failures, matching the 2026-09-08b dry-run rehearsal exactly.
+What survives is `D2-1042` Reyes, `D2-1043` Whitfield and `D2-1044` Salcedo, deliberately staged at
+three different completion levels so the views, the calendar and the summary emails demonstrate
+properly:
+
+| Pool | Span | Sub-phases finished | Tasks | Signed off | PM |
+|---|---|---|---|---|---|
+| Reyes Residence | 08 Sep to 28 Dec | 1 of 46 | 26/295 | 1 | Cody Campbell |
+| Salcedo Residence | 10 Aug to 28 Nov | 13 of 46 | 121/295 | 12 | Cody Campbell |
+| Whitfield Estate | 15 Jun to 30 Sep | 37 of 46 | 251/295 | 35 | Emon Alexander |
+
+Staging notes worth keeping: the pools were **reflowed with `D2 - Reschedule Pool`** rather than
+hand-dated, so the working-day and holiday logic did the work; **four sub-phases are deliberately
+left unsigned** so `Sign-off Overdue` and the compliance figure have real content; and sign-offs
+are attributed to **Cody and Emon**, who are real enabled accounts (site user ids 14 and 15), which
+matches the pilot model of PMs signing on the crew's behalf. `flows/testdata/demo-pools-manifest.json`
+remains the removal record: `cleanup.js` will not auto-remove these, by design, because they carry
+real-looking job numbers.
+
+**KNOWN GAP, unfixed: `D2 - Delete Pool` does not remove calendar events, so deleting a pool
+strands them.** `D2 - Calendar Sync` finds orphans by querying Assignments rows that still carry a
+`CalendarEventId`; once the row is deleted the event is unreachable. The cleanup gate proved it by
+stranding 43 events, which were cleared by hand over Graph. **The Office 365 Groups connector has no
+list-events operation**, so Calendar Sync cannot self-heal; the fix has to be Delete Pool removing
+each event before its row. Two `edit_flow` attempts failed and rolled back cleanly (flow untouched,
+48 actions): adding a *new* connector to that solution-aware flow needs a Dataverse connection
+reference that does not exist, and **both `autoResolveConnectionRefs: true` and `false` fail with
+the same misleading error**, naming `new_sharedsharepointonline_beb06` and the pre-existing
+`Set_status_deleting` action rather than the connector actually missing. Next attempt should create
+the connection reference first, or add the action in the designer.
+
+**SITE CHROME: the site now has HEADER TABS, and all three levers are native and scriptable
+(2026-09-10).** `sharepoint/build-navigation.js`. The left rail was stock SharePoint noise (Home,
+Conversations, Notebook, Calendar, Documents, Recent) and none of the lists a PM opens were in it.
+
+- **`Web.HorizontalQuickLaunch = true`** moves a `GROUP` team site's nav from the left rail to a
+  horizontal bar. This is what "header tabs" means in practice and it is a plain boolean on
+  `/_api/web`. No SPFx, no page editor.
+- **`Web.HeaderEmphasis = 3`** paints the header band in the theme primary, which on D2's theme is
+  **green, not navy**. Accepted rather than fixed: changing the theme primary to navy would repaint
+  every link and button on the site.
+- **`zoneEmphasis` on a canvas section** is the lever for colour on the home page. Inline `style`
+  attributes inside `data-sp-rte` are stripped by the rich-text sanitiser, but section emphasis is
+  native and sticks. The home page is now a green hero band flowing out of the header, a white
+  section holding the live schedule, and a soft-tinted link index.
+
+**The horizontal bar cuts to an overflow at about four or five items**, and the owner-only "Edit
+navigation" link competes for the same space, so a member sees one more tab than an owner does. The
+first build used "Needs Attention" and pushed **Pools and Calendar into the overflow**, burying the
+two things a PM opens most. Short labels, most-used first. Do not lengthen them without re-checking
+what survives the cut.
+
+**`Jobs` All Items showed only the Title column until 2026-09-10.** It is the list a PM is sent to
+for committing a pool, and it rendered three pool names and nothing else, which made the
+instruction "change Status to Active" impossible to follow. Now shows JobNumber, Status, Project
+Manager, StartDate, Address and City; `Planned Pools` gained Status too.
 
 **PRE-PILOT REALITY AUDIT, 2026-09-08b.** Every load-bearing claim in this file was checked
 against the live tenant, because CLAUDE.md had been caught wrong twice in one morning and the
