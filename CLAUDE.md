@@ -43,9 +43,21 @@ Site URL: `https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler` (site
 The four load-bearing invariants (enforced by the design, not by a database primary key — SharePoint Lists has no composite alternate key equivalent):
 
 1. **A crew is only assigned to a sub-phase whose required trade it actually holds.**
-   **NOT ENFORCED ANYWHERE ON THE SHAREPOINT SIDE. Audited 2026-09-11; the previous wording here,
-   "Verified via the Crew-Trades intersect list", was misleading and had been read as a statement of
-   fact by earlier sessions.** The crew-to-trade join ran **once, offline, in Python**
+   **DETECTED NIGHTLY ON THE SHAREPOINT SIDE, NEVER PREVENTED. Corrected 2026-09-11c — this entry
+   previously read "NOT ENFORCED ANYWHERE ON THE SHAREPOINT SIDE", which was true when it was
+   written and stopped being true later the same day, when `D2 - Crew Trade Check` was built. That
+   flow (row 14 in the flow table) runs at 05:15 Central, performs the join this section says nobody
+   performs, and writes `Assignments.TradeMismatch`. The two statements sat in this file
+   contradicting each other until this correction.**
+
+   **What is still true, and it is most of it.** The flow *detects*; nothing *prevents*. The edit
+   form will still accept a carpentry crew on a plumbing sub-phase and the flag appears the next
+   morning. `TradeMismatch` has **no view**, so the enforcement is invisible unless someone opens the
+   row. And it covers only the 22 of 46 sub-phases that carry a trade at all. Everything below about
+   how the check was lost, why a column validation formula cannot do this, and why a null `Trade`
+   must be a PASS remains accurate and is why the flow had to be the answer.
+
+   The original finding, unchanged: the crew-to-trade join ran **once, offline, in Python**
    (`tools/gen-template-seed.py`) on 2026-09-07, and its answer was baked into
    `Sub-phase Template.DefaultCrew` as **plain text with no validation**. `D2 - New Pool` transcribes
    that text and the row's `Trade` side by side into each Assignment and **never compares them**.
@@ -65,8 +77,10 @@ The four load-bearing invariants (enforced by the design, not by a database prim
 
    **How it was lost:** `tools/add_pool.py` *does* carry the check (`pick_crew()`, and an explicit
    `UNQUALIFIED` assertion). That tool was superseded by `D2 - New Pool` as the user-facing path, and
-   **the rule-1 check was left behind in the retired tool.** The browser planner still enforces it
-   properly via crew skills, so the two halves of the system disagree.
+   **the rule-1 check was left behind in the retired tool.** `D2 - Crew Trade Check` is where that
+   check now lives, a day later and one surface over. The browser planner enforces it at the point of
+   assignment via crew skills, so the two halves still disagree on *when* — the planner warns as you
+   pick, SharePoint flags it overnight.
 
    **A check must treat a null `Trade` as a PASS.** The 11 field-supervision sub-phases carry no
    trade, so `Assignments.Trade` is null on 11 rows of every pool. A naive check fires on all of them

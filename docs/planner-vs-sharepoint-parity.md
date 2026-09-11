@@ -1,11 +1,15 @@
 # Planner vs SharePoint: capability parity map
 
-Audited 2026-09-11 against `web/index.html` (moved 2026-09-11 from the doubled
-`D2-Build-Scheduler/D2-Build-Scheduler/app/pool-scheduler.html`; 910 lines, single file,
-no network calls, `localStorage` key `poolsched.v6`, at the time of this audit). Line
-numbers are to that file **as it stood at the audit**, before the fixes below landed;
-the file has since grown past 1000 lines and moved within `web/index.html`, so treat
-every line number here as historical rather than current.
+Audited 2026-09-11 against `web/index.html` (moved the same day from the doubled
+`D2-Build-Scheduler/D2-Build-Scheduler/app/pool-scheduler.html`; single file,
+`localStorage` key `poolsched.v6`).
+
+**Line numbers were re-resolved against the current file on 2026-09-11 and land on the
+code they describe.** They will drift again on the next edit, so the symbol names beside
+them are the authoritative reference and the numbers are a convenience. One thing the
+file no longer is: network-free. It loads two font families from Google Fonts as of the
+brand repaint, with a full fallback stack, which matters only to the retired
+`download.aspx` distribution route.
 
 **Six of the eleven divergences below are now CLOSED, fixed the same day in the same
 branch that repainted the planner and moved it out of the doubled directory: D7, D2,
@@ -25,32 +29,49 @@ Buckets: **A** already matched · **B** easily matched · **C** hard, hits a nam
 
 ## D. The gaps that matter
 
-### D1. Business rule 1 is enforced ONLY in the planner
+### D1. Business rule 1 is warn-only in the planner and detect-only in SharePoint
+
+**Corrected 2026-09-11: this section was headed "enforced ONLY in the planner", which is no
+longer true.** `D2 - Crew Trade Check` runs nightly at 05:15 Central, joins
+`Assignments.Crew` -> `Crews.CrewID` -> `Crew-Trades` -> `Assignments.Trade`, and writes
+`Assignments.TradeMismatch`. It is the first thing on the SharePoint side to enforce rule 1
+at all.
+
+Three caveats keep this a real divergence rather than a closed one:
+
+- **It detects, it does not prevent.** The edit form will still let a PM put a carpentry crew
+  on a plumbing sub-phase; the flag appears the next morning. Column validation cannot do
+  better, because it cannot traverse the `Trade` lookup into a second list.
+- **`TradeMismatch` has no view**, so the result is enforced nightly and invisible.
+- **Only 22 of the 46 sub-phases per pool carry a trade at all.** The other 24 ride the
+  pseudo-trades `@office`, `@sub` and `@unassigned`, which resolve to no `Trade` lookup, so a
+  null trade is a PASS by design. The planner's own coverage is wider here, because it checks
+  the pseudo-trades too, and that is where the two internal inconsistencies below bite.
 
 See the fuller treatment in CLAUDE.md's business-rules section. Summary of the planner
 side, which is the half CLAUDE.md did not describe:
 
-- `SKILLS` (L141-168) declares 26 trade codes. **All 26 match `Trades.TradeCode` exactly.**
-- `SEED_CREWS` (L175-208) gives each of 14 crews a `skills: []`.
-- `FIXED` (L211) maps three pseudo-trades (`@office`, `@sub`, `@unassigned`) straight to a
+- `SKILLS` (L158-185) declares 26 trade codes. **All 26 match `Trades.TradeCode` exactly.**
+- `SEED_CREWS` (L192-225) gives each of 14 crews a `skills: []`.
+- `FIXED` (L228) maps three pseudo-trades (`@office`, `@sub`, `@unassigned`) straight to a
   bucket crew, bypassing trade matching.
-- One trade per sub-phase on the template (`SEED_TEMPLATE[].sections[].skill`, L137). 46
+- One trade per sub-phase on the template (`SEED_TEMPLATE[].sections[].skill`, L154). 46
   sub-phases use 19 codes: 16 real trades plus the 3 pseudo.
 
 **Seven enforcement points, all warn, none block:** `autoSchedule` only considers
-`qualified()` (L316); the drawer dropdown splits Qualified / ⚠ Not qualified but still
-lets you pick (L693); `conflicts()` raises an error (L381); the board draws a red inset
-outline (L500); the CSV stamps `NEEDS ATTENTION` (L775); the availability panel builds from
-`qualified()` (L721); Skill Coverage shows red `none` (L640).
+`qualified()` (L355); the drawer dropdown splits Qualified / ⚠ Not qualified but still
+lets you pick (L799); `conflicts()` raises an error (L457); the board draws a red inset
+outline (L603); the CSV stamps `NEEDS ATTENTION` (L890); the availability panel builds from
+`qualified()` (L830); Skill Coverage shows red `none` (L745).
 
 **Two internal inconsistencies in the planner itself**, worth fixing if it is kept:
 
 1. **`qualified()` and `isQualified()` disagree on `FIXED` codes.** For `@office`,
-   `qualified()` offers only Main Office, but `isQualified()` (L213) accepts *any*
+   `qualified()` offers only Main Office, but `isQualified()` (L230) accepts *any*
    `unlimited` crew. So picking STL Shotcrete for an `@office` sub-phase produces **no error
    at all** — the warning and the check use different predicates.
-2. **`autoSchedule`'s `busy` map does not exempt `unlimited` crews** (L296-301) while
-   `busyMap()` does (L288). On a mixed candidate set (`dig` = harrison, guillermo, saul,
+2. **`autoSchedule`'s `busy` map does not exempt `unlimited` crews** (L334-339) while
+   `busyMap()` does (L326). On a mixed candidate set (`dig` = harrison, guillermo, saul,
    **stl**) `stl` can be skipped as "busy", contradicting rule 2's capacity exemption.
 
 **Mitigating fact, verified:** all 14 crews' `SEED_CREWS.skills` match the live `Crew-Trades`
@@ -59,9 +80,9 @@ aligned and nothing would notice them drifting.
 
 ### D7. Work Calendar — the planner knew about Sundays and nothing else — CLOSED
 
-**What it was:** `isWork = d => d.getDay() !== 0` (L219) was the entire work-calendar model. It
+**What it was:** `isWork = d => d.getDay() !== 0` (L243) was the entire work-calendar model. It
 fed `nextWork`, `workSpan`, `axis`, `shiftDay` and `saveSec`. No holiday, weather-day or
-per-crew-shutdown concept. `S.settings` was initialised empty (L257) and never written.
+per-crew-shutdown concept. `S.settings` was initialised empty (L294) and never written.
 
 Against that, `D2 - New Pool` and `D2 - Reschedule Pool` both compute Sunday **and** test a
 `nonWork` set read from Work Calendar (35 holidays, 2026-08-30 to 2029-12-30).
@@ -69,11 +90,11 @@ Against that, `D2 - New Pool` and `D2 - Reschedule Pool` both compute Sunday **a
 **This was the only divergence that made the planner produce a wrong plan rather than an
 incomplete picture.** Four consequences, quietest first:
 
-1. **`importFromD2` never read `is.finish`** (L866-872 overlaid `crewId`, `start`, `days`
+1. **`importFromD2` never read `is.finish`** (L989-995 overlaid `crewId`, `start`, `days`
    and flags only). Every end date was recomputed as `workSpan(start, days)` over Sundays
    alone, so **any sub-phase whose SharePoint span stepped over a holiday rendered a day
    short.** The bar was wrong and nothing said so.
-2. `conflicts()` computed double-booking (L388) and the rule-3 chain (L383) off that
+2. `conflicts()` computed double-booking (L469) and the rule-3 chain (L459) off that
    shortened span, so it could **miss a real overlap** and **invent a sequence error**.
 3. Auto-Schedule would put crews on Thanksgiving and Christmas, silently.
 4. Daily Dispatch would show a full crew board on a holiday.
@@ -96,8 +117,8 @@ back to Sundays-only, which is the correct degraded behaviour, not a bug — the
 ### D2. PM sign-off exists on both sides, was wired up on neither — CLOSED
 
 **What it was:** the planner has a real two-tier model: `inst` and `pm` per sub-phase, a
-phase-level tri-state roll-up (L350), a bulk phase toggle (L354), per-pool counts (L582), and a
-`conflicts()` warning when a finished sub-phase is missing **either** (L386).
+phase-level tri-state roll-up (L425), a bulk phase toggle (L429), per-pool counts (L685), and a
+`conflicts()` warning when a finished sub-phase is missing **either** (L467).
 
 On the SharePoint side `PMSignOff`, `PMSignOffBy` and `PMSignOffOn` exist, are written
 `false` once by `D2 - New Pool`, are hidden from the forms, and appear in **no other flow,
@@ -117,12 +138,12 @@ side of this that a real workflow actually sets. `fixtures/planner/schedulecheck
 both halves of this: zero PM-sign-off warnings on live data, and installer sign-off still
 flagged when it is genuinely missing (46 found on the current demo pools). If `PMSignOff`
 ever becomes a real workflow on the SharePoint side, the PM half of this check should come
-back with it — the comment at the call site (`web/index.html` ~L466) says so directly, so a
+back with it — the comment at the call site (`web/index.html` ~L569) says so directly, so a
 future session does not have to rediscover why it was dropped.
 
 ### D9. `Jobs.Status` was exported and then discarded — CLOSED
 
-**What it was:** `export-to-planner.js:101` emits `status`. `importFromD2` (L851-861) never
+**What it was:** `export-to-planner.js:101` emits `status`. `importFromD2` (L973-983) never
 read it and the planner had no pool-state field. So a `Planned` pool appeared on the Gantt,
 the Crew Board, Daily Dispatch and the CSV, and raised double-book errors, exactly like a live
 one. That inverted the 2026-09-09 `Planned` decision on the one surface a PM uses *while
@@ -134,7 +155,7 @@ gave a PM no way to tell the two apart. The fix badges them rather than hiding t
 the option this section already recommended.
 
 **What closed it, 2026-09-11:** `importFromD2` now stores `status` on the job, and `jobBadge()`
-(`web/index.html` ~L285) renders a status chip everywhere a pool's name appears — the board, the
+(`web/index.html` ~L323) renders a status chip everywhere a pool's name appears — the board, the
 Crew Board, the Jobs list. `Active` gets no chip (the common case should not be noisy); `Planned`
 and `On Hold` each get a visibly distinct one. Nothing was hidden and nothing stops a PM from
 still seeing a `Planned` pool's conflicts while choosing dates — that behaviour was correct all
@@ -149,7 +170,7 @@ sub-phase legitimately signed off at 5 of 6 rendered permanently incomplete. The
 no third task state to put it in.
 
 The bulk-tick half of this finding is a separate, still-open concern: the drawer's `all` / `none`
-links (L705) call `allTasks()` (L716), setting `done` on all ~6 tasks in one click, with an INST
+links (L811) call `allTasks()` (L825), setting `done` on all ~6 tasks in one click, with an INST
 checkbox next to it that has no precondition. The 2026-09-07 decision — no sign-off while any task
 is unresolved, with N/A carrying a mandatory reason precisely so a bare block does not produce
 false ticks — is the most deliberated rule in CLAUDE.md, and the planner still offers a one-click
@@ -169,7 +190,7 @@ claiming both flags resolves to done-only, and `secCounts` never double-counts i
 
 **What it was:** the 2026-09-11 session log recorded `Jobs.StartDate` as "display-only: nothing
 reads the field after creation". **That was no longer true.** `export-to-planner.js:100` exports
-it, `importFromD2` (L860) writes it to `j.start`, and `autoSchedule` (L309-310) used it twice: to
+it, `importFromD2` (L982) writes it to `j.start`, and `autoSchedule` (L347-349) used it twice: to
 **order the pools** and to **seed each pool's cursor**.
 
 Whitfield read `2026-09-21` on Jobs while its first assignment started `2026-06-15`. Auto-Schedule
@@ -205,7 +226,7 @@ exist nowhere else in this repo:
 These are real operational qualifications on rule 1. They are committed to git, so they are
 not at risk of loss, but they are **invisible to anyone working in SharePoint**.
 
-`conflicts()` (L400-407) also runs a check with no possible server-side analogue: if the same
+`conflicts()` (L481-488) also runs a check with no possible server-side analogue: if the same
 named person appears on two crews working the same day, it warns *"Confirm these are
 different people."*
 
@@ -216,9 +237,9 @@ generated or reflowed pool satisfies rule 3 by construction. But a PM editing
 `ScheduledStart` on the edit form — what that form was redesigned for on 2026-09-10 — can put
 3.2 before 3.1 with nothing to catch it. No flow checks it (Nightly Reconciliation, Conflict
 Flag and Event-Driven Reconciliation all check crew overlap only), CAML cannot express it,
-and the canvas app does not look. The planner catches it at L383.
+and the canvas app does not look. The planner catches it at L459.
 
-**A shared defect rather than a divergence:** in `autoSchedule` (L314) a locked row sets
+**A shared defect rather than a divergence:** in `autoSchedule` (L353) a locked row sets
 `cursor = adv(s.start)` **unconditionally**, so a locked row whose start precedes the
 preceding rows pulls the cursor backwards and produces an overlap. `D2 - Reschedule Pool`
 does the identical thing — `Set_cursor_pinned` = `addDays(ScheduledFinish, 1)` with no
@@ -227,7 +248,7 @@ will not.
 
 ### D3. Skill Coverage is the only surface for Don's trade-mapping decision
 
-`vCrews` (L640-646) renders, per trade, which crews hold it (red `none`) and which sub-phases
+`vCrews` (L745-751) renders, per trade, which crews hold it (red `none`) and which sub-phases
 require it (red *"not mapped to any sub-phase yet"*). 16 of 26 trades are used by the 46
 sub-phases; `cmu`, `form`, `grade`, `landscaping`, `masonry`, `materials`, `pavers`, `veneer`,
 `walls`, `waterline` are not.
@@ -237,17 +258,17 @@ Don owes is visible in exactly one place: a browser tool not linked from anywher
 
 ### D10. Create and delete in the planner are local-only, silently
 
-`addJob` (L744) assigns a number from `nextJobNo()` (max trailing integer + 1) and
-immediately re-runs `autoSchedule()` across every pool. `delJob` (L746) removes it from the
+`addJob` (L854) assigns a number from `nextJobNo()` (max trailing integer + 1) and
+immediately re-runs `autoSchedule()` across every pool. `delJob` (L856) removes it from the
 array. Neither touches the tenant. So a pool sketched in the planner never reaches
 SharePoint, a pool deleted there returns on the next import, and **two independent job-number
 generators exist with no uniqueness check between them.**
 
 ### D11. Nothing marked a pool as diverged after an import — CLOSED
 
-**What it was:** four actions rewrite every unlocked row in every pool: Auto-Schedule (L898),
-`+ Job` (L744), Set all durations (L766), Apply template (L768). Only sign-off-locked rows
-survived (`importFromD2` L872 set `locked = is.locked || is.inst`, which is the right rule and
+**What it was:** four actions rewrite every unlocked row in every pool: Auto-Schedule (L1043),
+`+ Job` (L854), Set all durations (L881), Apply template (L883). Only sign-off-locked rows
+survived (`importFromD2` L995 set `locked = is.locked || is.inst`, which is the right rule and
 mirrors `D2 - Reschedule Pool`). There was no dirty flag, no last-loaded stamp, no diff view. A
 PM could not tell by looking whether the Gantt was the live schedule or something they reflowed
 twenty minutes ago.
