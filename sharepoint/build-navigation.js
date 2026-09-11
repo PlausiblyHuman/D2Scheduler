@@ -18,14 +18,23 @@
  *      bar across the top. This is what "header tabs" means in practice, and it
  *      is a plain boolean on /_api/web. Confirmed working on WebTemplate=GROUP.
  *
- *   2. Web.HeaderEmphasis = 3 (Strong)
- *      Paints the site header band in the theme's primary colour. On D2's theme
- *      that renders GREEN (#0B594B), not navy, because green is the theme
- *      primary. That was accepted rather than "fixed": changing the theme
- *      primary to navy would repaint every link and button on the site, which is
- *      a much larger change than a header colour.
+ *   2. Web.HeaderEmphasis = 0 (None -- a white/clear header band)
+ *      This was 3 (Strong), which paints the header in the theme's PRIMARY
+ *      colour. On D2's theme that primary is GREEN (#0B594B), not navy, so the
+ *      header band and the green hero band on the home page rendered as one
+ *      continuous green slab with only the command bar between them.
+ *      0 separates them: blue suite bar, white header carrying the tabs, then
+ *      green as a deliberate hero band below.
+ *      A NAVY header is not reachable this way. HeaderEmphasis only ever pulls
+ *      from the theme, so navy would mean changing the theme primary, which
+ *      repaints every link and button on the site -- a far larger change than a
+ *      header colour. White was taken instead. Changed 2026-09-10.
  *      HeaderLayout stays 2 (Compact) -- Standard adds a taller site header that
  *      pushes the live schedule below the fold.
+ *
+ *      CACHING: SharePoint caches navigation per page. After running this, an
+ *      already-visited list page keeps rendering the OLD left rail with no tabs.
+ *      That is cache, not a failed write -- hard-reload each page to confirm.
  *
  *   3. quicklaunch nodes, rebuilt from scratch
  *      /_api/web/navigation/quicklaunch supports parent nodes with Children,
@@ -61,7 +70,7 @@
     method: 'POST', credentials: 'include',
     headers: { ...HD, 'IF-MATCH': '*', 'X-HTTP-Method': 'MERGE' },
     body: JSON.stringify({ __metadata: { type: 'SP.Web' },
-      HorizontalQuickLaunch: true, HeaderEmphasis: 3, HeaderLayout: 2 })
+      HorizontalQuickLaunch: true, HeaderEmphasis: 0, HeaderLayout: 2 })
   });
 
   // 3. Navigation, cleared and rebuilt.

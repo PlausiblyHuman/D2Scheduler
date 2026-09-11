@@ -1389,14 +1389,24 @@ properly:
 | Pool | Span | Sub-phases finished | Tasks | Signed off | PM |
 |---|---|---|---|---|---|
 | Reyes Residence | 08 Sep to 28 Dec | 1 of 46 | 26/295 | 1 | Cody Campbell |
-| Salcedo Residence | 10 Aug to 28 Nov | 13 of 46 | 121/295 | 12 | Cody Campbell |
+| Salcedo Residence | 10 Aug to 28 Nov | 13 of 46 | 121/295 | 12 | **Don Borgeson** (was Cody, changed 2026-09-10) |
 | Whitfield Estate | 15 Jun to 30 Sep | 37 of 46 | 251/295 | 35 | Emon Alexander |
 
 Staging notes worth keeping: the pools were **reflowed with `D2 - Reschedule Pool`** rather than
 hand-dated, so the working-day and holiday logic did the work; **four sub-phases are deliberately
 left unsigned** so `Sign-off Overdue` and the compliance figure have real content; and sign-offs
 are attributed to **Cody and Emon**, who are real enabled accounts (site user ids 14 and 15), which
-matches the pilot model of PMs signing on the crew's behalf. `flows/testdata/demo-pools-manifest.json`
+matches the pilot model of PMs signing on the crew's behalf.
+
+**PMs were spread one pool each on 2026-09-10** (Shane's call) so all three see a PM's view: Cody
+on Reyes, Emon on Whitfield, **Don on Salcedo**. Don had no site user record and was provisioned
+via `POST _api/web/ensureuser('don@d2pools.com')`, giving site user id **16** (Cody 14, David 13,
+Emon 15). The matching `New Pool Requests` rows were re-pointed from `D2 Bot` to the same three, so
+the request history reads like a PM's rather than a machine's; editing those rows is safe because
+`D2 - New Pool` triggers on `GetOnNewItems`, created-only. **Setting a Person field notifies
+nobody**, and the only flow that emails `Jobs.ProjectManager` unprompted is Event-Driven
+Reconciliation, which needs a Crew or date edit to fire — which is why this was safe to do before
+the four were given access. `flows/testdata/demo-pools-manifest.json`
 remains the removal record: `cleanup.js` will not auto-remove these, by design, because they carry
 real-looking job numbers.
 
@@ -1419,13 +1429,24 @@ Conversations, Notebook, Calendar, Documents, Recent) and none of the lists a PM
 - **`Web.HorizontalQuickLaunch = true`** moves a `GROUP` team site's nav from the left rail to a
   horizontal bar. This is what "header tabs" means in practice and it is a plain boolean on
   `/_api/web`. No SPFx, no page editor.
-- **`Web.HeaderEmphasis = 3`** paints the header band in the theme primary, which on D2's theme is
-  **green, not navy**. Accepted rather than fixed: changing the theme primary to navy would repaint
-  every link and button on the site.
+- **`Web.HeaderEmphasis` is now `0`, a white/clear header band. Changed 2026-09-10 on Shane's call.**
+  It was `3`, which paints the band in the theme primary. On D2's theme that primary is **green, not
+  navy**, so the header and the green hero band below it read as one continuous slab with only the
+  command bar between them. `0` separates them: blue suite bar, white header carrying the tabs, then
+  green as a deliberate hero band. A **navy** header is not available without changing the theme
+  primary, which would repaint every link and button on the site, so white was taken instead.
 - **`zoneEmphasis` on a canvas section** is the lever for colour on the home page. Inline `style`
   attributes inside `data-sp-rte` are stripped by the rich-text sanitiser, but section emphasis is
   native and sticks. The home page is now a green hero band flowing out of the header, a white
   section holding the live schedule, and a soft-tinted link index.
+
+**SharePoint caches site navigation per page, so a nav or header change looks like it did not
+apply.** After setting `HorizontalQuickLaunch` or rebuilding quicklaunch, an already-visited list
+page keeps rendering the OLD left rail (Home, Conversations, Notebook, Documents, Recycle bin) with
+no tabs, while the home page shows the new chrome correctly. It is cache, not a failed write: a
+hard reload (`ignoreCache`) on each page brings the tabs back, and a user who has never loaded the
+page gets the new nav first time. Verify a nav change on a **hard-reloaded** page, or you will
+conclude it only half-worked.
 
 **The horizontal bar cuts to an overflow at about four or five items**, and the owner-only "Edit
 navigation" link competes for the same space, so a member sees one more tab than an owner does. The
@@ -1701,6 +1722,61 @@ respectively.
 as a nested `if` instead of `&&`. A raw `>` is legal as XML content and is fine. Note this is a
 500 at write time, so unlike bad CAML or a bad formatter body it does **not** silently render
 wrong later. It is the rare SharePoint failure that is loud.
+
+**HIDING A FIELD FROM THE NEW FORM: `ShowInNewForm` IS NOT SETTABLE ON THE REST FIELD ENTITY.
+Found 2026-09-10.** A `MERGE` on
+`/_api/web/lists/GetByTitle('X')/fields/getByInternalNameOrTitle('Y')` with `{"ShowInNewForm":false}`
+returns **400 `The property 'ShowInNewForm' does not exist`** — it lives on
+`SP.FieldCreationInformation` / CSOM, not on `SP.Field`.
+
+**The route that works is `SchemaXml`, and the safe way to use it is a string insert, never a
+rebuild.** Read the field's current `SchemaXml`, insert `ShowInNewForm="FALSE"` immediately after
+`<Field `, and MERGE that exact string back. This preserves `<CHOICES>`, `<Default>` and everything
+else verbatim, which matters because a hand-built `SchemaXml` is what **silently wipes
+`ValidationFormula`** (see the `Assignments.Crew` Choice entry above). Handles both the
+self-closing `<Field .../>` and the `<Field ...>...</Field>` shapes. Verify by reading `Choices`,
+`DefaultValue` and `ValidationFormula` back afterwards.
+
+**Hiding a Required field from the New form is safe ONLY when it has a default**, which SharePoint
+then supplies on save. Applied 2026-09-10 to `Status` and `Result` on all three request lists
+(`New Pool Requests`, `Delete Pool Requests`, `Reschedule Requests`) — all three `Status` fields
+default to `Requested`. **Proven end to end**, not assumed: a pool was created through the form
+with `Status` hidden, saved, defaulted to `Requested`, and `D2 - New Pool` built all 46 sub-phases
+and 295 tasks correctly. Both fields are flow-owned, so a PM being asked to fill them in was a
+straightforward defect. They stay visible on the Display and Edit forms, because the guide tells
+PMs to watch `Status` for `Done`.
+
+**THE THREE REQUEST LISTS' DEFAULT VIEWS SHOWED ONLY `LinkTitle`. Fixed 2026-09-10.** Same defect
+class as the `Jobs` All Items one recorded above, and it was never checked on these lists. A PM
+following the instruction "refresh until Status says Done" **could not see Status at all** — the
+view rendered pool names and nothing else, on all three lists. Now:
+
+| List | View fields |
+|---|---|
+| New Pool Requests | LinkTitle, JobNumber, Status, StartDate, ProjectManager, Result, Created |
+| Delete Pool Requests | LinkTitle, ConfirmJobNumber, Reason, Status, Result, Created |
+| Reschedule Requests | LinkTitle, JobNumber, FromSequence, NewStartDate, Status, Result, Created |
+
+All three also set `RowLimit=50, Paged=true`. Set with `viewfields/removeallviewfields` then
+`viewfields/addviewfield('<name>')` per field, in order.
+
+**`D2 - Delete Pool` REQUIRES `Title` TO EQUAL `ConfirmJobNumber` EXACTLY** — the guard is
+`not(equals(trim(ConfirmJobNumber), trim(Title)))`. So the job number is typed **twice**, and a
+descriptive Title such as `Alvarez Residence - remove test pool` is **Refused: confirmation did not
+match.** Deliberate two-key confirmation on a destructive action, not a bug, but it is unguessable
+from the form, so the PM guide now spells it out.
+
+**MEASURED RUNTIMES, 2026-09-10, on a tenant holding 3 pools.** Both were previously described only
+as "a few minutes", which understated them:
+
+| Flow | Measured |
+|---|---|
+| `D2 - New Pool` (46 sub-phases + 295 tasks) | **9m 03s** from Save to `Done` |
+| `D2 - Delete Pool` (same pool) | **~6m** |
+
+Roughly 14 seconds per sub-phase, and it scales with the 46 rows rather than with tenant size. The
+PM guide carries this as a prominent callout, because the request sits at `Building` the whole time
+and looks stuck.
 
 **LIST FORM formatting works, and the wrapper key names are `headerJSONFormatter` /
 `bodyJSONFormatter` / `footerJSONFormatter`. Found 2026-09-10; do not re-guess them.**

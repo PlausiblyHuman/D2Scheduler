@@ -1,0 +1,724 @@
+<title>D2 Build Scheduler Guide</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600&family=Source+Sans+3:ital,wght@0,400;0,600;1,400&display=swap">
+<style>
+  :root{
+    --navy:#082544;
+    --green:#0B594B;
+    --cream:#F6F3ED;
+    --rust:#A84A18;
+    --ground:#FBFAF7;
+    --panel:#FFFFFF;
+    --ink:#12212F;
+    --ink-soft:#535C57;
+    --ink-faint:#847D70;
+    --rule:#DED8CB;
+    --rule-soft:#EDE8DE;
+    --accent:#0B594B;
+    --shadow:0 1px 2px rgba(8,37,68,.05), 0 10px 30px rgba(8,37,68,.07);
+    --mono:ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --ground:#0B1826; --panel:#12243A; --ink:#E9E4D9; --ink-soft:#A6B2BB;
+      --ink-faint:#7E8A96; --rule:#24394F; --rule-soft:#1B2D41; --cream:#16293D;
+      --accent:#63B8A1; --rust:#E28D58;
+      --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="dark"]{
+    --ground:#0B1826; --panel:#12243A; --ink:#E9E4D9; --ink-soft:#A6B2BB;
+    --ink-faint:#7E8A96; --rule:#24394F; --rule-soft:#1B2D41; --cream:#16293D;
+    --accent:#63B8A1; --rust:#E28D58;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.35);
+  }
+
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--ground); color:var(--ink);
+    font-family:"Source Sans 3",system-ui,-apple-system,Segoe UI,sans-serif;
+    font-size:17px; line-height:1.6; -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:940px;margin:0 auto;padding-inline:22px;padding-block:0 72px;}
+
+  /* ---------- masthead ---------- */
+  .mast{background:var(--navy);color:#fff;padding-block:44px 40px;margin-bottom:44px;}
+  .mast .inner{max-width:940px;margin:0 auto;padding-inline:22px;}
+  .brandline{
+    display:flex;align-items:center;gap:11px;margin-bottom:22px;
+    font-size:11.5px;font-weight:600;letter-spacing:.15em;text-transform:uppercase;color:#93A7BB;
+  }
+  .brandline .dot{width:7px;height:7px;border-radius:50%;background:#63B8A1;flex:none;}
+  .mast h1{
+    font-family:Poppins,system-ui,sans-serif;font-weight:600;
+    font-size:clamp(30px,5vw,45px);line-height:1.1;letter-spacing:-.02em;
+    margin:0 0 14px;color:#fff;text-wrap:balance;
+  }
+  .mast p{margin:0;max-width:60ch;color:#C4D2DE;font-size:18px;}
+  .mast .who{
+    margin-top:26px;padding-top:18px;border-top:1px solid #1D3A55;
+    display:flex;flex-wrap:wrap;gap:26px;font-size:14px;color:#93A7BB;
+  }
+  .mast .who b{color:#fff;font-weight:600;display:block;font-size:13px;
+    letter-spacing:.08em;text-transform:uppercase;margin-bottom:2px;}
+
+  /* ---------- type ---------- */
+  h2{
+    font-family:Poppins,sans-serif;font-weight:600;font-size:26px;letter-spacing:-.015em;
+    margin:0 0 4px;color:var(--ink);text-wrap:balance;
+  }
+  h3{
+    font-family:Poppins,sans-serif;font-weight:600;font-size:18px;letter-spacing:-.005em;
+    margin:0 0 6px;color:var(--ink);
+  }
+  p{margin:0 0 15px;max-width:68ch;}
+  .lede{color:var(--ink-soft);font-size:18px;margin-bottom:26px;max-width:66ch;}
+  section{margin-bottom:56px;scroll-margin-top:20px;}
+  .eyebrow{
+    font-size:11.5px;font-weight:600;letter-spacing:.15em;text-transform:uppercase;
+    color:var(--accent);margin:0 0 9px;
+  }
+  code{
+    font-family:var(--mono);font-size:.86em;
+    background:color-mix(in srgb,var(--ink) 8%,transparent);
+    padding:2px 6px;border-radius:4px;
+  }
+  strong{font-weight:600;}
+  a{color:var(--accent);}
+  a:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+
+  /* ---------- day one strip ---------- */
+  .dayone{
+    background:var(--cream);border:1px solid var(--rule);border-radius:8px;
+    padding:26px 28px;margin-bottom:14px;
+  }
+  .dayone ol{margin:0;padding-left:0;list-style:none;counter-reset:d;
+    display:grid;gap:14px;grid-template-columns:1fr;}
+  @media(min-width:700px){.dayone ol{grid-template-columns:1fr 1fr;gap:14px 30px;}}
+  .dayone li{counter-increment:d;display:grid;grid-template-columns:30px 1fr;gap:12px;align-items:start;}
+  .dayone li::before{
+    content:counter(d);font-family:Poppins,sans-serif;font-weight:600;font-size:13px;
+    width:26px;height:26px;border-radius:50%;background:var(--navy);color:#fff;
+    display:grid;place-items:center;margin-top:1px;
+  }
+  :root:not([data-theme="light"]) .dayone li::before{background:var(--accent);color:#08202B;}
+  @media (prefers-color-scheme: light){.dayone li::before{background:var(--navy);color:#fff;}}
+  .dayone li span{font-size:16px;}
+  .dayone li b{display:block;font-weight:600;}
+
+  /* ---------- task cards ---------- */
+  .task{
+    background:var(--panel);border:1px solid var(--rule);border-radius:8px;
+    box-shadow:var(--shadow);overflow:hidden;margin-bottom:22px;
+  }
+  .task-head{padding:20px 24px 4px;}
+  .task-head h3{margin-bottom:3px;}
+  .task-head .sub{color:var(--ink-faint);font-size:14px;margin:0;}
+  .task-body{padding:14px 24px 22px;}
+  .task-body ol{margin:0;padding-left:20px;}
+  .task-body ol li{margin-bottom:8px;}
+  .task-body ol li:last-child{margin-bottom:0;}
+  .task-body p{margin-bottom:10px;}
+
+  figure{margin:0;border-top:1px solid var(--rule-soft);background:var(--cream);}
+  figure img{display:block;width:100%;height:auto;}
+  figcaption{
+    padding:10px 24px 14px;font-size:13.5px;color:var(--ink-faint);
+    border-top:1px solid var(--rule-soft);background:var(--panel);
+  }
+
+  /* ---------- callouts ---------- */
+  .note{
+    border-left:3px solid var(--accent);background:color-mix(in srgb,var(--accent) 7%,transparent);
+    padding:14px 18px;border-radius:0 6px 6px 0;margin:0 0 18px;
+  }
+  .note p:last-child{margin-bottom:0;}
+  .note .label{
+    font-size:11px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;
+    color:var(--accent);display:block;margin-bottom:5px;
+  }
+  .watch{
+    border-left:3px solid var(--rust);background:color-mix(in srgb,var(--rust) 8%,transparent);
+  }
+  .watch .label{color:var(--rust);}
+
+  /* ---------- traps ---------- */
+  .traps{display:grid;gap:0;border-top:1px solid var(--rule);}
+  .trap{
+    display:grid;grid-template-columns:220px 1fr;gap:6px 26px;
+    padding-block:20px;border-bottom:1px solid var(--rule-soft);align-items:start;
+  }
+  @media(max-width:680px){.trap{grid-template-columns:1fr;gap:6px;}}
+  .trap h3{font-family:"Source Sans 3",sans-serif;font-size:16.5px;margin:0;color:var(--ink);}
+  .trap p{margin:0;color:var(--ink-soft);font-size:16px;}
+
+  /* ---------- reference tables ---------- */
+  .tablewrap{overflow-x:auto;margin-bottom:20px;}
+  table{border-collapse:collapse;width:100%;font-size:15.5px;min-width:460px;}
+  th,td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--rule-soft);vertical-align:top;}
+  th{
+    font-size:11.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--ink-faint);border-bottom:1px solid var(--rule);
+  }
+  td:first-child{font-weight:600;white-space:nowrap;}
+
+  .pill{
+    display:inline-block;padding:2px 10px;border-radius:11px;font-size:11.5px;
+    font-weight:600;letter-spacing:.04em;
+  }
+  .pill.done{background:color-mix(in srgb,var(--green) 16%,transparent);color:var(--accent);}
+  .pill.prog{background:color-mix(in srgb,var(--rust) 15%,transparent);color:var(--rust);}
+  .pill.none{background:color-mix(in srgb,var(--ink-faint) 16%,transparent);color:var(--ink-faint);}
+
+  /* ---------- email preview ---------- */
+  .mailframe{
+    background:var(--panel);border:1px solid var(--rule);border-radius:8px;
+    box-shadow:var(--shadow);overflow:hidden;
+  }
+  .mailhead{padding:14px 20px;border-bottom:1px solid var(--rule-soft);display:grid;gap:4px;}
+  .mailhead .row{display:grid;grid-template-columns:64px 1fr;gap:10px;align-items:baseline;}
+  .mailhead .k{font-size:10.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);}
+  .mailhead .v{font-size:14.5px;word-break:break-word;}
+  .mailhead .v.subj{font-weight:600;}
+  .mailrender{background:#fff;}
+  .mailrender iframe{display:block;width:100%;border:0;background:#fff;}
+
+  footer{
+    margin-top:60px;padding-top:22px;border-top:1px solid var(--rule);
+    color:var(--ink-faint);font-size:14px;
+  }
+  footer b{color:var(--ink-soft);}
+
+  /* ---------- life of a pool ---------- */
+  .life{margin:8px 0 6px;padding:0;list-style:none;}
+  .life li{
+    position:relative;padding:0 0 26px 34px;border-left:2px solid var(--rule);
+  }
+  .life li:last-child{border-left-color:transparent;padding-bottom:4px;}
+  .life li::before{
+    content:"";position:absolute;left:-8px;top:6px;width:14px;height:14px;border-radius:50%;
+    background:var(--accent);box-shadow:0 0 0 4px var(--ground);
+  }
+  .life .stage{
+    display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:4px;
+  }
+  .life .chip{
+    font-family:"Source Sans 3",sans-serif;font-size:11px;font-weight:600;
+    letter-spacing:.1em;text-transform:uppercase;padding:3px 10px;border-radius:4px;
+    background:var(--navy);color:#fff;white-space:nowrap;
+  }
+  :root:not([data-theme="light"]) .life .chip{background:var(--accent);color:#08202B;}
+  @media (prefers-color-scheme: light){.life .chip{background:var(--navy);color:#fff;}}
+  .life .stage b{font-family:Poppins,sans-serif;font-weight:600;font-size:17px;}
+  .life p{margin:0;color:var(--ink-soft);font-size:16px;max-width:62ch;}
+  .life .who{
+    display:block;margin-top:3px;font-size:13.5px;color:var(--ink-faint);
+  }
+
+  /* ---------- beta badge + welcome ---------- */
+  .badge{
+    display:inline-block;padding:4px 12px;border-radius:13px;margin-bottom:18px;
+    background:#16405E;color:#9FD9C7;border:1px solid #24557A;
+    font-size:11.5px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;
+  }
+  .welcome{
+    background:var(--cream);border:1px solid var(--rule);border-radius:8px;
+    padding:26px 28px;margin-bottom:22px;
+  }
+  .welcome h3{margin:22px 0 6px;font-size:17px;}
+  .welcome h3:first-of-type{margin-top:18px;}
+  .welcome p{margin:0 0 12px;}
+  .welcome p:last-child{margin-bottom:0;}
+  .welcome .pools{
+    display:grid;gap:10px;grid-template-columns:1fr;margin:14px 0 4px;
+  }
+  @media(min-width:640px){.welcome .pools{grid-template-columns:repeat(3,1fr);}}
+  .welcome .pool{
+    background:var(--panel);border:1px solid var(--rule);border-radius:6px;padding:12px 14px;
+  }
+  .welcome .pool b{display:block;font-family:Poppins,sans-serif;font-weight:600;font-size:15px;margin-bottom:2px;}
+  .welcome .pool span{font-size:13.5px;color:var(--ink-faint);}
+  .contact{
+    display:inline-block;font-weight:600;
+  }
+</style>
+
+<header class="mast">
+  <div class="inner">
+    <div class="brandline"><span class="dot"></span> D2 Pools &middot; Build Scheduler</div>
+    <span class="badge">Project manager guide</span>
+    <h1>Running a pool in the D2 Build Scheduler</h1>
+    <p>How to start a pool, put the real durations in, commit it, keep it moving when something slips, and read the day. Step by step.</p>
+    <div class="who">
+      <div><b>Written for</b>Cody Campbell &middot; Emon Alexander</div>
+      <div><b>Also useful to</b>Don, David and the office</div>
+      <div><b>Feedback to</b>stalbot@stratirus.com</div>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <section id="what">
+    <p class="eyebrow">Start here</p>
+    <h2>What this is</h2>
+    <p class="lede">The Build Scheduler holds the schedule and the completion record for every D2 pool.</p>
+    <p>A pool is broken into <strong>46 sub-phases</strong>, from the sales handoff through to the 30-day follow-up. Each one has a crew, a set of dates and a checklist of tasks. Each completed sub-phase records who signed it off and when.</p>
+    <p>The same information reaches people four ways:</p>
+    <div class="tablewrap">
+      <table>
+        <tr><td>The site</td><td>Every pool's schedule, and the views for reading it by day, by week, by crew or by pool.</td></tr>
+        <tr><td>The calendar</td><td>Which pool is being worked on when, in Outlook and Teams.</td></tr>
+        <tr><td>The morning email</td><td>What is scheduled today, and how much recently finished work has been signed off.</td></tr>
+        <tr><td>The phone app</td><td>Today's tasks, ticked off and signed on site.</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <section id="life">
+    <p class="eyebrow">The shape of it</p>
+    <h2>The life of a pool</h2>
+    <p class="lede">Every pool moves through the same six stages.</p>
+    <ul class="life">
+
+      <li>
+        <div class="stage"><span class="chip">Requested</span> <b>A pool is asked for</b></div>
+        <p>The PM fills in one short form: pool name, job number, address, start date and project manager.</p>
+        <span class="who">Takes a minute.</span>
+      </li>
+
+      <li>
+        <div class="stage"><span class="chip">Built</span> <b>The system writes the schedule</b></div>
+        <p>46 sub-phases in the right order, each with dates that skip Sundays and holidays, a default crew, and a task checklist. Roughly 295 tasks in all.</p>
+        <span class="who">Happens on its own. Allow about ten minutes.</span>
+      </li>
+
+      <li>
+        <div class="stage"><span class="chip">Planned</span> <b>The pool exists, but nothing is happening</b></div>
+        <p>No crew is dispatched, nothing appears on the calendar, and it stays out of the summaries. This is the window for correcting the durations, which all start at a placeholder of two days, and for adjusting the sequence.</p>
+        <span class="who">The PM's real work on a new pool happens here.</span>
+      </li>
+
+      <li>
+        <div class="stage"><span class="chip">Active</span> <b>The pool goes live</b></div>
+        <p>Changing one field from Planned to Active turns everything on: crews are dispatched each morning, the pool appears on the shared calendar, and it counts in the daily and weekly summaries.</p>
+        <span class="who">One deliberate step, so nothing goes live by accident.</span>
+      </li>
+
+      <li>
+        <div class="stage"><span class="chip">Running</span> <b>Work happens and gets recorded</b></div>
+        <p>Tasks are ticked off and each sub-phase is signed off as it finishes. When something slips, one reschedule moves the rest of the pool around it.</p>
+        <span class="who">Weeks or months, depending on the build.</span>
+      </li>
+
+      <li>
+        <div class="stage"><span class="chip">Closed out</span> <b>Every stage is signed</b></div>
+        <p>The pool finishes with a complete record: what was done, when, and by whose name.</p>
+        <span class="who">Nothing to archive. It simply stops appearing in this week's work.</span>
+      </li>
+
+    </ul>
+    <div class="note watch">
+      <span class="label">The one that catches people</span>
+      <p>A pool sits at <strong>Planned</strong> until somebody moves it to <strong>Active</strong>. That step is easy to forget, and a pool that was never committed will sit there quietly doing nothing at all.</p>
+    </div>
+  </section>
+
+  <section id="around">
+    <p class="eyebrow">Quick start</p>
+    <h2>How the site is laid out</h2>
+    <p class="lede">The home page is the launchpad. It opens on this week's work, grouped by pool.</p>
+    <div class="task">
+      <figure>
+        <img src="{{IMG_HOME}}" alt="The D2 Build Scheduler home page, showing this week's work grouped by pool, with a status pill and progress bar on each sub-phase.">
+        <figcaption>The home page. Each card is one sub-phase: its number and name, the pool, the crew, the dates, and how many of its tasks are done.</figcaption>
+      </figure>
+      <div class="task-body">
+        <p>Each card has a coloured status pill, so a whole week can be read at a glance:</p>
+        <div class="tablewrap">
+          <table>
+            <tr><td><span class="pill done">Signed off</span></td><td>The work is finished and someone has put their name to it. Nothing left to do.</td></tr>
+            <tr><td><span class="pill prog">In progress</span></td><td>Started, or finished but <strong>not yet signed off</strong>. A full progress bar alongside this pill means the work is done and the sign-off is outstanding.</td></tr>
+            <tr><td><span class="pill none">Not started</span></td><td>Scheduled, with no tasks ticked yet.</td></tr>
+          </table>
+        </div>
+        <div class="note">
+          <span class="label">Two ways to get anywhere</span>
+          <p>The <strong>tabs along the top of every page</strong> are the quickest route, and they stay visible wherever the
+             site has been opened: <strong>Home</strong>, <strong>Today</strong>, <strong>This Week</strong>,
+             <strong>Pools</strong>, <strong>Attention</strong>, <strong>Calendar</strong>, <strong>Sign-off App</strong> and
+             <strong>Lists</strong>. Pools and Attention open a short menu.</p>
+          <p>The same places are listed again lower down the home page, in three groups. This guide names both.</p>
+          <p><strong>Day to day</strong> holds the views used most: Today by Crew, This Week by Job, This Week by Crew, Sign-off Overdue, Conflicts, Unassigned Work and Late-Starting Jobs.<br>
+             <strong>Pool management</strong> holds Start a New Pool, Reschedule a Pool, Planned Pools and Remove a Pool.<br>
+             <strong>Everything</strong> holds the full lists: All Assignments, Jobs, Crews and Incomplete Tasks.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="thisweek">
+    <h2>Seeing what is happening</h2>
+    <p class="lede">Three views answer most day-to-day questions. All three are on the tabs at the top of the page: <strong>Today</strong>, and <strong>Attention</strong> for the other two.</p>
+
+    <div class="task">
+      <div class="task-head">
+        <h3>Today by Crew</h3>
+        <p class="sub">Where is everybody right now?</p>
+      </div>
+      <figure>
+        <img src="{{IMG_TODAY}}" alt="The Today by Crew view, listing today's scheduled sub-phases grouped by crew.">
+        <figcaption>Today only, grouped by crew. This is the view to open when somebody rings to ask where a crew is.</figcaption>
+      </figure>
+    </div>
+
+    <div class="task">
+      <div class="task-head">
+        <h3>Sign-off Overdue</h3>
+        <p class="sub">What has been finished but never signed?</p>
+      </div>
+      <figure>
+        <img src="{{IMG_OVERDUE}}" alt="The Sign-off Overdue view, grouped by crew, showing finished sub-phases that have not been signed off.">
+        <figcaption>Sub-phases whose dates have passed with no sign-off recorded. Note the full progress bars: every task is ticked, but nobody has put their name to it. This is the list to clear before Friday.</figcaption>
+      </figure>
+    </div>
+
+    <div class="task">
+      <div class="task-head">
+        <h3>Conflicts</h3>
+        <p class="sub">Is a crew booked in two places at once?</p>
+      </div>
+      <div class="task-body">
+        <p>Each night the system checks whether any crew is scheduled on two pools on the same day, and writes what it finds onto the affected sub-phases. The <strong>Conflicts</strong> view lists them.</p>
+        <p>Subcontractors are deliberately left out of this check, because they can put more than one team out on the same day. Only D2's own crews are checked.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="newpool">
+    <p class="eyebrow">Quick start</p>
+    <h2>Starting a new pool</h2>
+    <p class="lede">Fill in one short form. The system builds the 46 sub-phases and roughly 295 tasks behind it.</p>
+    <div class="note watch">
+      <span class="label">Building a pool takes several minutes</span>
+      <p>Saving the form does not create the pool straight away. Behind the scenes the system writes
+         <strong>46 sub-phases and around 295 tasks</strong>, one at a time, and that normally runs for
+         <strong>about nine to ten minutes</strong>. The request sits at <strong>Building</strong> the whole time.
+         Nothing has gone wrong and the form does not need saving again. Leave it, refresh the page
+         after a few minutes, and wait for <strong>Done</strong>.</p>
+    </div>
+    <div class="task">
+      <figure>
+        <img src="{{IMG_NEWPOOL}}" alt="The New Pool Request form, with fields for job number, pool name, address, start date and project manager.">
+        <figcaption>The New Pool form, filled in. Every box here is one a project manager fills; the system owns everything else.</figcaption>
+      </figure>
+      <div class="task-body">
+        <ol>
+          <li>Open <strong>Pools &rsaquo; Start a New Pool</strong> from the tabs at the top of the page.</li>
+          <li>Click the green <strong>+ New</strong> button at the top left. A panel slides in from the right.</li>
+          <li>Fill in every box: <strong>Title</strong> (the pool name, such as Reyes Residence), <strong>JobNumber</strong>, <strong>Address</strong>, <strong>City</strong>, <strong>StartDate</strong> and <strong>Project Manager</strong>. Leave <strong>Assign Default Crews</strong> ticked.</li>
+          <li>Click <strong>Save</strong> at the bottom of the panel.</li>
+          <li>A new row appears with a <strong>Status</strong> of <strong>Requested</strong>.</li>
+          <li>The status moves to <strong>Building</strong>. Leave it alone for several minutes.</li>
+          <li>Refresh the page. Once the status reads <strong>Done</strong> the pool exists, and an email confirms what was built.</li>
+        </ol>
+        <div class="note">
+          <span class="label">What gets built</span>
+          <p>A complete pool: 46 sub-phases in the right order, each with dates that skip Sundays and holidays, a default crew, and its own task checklist.</p>
+        </div>
+        <div class="note watch">
+          <span class="label">The pool is not finished yet</span>
+          <p>Two things still have to happen, and the pool does nothing at all until the second one is done. Both are covered next: <strong>put in the real durations</strong>, then <strong>commit it</strong>.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="durations">
+    <p class="eyebrow">Quick start</p>
+    <h2>Putting in the real durations</h2>
+    <p class="lede">Every sub-phase is created at two working days, because the system has no way of knowing any better.</p>
+    <div class="task">
+      <div class="task-body">
+        <p>A freshly built pool has the right 46 stages in the right order, and every one of them is two days long. Replacing those with real durations is what turns it into a schedule.</p>
+        <p><strong>To change one sub-phase:</strong></p>
+        <ol>
+          <li>Open <strong>Lists &rsaquo; All Assignments</strong> from the tabs at the top of the page.</li>
+          <li>Find the sub-phase and click its name. A panel opens showing its details.</li>
+          <li>Click <strong>Edit all</strong> at the top left of the panel.</li>
+          <li>Click in the <strong>DurationDays</strong> box and type the number of working days the stage really takes.</li>
+          <li>Click <strong>Save</strong> at the bottom.</li>
+          <li>Repeat for each sub-phase that is wrong.</li>
+        </ol>
+        <div class="note watch">
+          <span class="label">Then reflow the pool</span>
+          <p>Changing a duration does not move anything on its own. It only records how long that stage should take. Once the durations are right, raise a <strong>Reschedule Pool</strong> request starting from sub-phase <strong>1</strong>, and the whole pool is recalculated around the new lengths. Rescheduling is covered below.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="commit">
+    <p class="eyebrow">Quick start</p>
+    <h2>Committing a pool</h2>
+    <p class="lede">This is the step most often forgotten, and nothing happens without it.</p>
+    <div class="task">
+      <figure>
+        <img src="{{IMG_JOBS}}" alt="The Jobs list, showing each pool with its job number, status, project manager and start date.">
+        <figcaption>The Jobs list. The Status column shows whether each pool is Planned, Active or On Hold.</figcaption>
+      </figure>
+      <div class="task-body">
+        <p>A brand-new pool has a status of <strong>Planned</strong>. While it is Planned, no crew is dispatched for it, it does not appear on the shared calendar, and it is left out of the daily and weekly summaries.</p>
+        <p>That is deliberate. It gives time to fix the durations and adjust the sequence before anyone acts on a plan that is still being written.</p>
+        <p><strong>To commit a pool:</strong></p>
+        <ol>
+          <li>Open <strong>Pools</strong> from the tabs at the top of the page.</li>
+          <li>Find the pool. The <strong>Status</strong> column shows <strong>Planned</strong>.</li>
+          <li>Click the pool's name. A panel opens showing its details.</li>
+          <li>Click <strong>Edit all</strong> at the top left of the panel.</li>
+          <li>Click the <strong>Status</strong> box and choose <strong>Active</strong> from the list.</li>
+          <li>Click <strong>Save</strong> at the bottom.</li>
+        </ol>
+      </div>
+      <figure>
+        <img src="{{IMG_COMMIT}}" alt="A pool open in its details panel, with the Edit all button at top left and the Status field showing Active.">
+        <figcaption>Clicking a pool opens this panel. <strong>Edit all</strong> is at the top left, and Status is part-way down.</figcaption>
+      </figure>
+      <div class="task-body">
+        <p>From the next morning the pool behaves like any other live job: crews are dispatched, it appears on the calendar, and it counts in the summaries.</p>
+        <div class="note">
+          <span class="label">Also useful</span>
+          <p><strong>On Hold</strong> works the same way in reverse, and is set through exactly the same six steps. A job that stops for a while can be put On Hold rather than deleted. It stops dispatching and drops off the calendar, and everything is still there when it restarts.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="reschedule">
+    <p class="eyebrow">Quick start</p>
+    <h2>Moving a pool when something slips</h2>
+    <p class="lede">Rain, a late inspection, materials that did not arrive. The schedule does not have to be redone by hand.</p>
+    <div class="task">
+      <div class="task-body">
+        <ol>
+          <li>Open <strong>Pools &rsaquo; Reschedule a Pool</strong> from the tabs at the top of the page.</li>
+          <li>Click the green <strong>+ New</strong> button at the top left.</li>
+          <li>In <strong>Title</strong>, type something that will still make sense in a month, such as <em>Whitfield, reflow after weather delay</em>.</li>
+          <li>In <strong>JobNumber</strong>, type the pool's job number, such as <em>D2-1043</em>.</li>
+          <li>In <strong>FromSequence</strong>, type the number of the sub-phase to start from. Everything from there onwards moves. Everything before it stays put. To reflow a whole pool, type <strong>1</strong>.</li>
+          <li><strong>NewStartDate</strong> is optional. Fill it in to move that sub-phase to a particular date. Leave it empty to keep the same start and simply recalculate using the durations.</li>
+          <li>Click <strong>Save</strong> at the bottom of the panel.</li>
+          <li>The row shows <strong>Running</strong>, then <strong>Done</strong>. Refresh the page to see it change. An email reports how many sub-phases moved and where the pool now finishes.</li>
+        </ol>
+        <p>The reflow recalculates every following sub-phase in working days, skipping Sundays and holidays, so there is no need to count them.</p>
+        <div class="note watch">
+          <span class="label">Pin anything that must not move</span>
+          <p>A booked inspection or a confirmed delivery should not slide just because the work before it slipped.</p>
+          <p>To pin one: open the sub-phase from <strong>All Assignments</strong>, click <strong>Edit all</strong>, tick the <strong>Locked</strong> box, and click <strong>Save</strong>. The reflow then schedules around it instead of moving it.</p>
+          <p>Anything already <strong>signed off</strong> is left alone as well, whether it is locked or not.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="calendar">
+    <p class="eyebrow">Shared calendar</p>
+    <h2>The pool calendar</h2>
+    <p class="lede">Every live pool, on one calendar, in Outlook and Teams.</p>
+    <div class="task">
+      <figure>
+        <img src="{{IMG_CALENDAR}}" alt="The D2 Build Scheduler group calendar in Outlook month view, showing all-day blocks for each sub-phase across three pools.">
+        <figcaption>The D2 Build Scheduler group calendar. Each block is one sub-phase, running across the days it is scheduled for.</figcaption>
+      </figure>
+      <div class="task-body">
+        <p><strong>To open it:</strong> in the site's left-hand menu click <strong>Calendar</strong>. It can also be reached in Outlook, under <strong>D2 Build Scheduler</strong> in the list of group calendars on the left.</p>
+        <p>Clicking a block shows the crew, how many tasks are done, whether it has been signed off, and a link straight back to the sub-phase.</p>
+        <div class="tablewrap">
+          <table>
+            <tr><td>What appears</td><td>Every sub-phase of every <strong>Active</strong> pool. Planned and On Hold pools are not shown.</td></tr>
+            <tr><td>Marked free</td><td>Blocks are set to "free", so they never make anyone look busy or block a meeting invitation.</td></tr>
+            <tr><td>Updates</td><td>Overnight. A change made this afternoon appears on the calendar in the morning.</td></tr>
+          </table>
+        </div>
+        <div class="note watch">
+          <span class="label">Edits made here do not stick</span>
+          <p>The calendar is rebuilt from the schedule each night, so anything changed directly on a calendar entry is overwritten. Change the sub-phase in the Build Scheduler and the calendar follows.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="email">
+    <p class="eyebrow">Reporting</p>
+    <h2>The morning email</h2>
+    <p class="lede">A short summary lands before the day starts. This is a real one.</p>
+    <div class="mailframe">
+      <div class="mailhead">
+        <div class="row"><span class="k">From</span><span class="v">D2 Build Scheduler</span></div>
+        <div class="row"><span class="k">Sent</span><span class="v">06:30, Monday to Saturday</span></div>
+        <div class="row"><span class="k">Subject</span><span class="v subj">D2 Daily Summary, Thu 09/10, 3 scheduled, 1 awaiting sign-off</span></div>
+      </div>
+      <div class="mailrender"><iframe title="Example of the daily summary email" id="mailpreview"></iframe></div>
+    </div>
+    <div class="task" style="margin-top:22px">
+      <div class="task-body">
+        <p>Everything in it is a link. Clicking a sub-phase name opens that row.</p>
+        <p><strong>The percentage is the sign-off rate.</strong> Of the sub-phases that finished in the last seven days, it shows how many have been signed off. It is a measure of paperwork rather than progress.</p>
+        <p>A <strong>weekly summary</strong> follows every Friday afternoon, covering the whole week with the same figures.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="signoff">
+    <p class="eyebrow">In the field</p>
+    <h2>The sign-off app</h2>
+    <p class="lede">A phone app where the day's work is ticked off and signed.</p>
+    <div class="task">
+      <div class="task-body">
+        <p><strong>To open it:</strong> on the home page, click <strong>Open the D2 Sign-off app</strong> near the top. On a phone, the same link can be saved to the home screen.</p>
+        <p>The app opens on the sub-phases scheduled for today. Tapping one opens its task list. Tapping a task ticks it off, and the sub-phase is signed off once the work is finished.</p>
+        <p>Three rules shape how it works:</p>
+        <div class="tablewrap">
+          <table>
+            <tr><td>Nothing half-signed</td><td>A sub-phase cannot be signed off while a task is still outstanding. Every task must be either done or deliberately excluded.</td></tr>
+            <tr><td>Excluding needs a reason</td><td>A task that does not apply, because materials never arrived or an inspection is still pending, can be marked not applicable. A reason has to be typed in.</td></tr>
+            <tr><td>Signing locks it</td><td>Once signed, the task list becomes read-only. Correcting something means formally reopening the sub-phase, and who reopened it and when is recorded.</td></tr>
+          </table>
+        </div>
+        <div class="note">
+          <span class="label">For the pilot</span>
+          <p><strong>Field crews will not be signing off directly to begin with.</strong> Cody and Emon sign off on the crew's behalf, from the office or from a phone, which is why the sign-offs already in the system carry their names. Handing sign-off to the crew leads themselves is a later step, and needs no change to how any of this works.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="planner">
+    <p class="eyebrow">Alongside</p>
+    <h2>The browser planning tool</h2>
+    <p class="lede">The visual planner already in use has not gone anywhere.</p>
+    <div class="task">
+      <div class="task-body">
+        <p>It remains the place to lay a pool out by eye, and it is still the only Gantt chart: the bar-chart view where a whole build can be seen stretched across the months, and where crews can be dragged around until the sequence looks right.</p>
+        <p>The simplest way to think about the two together:</p>
+        <div class="tablewrap">
+          <table>
+            <tr><td>Browser planner</td><td>Thinking. Sketching a sequence, seeing the shape of a build, trying options.</td></tr>
+            <tr><td>Build Scheduler</td><td>Doing. The committed schedule, the crews, the sign-offs, the record.</td></tr>
+          </table>
+        </div>
+        <p>The two are not connected automatically today. A pool is created in the Build Scheduler using the New Pool form, rather than exported from the planner.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="traps">
+    <p class="eyebrow">Reference</p>
+    <h2>Things worth knowing before they bite</h2>
+    <p class="lede">Each of these is a place where the system does something deliberate that can catch people out.</p>
+    <div class="traps">
+
+      <div class="trap">
+        <h3>A new pool does nothing until it is committed</h3>
+        <p>Pools arrive as <strong>Planned</strong>. Nothing dispatches, nobody is emailed, and the pool stays off the calendar until its status is set to <strong>Active</strong>. A pool that was never committed simply sits there doing nothing.</p>
+      </div>
+
+      <div class="trap">
+        <h3>Two working days is only a placeholder</h3>
+        <p>Every sub-phase is created at two working days. Putting in the real durations is the PM's job, and until that is done the dates are only an estimate.</p>
+      </div>
+
+      <div class="trap">
+        <h3>Changing a duration does not move anything</h3>
+        <p>Editing DurationDays records how long a stage should take. The dates only move once a <strong>Reschedule Pool</strong> request is raised.</p>
+      </div>
+
+      <div class="trap">
+        <h3>Crew is picked from a list</h3>
+        <p>Crew is a dropdown of short codes. A sub-phase with no crew is not dispatched to anybody and will not appear on anyone's day.</p>
+      </div>
+
+      <div class="trap">
+        <h3>Unassigned still counts</h3>
+        <p>Work sitting on <strong>Unassigned</strong> is scheduled but has nobody on it. It still shows in the schedule, still appears on the calendar, and still counts against the sign-off figures.</p>
+      </div>
+
+      <div class="trap">
+        <h3>Rescheduling moves everything after it</h3>
+        <p>A reschedule from sub-phase 12 moves 12 and every sub-phase that follows. Lock the ones that cannot move, such as booked inspections and confirmed deliveries, before reflowing.</p>
+      </div>
+
+      <div class="trap">
+        <h3>The calendar and the emails run overnight</h3>
+        <p>Both are built once a night. The views on the site are always live. The calendar and the summaries catch up in the morning.</p>
+      </div>
+
+      <div class="trap">
+        <h3>Removing a pool removes its history</h3>
+        <p>Deleting a pool takes its sub-phases and every task with it, including the sign-off record. A job that has merely paused should be set to <strong>On Hold</strong> instead. When in doubt, ask before deleting.</p>
+        <p>Removing one is deliberately awkward. On the <strong>Remove a Pool</strong> form, both <strong>Title</strong> and <strong>ConfirmJobNumber</strong> have to be the job number itself, typed twice and matching exactly. Anything else, including a description in the Title, is refused. Like building one, removing a pool runs for several minutes.</p>
+        <p>One loose end to know about: a deleted pool's entries stay on the calendar until they are cleared by hand. They are leftovers, not live work.</p>
+      </div>
+
+    </div>
+  </section>
+
+  <section id="crews">
+    <p class="eyebrow">Reference</p>
+    <h2>Crew codes</h2>
+    <p class="lede">Crews are stored as short codes. The views show the friendly name, and the dropdown shows the code.</p>
+    <div class="tablewrap">
+      <table>
+        <tr><th>Code</th><th>Crew</th><th>Notes</th></tr>
+        <tr><td>saul</td><td>Saul</td><td rowspan="7" style="font-weight:400;vertical-align:middle">D2's own crews. These are checked for double-booking, so one crew cannot be on two pools on the same day.</td></tr>
+        <tr><td>guillermo</td><td>Guillermo</td></tr>
+        <tr><td>harrison</td><td>Harrison</td></tr>
+        <tr><td>antonio</td><td>Antonio</td></tr>
+        <tr><td>devon</td><td>Devon</td></tr>
+        <tr><td>cirilo</td><td>Cirilo</td></tr>
+        <tr><td>campos</td><td>Campos</td></tr>
+        <tr><td>stl</td><td>STL Shotcrete</td><td rowspan="4" style="font-weight:400;vertical-align:middle">Subcontractors. They can field more than one team, so they are never flagged as double-booked.</td></tr>
+        <tr><td>george</td><td>George Crew</td></tr>
+        <tr><td>armondo</td><td>Armondo Crew</td></tr>
+        <tr><td>brothers</td><td>Brothers Crew</td></tr>
+        <tr><td>office</td><td>Main Office</td><td rowspan="3" style="font-weight:400;vertical-align:middle">Placeholders rather than crews. Used for office work, general subcontract work, and work not yet allocated.</td></tr>
+        <tr><td>subcon</td><td>Subcontractor</td></tr>
+        <tr><td>unassigned</td><td>Unassigned</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <section id="help">
+    <h2>If something looks wrong</h2>
+    <p>Nothing here is beyond fixing, and none of it is worth struggling with alone. A schedule that looks wrong, a pool that will not build, a figure that does not match what is known on site: all of it is much easier to correct early.</p>
+    <p>The most useful thing to send is <strong>the pool's job number and what was expected instead</strong>.</p>
+    <p>Email <span class="contact">stalbot@stratirus.com</span>, or mention it to Don. Anything raised before <strong>Wednesday</strong> will be covered at the sync.</p>
+  </section>
+
+  <footer>
+    <p><b>D2 Build Scheduler</b> &middot; guide for project managers &middot; September 2026<br>
+    Prepared by Stratirus for D2 Pools. Screenshots are from the live system. The pools shown are examples, not real jobs.</p>
+  </footer>
+</div>
+
+<script type="text/html" id="src-mail"><!--EMAIL_BODY--></script>
+<script>
+  (function () {
+    var frame = document.getElementById('mailpreview');
+    var host = document.getElementById('src-mail');
+    if (!frame || !host) return;
+    frame.srcdoc = '<!doctype html><meta charset="utf-8">' +
+      '<style>html,body{margin:0;background:#fff;}body{padding:18px 20px;' +
+      'font-family:"Segoe UI",system-ui,sans-serif;}table{max-width:100%;}</style>' +
+      host.textContent;
+    function size(){
+      try {
+        var d = frame.contentDocument;
+        if (d && d.body) frame.style.height = (d.body.scrollHeight + 26) + 'px';
+      } catch (e) { frame.style.height = '620px'; }
+    }
+    frame.addEventListener('load', size);
+    var t; window.addEventListener('resize', function(){ clearTimeout(t); t = setTimeout(size, 140); });
+  })();
+</script>
