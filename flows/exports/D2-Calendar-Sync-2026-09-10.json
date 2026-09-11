@@ -3,7 +3,7 @@
   "displayName": "D2 - Calendar Sync",
   "workflowEntityId": "f890f891-48ad-f111-aaab-6045bd0196b3",
   "state": "Started",
-  "lastModifiedTime": "2026-09-10T18:51:46Z",
+  "lastModifiedTime": "2026-09-11T02:23:18Z",
   "connectionReferences": {
     "shared_office365groups": {
       "connectionName": "shared-office365grou-2b5c4977",
@@ -23,7 +23,7 @@
       "source": "Embedded",
       "id": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
       "displayName": "SharePoint",
-      "iconUri": "https://static.powerapps.com/resource/ppcr/releases/v1.0.1813/1.0.1813.4769/sharepointonline/icon.png",
+      "iconUri": "https://static.powerapps.com/resource/ppcr/releases/v1.0.1827/1.0.1827.4913/sharepointonline/icon.png",
       "brandColor": "",
       "tier": "Standard",
       "apiName": "sharepointonline",
@@ -63,7 +63,20 @@
           "timeZone": "Central Standard Time",
           "schedule": {
             "hours": [
-              "4"
+              "4",
+              "6",
+              "7",
+              "8",
+              "9",
+              "10",
+              "11",
+              "12",
+              "13",
+              "14",
+              "15",
+              "16",
+              "17",
+              "18"
             ],
             "minutes": [
               30
@@ -123,7 +136,7 @@
       },
       "Get_active_jobs": {
         "runAfter": {
-          "Initialize_removed": [
+          "Compose_since": [
             "Succeeded"
           ]
         },
@@ -219,7 +232,7 @@
           "parameters": {
             "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
             "table": "49ef7006-d3fe-40a7-a52f-c4c18545bd35",
-            "$filter": "NotApplicable ne 1 and ScheduledStart ne null and ScheduledFinish ne null and @{outputs('Compose_active_job_clause')}",
+            "$filter": "NotApplicable ne 1 and ScheduledStart ne null and ScheduledFinish ne null and @{outputs('Compose_active_job_clause')}@{if(equals(outputs('Compose_mode'),'full'),'',concat(' and Modified ge ''',outputs('Compose_since'),''''))}",
             "$top": 500
           }
         }
@@ -265,7 +278,7 @@
         },
         "type": "Query",
         "inputs": {
-          "from": "@outputs('Get_with_event')?['body/value']",
+          "from": "@if(equals(outputs('Compose_mode'),'full'), outputs('Get_with_event')?['body/value'], json('[]'))",
           "where": "@not(contains(body('Select_in_scope_ids'), item()?['ID']))"
         }
       },
@@ -520,11 +533,29 @@
           },
           "parameters": {
             "emailMessage/To": "stratirus@d2pools.com",
-            "emailMessage/Subject": "D2 Calendar Sync - @{variables('created')} added, @{variables('updated')} updated, @{variables('removed')} removed",
-            "emailMessage/Body": "<div style=\"font-family:Segoe UI,sans-serif;font-size:14px;color:#1a2332\"><h2 style=\"color:#082544;margin-bottom:4px\">D2 Calendar Sync</h2><p style=\"color:#666;margin-top:0\">@{length(outputs('Get_active_jobs')?['body/value'])} active job(s) \u00b7 @{length(outputs('Get_in_scope')?['body/value'])} sub-phase(s) in scope</p><p>Added: <strong>@{variables('created')}</strong><br>Updated: <strong>@{variables('updated')}</strong><br>Removed: <strong>@{variables('removed')}</strong></p><p><a href=\"https://outlook.office365.com/calendar/group/NETORGFT15040037.onmicrosoft.com/D2BuildScheduler/view/month\" style=\"color:#0b594b;text-decoration:underline\">Open the D2 Build Scheduler group calendar</a></p><p style=\"color:#888;font-size:11px;margin-top:18px\">Only jobs with Status = Active appear. A Planned pool is invisible here until it is committed.</p></div>",
+            "emailMessage/Subject": "D2 Calendar Sync (@{outputs('Compose_mode')}) - @{variables('created')} added, @{variables('updated')} updated, @{variables('removed')} removed",
+            "emailMessage/Body": "<div style=\"font-family:Segoe UI,sans-serif;font-size:14px;color:#1a2332\"><h2 style=\"color:#082544;margin-bottom:4px\">D2 Calendar Sync</h2><p style=\"color:#666;margin-top:0\">Mode: <strong>@{outputs('Compose_mode')}</strong> &#183; @{length(outputs('Get_active_jobs')?['body/value'])} active job(s) &#183; @{length(outputs('Get_in_scope')?['body/value'])} sub-phase(s) in scope this run</p><p>Added: <strong>@{variables('created')}</strong><br>Updated: <strong>@{variables('updated')}</strong><br>Removed: <strong>@{variables('removed')}</strong></p><p style=\"color:#666\">@{if(equals(outputs('Compose_mode'),'full'),'Full sweep: every Active sub-phase was checked, and events with no matching row were removed.',concat('Incremental: only rows changed since ',outputs('Compose_since'),' were touched. Orphan removal runs on the 04:30 sweep only.'))}</p><p><a href=\"https://outlook.office365.com/calendar/group/NETORGFT15040037.onmicrosoft.com/D2BuildScheduler/view/month\" style=\"color:#0b594b;text-decoration:underline\">Open the D2 Build Scheduler group calendar</a></p><p style=\"color:#888;font-size:11px;margin-top:18px\">Runs 04:30 (full) and hourly 06:30 to 18:30 (incremental), Central. Only jobs with Status = Active appear.</p></div>",
             "emailMessage/Importance": "Normal"
           }
         }
+      },
+      "Compose_mode": {
+        "runAfter": {
+          "Initialize_removed": [
+            "Succeeded"
+          ]
+        },
+        "type": "Compose",
+        "inputs": "@if(equals(formatDateTime(convertFromUtc(utcNow(),'Central Standard Time'),'HH'),'04'),'full','incremental')"
+      },
+      "Compose_since": {
+        "runAfter": {
+          "Compose_mode": [
+            "Succeeded"
+          ]
+        },
+        "type": "Compose",
+        "inputs": "@formatDateTime(addHours(utcNow(),-2),'yyyy-MM-ddTHH:mm:ssZ')"
       }
     }
   }

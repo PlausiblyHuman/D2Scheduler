@@ -1290,6 +1290,37 @@ covers two flows, the daily and weekly summaries.):**
 | 12 | Conflict Flag | Started | **NEW 2026-09-09, verified.** `D2 - Conflict Flag`, flowId `972c139d-e55f-6743-a76c-fbd2f08eeb45` (Dataverse workflowid `f0dd9a1d-8bac-f111-aaab-002248043e80`). Nightly 05:00 Central. Annotates `Assignments.ConflictWith` so a crew double-book is visible in SharePoint and not only in email; unlike the alerting flows it deliberately covers `Planned` pools too, so a PM can see collisions while choosing dates. Was missing from this table until 2026-09-10. |
 | 13 | Calendar Sync | Started | **NEW 2026-09-10, verified.** `D2 - Calendar Sync`, flowId / workflowEntityId `f890f891-48ad-f111-aaab-6045bd0196b3`. Nightly 04:30 Central. Writes one all-day event per in-scope Assignment to the **M365 group calendar** behind the site. See "Group calendar" below. |
 
+**CALENDAR SYNC IS NOW INCREMENTAL, and runs hourly (2026-09-10).** Trigger fires at **04:30 plus
+06:30 to 18:30 Central**, all via one Recurrence with `schedule.hours`.
+
+The naive version of this would have been expensive. The flow rewrote *every* in-scope assignment
+on every run, so 13 runs a day at 138 assignments is ~1,800 Office 365 Groups calls a day, scaling
+linearly with pools (~3,600 at six pools, ~6,000 at ten). Every flow here runs as
+`stratirus@d2pools.com` on **seeded Power Apps for M365 rights**, so they share one daily request
+allowance. Hourly-as-was would have made this the dominant consumer and would have started failing
+as D2 adds pools.
+
+**The fix is a rolling window rather than stored sync state.** `Compose_mode` reads the Central hour
+and yields `full` at 04, `incremental` otherwise. On an incremental run `Get_in_scope` appends
+`and Modified ge '<utcNow-2h>'`. The two-hour window against an hourly schedule overlaps
+deliberately, so a missed or throttled run self-heals on the next one and there is no state row to
+corrupt.
+
+**THE SAFETY PROPERTY, and it is not optional: `Filter_orphans` must be fed an EMPTY array on an
+incremental run.** Its `from` is
+`@if(equals(outputs('Compose_mode'),'full'), outputs('Get_with_event')?['body/value'], json('[]'))`.
+Without that, an incremental run sees only recently-modified rows in `Select_in_scope_ids`,
+concludes every other event is an orphan, and **deletes the entire calendar**. Orphan removal
+therefore happens on the 04:30 sweep only.
+
+Verified both directions against the rendered calendar rather than the run status: an incremental
+run with nothing changed finished in **3.8s**, skipped Create/Update/Delete, and left all 138 events
+intact; touching one far-future row then re-running took **5s** and fired `Update_event` exactly
+once with Create and Delete still skipped, 138 events, zero duplicates. A full sweep remains ~90s.
+
+Note the 04:30 full sweep still does **not** cover events stranded by deleting a pool: that row is
+gone, so no filter can reach it. See the `D2 - Delete Pool` gap above.
+
 **THE GROUP CALENDAR — built 2026-09-10, and the route is not the obvious one.**
 
 Shane wanted schedules to "drop to a shared calendar somewhere, so they can see what's happening
