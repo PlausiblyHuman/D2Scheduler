@@ -314,7 +314,7 @@ workstreams had no week and were silently lost as a result.
 | **E** | Pilot — one real pool, parallel run | **Calendar** | Not started, **after H** | `D2-Phase-E-Pilot-Runbook.md` |
 | **F** | Cutover — training, go-live, support | **Calendar** | Not started, **after H** | `D2-Phase-F-Cutover-Runbook.md` |
 | **G** | Deferred backlog — post-go-live | Effort | Not started | (below) |
-| **H** | Presentation layer — the hosted planner becomes the office surface | **Effort** | **NEXT, runs ahead of E and F** | `docs/superpowers/specs/2026-09-11-planner-as-primary-surface-design.md` |
+| **H** | Presentation layer — the hosted planner becomes the office surface | **Effort** | **Stage 1 local half DONE 2026-09-11d; hosting + auth remain** | `docs/superpowers/specs/2026-09-11-planner-as-primary-surface-design.md`, plan `docs/superpowers/plans/2026-09-11-phase-h-stage1-parity-and-brand.md` |
 
 **Phase H is the build phase inside the client-facing "Phase 2". Two numbering schemes are
 deliberate:** D2 hears "Phase 2", the repo says "Phase H", and H continues the A-G lettering
@@ -2050,7 +2050,92 @@ SharePoint's white header. A real header photo must come from D2's own project p
 
 ---
 
-## NEXT SESSION — PHASE H (checkpoint written 2026-09-11c)
+## NEXT SESSION — PHASE H, HOSTING HALF (checkpoint written 2026-09-11d)
+
+**Read `sessions/latest.md` first.** Phase H Stage 1's **local half is complete**: the planner
+is correct against live data, branded, and moved. What remains is hosting, auth, and the
+write-back.
+
+**THE PLANNER NOW LIVES AT `web/index.html`.** Moved 2026-09-11d with `git mv`, history intact.
+The doubled `D2-Build-Scheduler/D2-Build-Scheduler/app/` directory no longer holds it. There is
+exactly one copy. `web/staticwebapp.config.json` sits beside it with SPA fallback and no `auth`
+or `routes` block, because identity comes from MSAL in the browser and a half-configured routes
+block would be a guess.
+
+**Six of the eleven parity divergences are CLOSED** — D7, D2, D8, D9, D4, D11. See
+`docs/planner-vs-sharepoint-parity.md`, whose line numbers were re-resolved the same day and now
+land on the code they describe. Measured outcomes, not assertions:
+
+| | Before | After |
+|---|---|---|
+| Live spans crossing a holiday | 2 of 138 drawn a day short | **0**, 138 agree with SharePoint |
+| Schedule Check | 51 unclearable "missing PM sign-off" | installer-only |
+| An N/A task | imported as not-done | third state, label and bar deliberately disagree |
+| `Planned` pools | indistinguishable from live | badged, still raise conflicts |
+| Auto-Schedule anchor | drifted `Jobs.StartDate` | earliest real work |
+| `oracle-test.js` | 14/16 | **15/16** |
+
+**THE BATCH WRITE-BACK IS NOT BUILT, and its groundwork is. Shane asked for it mid-session
+2026-09-11d: "when finished press save to batch write back".** What exists:
+
+- the export carries **SharePoint row ids** (`jobs[].id`, `sections[].id`) — it carried none, so
+  nothing could address a row
+- the import records **`s.base` per sub-phase** (`id, crewId, start, days, locked, skip,
+  spLocked`) and `divergedSecs(j)` diffs against it. That diff **is** the change-set a Save
+  button would send
+- `spLocked` exists separately because `s.locked` is the planner's *derived* lock
+  (`is.locked || is.inst`), so without it a write-back could not tell a PM's deliberate pin from
+  one inferred from sign-off
+- `fixtures/planner/freshness.js` asserts the **exact key set** of `s.base` and fails if anyone
+  widens it
+
+**The field scope is settled and must not widen: crew, dates, duration, locked, skip. Never
+sign-off, never task ticks.** The planner's `inst`/`pm` are bare booleans with no attribution,
+timestamp or notes, while SharePoint holds `InstallerSignOffBy`/`On` and `SignOffNotes`. Writing
+them back would replace an attested sign-off with a flag. Three questions the write-back spec has
+to answer, none with an obvious default: how it authenticates (no credential exists from
+`file://`, so it is gated on hosting + MSAL, or on a companion console script mirroring the
+export); what happens when two PMs push overlapping edits (ETags with `If-Match`); and whether a
+reflow goes as a `Reschedule Requests` row so `D2 - Reschedule Pool` keeps owning the working-day
+logic, rather than as direct date writes.
+
+**A TEST HARNESS CAN GO VACUOUS AND NOTHING NOTICES. Four were caught in one session.**
+`workcalendar.js` passed on a broken join reporting `0 spans checked`; `startdate.js` passed
+against a fully reverted fix; `empty.js` had no assertion and no non-zero exit at all, so a
+boot-time break in the planner passed the whole suite; and **`determinism.js` had been reporting
+`assignments compared : 0` since the planner stopped seeding demo pools** while this file
+described it as pinning "4 of 138 crew picks drifted per re-run before, 0 after". That was true
+when written and silently stopped being true. All four are fixed and each was proven by mutating
+production code and watching the harness go red. **This is the same drift class already recorded
+here three times** (`flows/definitions/`, the phantom `patched-tool/`, the stale `New Pool`
+export): a committed artifact quietly stops meaning what its description says. When a harness is
+cited as a gate, check what it actually compared.
+
+**Start here, in order:**
+
+1. **Create the Azure subscription.** Not client-gated — Shane holds admin rights. Free to
+   create, SWA Free tier is free, but a pay-as-you-go signup needs a payment method, and **whose
+   card decides who owns it**. D2's card keeps ownership where the spec puts it.
+2. **Register one Entra SPA app.** This does NOT need the subscription — app registrations are an
+   Entra feature and D2's tenant already exists. It is the real unblock for everything else.
+3. **Capture a real Graph payload into `fixtures/planner/live-payloads-graph.json` BEFORE writing
+   any mapping code.** Graph is a **third** field-shape surface alongside raw REST and the
+   connector. The existing REST fixture does not validate it. `fixtures/planner/run-export.js`
+   already isolates the read layer behind one stub, which is where a Graph variant plugs in.
+4. **Then the write-back**, spec first.
+
+**Outstanding human gate, deliberately not run:** `sharepoint/fix-job-startdates.js` realigns
+`Jobs.StartDate` on the three demo pools. **It has `DRY_RUN = false` committed at line 37**, so a
+paste is a live write — edit it to `true` first. Now cosmetic rather than load-bearing, since the
+planner-side guard means Auto-Schedule no longer depends on that field.
+
+**Still open, unchanged:** `TradeMismatch` has no view. Crew-lead accounts and Business Basic
+seats unbought. Phase F Day 2 training documents the SharePoint surface and must be rewritten.
+The PM guide describes the surface H replaces.
+
+---
+
+## Superseded: NEXT SESSION — PHASE H (checkpoint written 2026-09-11c)
 
 **Read `sessions/latest.md` first.** The system went live to the client this session: David, Don,
 Emon and Cody have access, both summaries reach them, and the invite email has been sent.

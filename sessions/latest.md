@@ -1,122 +1,108 @@
-# 2026-09-11c — Go-live cut, client access, and the Phase H spec
+# 2026-09-11d — Phase H Stage 1: parity divergences, brand, and the repo move
 
-**Session goal:** started as "Ryan thinks the presentation layer is unsexy, what are the
-alternatives". Became the go-live cut: ship today on SharePoint, spec the UI work as its own phase,
-and get the client into the system. The invite email went out during the session.
+**Session goal:** kick off Phase H development. Became the whole local half of Stage 1 — five
+parity divergences closed against live data, divergence-state tracking added, the planner
+repainted into the D2 palette and moved to `web/index.html`. Executed as a written plan via
+subagent-driven development: 10 tasks, 6 fix rounds, a whole-branch review and a fix wave.
 
 ---
 
 ## What shipped
 
-**1. Phase H specced and sequenced.** `docs/superpowers/specs/2026-09-11-planner-as-primary-surface-design.md`.
-Host `pool-scheduler.html` on Azure Static Web Apps in D2's tenant, MSAL delegated Graph reads, D2
-brand repaint, SharePoint Lists still the database and all 15 flows still the engine. Three stages,
-Stage 1 read-only and independently shippable.
+**Six of the eleven parity divergences are closed**, each verified against the captured live
+payload rather than asserted:
 
-The reframe that made it cheap: the planner already carries seven tabs covering most of the office
-surface, and four of the five walls in `docs/planner-vs-sharepoint-parity.md` section C are
-SharePoint walls specifically. So this is decoupling, not migration.
+| | Before | After |
+|---|---|---|
+| D7 work calendar | 2 of 138 live spans drawn a day short (both crossing Columbus Day) | **0**, all 138 agree with SharePoint |
+| D2 PM sign-off | 51 unclearable "missing PM sign-off" warnings | installer-only; PM concept survives everywhere else |
+| D8 N/A | an N/A task imported as not-done, so 5-of-6 read incomplete forever | third state; label stays done-only, bar measures resolved |
+| D9 `Jobs.Status` | exported then discarded, `Planned` looked live | badged, and still raises conflicts by design |
+| D4 `Jobs.StartDate` | Auto-Schedule anchored on a field months adrift | anchored on earliest real work |
+| D11 freshness | no way to tell live data from a local reflow | header stamp, per-sub-phase baseline, `divergedSecs()` |
 
-**2. Client has access.** David, Don, Emon and Cody are members of the D2 Build Scheduler group,
-verified on Graph (5 members, owners still D2 Bot alone). Members role is **Edit** and **0 of 18
-lists break permission inheritance**, so it reaches Jobs, Assignments, Tasks and all three request
-lists. The long-standing client-gated blocker is closed.
+Plus: repainted to the measured D2 palette (navy `#082544`, green `#0B594B`, cream `#F6F3ED`,
+Poppins + Source Sans 3) and `git mv`'d the planner to `web/index.html` with
+`staticwebapp.config.json` beside it. `oracle-test.js` 14/16 → 15/16.
 
-**3. Both summaries repointed** to `stratirus;david;don;cody;emon @d2pools.com`. Stratirus stays on
-so a broken summary is seen by us at the same time as by the client.
+**Write-back groundwork, not the write-back.** Shane asked for a batch write-back mid-session. It
+stays out of scope and needs its own spec, but two things were folded in because they were one
+line each now and a retrofit later: the export carries SharePoint row ids (it carried none), and
+the import records `s.base` per sub-phase so divergence is a diff rather than a flag.
 
-**4. Morning run order moved earlier** — crews are up around 05:00. Counter Reconciliation 03:30,
-Daily Dispatch 04:00, Daily Summary 04:30.
+---
 
-**5. PM guide rebuilt and republished**, now a **new artifact with no version history**:
-https://claude.ai/code/artifact/a84a2e1a-6395-4f3a-b050-8cf53cefa2b5 (version 5). Calendar and both
-email summaries moved to the front, a live weekly-summary sample added, a table of contents,
-a "Changing a checklist" section, and the conflict/calendar timings corrected.
+## Files touched
 
-**6. Internal commentary stripped** from everything a client can see, and made a standing rule in
-the `dev-session-code` skill plus project memory.
+- `web/index.html` — moved from `D2-Build-Scheduler/D2-Build-Scheduler/app/pool-scheduler.html`;
+  work calendar, N/A state, status badge, `jobStart()`, freshness/divergence, repaint
+- `web/staticwebapp.config.json` — new; SPA fallback, deliberately no `auth`/`routes` block
+- `sharepoint/export-to-planner.js` — carries `nonWork`, `tasks[].na`, and row ids
+- `fixtures/planner/` — `run-export.js` extracted; `workcalendar.js`, `schedulecheck.js`,
+  `startdate.js`, `freshness.js` added; `determinism.js`, `empty.js`, `live-export.js` repaired;
+  `live-payloads.json` gained 210 Work Calendar rows and `NotApplicable` on 885 tasks
+- `docs/planner-vs-sharepoint-parity.md` — six sections rewritten as closed; all 41 line
+  citations re-resolved; D1 corrected
+- `CLAUDE.md` — rule 1 contradiction fixed, Phase H row, new NEXT SESSION section
+- `docs/superpowers/plans/` — the plan and its execution ledger
 
-**7. Planner nav link pulled** at the go-live cut (`sharepoint/pull-planner-link.js`), because it
-was discoverable in the nav while absent from the PM guide, and its Sunday-only work-calendar model
-produces wrong spans over holidays.
+## Commits
 
-**8. Default-view sweep finished** — Tasks now lands on `All Tasks (by Assignment)`, Jobs `All
-Items` carries the `jobCard` formatter.
+19 on `canvas-app-handoff`, `51c1d5c..75ea259`.
 
 ---
 
 ## Decisions
 
-- **Ship today on SharePoint; the UI is a separate phase.**
-- **RESEQUENCED later the same day: Phase H runs AHEAD of E and F**, as an immediate need. The
-  morning's post-pilot call rested on the Azure signup being client-gated, which proved false
-  (Shane has admin rights). Going first means the office is trained once, on the surface it
-  keeps. Knock-ons: Phase F Day 2 training must be rewritten, the PM guide just sent to the
-  client needs reissuing, and the five parity divergences move onto the critical path.
-- **"Phase 2" is commercial and contains build Phase H.** D2 hears Phase 2, the repo says H, and H
-  continues the A-G lettering that matches the AzDo epics.
-- **Publish the guide as a NEW artifact** rather than v14 of the old one, so it carries no version
-  traceback. Old artifact `1cc7b6be-…` is superseded and must not be republished to.
-- **No email notifications when adding the four.** Welcome mail was live and had to be suppressed
-  first; see Traps.
-- **Let the weekly summary fire on schedule** the same afternoon, as the first client-facing email.
-- **Exchange group settings stay off** (`WelcomeMessageEnabled`, `AutoSubscribeNewMembers`,
-  `AlwaysSubscribeMembersToCalendarEvents`), because re-arming would also fire for the ~7 crew leads
-  added later.
-- **Two Phase G items added**: duration edits should reflow by themselves, and conflict detection
-  should cover subcontractors (a business-rule change needing a per-crew capacity from Don, not a
-  filter change).
+- **Divergence fixes before hosting.** Hosting a planner that draws wrong spans would mean
+  patching it in place afterwards.
+- **Batch write-back is Stage 2**, but its two cheap prerequisites land now. Field scope settled:
+  crew, dates, duration, locked, skip — **never sign-off, never task ticks**, because the
+  planner's `inst`/`pm` are bare booleans and SharePoint holds the attribution.
+- **`Planned` pools are badged, not hidden.** A PM choosing dates wants to see the collision; the
+  reflow's own sweep is tenant-wide for the same reason.
+- **The N/A label and progress bar disagree on purpose.** The label must agree with
+  `Assignments.TasksComplete`, which counts genuinely-done only; the bar must reach 100% when
+  everything is resolved.
+- **D4 got a planner-side guard beyond the spec**, because the flow gap behind it is still open
+  and would re-drift the field.
+- **Hosting and billing deferred**, at Shane's call.
 
----
+## Traps found
 
-## Traps found, all now in CLAUDE.md
-
-- **Adding an M365 group member sends a welcome email, and Graph says it does not.** Graph
-  `resourceBehaviorOptions` returned `[]`, `Get-UnifiedGroup` returned the property **blank** (not
-  False), and only `-IncludeAllProperties` revealed `WelcomeMessageEnabled = True`. Exchange is the
-  authority because Exchange sends the mail, and `Set-UnifiedGroup` never updates the Graph array,
-  so the two disagree permanently.
-- **New headless route: Exchange Online** via an `az` token for `https://outlook.office365.com`
-  passed to `Connect-ExchangeOnline -AccessToken`. No interactive sign-in.
-- **`edit_flow`'s `set` treats an unresolvable dotted path as a LITERAL KEY NAME** and creates it,
-  returning `{"mode":"applied"}`. Its `remove` resolves dots as separators and errors properly. The
-  correct separator is `/`, and the path must include the container (`actions/For_each_in_scope/…`).
-  Recovered via `list_backups` / `restore_backup`.
-- **`delete_flow` wants the ProcessSimple id while `create_flow` RETURNS the Dataverse
-  workflowid.** The mismatch fails with a misleading "concurrent Delete requests" error and leaves
-  the flow live under a different id.
-- **`PublishXml` is still required after `edit_flow`** — the first `get_flow` after "applied" shows
-  the old text, exactly as the draft-row mechanism predicts.
-- **The `Send_summary` inputs use FLAT keys** (`"emailMessage/Body"`), not a nested object. The key
-  contains the `/` that `edit_flow` uses as a separator, so `merge` on the parent is the only route.
-- **The tenant has duplicate accounts**: Don as `don@` and `contact@d2pools.com`, David as
-  `david@d2pools.com` and a `d2install` guest. Join on `userPrincipalName`.
-- **D2 has NO Azure subscription.** `az` returns `N/A(tenant level account)` and the ARM
-  subscriptions call is empty. Creating one is free, so the ask is a signup, not spend.
-
----
+- **A test harness can go vacuous and nothing notices — four in one session.**
+  `workcalendar.js` passed on a broken join (`0 spans checked`); `startdate.js` passed against a
+  fully reverted fix; `empty.js` had no assertion and no non-zero exit, so a boot-time break
+  passed the entire suite; and **`determinism.js` had reported `assignments compared : 0` ever
+  since the planner stopped seeding demo pools**, while the repo described it as catching a real
+  4-of-138 oscillation. All four fixed and each proven by mutating production code and watching
+  the harness go red. Same drift class as `flows/definitions/`, the phantom `patched-tool/`, and
+  the stale New Pool export.
+- **CLAUDE.md contradicted itself on business rule 1** — "NOT ENFORCED ANYWHERE ON THE SHAREPOINT
+  SIDE" in the business-rules section, against "the first thing in this system to enforce
+  business rule 1" in the flow table 1400 lines later. Both written the same day. Rule 1 is
+  detected nightly and never prevented.
+- **The parity map's 41 line citations were ~17 lines stale** and the file had moved, while
+  CLAUDE.md tells every session to read that map first.
+- **Nothing pinned the `s.base` field scope.** Adding `inst`/`pm` to the baseline left all nine
+  harnesses green — the exact widening that would let a write-back overwrite an attested
+  sign-off. Now asserted.
 
 ## Open
 
-- **The guide artifact may still be private.** New artifacts start private; if it was not shared
-  before the invite went out, the four hit a permission wall on the link. Check first next session.
-- **Jobs / Tasks view formatters verified as STORED, not as RENDERED** — `chrome-devtools` would
-  not attach (profile locked by a running Chrome), so a probe flow confirmed persistence but could
-  not prove the card paints. Open both views in a browser.
-- **Azure subscription for D2 does not exist yet**, but it is **not** a gate: Shane has admin
-  rights and creates it himself. Two decisions attached: a pay-as-you-go signup needs a payment
-  method on file even though the Free tier is never charged, and whose card decides who owns the
-  subscription. Use D2's, or Stratirus quietly becomes the owner of infrastructure D2 depends on.
-- **`TradeMismatch` still has no view**, so business rule 1 is enforced nightly and invisible. Last
-  item outstanding from the 2026-09-11b checkpoint.
-- **Crew-lead accounts and Business Basic seats** remain unbought, so Daily Dispatch reaches nobody
-  and PM-proxy sign-off is the only route.
-
----
+- **Azure subscription does not exist.** Not client-gated (Shane has admin rights), but needs a
+  payment method, and whose card decides who owns it.
+- **Entra SPA registration** — does NOT need the subscription, and is the real unblock.
+- **Capture a Graph payload before any mapping code.** Graph is a third field-shape surface.
+- **`sharepoint/fix-job-startdates.js` not run** — human gate. It has `DRY_RUN = false`
+  committed at line 37, so a paste is a live write; set it to `true` first.
+- **The repaint has not been eyeballed by a human.** Verified by headless screenshot against a
+  local server; screenshots sent.
+- `TradeMismatch` still has no view. Crew-lead seats unbought. Phase F Day 2 training and the PM
+  guide both still describe the surface H replaces.
 
 ## Next action
 
-**Phase H, ahead of the pilot.** Confirm the guide artifact is actually shared (the invite is out
-and new artifacts start private), create the Azure subscription on D2 billing, then review the spec
-into an implementation plan. Remember the hosting is the cheap part next to the five parity
-divergences, which are now on the critical path.
+Register the Entra SPA app (no subscription needed), create the Azure subscription, then capture
+a real Graph payload into `fixtures/planner/live-payloads-graph.json` before writing any mapping
+code. Spec the batch write-back separately.
