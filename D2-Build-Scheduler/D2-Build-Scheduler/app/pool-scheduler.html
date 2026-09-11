@@ -4,34 +4,40 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>D2 Pool Build Scheduler</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#f6f7f9; --panel:#fff; --ink:#111827; --muted:#6b7280; --line:#e5e7eb;
-  --accent:#0f766e; --danger:#b91c1c; --warn:#b45309; --ok:#15803d;
+  /* D2 brand, measured from d2pools.com by painted area. The site theme, the
+     SharePoint list cards, the field app and both summary emails use these three. */
+  --navy:#082544; --green:#0B594B; --cream:#F6F3ED;
+  --bg:var(--cream); --panel:#fff; --ink:#111827; --muted:#6b7280; --line:#e3ded4;
+  --accent:var(--green); --danger:#b91c1c; --warn:#a84a18; --ok:#0B594B;
   --day:26px; --nmw:400px;
 }
 *{box-sizing:border-box}
-body{margin:0;font:14px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink)}
-header{background:#0b1220;color:#fff;padding:9px 14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;position:sticky;top:0;z-index:60}
-header h1{font-size:14px;margin:0;font-weight:650}
+body{margin:0;font:14px/1.45 "Source Sans 3","Source Sans Pro",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink)}
+header{background:var(--navy);color:#fff;padding:9px 14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;position:sticky;top:0;z-index:60}
+header h1{font-size:14px;margin:0;font-weight:600;font-family:Poppins,"Segoe UI",sans-serif;letter-spacing:.2px}
 header .sp{flex:1}
-nav{display:flex;gap:2px;background:#1c2434;border-radius:8px;padding:3px}
-nav button{background:none;border:0;color:#c9d2e3;padding:6px 11px;border-radius:6px;font:inherit;font-size:12.5px;cursor:pointer}
-nav button.on{background:#fff;color:#0b1220;font-weight:600}
+nav{display:flex;gap:2px;background:rgba(255,255,255,.10);border-radius:8px;padding:3px}
+nav button{background:none;border:0;color:#cfd8e4;padding:6px 11px;border-radius:6px;font:inherit;font-size:12.5px;cursor:pointer}
+nav button.on{background:#fff;color:var(--navy);font-weight:600}
 .btn{background:#fff;border:1px solid var(--line);border-radius:7px;padding:6px 10px;font:inherit;font-size:12.5px;cursor:pointer;color:var(--ink)}
 .btn:hover{background:#f3f4f6}
 .btn.p{background:var(--accent);border-color:var(--accent);color:#fff}
-.btn.p:hover{background:#0d5f59}
+.btn.p:hover{background:#094539}
 .btn.d{color:var(--danger);border-color:#fecaca}
 .btn.sm{padding:2px 7px;font-size:11.5px}
 main{padding:12px 14px 60px}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;margin-bottom:12px;overflow:hidden}
-.card > h2{margin:0;font-size:12.5px;padding:9px 13px;border-bottom:1px solid var(--line);background:#fafafa;font-weight:650;letter-spacing:.3px;text-transform:uppercase;color:#374151;display:flex;align-items:center;gap:8px}
+.card > h2{margin:0;font-size:12.5px;padding:9px 13px;border-bottom:1px solid var(--line);background:#fbf9f5;font-weight:600;font-family:Poppins,"Segoe UI",sans-serif;letter-spacing:.3px;text-transform:uppercase;color:var(--navy);display:flex;align-items:center;gap:8px}
 .card > h2 .sp{flex:1}
 .pad{padding:13px}
 table{border-collapse:collapse;width:100%}
 th,td{text-align:left;padding:6px 9px;border-bottom:1px solid var(--line);vertical-align:middle}
-th{font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);font-weight:650;background:#fafafa}
+th{font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);font-weight:600;background:#fbf9f5}
 input,select{font:inherit;padding:4px 6px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--ink)}
 input[type=number]{width:60px}
 input[type=checkbox]{width:auto;accent-color:var(--accent);cursor:pointer}
@@ -52,8 +58,8 @@ input[type=checkbox]{width:auto;accent-color:var(--accent);cursor:pointer}
 .tl table{width:max-content;min-width:100%}
 .tl th,.tl td{border-bottom:1px solid #f1f2f4;padding:0}
 .nm{position:sticky;left:0;background:#fff;z-index:20;min-width:var(--nmw);max-width:var(--nmw);width:var(--nmw);padding:3px 8px!important;border-right:2px solid var(--line);font-size:12.5px}
-thead .nm{background:#fafafa;z-index:30}
-.tl thead th{position:sticky;top:0;background:#fafafa;z-index:25;border-bottom:1px solid var(--line)}
+thead .nm{background:#fbf9f5;z-index:30}
+.tl thead th{position:sticky;top:0;background:#fbf9f5;z-index:25;border-bottom:1px solid var(--line)}
 .nmflex{display:flex;align-items:center;gap:6px}
 .nmflex .t{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .sg{display:flex;gap:9px;align-items:center;flex:0 0 auto}
@@ -84,9 +90,9 @@ tr.phrow .nm{background:#f8fafc;font-weight:650}
 .flag.ok{background:#f0fdf4;color:#14532d}
 .drawer{position:fixed;top:0;right:0;bottom:0;width:min(470px,100%);background:#fff;border-left:1px solid var(--line);box-shadow:-8px 0 30px rgba(0,0,0,.14);z-index:100;display:none;flex-direction:column}
 .drawer.open{display:flex}
-.drawer h3{margin:0;padding:11px 15px;border-bottom:1px solid var(--line);font-size:13.5px;display:flex;align-items:center;gap:8px;background:#fafafa}
+.drawer h3{margin:0;padding:11px 15px;border-bottom:1px solid var(--line);font-size:13.5px;display:flex;align-items:center;gap:8px;background:#fbf9f5}
 .drawer .body{overflow:auto;padding:13px 15px;flex:1}
-.drawer .foot{border-top:1px solid var(--line);padding:9px 15px;display:flex;gap:8px;background:#fafafa}
+.drawer .foot{border-top:1px solid var(--line);padding:9px 15px;display:flex;gap:8px;background:#fbf9f5}
 .fld{margin-bottom:10px}
 .fld label{display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);font-weight:650;margin-bottom:3px}
 .fld input,.fld select{width:100%}
