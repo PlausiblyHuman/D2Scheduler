@@ -1331,6 +1331,7 @@ covers two flows, the daily and weekly summaries.):**
 
 | 12 | Conflict Flag | Started | **NEW 2026-09-09, verified.** `D2 - Conflict Flag`, flowId `972c139d-e55f-6743-a76c-fbd2f08eeb45` (Dataverse workflowid `f0dd9a1d-8bac-f111-aaab-002248043e80`). Nightly 05:00 Central. Annotates `Assignments.ConflictWith` so a crew double-book is visible in SharePoint and not only in email; unlike the alerting flows it deliberately covers `Planned` pools too, so a PM can see collisions while choosing dates. Was missing from this table until 2026-09-10. |
 | 13 | Calendar Sync | Started | **NEW 2026-09-10, verified.** `D2 - Calendar Sync`, flowId / workflowEntityId `f890f891-48ad-f111-aaab-6045bd0196b3`. Nightly 04:30 Central. Writes one all-day event per in-scope Assignment to the **M365 group calendar** behind the site. See "Group calendar" below. |
+| 14 | Crew Trade Check | Started | **NEW 2026-09-11, verified both directions.** `D2 - Crew Trade Check`, flowId / workflowEntityId `a5f50628-eead-f111-aaac-6045bd0195dd`. Nightly 05:15 Central. Joins `Assignments.Crew` -> `Crews.CrewID` -> `Crew-Trades` -> `Assignments.Trade` and writes `Assignments.TradeMismatch`, which is **the first thing in this system to enforce business rule 1**. Writes only rows that changed, so a clean night writes nothing. See below for the lookup-shape trap it cost, and for what it does NOT cover. |
 
 **CALENDAR SYNC IS NOW INCREMENTAL, and runs hourly (2026-09-10).** Trigger fires at **04:30 plus
 06:30 to 18:30 Central**, all via one Recurrence with `schedule.hours`.
@@ -1362,6 +1363,51 @@ once with Create and Delete still skipped, 138 events, zero duplicates. A full s
 
 Note the 04:30 full sweep still does **not** cover events stranded by deleting a pool: that row is
 gone, so no filter can reach it. See the `D2 - Delete Pool` gap above.
+
+**`D2 - Crew Trade Check` — the sixth instance of the lookup-shape trap, and it cost a wrong write to
+66 live rows before it was caught. 2026-09-11.**
+
+The first run flagged **all 66 trade-checkable assignments as unqualified**, including
+`campos does not hold Demolition` when `campos` demonstrably holds `demolition`. The flow returned
+**Succeeded** and every action reported green.
+
+Cause: `Crew-Trades`' lookup columns are named `Crew` and `Trade`, so **raw REST** exposes them as
+`CrewId` / `TradeId` while the **connector** returns `Crew` / `Trade` as `{Id, Value}` objects (plus
+`Crew#Id`). The flow read the connector's output using the REST names, so
+`item()?['CrewId']` was undefined, `Filter_crew_trades` matched nothing, the qualification set stayed
+**empty**, and therefore every checkable row looked unqualified. Correct expression:
+
+```
+@equals(item()?['Crew']?['Id'], items('For_each_crew')?['ID'])
+@concat(string(item()?['Trade']?['Id']), ':', items('For_each_crew')?['CrewID'])
+```
+
+What makes this one instructive is that a **manual REST probe written minutes earlier returned 0
+mismatches over the same data and was correct** — because raw REST really does expose `CrewId`. The
+two surfaces disagree, and the probe validated nothing about the flow.
+
+**A clean run of this flow proves nothing**, exactly like a green Daily Dispatch on a day with no
+assignments. It was verified by deliberately setting assignment 342 (`D2-1042 · 1.5 Excavation
+Operations`, trade Dig / Excavation) to crew `brothers`, which holds only `pebbletech` and `plaster`:
+one row flagged with the right message, 65 others untouched; reverting to `harrison` cleared it. Test
+it that way or not at all.
+
+**WHAT IT DOES NOT COVER, and this is load-bearing: only 22 of the 46 sub-phases per pool carry a
+trade at all.** The other 24 ride the pseudo-trades `@office`, `@sub` and `@unassigned`, which
+`gen-template-seed.py` resolves to **no `Trade` lookup**, so they are routed to a bucket crew by
+design. **A null `Trade` is therefore a PASS, not a violation** — a check that fired on them would
+raise 24 rows per pool from the first run and be ignored within a week. Live today: 66 checkable, 72
+null-trade, 0 mismatches.
+
+**`Unlimited` crews ARE trade-checked.** `Unlimited` means capacity-exempt (rule 2), never
+trade-exempt (rule 1) — a subcontractor still has to hold the trade. An early probe of mine wrongly
+exempted them; `stl` legitimately holds shotcrete, rebar, plumbing, dig, form, plaster and pebbletech,
+so the subcontractor rows pass on merit rather than by exemption.
+
+**This is detection, not prevention.** The SharePoint edit form will still let a PM put a carpentry
+crew on a plumbing sub-phase; the flag appears the next morning. Column validation **cannot** do
+better, because it cannot traverse the `Trade` lookup into a second list. The accepted grammar here
+matches rule 2, which is also detected post-hoc rather than prevented.
 
 **THE GROUP CALENDAR — built 2026-09-10, and the route is not the obvious one.**
 

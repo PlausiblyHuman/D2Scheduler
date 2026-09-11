@@ -594,40 +594,6 @@
     </div>
   </section>
 
-  <section id="planner">
-    <p class="eyebrow">Alongside</p>
-    <h2>The browser planning tool</h2>
-    <p class="lede">The visual planner already in use has not gone anywhere.</p>
-    <div class="task">
-      <div class="task-body">
-        <p>It remains the place to lay a pool out by eye, and it is still the only Gantt chart: the bar-chart view where a whole build can be seen stretched across the months, and where crews can be dragged around until the sequence looks right.</p>
-        <p>The simplest way to think about the two together:</p>
-        <div class="tablewrap">
-          <table>
-            <tr><td>Browser planner</td><td>Thinking. Sketching a sequence, seeing the shape of a build, trying options.</td></tr>
-            <tr><td>Build Scheduler</td><td>Doing. The live schedule, the crews, the sign-offs, the record.</td></tr>
-          </table>
-        </div>
-        <p>A pool is created in the Build Scheduler using the New Pool form, not exported from the planner.</p>
-        <div class="note">
-          <span class="label">Joining the two up is a future enhancement</span>
-          <p>The planner can currently be given a copy of the live schedule to look at, so a build can be
-             seen laid out as a chart. That copy is taken by hand, and it only travels one way.</p>
-          <p>Making the two work together properly, so that a sequence worked out in the planner can be sent
-             back into the Build Scheduler without being re-entered, is <strong>planned work rather than
-             something available today</strong>. It is worth knowing that is where this is heading, and worth
-             saying if it would make a real difference to how a pool gets planned.</p>
-        </div>
-        <div class="note watch">
-          <span class="label">Nothing done in the planner reaches the Build Scheduler</span>
-          <p>Dates, crews and sequencing changed in the planner stay in the planner. Until the two are joined
-             up, anything that needs to count has to be changed in the Build Scheduler itself, either on the
-             sub-phase or through a Reschedule request.</p>
-        </div>
-      </div>
-    </div>
-  </section>
-
   <section id="traps">
     <p class="eyebrow">Reference</p>
     <h2>Things worth knowing before they bite</h2>
@@ -665,8 +631,10 @@
       </div>
 
       <div class="trap">
-        <h3>The calendar and the emails run overnight</h3>
-        <p>Both are built once a night. The views on the site are always live. The calendar and the summaries catch up in the morning.</p>
+        <h3>The overnight jobs run once a night</h3>
+        <p>The calendar, the summary emails and the nightly checks are all built once a night, before the working day.
+           <strong>The views on the site are always live</strong>, so anything entered during the day shows immediately
+           there. It is the calendar, the emails and the flags that catch up the following morning.</p>
       </div>
 
       <div class="trap">
