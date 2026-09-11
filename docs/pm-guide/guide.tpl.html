@@ -274,6 +274,84 @@
         <tr><td>The phone app</td><td>Today's tasks, ticked off and signed on site.</td></tr>
       </table>
     </div>
+
+    <div class="note">
+      <span class="label">A new look is coming</span>
+      <p>Everything in this guide works today. The next phase gives the system its own purpose-built screens: one scheduling board with a full timeline of every pool, laid out and styled as D2 rather than as SharePoint. The pools, the calendar and the emails all stay exactly where they are, so nothing set up now has to be redone.</p>
+    </div>
+
+    <div class="note watch">
+      <span class="label">Two things are still to be switched on</span>
+      <p><strong>Field crew leads do not have D2 accounts yet.</strong> The crews are in the system and can be scheduled normally, but they carry no email address, so the automatic dispatch to crews is not being sent. Cody and Emon sign off on the crews' behalf in the meantime, which is why the sign-offs already recorded carry their names.</p>
+      <p><strong>The daily and weekly summaries are going to Stratirus for review</strong> rather than to Don and David. Pointing them at the real recipients is a one-line change once the content has been read on a real week.</p>
+      <p>Both are switch-ons rather than build work, and neither changes anything described in this guide.</p>
+    </div>
+  </section>
+  <section id="calendar">
+    <p class="eyebrow">Shared calendar</p>
+    <h2>The pool calendar</h2>
+    <p class="lede">Every live pool, on one calendar, in Outlook and Teams.</p>
+    <div class="task">
+      <figure>
+        <img src="{{IMG_CALENDAR}}" alt="The D2 Build Scheduler group calendar in Outlook month view, showing all-day blocks for each sub-phase across three pools.">
+        <figcaption>The D2 Build Scheduler group calendar. Each block is one sub-phase, running across the days it is scheduled for.</figcaption>
+      </figure>
+      <div class="task-body">
+        <p><strong>To open it:</strong> in the site's left-hand menu click <strong>Calendar</strong>. It can also be reached in Outlook, under <strong>D2 Build Scheduler</strong> in the list of group calendars on the left.</p>
+        <p>Clicking a block shows the crew, how many tasks are done, whether it has been signed off, and a link straight back to the sub-phase.</p>
+        <div class="tablewrap">
+          <table>
+            <tr><td>What appears</td><td>Every sub-phase of every <strong>Active</strong> pool. A pool becomes Active when the PM commits it, which is covered under <a href="#life">The life of a pool</a> below. Planned and On Hold pools are not shown.</td></tr>
+            <tr><td>Marked free</td><td>Blocks are set to "free", so they never make anyone look busy or block a meeting invitation.</td></tr>
+            <tr><td>Updates</td><td>Overnight. A change made this afternoon appears on the calendar in the morning.</td></tr>
+          </table>
+        </div>
+        <div class="note watch">
+          <span class="label">Edits made here do not stick</span>
+          <p>The calendar is rebuilt from the schedule each night, so anything changed directly on a calendar entry is overwritten. Change the sub-phase in the Build Scheduler and the calendar follows.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+  <section id="email">
+    <p class="eyebrow">Reporting</p>
+    <h2>The email summaries</h2>
+    <p class="lede">Two summaries arrive on their own. Both are real examples, taken from the live system.</p>
+
+    <h3 style="margin-top:26px">Every morning</h3>
+    <div class="mailframe">
+      <div class="mailhead">
+        <div class="row"><span class="k">From</span><span class="v">D2 Build Scheduler</span></div>
+        <div class="row"><span class="k">Sent</span><span class="v">06:30, Monday to Saturday</span></div>
+        <div class="row"><span class="k">Subject</span><span class="v subj">D2 Daily Summary, Thu 09/10, 3 scheduled, 1 awaiting sign-off</span></div>
+      </div>
+      <div class="mailrender"><iframe title="Example of the daily summary email" id="mailpreview" data-mailsrc="src-mail-daily"></iframe></div>
+    </div>
+    <div class="task" style="margin-top:22px">
+      <div class="task-body">
+        <p>What is scheduled today, across every live pool, and how much recently finished work has been signed off. Everything in it is a link, so clicking a sub-phase name opens that row.</p>
+        <p><strong>The percentage is the sign-off rate.</strong> Of the sub-phases that finished in the last seven days, it shows how many have been signed off. It is a measure of paperwork rather than progress.</p>
+      </div>
+    </div>
+
+    <h3 style="margin-top:34px">Every Friday afternoon</h3>
+    <div class="mailframe">
+      <div class="mailhead">
+        <div class="row"><span class="k">From</span><span class="v">D2 Build Scheduler</span></div>
+        <div class="row"><span class="k">Sent</span><span class="v">15:00, Friday</span></div>
+        <div class="row"><span class="k">Subject</span><span class="v subj">D2 Weekly Summary, week of 2026-09-07, 9 scheduled, 0 awaiting sign-off</span></div>
+      </div>
+      <div class="mailrender"><iframe title="Example of the weekly summary email" id="mailpreview-weekly" data-mailsrc="src-mail-weekly"></iframe></div>
+    </div>
+    <div class="task" style="margin-top:22px">
+      <div class="task-body">
+        <p>The same shape, covering Monday to Saturday of the current week rather than a single day. It is the one to read if you want the week at a glance without opening the site.</p>
+        <div class="note">
+          <span class="label">Why the weekly can show a different figure</span>
+          <p>The weekly runs on Friday afternoon, so it scores sign-off compliance on work that has already finished. Sub-phases finishing late Friday or on Saturday land in the following Monday's daily summary instead. Neither figure is wrong; they cover different windows.</p>
+        </div>
+      </div>
+    </div>
   </section>
 
   <section id="life">
@@ -522,53 +600,7 @@
     </div>
   </section>
 
-  <section id="calendar">
-    <p class="eyebrow">Shared calendar</p>
-    <h2>The pool calendar</h2>
-    <p class="lede">Every live pool, on one calendar, in Outlook and Teams.</p>
-    <div class="task">
-      <figure>
-        <img src="{{IMG_CALENDAR}}" alt="The D2 Build Scheduler group calendar in Outlook month view, showing all-day blocks for each sub-phase across three pools.">
-        <figcaption>The D2 Build Scheduler group calendar. Each block is one sub-phase, running across the days it is scheduled for.</figcaption>
-      </figure>
-      <div class="task-body">
-        <p><strong>To open it:</strong> in the site's left-hand menu click <strong>Calendar</strong>. It can also be reached in Outlook, under <strong>D2 Build Scheduler</strong> in the list of group calendars on the left.</p>
-        <p>Clicking a block shows the crew, how many tasks are done, whether it has been signed off, and a link straight back to the sub-phase.</p>
-        <div class="tablewrap">
-          <table>
-            <tr><td>What appears</td><td>Every sub-phase of every <strong>Active</strong> pool. Planned and On Hold pools are not shown.</td></tr>
-            <tr><td>Marked free</td><td>Blocks are set to "free", so they never make anyone look busy or block a meeting invitation.</td></tr>
-            <tr><td>Updates</td><td>Overnight. A change made this afternoon appears on the calendar in the morning.</td></tr>
-          </table>
-        </div>
-        <div class="note watch">
-          <span class="label">Edits made here do not stick</span>
-          <p>The calendar is rebuilt from the schedule each night, so anything changed directly on a calendar entry is overwritten. Change the sub-phase in the Build Scheduler and the calendar follows.</p>
-        </div>
-      </div>
-    </div>
-  </section>
 
-  <section id="email">
-    <p class="eyebrow">Reporting</p>
-    <h2>The morning email</h2>
-    <p class="lede">A short summary lands before the day starts. This is a real one.</p>
-    <div class="mailframe">
-      <div class="mailhead">
-        <div class="row"><span class="k">From</span><span class="v">D2 Build Scheduler</span></div>
-        <div class="row"><span class="k">Sent</span><span class="v">06:30, Monday to Saturday</span></div>
-        <div class="row"><span class="k">Subject</span><span class="v subj">D2 Daily Summary, Thu 09/10, 3 scheduled, 1 awaiting sign-off</span></div>
-      </div>
-      <div class="mailrender"><iframe title="Example of the daily summary email" id="mailpreview"></iframe></div>
-    </div>
-    <div class="task" style="margin-top:22px">
-      <div class="task-body">
-        <p>Everything in it is a link. Clicking a sub-phase name opens that row.</p>
-        <p><strong>The percentage is the sign-off rate.</strong> Of the sub-phases that finished in the last seven days, it shows how many have been signed off. It is a measure of paperwork rather than progress.</p>
-        <p>A <strong>weekly summary</strong> follows every Friday afternoon, covering the whole week with the same figures.</p>
-      </div>
-    </div>
-  </section>
 
   <section id="signoff">
     <p class="eyebrow">In the field</p>
@@ -685,23 +717,26 @@
   </footer>
 </div>
 
-<script type="text/html" id="src-mail"><!--EMAIL_BODY--></script>
+<script type="text/html" id="src-mail-daily"><!--EMAIL_BODY--></script>
+<script type="text/html" id="src-mail-weekly"><!--EMAIL_BODY_WEEKLY--></script>
 <script>
   (function () {
-    var frame = document.getElementById('mailpreview');
-    var host = document.getElementById('src-mail');
-    if (!frame || !host) return;
-    frame.srcdoc = '<!doctype html><meta charset="utf-8">' +
-      '<style>html,body{margin:0;background:#fff;}body{padding:18px 20px;' +
-      'font-family:"Segoe UI",system-ui,sans-serif;}table{max-width:100%;}</style>' +
-      host.textContent;
-    function size(){
-      try {
-        var d = frame.contentDocument;
-        if (d && d.body) frame.style.height = (d.body.scrollHeight + 26) + 'px';
-      } catch (e) { frame.style.height = '620px'; }
-    }
-    frame.addEventListener('load', size);
-    var t; window.addEventListener('resize', function(){ clearTimeout(t); t = setTimeout(size, 140); });
+    var frames = document.querySelectorAll('iframe[data-mailsrc]');
+    Array.prototype.forEach.call(frames, function (frame) {
+      var host = document.getElementById(frame.getAttribute('data-mailsrc'));
+      if (!host) return;
+      frame.srcdoc = '<!doctype html><meta charset="utf-8">' +
+        '<style>html,body{margin:0;background:#fff;}body{padding:18px 20px;' +
+        'font-family:"Segoe UI",system-ui,sans-serif;}table{max-width:100%;}</style>' +
+        host.textContent;
+      function size(){
+        try {
+          var d = frame.contentDocument;
+          if (d && d.body) frame.style.height = (d.body.scrollHeight + 26) + 'px';
+        } catch (e) { frame.style.height = '620px'; }
+      }
+      frame.addEventListener('load', size);
+      var t; window.addEventListener('resize', function(){ clearTimeout(t); t = setTimeout(size, 140); });
+    });
   })();
 </script>

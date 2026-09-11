@@ -14,13 +14,15 @@ imgs = {
     "IMG_JOBS":     b64("shot-jobs.jpeg"),
     "IMG_COMMIT":   b64("shot-commit.jpeg"),
 }
-email = io.open(os.path.join(SP, "daily-summary-live.html"), encoding="utf-8").read()
+daily  = io.open(os.path.join(SP, "daily-summary-live.html"),  encoding="utf-8").read()
+weekly = io.open(os.path.join(SP, "weekly-summary-live.html"), encoding="utf-8").read()
 
 tpl = io.open(os.path.join(SP, "guide.tpl.html"), encoding="utf-8").read()
 out = tpl
 for k, v in imgs.items():
     out = out.replace("{{" + k + "}}", v)
-out = out.replace("<!--EMAIL_BODY-->", email)
+out = out.replace("<!--EMAIL_BODY_WEEKLY-->", weekly)
+out = out.replace("<!--EMAIL_BODY-->", daily)
 
 missing = re.findall(r"\{\{[A-Z_]+\}\}", out)
 assert not missing, f"unreplaced placeholders: {set(missing)}"
