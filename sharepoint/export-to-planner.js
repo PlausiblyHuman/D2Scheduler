@@ -1,23 +1,19 @@
 /* Export the live schedule out of SharePoint and into the browser planner.
  *
- * WHY THIS EXISTS: Shane, 2026-09-11 -- "if the html isn't up to date what's
- * the point?" The browser planner (`D2-Build-Scheduler/.../pool-scheduler.html`)
- * is the only Gantt in this system and the only place a PM can sequence crews by
- * eye, but it had no connection to SharePoint at all. It seeded three fictional
- * pools of its own, stored everything in localStorage, and nothing a PM did there
- * ever reached the system. Linking it from the PM guide would have sent people to
- * a tool showing pools that do not exist.
+ * WHY THIS EXISTS: the browser planner
+ * (`D2-Build-Scheduler/.../pool-scheduler.html`) is the only Gantt in this
+ * system and the place a PM sequences crews by eye. This gives it the live
+ * schedule so it works from current data rather than its own local copy.
  *
- * This closes the SharePoint -> planner direction only. It is deliberately NOT
- * the never-built nightly sync (see CLAUDE.md, "THE NIGHTLY SYNC FLOW DOES NOT
- * EXIST"): nothing here writes back. The planner stays a planning surface and
- * SharePoint stays the source of truth for execution state.
+ * This closes the SharePoint -> planner direction only. Nothing here writes
+ * back. The planner stays a planning surface and SharePoint stays the source of
+ * truth for execution state.
  *
  * WHY NOT WRITE BACK: the planner has no sign-off model. Its `inst`/`pm` are bare
  * booleans with no attribution, no timestamp and no notes, while SharePoint holds
- * InstallerSignOffBy/On and SignOffNotes. Pushing the planner's version over a
- * live row would overwrite attested work with a flag. That is why the sync was
- * descoped on 2026-09-05 and it is a worse trade now than it was then.
+ * InstallerSignOffBy/On and SignOffNotes. Writing the planner's version over a
+ * live row would replace an attested sign-off with a flag, losing who signed,
+ * when, and any notes.
  *
  * HOW TO RUN
  *   1. Open https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler

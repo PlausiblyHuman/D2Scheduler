@@ -1,17 +1,12 @@
 /* Build the D2 Build Scheduler home page: a launchpad for the office.
  *
- * WHY: the site was still the untouched Microsoft "project management" team
- * template. Its landing page carried three web parts literally titled
- * "[Sample content]" -- a Progress tracker list, an Issue tracker list and a
- * Documents library -- over stock photography of a whiteboard and some string
- * art, plus Quick links pointing at GitHub and Visual Studio. That is the first
- * thing Don Borgeson and David Taylor would ever have seen of what they bought.
+ * WHY: replaces the default Microsoft team-site landing page, whose sample web
+ * parts and placeholder links are not relevant to this site.
  *
- * AUDIENCE, in priority order: Don and David (owners, mostly a read -- they also
- * get the daily and weekly summary emails), then Cody Campbell and Emon
- * Alexander (the two PMs, who need to DO things). Shane's call 2026-09-07: this
- * page is a LAUNCHPAD, not a showcase. Owners already have their visibility by
- * email, so the page is optimised for getting people to work fast.
+ * AUDIENCE, in priority order: owners, who mostly read and who also receive the
+ * daily and weekly summary emails, then the project managers, who need to act.
+ * The page is a launchpad rather than a showcase, optimised for getting people
+ * to the view they need quickly.
  *
  * The office surface IS the SharePoint views. This page is the front door to
  * them. The List web part in the middle is the point of the whole design: it
@@ -19,12 +14,9 @@
  * rather than a click away. A PM lands already looking at the answer.
  *
  * CHANGED 2026-09-09 -- hero swapped from "Today by Crew" to "This Week by
- * Job", by Shane's request after using the site with six pools loaded.
- * "Today by Crew" was right at one pool: the office was thinking about crews,
- * because there was only ever one job to place them on. At six pools the
- * office thinks in pools first -- "how is Sandbox Ridge doing this week",
- * not "where is Devon Crew today" -- so a crew-first hero was the wrong
- * lens once there was more than one pool to lose track of. "This Week by
+ * Job". A crew-first hero suits a single pool, where there is only one job to
+ * place crews on. With several pools running the office needs to think in
+ * pools first, so a job-first hero is the better default. "This Week by
  * Job" is a new view (see provision-views.js), same Mon-Sun WeekMonday
  * filter as "This Week by Crew", grouped by Job instead of Crew. "Today by
  * Crew" is not gone -- it is still the right view for "who is on site right

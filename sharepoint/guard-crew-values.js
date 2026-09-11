@@ -20,10 +20,10 @@
  * Assignments.Crew is a TEXT column and it is the JOIN KEY to Crews.CrewID.
  *
  * A wrong value does not error. It matches nothing: dispatch skips the row,
- * conflict detection cannot see it, and the summaries render it as unassigned.
- * Nobody is told. This already happened once on this project, when assignments
- * held "Devon Crew" while Crews held "devon", and every crew filter silently
- * returned zero rows.
+ * conflict detection cannot see it, and the summaries render it as unassigned,
+ * with no warning anywhere. This is a known failure mode: assignments once held
+ * "Devon Crew" while Crews held "devon", and every crew filter returned zero
+ * rows as a result.
  *
  * This adds a column validation formula listing the valid codes.
  *

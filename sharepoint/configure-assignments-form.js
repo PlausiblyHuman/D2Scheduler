@@ -3,8 +3,7 @@
  * WHY: a PM opening a sub-phase to change a crew and two dates got ~25 fields
  * in one flat list, including InstallerSignOffOn, TasksComplete and
  * SuppressReconcileUntil -- fields written by flows and the canvas app that a
- * human should never touch. Shane's request, after using the site with six
- * pools loaded.
+ * human should not edit.
  *
  * WHAT THIS DOES:
  *   1. Hides 11 flow/app-owned fields from New and Edit (Sequence, TasksTotal,
@@ -21,8 +20,8 @@
  *      made the whole list form refuse to save any hand-edit. Nothing creates
  *      Assignments by hand any more (D2 - New Pool does it), so Required here
  *      buys nothing and is a live trap the moment a field is hidden.
- *   4. Applies JSON form FORMATTING (added 2026-09-10, Shane: the form was
- *      "still kinda messy"): a navy header carrying the title, a crew chip, a
+ *   4. Applies JSON form FORMATTING (added 2026-09-10): a navy header
+ *      carrying the title, a crew chip, a
  *      sign-off chip and the read-only sub-phase identity; the 13 fields
  *      grouped into four named sections in the order the job runs; and a
  *      footer stating the crew-code rule. SubPhaseNumber and SubPhaseName are

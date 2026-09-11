@@ -135,9 +135,8 @@
   };
 
   // Rows this script refused to delete. Before the pilot the request lists should
-  // be EMPTY, so anything here is either leftover test litter under a name that
-  // carries no TEST- marker (Guard Test, PROBE-BLANK-CONFIRM and friends all
-  // looked like this) or a real request. Deleting it is a human decision.
+  // be EMPTY, so anything here is either a build-time row whose name carries no
+  // TEST- marker, or a real request. Deleting it is a human decision.
   const review = Object.entries(requests).flatMap(([list, r]) =>
     r.leftForReview.map(x => ({ list, ...x })));
   if (review.length) {

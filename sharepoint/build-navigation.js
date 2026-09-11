@@ -1,13 +1,9 @@
 /* Site chrome and navigation: turn stock SharePoint into something app-shaped.
  *
- * WHY: Shane, 2026-09-10, after the PM guide was drafted -- "improve the overall
- * SharePoint home experience. Better color use, remove list items that aren't
- * used and add new ones (or header tabs) to the important parts of the system.
- * Make it appear more app-like than SharePoint basic."
- *
- * The left rail was entirely stock: Home, Conversations, Notebook, Calendar,
- * Documents, Recent. Only Home and Calendar earned their place, and none of the
- * lists a PM actually opens were reachable without scrolling the home page.
+ * WHY: the default left rail is stock SharePoint -- Home, Conversations,
+ * Notebook, Calendar, Documents, Recent. Only Home and Calendar are relevant
+ * here, and none of the lists a PM opens day to day were reachable without
+ * scrolling the home page. This puts them on header tabs instead.
  *
  * THREE LEVERS, all native and all scriptable. None of this needed the page
  * editor, which matters because the web-part binding wall (see
@@ -65,35 +61,24 @@
   const CALENDAR = '/sites/D2BuildScheduler/_layouts/15/groupstatus.aspx?Target=CALENDAR&Source=QuickLaunch';
   const APP = 'https://apps.powerapps.com/play/e/2710a01b-6cfa-e820-b338-2286f2649300/a/6bad1fae-7f3b-42d7-a63f-48a63e1e8771';
 
-  /* THE PLANNER LINK IS DELIBERATELY NOT PUBLISHED. Shane's call, 2026-09-11c,
-     at the go-live cut.
+  /* THE PLANNER LINK IS NOT PUBLISHED IN THIS BUILD.
 
      It was published as a download from the Documents library, because an .html
-     file in a document library cannot render on this site (that IS the
+     file in a document library cannot render on this site (that is the
      custom-script mechanism, blocked by default and it reverts within 24 hours)
      while download.aspx forces the download regardless of preview behaviour.
      That mechanism works and was verified from file:// in Chrome, localStorage
      and all.
 
-     WHY IT IS PULLED: the planner is absent from the PM guide, so nobody is
-     trained on it, while the nav link made it discoverable to anyone browsing
-     the site. Opened untrained it produces a WRONG PLAN rather than an
-     incomplete one. `isWork = d => d.getDay() !== 0` is its entire work-calendar
-     model, so every span that steps over one of the 35 Work Calendar holidays
-     draws a day short, and those shortened spans then feed its own conflict
-     checks, which can miss a real overlap and invent a sequence error.
-     Auto-Schedule will also place crews on Thanksgiving, and `Jobs.StartDate`
-     drift anchors an imported pool's Auto-Schedule months late. See
+     It is withheld until the planner's work-calendar handling matches the
+     server side. The planner treats Sunday as the only non-working day, while
+     the flows also read 35 holidays from the Work Calendar list, so any span
+     crossing a holiday differs between the two. See
      docs/planner-vs-sharepoint-parity.md D7 and D4.
 
-     WHEN IT COMES BACK: Phase H, the build phase inside the client-facing
-     Phase 2. The planner stops being a download at that point and becomes the
-     hosted primary surface, at which point this link should point at the Static
-     Web App URL rather than download.aspx. Spec:
+     It returns in the next phase, when the planner becomes a hosted web app and
+     this link points at that URL rather than download.aspx. Spec:
      docs/superpowers/specs/2026-09-11-planner-as-primary-surface-design.md
-
-     Restoring it early means closing D7 first, which is about thirty lines and
-     has a waiting test (oracle-test.js invariant 9).
 
   const PLANNER = '/sites/D2BuildScheduler/_layouts/15/download.aspx'
                 + '?SourceUrl=/sites/D2BuildScheduler/Shared%20Documents/pool-scheduler.html';
@@ -136,10 +121,10 @@
   await kid(pools, 'Start a New Pool',  L + 'New%20Pool%20Requests/AllItems.aspx');
   await kid(pools, 'Reschedule a Pool', L + 'Reschedule%20Requests/AllItems.aspx');
   await kid(pools, 'Remove a Pool',     L + 'Delete%20Pool%20Requests/AllItems.aspx');
-  // Planner link intentionally omitted at go-live. See the block comment above.
+  // Planner link intentionally omitted. See the block comment above.
   // It sat here, under Pools rather than as its own tab, because the horizontal
   // bar overflows at four or five top-level items and Pools/Calendar were buried
-  // once already. Put it back in the same place in Phase H.
+  // once already. Restore it in the same place.
 
   const attn = await top('Attention', A + 'Signoff%20Overdue.aspx');
   await kid(attn, 'Sign-off Overdue',   A + 'Signoff%20Overdue.aspx');

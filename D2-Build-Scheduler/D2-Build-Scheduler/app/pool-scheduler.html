@@ -301,7 +301,7 @@ function autoSchedule(){
     }}));
   // DETERMINISM FIX (1 of 2): seed load from LOCKED assignments only, exactly as
   // `busy` above is seeded. crewLoad() counts EVERY assignment, so a second run
-  // inherits the first run's own tiebreak results and drifts. Ryan Meyer, 2026-08.
+  // inherits the first run's own tiebreak results and drifts.
   const load={};S.crews.forEach(c=>load[c.id]=0);
   S.jobs.forEach(j=>allSecs(j).forEach(({s})=>{
     if(s.locked&&s.crewId&&s.start&&!s.skip)load[s.crewId]=(load[s.crewId]||0)+s.days;

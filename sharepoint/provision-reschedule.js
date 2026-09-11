@@ -111,8 +111,8 @@
       .d.results.find(v => v.Title === 'Planned Pools');
   }
 
-  // A view created through REST carries ONLY LinkTitle, which renders as a single
-  // useless column. Caught by opening the view rather than by any status code.
+  // A view created through REST carries ONLY LinkTitle, so it renders as a
+  // single column. Caught by opening the view rather than by any status code.
   if (planned) {
     const vfBase = `${site}/_api/web/lists/GetByTitle('Jobs')/views('${planned.Id}')/viewfields`;
     const current = (await get(vfBase)).d.Items.results;

@@ -1,10 +1,8 @@
 /* Card formatting for the office SharePoint views.
  *
- * WHY: Shane's feedback on the launchpad was "seems plain overall. The cards
- * that open out are fairly plain too." He was right, and the first diagnosis
- * (reach for a header photo) was wrong. A SharePoint list view renders as a
- * grey table by default; the real lever is JSON formatting, which SharePoint
- * supports natively on both the row and the item panel. No premium anything.
+ * WHY: a SharePoint list view renders as a grey table by default. JSON
+ * formatting is the native lever for both the row and the item panel, and it
+ * needs no premium licensing.
  *
  * Palette is D2's, measured from d2pools.com computed styles and matching both
  * the site theme and the canvas app:

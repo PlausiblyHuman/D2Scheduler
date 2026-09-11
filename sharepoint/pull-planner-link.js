@@ -1,26 +1,15 @@
 /* Remove the "Planner (download)" link from site navigation.
  *
- * WHY: Shane's call at the 2026-09-11c go-live cut. The planner is absent from
- * the PM guide, so nobody is trained on it, while the nav link made it
- * discoverable to anyone browsing the site. Opened untrained it produces a
- * WRONG plan rather than an incomplete one: `isWork = d => d.getDay() !== 0` is
- * its entire work-calendar model, so any span stepping over one of the 35 Work
- * Calendar holidays draws a day short, and the shortened span then feeds its own
- * conflict checks, which can miss a real overlap and invent a sequence error.
- * See docs/planner-vs-sharepoint-parity.md D7 and D4.
+ * The planner is moving to a hosted web app in the next phase. Until that
+ * lands, the navigation points only at surfaces covered by the PM guide, so
+ * this removes the entry.
  *
- * It comes back in Phase H (the build phase inside client-facing Phase 2),
- * pointing at the hosted app rather than download.aspx. Spec:
- * docs/superpowers/specs/2026-09-11-planner-as-primary-surface-design.md
+ * Scope: the navigation entry only. `pool-scheduler.html` stays in the site's
+ * Documents library and is restored to the navigation, pointing at the hosted
+ * app, when that work ships.
  *
- * WHY THIS AND NOT build-navigation.js: that script clears every navigation node
- * and rebuilds the whole bar. Correct for a build, too much blast radius for
- * removing one link on the morning of a go-live. This touches exactly one node
- * and reads the nav back afterwards to prove it.
- *
- * NOTE: this removes the LINK only. `pool-scheduler.html` stays in the site's
- * Documents library, so it is still reachable by browsing that library. Deleting
- * the file is a separate decision and is not done here, because Phase H wants it.
+ * Targets one node and re-reads the navigation afterwards to confirm. Use this
+ * rather than build-navigation.js, which clears and rebuilds the entire bar.
  *
  * HOW TO RUN
  *   1. Open https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler
@@ -28,7 +17,7 @@
  *   2. DevTools > Sources > Snippets > new snippet, paste, Ctrl+Enter.
  *      (Snippets has no paste guard. In the Console you must first type the
  *      words `allow pasting`.)
- *   3. Read the returned object. `remaining` must be empty.
+ *   3. Check the returned object: `ok` should be true and `remaining` empty.
  *
  * Idempotent: re-running when the link is already gone reports found 0 and
  * changes nothing.
@@ -81,8 +70,7 @@
     deleted.push({ ...h, status: r.status, ok: r.ok });
   }
 
-  /* Verify by re-reading, never by the status code. This codebase's dominant
-     failure signature is a write that returns 2xx and does nothing. */
+  // Re-read the navigation to confirm the change applied.
   const after = await readNav();
   const remaining = findPlanner(after);
 
