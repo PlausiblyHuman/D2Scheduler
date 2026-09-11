@@ -114,8 +114,12 @@ match live by content**, all Started; one failure in 48h, from that flow's own b
    the tool is current. Open question: wide open, or behind Entra restricted to the D2 tenant.
 2. **`D2 - Reschedule Pool` never writes `Jobs.StartDate`**, so it drifts permanently. Whitfield
    reads `2026-09-21` on the Jobs list while its first assignment starts `2026-06-15` and the pool
-   finishes `2026-09-30`. Likely fix: write it only when `FromSequence` is 1. That is a product
-   call.
+   finishes `2026-09-30`. Verified display-only: nothing reads the field after creation and nothing
+   triggers on the Jobs list, so realigning it is safe.
+   **`sharepoint/fix-job-startdates.js` is ready to paste** and fixes the three demo rows (it has a
+   `DRY_RUN` flag). Attempting it unattended was blocked by the write gate, correctly, so it is
+   yours to run. The flow gap behind it is still a product call: probably "write it only when
+   `FromSequence` is 1", since a reflow from sequence 5 clearly should not move the job's start.
 3. **`ConflictWith` staleness window** between a reflow and the next 05:00 sweep. Cheap fix: the
    reflow calls Conflict Flag, or nulls `ConflictWith` on rows it moves.
 4. **Calendar Sync self-healing sweep** now unblocked. Needs the guards written down in CLAUDE.md.
