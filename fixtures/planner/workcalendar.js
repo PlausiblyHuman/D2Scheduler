@@ -13,7 +13,7 @@ const path = require('path');
 const { JSDOM, VirtualConsole } = require('jsdom');
 const { runExport } = require('./run-export');
 
-const PLANNER = path.resolve(__dirname, '../../D2-Build-Scheduler/D2-Build-Scheduler/app/pool-scheduler.html');
+const PLANNER = path.resolve(__dirname, '../../web/index.html');
 const FIXTURE = path.join(__dirname, 'live-payloads.json');
 
 let fail = 0;

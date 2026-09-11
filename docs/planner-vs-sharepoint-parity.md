@@ -1,8 +1,9 @@
 # Planner vs SharePoint: capability parity map
 
-Audited 2026-09-11 against
-`D2-Build-Scheduler/D2-Build-Scheduler/app/pool-scheduler.html` (910 lines, single file,
-no network calls, `localStorage` key `poolsched.v6`). Line numbers are to that file.
+Audited 2026-09-11 against `web/index.html` (moved 2026-09-11 from the doubled
+`D2-Build-Scheduler/D2-Build-Scheduler/app/pool-scheduler.html`; 910 lines, single file,
+no network calls, `localStorage` key `poolsched.v6`, at the time of this audit). Line
+numbers are to that file.
 
 Raised by Shane: *"we never matched crew capabilities / technical expertise to their
 functions in the sharepoint site."* Correct, and it turned out to be one of eleven

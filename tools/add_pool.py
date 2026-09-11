@@ -36,7 +36,7 @@ is WORK days, never the inclusive calendar span.
 """
 import argparse, io, json, re, datetime as dt, os
 
-TOOL = 'D2-Build-Scheduler/D2-Build-Scheduler/app/pool-scheduler.html'
+TOOL = 'web/index.html'
 LIVE = 'tools/live-state.json'
 OUT = 'tools/pool-plan.json'
 

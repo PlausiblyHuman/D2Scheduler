@@ -10,16 +10,19 @@ Packaged 2026-08-13.
 
 ## Start here
 
-Open **`app/pool-scheduler.html`** in any browser. No install, no server, no
-internet. Double-click it.
+**The tool itself moved on 2026-09-11** to `web/index.html` at the repo root,
+ahead of Azure Static Web Apps hosting. This folder's `app/` subdirectory is
+now empty; the data extracts, source documents and deployment plan below are
+still here. Open **`web/index.html`** (two levels up from this README) in any
+browser. No install, no server, no internet. Double-click it.
 
 ---
 
 ## What's in the box
 
 ```
-app/
-  pool-scheduler.html ......... the tool — one self-contained file
+web/index.html ................ the tool itself, moved here 2026-09-11
+                                 (repo root, not this folder)
 docs/
   D2-Power-Platform-Deployment-Plan.html
                               . 13-week plan to move this onto Dataverse

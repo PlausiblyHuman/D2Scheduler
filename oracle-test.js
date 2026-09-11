@@ -3,7 +3,7 @@ const fs = require('fs');
 // Repaired 2026-09-11: this pointed at a build sandbox that no longer exists,
 // so the harness could not run at all. Now resolves inside the repo.
 const nodepath = require('path');
-const path = process.argv[2] || nodepath.resolve(__dirname,'D2-Build-Scheduler/D2-Build-Scheduler/app/pool-scheduler.html');
+const path = process.argv[2] || nodepath.resolve(__dirname,'web/index.html');
 let html = fs.readFileSync(path, 'utf8');
 
 // Append an expose script so we can introspect the module-scoped `let` bindings.

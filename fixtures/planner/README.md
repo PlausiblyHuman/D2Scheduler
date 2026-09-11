@@ -1,6 +1,6 @@
 # Planner fixtures
 
-Behaviour tests for `D2-Build-Scheduler/D2-Build-Scheduler/app/pool-scheduler.html`,
+Behaviour tests for `web/index.html`,
 the browser planner. They run the real file in jsdom, so they test what a PM's
 browser actually executes rather than a copy of the logic.
 

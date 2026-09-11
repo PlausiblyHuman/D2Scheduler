@@ -20,7 +20,7 @@ join to the string code happens explicitly, not via a flat dict key.
 """
 import io, json, collections
 
-TOOL = 'D2-Build-Scheduler/D2-Build-Scheduler/app/pool-scheduler.html'
+TOOL = 'web/index.html'
 LIVE = 'tools/live-crews.json'
 OUT  = 'tools/template-seed.json'
 

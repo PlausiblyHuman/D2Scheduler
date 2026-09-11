@@ -6,7 +6,7 @@ Durable orientation for any Claude session working in this repo.
 
 ## What this is
 
-Pool construction scheduling and field sign-off system for D2 Pools. SharePoint Lists + Power Automate + Teams + a Power Apps canvas app for crew-lead task-tick, running on D2's existing M365 subscription with **no premium connectors and no Dataverse** — but see the licensing note below: the canvas app does require Business Basic seats for the ~10 field crew leads, so "zero incremental licensing" is **not** accurate and must not be repeated to the client. Replaces a browser-based prototype (`D2-Build-Scheduler/D2-Build-Scheduler/app/pool-scheduler.html`, note the doubled directory) originally built by Ryan Meyer under his Tennetech brand; Stratirus took over full delivery ownership.
+Pool construction scheduling and field sign-off system for D2 Pools. SharePoint Lists + Power Automate + Teams + a Power Apps canvas app for crew-lead task-tick, running on D2's existing M365 subscription with **no premium connectors and no Dataverse** — but see the licensing note below: the canvas app does require Business Basic seats for the ~10 field crew leads, so "zero incremental licensing" is **not** accurate and must not be repeated to the client. Replaces a browser-based prototype (`web/index.html` as of 2026-09-11; originally shipped as `D2-Build-Scheduler/D2-Build-Scheduler/app/pool-scheduler.html`, note the doubled directory) originally built by Ryan Meyer under his Tennetech brand; Stratirus took over full delivery ownership.
 
 Client-facing name: **D2 Build Scheduler**.
 
@@ -30,7 +30,7 @@ Site URL: `https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler` (site
 - **Power Apps canvas app** — crew-lead sign-off + task-tick, mobile-first, standard M365 rights only
 - ~~**Microsoft Forms** — fallback sign-off surface~~ **RULED OUT 2026-09-04.** Forms cannot render a question set that varies per respondent at runtime, so "show this crew lead today's 6 tasks" has no native expression. The cheap variant (one generic form, sub-phase-level sign-off + a task count) drops Don's explicit task-level tick requirement; the faithful variant (46 forms, one per sub-phase template, deep-linked with a prefilled assignment ID) costs more than the canvas app and is a maintenance trap. Unlicensed crew leads could only use an anonymous "anyone with the link" form, which degrades `InstallerSignOffBy` from a verified User to a typed name on a forwardable link — an audit-trail regression larger than the one Rev D §02 added `WorkDate` to fix.
 - **Teams channels** — `Field Dispatch` and `Ownership` for artifact posting. **DEFERRED to post-pilot, decided 2026-09-05.** Neither channel exists (the tenant has only `d2pools.com > General`). The one case where Teams would have been materially better was delivering dispatch to crew leads on a mailbox-less SKU, and that case evaporated when M365 F1 turned out not to include Power Apps at all — see the licensing correction under Known bugs. With Business Basic as the floor, crew leads get mailboxes anyway, so **Flow 1's email dispatch stays as built and verified**. Everything else Teams would carry (Flow 4 alerts, Don's summaries) is duplicating email that already works, in exchange for a client-gated dependency in a calendar-locked week.
-- **Browser scheduler** — `D2-Build-Scheduler/D2-Build-Scheduler/app/pool-scheduler.html`, permanent PM-side planner role. **It is fed from SharePoint as of 2026-09-11** via `sharepoint/export-to-planner.js` plus its own "Load from D2" button; it still never writes back. The "committed schedule flows to Lists nightly" half of this line was always aspirational and is the never-built nightly sync.
+- **Browser scheduler** — `web/index.html` (moved 2026-09-11 from the doubled `D2-Build-Scheduler/D2-Build-Scheduler/app/pool-scheduler.html`, ahead of Azure Static Web Apps hosting in Phase H — see "Companion tools" below), permanent PM-side planner role. **It is fed from SharePoint as of 2026-09-11** via `sharepoint/export-to-planner.js` plus its own "Load from D2" button; it still never writes back. The "committed schedule flows to Lists nightly" half of this line was always aspirational and is the never-built nightly sync.
 
 **Environment split:**
 - SharePoint site at tenant level (netorgft15040037.sharepoint.com)
@@ -2837,9 +2837,13 @@ patch, while this file told every session it carried both.
 
 Current, verified state:
 
-- **`D2-Build-Scheduler/D2-Build-Scheduler/app/pool-scheduler.html` is the ONLY
-  copy of the browser planner.** Note the doubled directory name; a path with one
-  `D2-Build-Scheduler` does not resolve, and appeared in this file twice.
+- **The browser planner moved to `web/index.html` on 2026-09-11**, via `git mv`,
+  as the first step of Phase H repo layout (`web/staticwebapp.config.json` sits
+  beside it). It was `D2-Build-Scheduler/D2-Build-Scheduler/app/pool-scheduler.html`
+  — note the doubled directory name; a path with one `D2-Build-Scheduler` never
+  resolved, and appeared in this file twice. **That directory no longer holds the
+  planner** — the `app/` subdirectory is now empty — so a future session should
+  not go looking for it there; `web/index.html` is the only copy.
 - **Both patches were applied to it on 2026-09-11.** Determinism: seed the load
   table from LOCKED assignments only (`crewLoad()` counts every assignment, so
   run 2 inherited run 1's tiebreaks) plus `|| a.id.localeCompare(b.id)` as a

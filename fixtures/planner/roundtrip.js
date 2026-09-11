@@ -1,5 +1,5 @@
 const path=require('path');
-const PLANNER = path.resolve(__dirname,'../../D2-Build-Scheduler/D2-Build-Scheduler/app/pool-scheduler.html');
+const PLANNER = path.resolve(__dirname,'../../web/index.html');
 const {JSDOM, VirtualConsole} = require('jsdom');
 const fs = require('fs');
 const P = PLANNER;

@@ -16,7 +16,7 @@ const { JSDOM, VirtualConsole } = require('jsdom');
 const { runExport } = require('./run-export');
 
 const ROOT = path.resolve(__dirname, '../..');
-const PLANNER = path.join(ROOT, 'D2-Build-Scheduler/D2-Build-Scheduler/app/pool-scheduler.html');
+const PLANNER = path.join(ROOT, 'web/index.html');
 const FIXTURE = path.join(__dirname, 'live-payloads.json');
 
 let fail = 0;

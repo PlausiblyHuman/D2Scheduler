@@ -14,7 +14,7 @@ Rules honoured:
 """
 import io, json, re, datetime as dt
 
-TOOL = 'D2-Build-Scheduler/D2-Build-Scheduler/app/pool-scheduler.html'
+TOOL = 'web/index.html'
 TODAY = dt.date(2026, 9, 3)
 WINDOW_BACK, WINDOW_FWD = 14, 28
 
