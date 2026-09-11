@@ -6,7 +6,7 @@ Durable orientation for any Claude session working in this repo.
 
 ## What this is
 
-Pool construction scheduling and field sign-off system for D2 Pools. SharePoint Lists + Power Automate + Teams + a Power Apps canvas app for crew-lead task-tick, running on D2's existing M365 subscription with **no premium connectors and no Dataverse** — but see the licensing note below: the canvas app does require Business Basic seats for the ~10 field crew leads, so "zero incremental licensing" is **not** accurate and must not be repeated to the client. Replaces a browser-based prototype (`D2-Build-Scheduler/app/pool-scheduler.html`) originally built by Ryan Meyer under his Tennetech brand; Stratirus took over full delivery ownership.
+Pool construction scheduling and field sign-off system for D2 Pools. SharePoint Lists + Power Automate + Teams + a Power Apps canvas app for crew-lead task-tick, running on D2's existing M365 subscription with **no premium connectors and no Dataverse** — but see the licensing note below: the canvas app does require Business Basic seats for the ~10 field crew leads, so "zero incremental licensing" is **not** accurate and must not be repeated to the client. Replaces a browser-based prototype (`D2-Build-Scheduler/D2-Build-Scheduler/app/pool-scheduler.html`, note the doubled directory) originally built by Ryan Meyer under his Tennetech brand; Stratirus took over full delivery ownership.
 
 Client-facing name: **D2 Build Scheduler**.
 
@@ -30,7 +30,7 @@ Site URL: `https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler` (site
 - **Power Apps canvas app** — crew-lead sign-off + task-tick, mobile-first, standard M365 rights only
 - ~~**Microsoft Forms** — fallback sign-off surface~~ **RULED OUT 2026-09-04.** Forms cannot render a question set that varies per respondent at runtime, so "show this crew lead today's 6 tasks" has no native expression. The cheap variant (one generic form, sub-phase-level sign-off + a task count) drops Don's explicit task-level tick requirement; the faithful variant (46 forms, one per sub-phase template, deep-linked with a prefilled assignment ID) costs more than the canvas app and is a maintenance trap. Unlicensed crew leads could only use an anonymous "anyone with the link" form, which degrades `InstallerSignOffBy` from a verified User to a typed name on a forwardable link — an audit-trail regression larger than the one Rev D §02 added `WorkDate` to fix.
 - **Teams channels** — `Field Dispatch` and `Ownership` for artifact posting. **DEFERRED to post-pilot, decided 2026-09-05.** Neither channel exists (the tenant has only `d2pools.com > General`). The one case where Teams would have been materially better was delivering dispatch to crew leads on a mailbox-less SKU, and that case evaporated when M365 F1 turned out not to include Power Apps at all — see the licensing correction under Known bugs. With Business Basic as the floor, crew leads get mailboxes anyway, so **Flow 1's email dispatch stays as built and verified**. Everything else Teams would carry (Flow 4 alerts, Don's summaries) is duplicating email that already works, in exchange for a client-gated dependency in a calendar-locked week.
-- **Browser scheduler** — `D2-Build-Scheduler/app/pool-scheduler.html`, permanent PM-side planner role (not being retired; committed schedule flows to Lists nightly)
+- **Browser scheduler** — `D2-Build-Scheduler/D2-Build-Scheduler/app/pool-scheduler.html`, permanent PM-side planner role. **It is fed from SharePoint as of 2026-09-11** via `sharepoint/export-to-planner.js` plus its own "Load from D2" button; it still never writes back. The "committed schedule flows to Lists nightly" half of this line was always aspirational and is the never-built nightly sync.
 
 **Environment split:**
 - SharePoint site at tenant level (netorgft15040037.sharepoint.com)
@@ -1844,10 +1844,70 @@ design splits four audiences across four surfaces, and only one of them is the a
 
 | Need | Surface | Status |
 |---|---|---|
-| Planning / scheduling | the browser tool `pool-scheduler.html` | exists, unchanged, PM-only |
+| Planning / scheduling | the browser tool `pool-scheduler.html` | **fed from SharePoint 2026-09-11**, PM-only |
 | Office day-to-day | **SharePoint list views** | built 2026-09-07 |
 | Ownership visibility | daily + weekly HTML summary emails | built, Phase B |
 | Field sign-off | the canvas app | built, Phase C |
+
+**THE BROWSER PLANNER IS NOW FED FROM SHAREPOINT (2026-09-11). One way only.**
+
+Shane: *"if the html isn't up to date what's the point?"* It wasn't. The planner
+had **no connection to SharePoint at all** — zero `fetch`, `localStorage` only,
+and it seeded three fictional California pools of its own (Harrison Residence,
+Vasquez Pool & Spa, Bell Canyon Remodel) that matched nothing in the tenant. A PM
+opening it saw pools that do not exist, scheduled under rules the system does not
+use, and nothing they did there reached anything. It had also sat untouched since
+2026-08-13 while every design decision in this project happened around it.
+
+(That seed is also where `Harrison Residence` came from. It was carried into
+SharePoint verbatim during Phase A as `D2-1001` and had to be deleted from the
+live tenant on 2026-09-10. The demo data outlived the demo by three weeks.)
+
+**How it works now:**
+
+1. `sharepoint/export-to-planner.js`, pasted into the browser console on the
+   site, reads Jobs + Assignments + Tasks and downloads `d2-live-schedule-<date>.json`.
+   Read-only: it only ever GETs, so a member with read access can run it.
+2. The planner's new **Load from D2** button imports that file.
+
+**It MERGES by job number, it does not replace.** The existing `Restore` button
+swaps the whole state, which would destroy any pool a PM had sketched locally but
+not yet raised in SharePoint. Local-only pools are left alone.
+
+**Structure always comes from the local phase template, never from the file.**
+Only what SharePoint owns is overlaid: crew, dates, duration, skip/lock flags,
+sign-off state, task ticks. Sub-phase names, skills and task text stay
+authoritative in the planner. This makes a partial or malformed payload unable to
+corrupt the template, and it is why the importer matches on `SubPhaseNumber`
+(`"0.0"`, `"2.1"`) rather than trusting the file's own structure.
+
+**Signed-off and SharePoint-locked sub-phases import as `locked:true`**, so a
+later Auto-Schedule cannot move completed work. That is the same rule
+`D2 - Reschedule Pool` applies server-side. Without it, one click of
+Auto-Schedule after an import would silently replan work that crews had already
+signed for.
+
+**Two field shapes that are easy to get wrong, both read off the write bodies in
+`flows/exports/D2-New-Pool-*.json` rather than guessed:**
+
+- `Crew` is a Choice column. **Raw REST with `odata=nometadata` returns it as a
+  plain string** (the short code, `"devon"`), which is exactly what the planner's
+  `crewId` wants. The *connector* would return `{Id, Value}`. See the Choice
+  column entry above.
+- The Tasks lookup is **`AssignmentId`** in REST/OData. (`Assignment` +
+  `Assignment#Id` is the connector shape, not what this script gets.)
+
+**WHY THERE IS NO WRITE-BACK, and do not "finish the job" by adding one.** The
+planner has no sign-off model: its `inst`/`pm` are bare booleans with no
+attribution, no timestamp and no notes, while SharePoint holds
+`InstallerSignOffBy`/`On` and `SignOffNotes`. Pushing the planner's version over a
+live row would overwrite attested work with a flag. That is strictly worse than
+the reason the nightly sync was descoped on 2026-09-05, so the descope stands.
+
+**Tested offline, no credentials needed:** `fixtures/planner/roundtrip.js` runs
+the real HTML in jsdom and pins 16 behaviours, including that a local-only pool
+survives an import, that re-importing does not duplicate pools, that signed work
+does not move under Auto-Schedule, and that a plain backup file is rejected.
 
 **Dashboards are a declined requirement, not a gap** — David and Don accepted daily/weekly email
 summaries and explicitly did not want Power BI.
@@ -2178,10 +2238,48 @@ At the time the unblock was a designer Save. **That is no longer required.** Flo
 2. Pilot one live pool per `D2-Phase-E-Pilot-Runbook.md`
 3. Cutover per `D2-Phase-F-Cutover-Runbook.md`
 
-**Companion tools already in place:**
-- `patched-tool/pool-scheduler.html` — browser scheduler with the two-line Auto-Schedule determinism fix applied (see `patched-tool/README.md` and `patched-tool/determinism-fix.diff`). Verified with `oracle-test.js` — 14 of 16 automated invariant checks pass, two remaining fails are documented data gaps not bugs.
-- `Subcontractor-Crew-Patch.md` — separate diff flipping the four subcontractor crews to `Unlimited=Yes` in the browser tool's SEED_CREWS. Apply alongside the determinism fix.
-- `seed-data/*.csv` — Trades, Crews (with subcontractor patch), Crew-Trades intersect, Work Calendar — ready for SharePoint Grid-paste when provisioning lands.
+**Companion tools — CORRECTED 2026-09-11. This section described two directories
+that have never existed in this git history, and the correction matters because
+both were described as work already done.**
+
+What it used to claim: a `patched-tool/pool-scheduler.html` carrying the
+Auto-Schedule determinism fix, with `patched-tool/README.md` and
+`patched-tool/determinism-fix.diff` beside it, and a `seed-data/*.csv` set. None
+of the three files existed, `git log --diff-filter=D` shows they were never
+deleted either, and the `Subcontractor-Crew-Patch.md` diff had never been applied
+to anything. So the single committed copy of the planner carried **neither**
+patch, while this file told every session it carried both.
+
+Current, verified state:
+
+- **`D2-Build-Scheduler/D2-Build-Scheduler/app/pool-scheduler.html` is the ONLY
+  copy of the browser planner.** Note the doubled directory name; a path with one
+  `D2-Build-Scheduler` does not resolve, and appeared in this file twice.
+- **Both patches were applied to it on 2026-09-11.** Determinism: seed the load
+  table from LOCKED assignments only (`crewLoad()` counts every assignment, so
+  run 2 inherited run 1's tiebreaks) plus `|| a.id.localeCompare(b.id)` as a
+  stable secondary sort key. Subcontractors: `unlimited:true` on george, armondo,
+  stl and brothers. Measured with `fixtures/planner/determinism.js`: **4 of 138
+  crew picks drifted per re-run before, 0 after.**
+- **`oracle-test.js` could not run at all.** It required jsdom from
+  `/tmp/node_modules` and read the planner from `/sessions/sweet-great-mayer/...`,
+  a build sandbox. Repaired to resolve inside the repo. It also now seeds two
+  pools itself, because the planner no longer ships demo pools and most of its
+  invariants otherwise pass **vacuously** over zero assignments. Scores on the
+  same harness: **committed file 13/16 with idempotency FAILING, patched file
+  14/16.** 14/16 is what this file always claimed for the phantom `patched-tool/`.
+  The two remaining fails are the documented data gaps (no work calendar in the
+  browser tool; Don's 10 unmapped trades).
+- **The seed CSVs are real but live elsewhere:**
+  `D2-Build-Scheduler/D2-Build-Scheduler/data/*.csv` (trades, crews,
+  crew-members, crew-trades, phase-template, sub-phase-template, task-template).
+- `Subcontractor-Crew-Patch.md` is kept as the record of why those four crews are
+  capacity-exempt. Its diff is now applied.
+
+**Lesson, and it is the same one this file already teaches about flow exports:** a
+committed artifact can drift from its description with nothing flagging it. There
+it was `flows/exports/` and `flows/definitions/`; here it was an entire directory
+that was only ever described. Check the artifact, not the memory of it.
 
 ## Fixture corpus
 
