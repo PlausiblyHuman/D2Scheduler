@@ -215,6 +215,36 @@
      }
     }
    },
+   "Guard_qual_not_empty": {
+    "actions": {
+     "Terminate_join_broken": {
+      "runAfter": {},
+      "type": "Terminate",
+      "inputs": {
+       "runStatus": "Failed",
+       "runError": {
+        "code": "QualificationSetEmpty",
+        "message": "The crew-to-trade join produced an EMPTY qualification set from a non-empty Crew-Trades list. Every checkable assignment would be flagged unqualified. This is almost certainly the connector-vs-REST lookup shape trap: Crew-Trades exposes CrewId/TradeId over raw REST but Crew/Trade as {Id,Value} objects through the connector. Failing instead of writing 66 wrong flags."
+       }
+      }
+     }
+    },
+    "runAfter": {
+     "For_each_crew": [
+      "Succeeded"
+     ]
+    },
+    "else": {
+     "actions": {}
+    },
+    "expression": {
+     "less": [
+      "@length(variables('qual'))",
+      1
+     ]
+    },
+    "type": "If"
+   },
    "For_each_assignment": {
     "foreach": "@outputs('Get_assignments')?['body/value']",
     "actions": {
@@ -316,7 +346,7 @@
      }
     },
     "runAfter": {
-     "For_each_crew": [
+     "Guard_qual_not_empty": [
       "Succeeded"
      ]
     },
@@ -334,7 +364,7 @@
      ]
     },
     "type": "Compose",
-    "inputs": "@concat('Crew Trade Check: ', string(variables('flagged')), ' flagged, ', string(variables('cleared')), ' cleared.')"
+    "inputs": "@concat('Crew Trade Check: ', string(variables('flagged')), ' flagged, ', string(variables('cleared')), ' cleared, from ', string(length(variables('qual'))), ' qualification pairs.')"
    }
   }
  }

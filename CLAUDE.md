@@ -376,6 +376,27 @@ CAML, SharePoint JSON formatters, Hero and Quick links web part JSON, and the mo
 view. On 2026-09-07 alone the same mistake was made three times in one session against this
 already-written rule.
 
+**THE SIX-TIME REPEAT IS THE LOOKUP/CHOICE SHAPE TRAP, AND THERE IS A SKILL FOR IT: invoke
+`power-automate-flow-mechanics` BEFORE writing any expression that reads a SharePoint column.** It
+was available and correct on 2026-09-11 and was not invoked, which is how `D2 - Crew Trade Check`
+wrote 66 wrong flags. The one-line version:
+
+> **Which surface produced this output?** `OpenApiConnection` / `GetItems` / a connector trigger
+> gives **connector** names (`Crew` as `{Id,Value}`, plus `Crew#Id`). `Send an HTTP request to
+> SharePoint` and every `$filter=` string give **raw REST** names (`CrewId`). Same list, same
+> column, different name, and which one you need depends on **the action, never the list**.
+
+**Reading a column's internal name off the list schema tells you NOTHING about its shape**, and that
+is precisely how this keeps happening: you look up `CrewId` over REST, where it is genuinely
+correct, and carry it into a connector expression without noticing the surface changed. For the same
+reason **a REST probe cannot validate a connector expression** — both can be right and still
+disagree, so evidence about a flow has to come from the flow.
+
+**Guard every cross-list join against the empty set.** A broken join does not error; it yields an
+empty set and every row then fails whatever the join tested. `D2 - Crew Trade Check` now terminates
+with `QualificationSetEmpty` rather than writing, which turns this entire class from silent-wrong
+into loud-fail. Copy that guard into any future join.
+
 The working method, in order: **read the shape off a real payload** (a run's action outputs, an
 existing working example on the same site, or `get_flow`); if none exists, **create the thing once
 in the UI and capture what the platform wrote**; only then script it. And **verify by opening the
