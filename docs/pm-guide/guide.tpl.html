@@ -249,7 +249,7 @@
     <div class="brandline"><span class="dot"></span> D2 Pools &middot; Build Scheduler</div>
     <span class="badge">Project manager guide</span>
     <h1>Running a pool in the D2 Build Scheduler</h1>
-    <p>How to start a pool, put the real durations in, commit it, keep it moving when something slips, and read the day. Step by step.</p>
+    <p>How to start a pool, put the real durations in, make it live, keep it moving when something slips, and read the day. Step by step.</p>
     <div class="who">
       <div><b>Written for</b>Cody Campbell &middot; Emon Alexander</div>
       <div><b>Also useful to</b>Don, David and the office</div>
@@ -321,7 +321,7 @@
     </ul>
     <div class="note watch">
       <span class="label">The one that catches people</span>
-      <p>A pool sits at <strong>Planned</strong> until somebody moves it to <strong>Active</strong>. That step is easy to forget, and a pool that was never committed will sit there quietly doing nothing at all.</p>
+      <p>A pool sits at <strong>Planned</strong> until somebody moves it to <strong>Active</strong>. That step is easy to forget, and a pool nobody has made live will sit there quietly doing nothing at all.</p>
     </div>
   </section>
 
@@ -429,7 +429,7 @@
         </div>
         <div class="note watch">
           <span class="label">The pool is not finished yet</span>
-          <p>Two things still have to happen, and the pool does nothing at all until the second one is done. Both are covered next: <strong>put in the real durations</strong>, then <strong>commit it</strong>.</p>
+          <p>Two things still have to happen, and the pool does nothing at all until the second one is done. Both are covered next: <strong>put in the real durations</strong>, then <strong>make it live</strong>.</p>
         </div>
       </div>
     </div>
@@ -461,7 +461,7 @@
 
   <section id="commit">
     <p class="eyebrow">Quick start</p>
-    <h2>Committing a pool</h2>
+    <h2>Making a pool live</h2>
     <p class="lede">This is the step most often forgotten, and nothing happens without it.</p>
     <div class="task">
       <figure>
@@ -471,7 +471,7 @@
       <div class="task-body">
         <p>A brand-new pool has a status of <strong>Planned</strong>. While it is Planned, no crew is dispatched for it, it does not appear on the shared calendar, and it is left out of the daily and weekly summaries.</p>
         <p>That is deliberate. It gives time to fix the durations and adjust the sequence before anyone acts on a plan that is still being written.</p>
-        <p><strong>To commit a pool:</strong></p>
+        <p><strong>To make a pool live:</strong></p>
         <ol>
           <li>Open <strong>Pools</strong> from the tabs at the top of the page.</li>
           <li>Find the pool. The <strong>Status</strong> column shows <strong>Planned</strong>.</li>
@@ -605,10 +605,25 @@
         <div class="tablewrap">
           <table>
             <tr><td>Browser planner</td><td>Thinking. Sketching a sequence, seeing the shape of a build, trying options.</td></tr>
-            <tr><td>Build Scheduler</td><td>Doing. The committed schedule, the crews, the sign-offs, the record.</td></tr>
+            <tr><td>Build Scheduler</td><td>Doing. The live schedule, the crews, the sign-offs, the record.</td></tr>
           </table>
         </div>
-        <p>The two are not connected automatically today. A pool is created in the Build Scheduler using the New Pool form, rather than exported from the planner.</p>
+        <p>A pool is created in the Build Scheduler using the New Pool form, not exported from the planner.</p>
+        <div class="note">
+          <span class="label">Joining the two up is a future enhancement</span>
+          <p>The planner can currently be given a copy of the live schedule to look at, so a build can be
+             seen laid out as a chart. That copy is taken by hand, and it only travels one way.</p>
+          <p>Making the two work together properly, so that a sequence worked out in the planner can be sent
+             back into the Build Scheduler without being re-entered, is <strong>planned work rather than
+             something available today</strong>. It is worth knowing that is where this is heading, and worth
+             saying if it would make a real difference to how a pool gets planned.</p>
+        </div>
+        <div class="note watch">
+          <span class="label">Nothing done in the planner reaches the Build Scheduler</span>
+          <p>Dates, crews and sequencing changed in the planner stay in the planner. Until the two are joined
+             up, anything that needs to count has to be changed in the Build Scheduler itself, either on the
+             sub-phase or through a Reschedule request.</p>
+        </div>
       </div>
     </div>
   </section>
@@ -620,8 +635,8 @@
     <div class="traps">
 
       <div class="trap">
-        <h3>A new pool does nothing until it is committed</h3>
-        <p>Pools arrive as <strong>Planned</strong>. Nothing dispatches, nobody is emailed, and the pool stays off the calendar until its status is set to <strong>Active</strong>. A pool that was never committed simply sits there doing nothing.</p>
+        <h3>A new pool does nothing until it is made live</h3>
+        <p>Pools arrive as <strong>Planned</strong>. Nothing dispatches, nobody is emailed, and the pool stays off the calendar until its status is set to <strong>Active</strong>. A pool nobody made live simply sits there doing nothing.</p>
       </div>
 
       <div class="trap">
