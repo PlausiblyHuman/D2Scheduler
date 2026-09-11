@@ -300,7 +300,7 @@ workstreams had no week and were silently lost as a result.
 | **E** | Pilot — one real pool, parallel run | **Calendar** | Not started | `D2-Phase-E-Pilot-Runbook.md` |
 | **F** | Cutover — training, go-live, support | **Calendar** | Not started | `D2-Phase-F-Cutover-Runbook.md` |
 | **G** | Deferred backlog — post-go-live | Effort | Not started | (below) |
-| **H** | Presentation layer — the hosted planner becomes the office surface | Effort + **client-gated** (Azure signup) | Not started | `docs/superpowers/specs/2026-09-11-planner-as-primary-surface-design.md` |
+| **H** | Presentation layer — the hosted planner becomes the office surface | **Effort** | Not started | `docs/superpowers/specs/2026-09-11-planner-as-primary-surface-design.md` |
 
 **Phase H is the build phase inside the client-facing "Phase 2". Two numbering schemes are
 deliberate:** D2 hears "Phase 2", the repo says "Phase H", and H continues the A-G lettering
@@ -2008,9 +2008,18 @@ palette, and let it become the office surface while SharePoint stays the databas
    https://claude.ai/code/artifact/a84a2e1a-6395-4f3a-b050-8cf53cefa2b5
 2. **Put the Azure subscription ask to David and Don.** **D2 has no Azure subscription** (verified,
    `az` returns `N/A(tenant level account)`). Creating one is free and SWA Free tier is free, so the
-   ask is a signup and a payment method, not spend. This is the only hard gate on Phase H, and it
-   moves at client speed, so it goes first. Netlify on a Stratirus account is the documented
-   fallback if it stalls before a demo.
+   ask is a signup and a payment method on file, not spend.
+
+   **NO LONGER CLIENT-GATED, 2026-09-11c.** Shane holds admin rights to create the subscription
+   himself, so this moves at our speed rather than D2's and Phase H is **effort-bound throughout**.
+   Two things still need a decision rather than a click: a pay-as-you-go signup asks for a **payment
+   method** even when nothing is ever spent, and **whose card decides who owns it**. D2's card on
+   D2's subscription keeps ownership where the spec puts it; Stratirus billing would quietly make
+   Stratirus the owner of infrastructure D2 depends on, which is the continuity question this was
+   supposed to settle. The free tier means the card is never charged either way.
+
+   Netlify on a Stratirus account remains the documented fallback, but with the gate gone it is
+   now unlikely to be needed.
 3. **Review the spec, then turn it into an implementation plan.** It has not had a proper read-through
    yet. The brainstorming path says spec → `writing-plans` → build.
 4. **Remember the hosting is the cheap part.** Five of the eleven parity-map divergences produce

@@ -114,9 +114,15 @@ The demo. This is what goes in front of the client.
 
 ### 1.1 Hosting
 
-D2 creates an Azure subscription in their own tenant. Creating one is free and Static Web
-Apps Free tier is free, so the ask is a signup and a payment method on file, not spend. Shane
-can perform the clicks if D2 supplies the billing details.
+An Azure subscription is created in D2's tenant. Shane has admin rights and does this
+himself, so it is not a client-gated step. Creating a subscription is free and the Static Web
+Apps Free tier is free, so nothing is ever charged, but a pay-as-you-go signup still asks for a
+**payment method on file**.
+
+**Use D2's billing details, not Stratirus's.** The card decides who owns the subscription, and
+D2 owning it is the whole reason this design chose Azure over Netlify. Signing up on Stratirus
+billing would make Stratirus the owner of infrastructure D2 depends on, which is the continuity
+problem the hosting comparison below rules out.
 
 Deploy through Azure DevOps Pipelines, which this repo already uses. Static Web Apps supports
 Azure DevOps as a deployment source, so no new toolchain and no GitHub dependency.
@@ -320,10 +326,16 @@ That decision is deferred. It is recorded here so Stage 2 does not accidentally 
 
 ## Risks and gates
 
-**The Azure subscription is a client gate, and it is no longer on the critical path.** The
-2026-09-11c sequencing resolved this: the pilot runs on SharePoint, so a stalled subscription
-delays Phase H rather than Phase E. Make the ask part of the Phase 2 kickoff. D2 sat on four
-group memberships for days, so assume it takes longer than it should.
+**The Azure subscription is NOT a client gate. Corrected 2026-09-11c.** Shane holds admin rights
+to create it himself, so this moves at our speed and Phase H has no client-gated dependency at all.
+The earlier framing here, that it would move at D2's speed and should be budgeted accordingly, was
+wrong.
+
+Two decisions remain, neither of them a delay. A pay-as-you-go signup asks for a **payment method**
+even though the Free tier is never charged. And **whose card decides who owns the subscription**:
+D2's card keeps ownership where "D2 hosts it" puts it, while Stratirus billing would make Stratirus
+the owner of infrastructure D2 depends on, reintroducing the continuity problem this design chose
+Azure to avoid.
 
 **Graph shape assumptions.** Mitigated by the capture rule above, which is the only mitigation
 that has ever worked on this project.
