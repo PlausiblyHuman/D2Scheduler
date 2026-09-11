@@ -1,11 +1,16 @@
 # PM guide — source
 
 The client-facing project-manager guide, published as an artifact at
-`https://claude.ai/code/artifact/1cc7b6be-3fdb-4fc8-93b6-1899108bd6da`.
+`https://claude.ai/code/artifact/a84a2e1a-6395-4f3a-b050-8cf53cefa2b5`.
 
 **These sources live here because they used to live nowhere.** The guide was
 built in a session scratchpad, which is temporary. Everything needed to rebuild
 and republish it is now in the repo.
+
+**Republished as a NEW artifact on 2026-09-11**, so the page carries no version
+history. The previous artifact (`1cc7b6be-...`) is superseded and must not be
+republished to; anyone holding that older link still sees the older guide, so
+reshare this URL.
 
 ## Rebuild
 
