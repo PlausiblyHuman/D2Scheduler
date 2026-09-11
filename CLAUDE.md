@@ -331,9 +331,11 @@ afterwards.
 2. **The PM guide just went to the client describing the surface H replaces.** Version 5 of
    `a84a2e1a-…` was sent on 2026-09-11c. It needs reissuing once H lands, and the client will see
    the churn, so the Phase 2 framing in the invite is doing real work.
-3. **The five parity divergences are now on the critical path**, not deferred. D7, D2, D8, D9 and
-   D4 all produce visibly wrong output once the planner is primary, and the Work Calendar HOLD
-   lifts immediately rather than eventually.
+3. **The five parity divergences this put on the critical path are now CLOSED.** D7, D2, D8, D9
+   and D4 would all have produced visibly wrong output once the planner became primary. All five
+   were fixed directly in the planner (now `web/index.html`) in the same branch that repainted it
+   and moved it out of the doubled directory — see `docs/planner-vs-sharepoint-parity.md` for what
+   each was and what closed it. The Work Calendar HOLD lifted with D7, as intended.
 
 **The risk to hold in mind:** Phase E exists to test the system under real work. Piloting on a
 brand-new UI means interface bugs and system bugs arrive together, and this file already records
@@ -354,11 +356,15 @@ Three things a future session should not have to rediscover:
   REST and the connector, so capture a real Graph payload into
   `fixtures/planner/live-payloads-graph.json` before writing any mapping. A REST probe does not
   validate a Graph expression, exactly as it does not validate a connector expression.
-- **The hosting is the cheap part.** Five of the eleven parity-map divergences produce visibly
-  wrong output once the planner is primary and are the real work: D7 Work Calendar, D2 PM
-  sign-off crying wolf on 51 rows, D8 `NotApplicable` not exported, D9 `Jobs.Status` discarded,
-  D4 `Jobs.StartDate` drift. Netlify on a Stratirus account is the documented fallback host if
-  the Azure signup stalls before a client demo.
+- **The hosting was never going to be the whole job, and that part is now done too.** Five of the
+  eleven parity-map divergences would have produced visibly wrong output once the planner became
+  primary: D7 Work Calendar, D2 PM sign-off crying wolf on 51 rows, D8 `NotApplicable` not
+  exported, D9 `Jobs.Status` discarded, D4 `Jobs.StartDate` drift. **All five are CLOSED**, fixed
+  in the planner itself before the Static Web Apps work started — see
+  `docs/planner-vs-sharepoint-parity.md` for what each was and what closed it. What is left for
+  Phase H is the hosting plus the SharePoint-REST-to-Graph read-layer swap, not these five. Netlify
+  on a Stratirus account is the documented fallback host if the Azure signup stalls before a
+  client demo.
 
 **A–F match the AzDo Epic letters**, which is why the letters were preserved rather than
 renumbered when G was added.
@@ -1277,13 +1283,16 @@ But do not reuse this generator for real scheduling without fixing the holiday c
 the span check.
 
 **A FULL PLANNER-VS-SHAREPOINT PARITY MAP EXISTS: `docs/planner-vs-sharepoint-parity.md`
-(2026-09-11).** Eleven divergences between the browser planner and this system, bucketed as already
-matched / easily matched / hard (with the wall named) / gap. Read it before changing either side.
-The three that matter most: the planner has **no holiday concept** so it recomputes every imported
-span over Sundays alone and draws holiday-crossing sub-phases a day short, feeding wrong spans into
-its own conflict checks; **business rule 1 is enforced only there**; and the export makes Schedule
-Check permanently cry wolf, because `PMSignOff` is always false, `Tasks.NotApplicable` is not
-exported, and `Jobs.Status` is exported then discarded.
+(2026-09-11, revised same day as divergences closed).** Eleven divergences between the browser
+planner and this system, bucketed as already matched / easily matched / hard (with the wall named)
+/ gap. Read it before changing either side. The three that mattered most when this map was first
+written: the planner had **no holiday concept**, so it recomputed every imported span over Sundays
+alone and drew holiday-crossing sub-phases a day short, feeding wrong spans into its own conflict
+checks (**D7, now CLOSED** — the planner imports and checks against the SharePoint Work Calendar);
+**business rule 1 is enforced only there** (D1, still open — untouched by the D7/D2/D8/D9/D4/D11
+closures below); and the export made Schedule Check permanently cry wolf, because `PMSignOff` was
+always false, `Tasks.NotApplicable` was not exported, and `Jobs.Status` was exported then discarded
+(**D2, D8, D9 — all now CLOSED**).
 
 **Data gaps still open (from Rev D §15 / original plan §09):**
 - **10 trades unmapped to any sub-phase:** Retaining Walls, Veneer/Stone, CMU, Brick/Masonry, Landscaping, Pavers, Forms, Water Line Install, Material Runs, Grading. Don owes a mapping decision. George Crew is scheduled zero days until this lands.
@@ -1748,14 +1757,22 @@ place, and tell people when to re-download. This is the same drift that produced
 **THE NAV LINK WAS PULLED AT GO-LIVE, 2026-09-11c. The download mechanism above still works and
 is still the Phase H starting point, but nothing on the site points at it today.**
 
-Shane's call. The planner is absent from the PM guide, so nobody is trained on it, while the nav
-link made it discoverable to anyone browsing the site. Opened untrained it produces a **wrong
-plan** rather than an incomplete one: `isWork = d => d.getDay() !== 0` is its entire work-calendar
-model, so any span stepping over one of the 35 Work Calendar holidays draws a day short, and the
-shortened span then feeds its own `conflicts()` checks, which can miss a real overlap and invent a
-sequence error. Auto-Schedule will also place crews on Thanksgiving, and `Jobs.StartDate` drift
-anchors an imported pool's Auto-Schedule months late. See `docs/planner-vs-sharepoint-parity.md`
-D7 and D4.
+Shane's call, made before D7 and D4 were fixed (see below). The planner is absent from the PM
+guide, so nobody is trained on it, while the nav link made it discoverable to anyone browsing the
+site. Opened untrained, at the time, it produced a **wrong plan** rather than an incomplete one:
+`isWork = d => d.getDay() !== 0` was its entire work-calendar model, so any span stepping over one
+of the 35 Work Calendar holidays drew a day short, and the shortened span then fed its own
+`conflicts()` checks, which could miss a real overlap and invent a sequence error. Auto-Schedule
+would also place crews on Thanksgiving, and `Jobs.StartDate` drift anchored an imported pool's
+Auto-Schedule months late. See `docs/planner-vs-sharepoint-parity.md` D7 and D4.
+
+**Both are now CLOSED.** The planner (`web/index.html`) imports the SharePoint Work Calendar on
+every Load from D2 and checks spans against it instead of Sundays alone, and Auto-Schedule now
+anchors pool ordering and each pool's cursor on its earliest real assignment rather than the
+drifted `Jobs.StartDate` field. The paragraph above is kept because it is the reasoning that got
+the link pulled, not because it still describes today's planner. The link stays out of nav anyway
+— Phase H's plan is to put the *hosted* planner in that slot, not to restore a link to the
+downloadable file, and nobody has been trained on either one yet.
 
 Removed by `sharepoint/pull-planner-link.js`, which deletes that one node and re-reads the nav to
 prove it, rather than re-running `build-navigation.js` (that script clears and rebuilds every node,
@@ -2054,12 +2071,15 @@ palette, and let it become the office surface while SharePoint stays the databas
    now unlikely to be needed.
 3. **Review the spec, then turn it into an implementation plan.** It has not had a proper read-through
    yet. The brainstorming path says spec → `writing-plans` → build.
-4. **Remember the hosting is the cheap part.** Five of the eleven parity-map divergences produce
-   visibly wrong output once the planner is primary and are the real work: **D7** Work Calendar,
-   **D2** PM sign-off crying wolf on 51 rows, **D8** `NotApplicable` not exported, **D9**
-   `Jobs.Status` discarded, **D4** `Jobs.StartDate` drift. Cost them separately from the hosting.
-   **D7 also lifts the standing HOLD on the Work Calendar fix** — that hold was right while the
-   planner was a scratchpad and does not survive it becoming primary.
+4. **DONE ahead of schedule — do not redo this.** The five parity-map divergences that would have
+   produced visibly wrong output once the planner became primary are now CLOSED: **D7** Work
+   Calendar, **D2** PM sign-off crying wolf on 51 rows, **D8** `NotApplicable` not exported, **D9**
+   `Jobs.Status` discarded, **D4** `Jobs.StartDate` drift. All five were fixed directly in the
+   planner (`web/index.html`) before the Static Web Apps work began — see
+   `docs/planner-vs-sharepoint-parity.md` for what each was and what closed it. **D7 also lifted
+   the standing HOLD on the Work Calendar fix** — that hold was right while the planner was a
+   scratchpad and did not survive it becoming primary. What is left of "the hosting is the cheap
+   part" is literally just the hosting, plus the Graph read-layer swap in the next item.
 5. **Capture a real Graph payload before writing any mapping code**, into
    `fixtures/planner/live-payloads-graph.json`. Graph is a **third** field-shape surface alongside
    raw REST and the connector, and the existing REST fixture does not validate it.

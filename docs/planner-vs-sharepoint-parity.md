@@ -3,7 +3,16 @@
 Audited 2026-09-11 against `web/index.html` (moved 2026-09-11 from the doubled
 `D2-Build-Scheduler/D2-Build-Scheduler/app/pool-scheduler.html`; 910 lines, single file,
 no network calls, `localStorage` key `poolsched.v6`, at the time of this audit). Line
-numbers are to that file.
+numbers are to that file **as it stood at the audit**, before the fixes below landed;
+the file has since grown past 1000 lines and moved within `web/index.html`, so treat
+every line number here as historical rather than current.
+
+**Six of the eleven divergences below are now CLOSED, fixed the same day in the same
+branch that repainted the planner and moved it out of the doubled directory: D7, D2,
+D8, D9, D4 and D11.** Each closed section says what the divergence was, that it is
+closed, and what closed it — the reasoning is kept because the map is what makes the
+next divergence easy to spot, not because the bug is still live. D1, D3, D5, D6 and
+D10 are unchanged and still open.
 
 Raised by Shane: *"we never matched crew capabilities / technical expertise to their
 functions in the sharepoint site."* Correct, and it turned out to be one of eleven
@@ -48,80 +57,137 @@ outline (L500); the CSV stamps `NEEDS ATTENTION` (L775); the availability panel 
 join exactly today, because `Crew-Trades` was seeded *from* `SEED_CREWS`. Nothing keeps them
 aligned and nothing would notice them drifting.
 
-### D7. Work Calendar — the planner knows about Sundays and nothing else
+### D7. Work Calendar — the planner knew about Sundays and nothing else — CLOSED
 
-`isWork = d => d.getDay() !== 0` (L219) is the entire work-calendar model. It feeds
-`nextWork`, `workSpan`, `axis`, `shiftDay` and `saveSec`. No holiday, weather-day or
-per-crew-shutdown concept. `S.settings` is initialised empty (L257) and never written.
+**What it was:** `isWork = d => d.getDay() !== 0` (L219) was the entire work-calendar model. It
+fed `nextWork`, `workSpan`, `axis`, `shiftDay` and `saveSec`. No holiday, weather-day or
+per-crew-shutdown concept. `S.settings` was initialised empty (L257) and never written.
 
 Against that, `D2 - New Pool` and `D2 - Reschedule Pool` both compute Sunday **and** test a
 `nonWork` set read from Work Calendar (35 holidays, 2026-08-30 to 2029-12-30).
 
-**This is the only divergence that makes the planner produce a wrong plan rather than an
+**This was the only divergence that made the planner produce a wrong plan rather than an
 incomplete picture.** Four consequences, quietest first:
 
-1. **`importFromD2` never reads `is.finish`** (L866-872 overlays `crewId`, `start`, `days`
-   and flags only). Every end date is recomputed as `workSpan(start, days)` over Sundays
-   alone, so **any sub-phase whose SharePoint span stepped over a holiday renders a day
-   short.** The bar is wrong and nothing says so.
-2. `conflicts()` computes double-booking (L388) and the rule-3 chain (L383) off that
-   shortened span, so it can **miss a real overlap** and **invent a sequence error**.
-3. Auto-Schedule will put crews on Thanksgiving and Christmas, silently.
-4. Daily Dispatch shows a full crew board on a holiday.
+1. **`importFromD2` never read `is.finish`** (L866-872 overlaid `crewId`, `start`, `days`
+   and flags only). Every end date was recomputed as `workSpan(start, days)` over Sundays
+   alone, so **any sub-phase whose SharePoint span stepped over a holiday rendered a day
+   short.** The bar was wrong and nothing said so.
+2. `conflicts()` computed double-booking (L388) and the rule-3 chain (L383) off that
+   shortened span, so it could **miss a real overlap** and **invent a sequence error**.
+3. Auto-Schedule would put crews on Thanksgiving and Christmas, silently.
+4. Daily Dispatch would show a full crew board on a holiday.
 
-The asymmetry runs both ways: the planner's Sunday rule is **computed and therefore correct
+The asymmetry ran both ways: the planner's Sunday rule was **computed and therefore correct
 forever**, while SharePoint's holiday set **expires 2029-12-30** with nothing maintaining it.
+That second half of the asymmetry is unchanged by the fix below — it is a SharePoint-side gap,
+not a planner one — and is tracked separately in CLAUDE.md's Phase G backlog.
 
-### D2. PM sign-off exists on both sides, is wired up on neither
+**What closed it, 2026-09-11:** `export-to-planner.js` now emits a `nonWork: []` array (every
+Work Calendar date, bare `yyyy-mm-dd`), `importFromD2` stores it on `S.settings.nonWork` and
+calls `syncNonWork()`, and `isWork` is now `d => d.getDay() !== 0 && !NONWORK.has(fmt(d))`. The
+planner still computes Sunday itself and additionally checks the imported set, mirroring
+`D2 - New Pool`'s own two-part test. `fixtures/planner/workcalendar.js` pins this end to end:
+every one of the 138 live spans is checked against the same SharePoint calendar the flows use,
+not just against a synthetic holiday. A first-run browser with nothing loaded yet still falls
+back to Sundays-only, which is the correct degraded behaviour, not a bug — the same fallback
+`D2 - New Pool` has if its own calendar read ever comes back empty.
 
-The planner has a real two-tier model: `inst` and `pm` per sub-phase, a phase-level
-tri-state roll-up (L350), a bulk phase toggle (L354), per-pool counts (L582), and a
+### D2. PM sign-off exists on both sides, was wired up on neither — CLOSED
+
+**What it was:** the planner has a real two-tier model: `inst` and `pm` per sub-phase, a
+phase-level tri-state roll-up (L350), a bulk phase toggle (L354), per-pool counts (L582), and a
 `conflicts()` warning when a finished sub-phase is missing **either** (L386).
 
 On the SharePoint side `PMSignOff`, `PMSignOffBy` and `PMSignOffOn` exist, are written
 `false` once by `D2 - New Pool`, are hidden from the forms, and appear in **no other flow,
-no view, and nowhere in the canvas app**.
+no view, and nowhere in the canvas app**. That half is unchanged — this was never a data
+problem, it was a planner check running against a field nothing on the SharePoint side ever
+sets.
 
-`export-to-planner.js:115` faithfully exports `pm: !!a.PMSignOff`, which is **always false**.
-So the first Load from D2 fills Schedule Check with *"missing PM sign-off"* on **every
+`export-to-planner.js:115` faithfully exported `pm: !!a.PMSignOff`, which was **always false**.
+So the first Load from D2 filled Schedule Check with *"missing PM sign-off"* on **every
 finished sub-phase, forever** — 51 rows on current demo data. A panel permanently full of
-unclearable warnings is a panel people stop reading, which costs the seven checks that are
+unclearable warnings is a panel people stop reading, which cost the seven checks that are
 real, two of which exist nowhere else in the system.
 
-### D9. `Jobs.Status` is exported and then discarded
+**What closed it, 2026-09-11:** the `conflicts()` warning no longer checks the PM half of
+sign-off — a finished sub-phase now warns only on a missing **installer** sign-off, the one
+side of this that a real workflow actually sets. `fixtures/planner/schedulecheck.js` pins
+both halves of this: zero PM-sign-off warnings on live data, and installer sign-off still
+flagged when it is genuinely missing (46 found on the current demo pools). If `PMSignOff`
+ever becomes a real workflow on the SharePoint side, the PM half of this check should come
+back with it — the comment at the call site (`web/index.html` ~L466) says so directly, so a
+future session does not have to rediscover why it was dropped.
 
-`export-to-planner.js:101` emits `status`. `importFromD2` (L851-861) never reads it and the
-planner has no pool-state field. So a `Planned` pool appears on the Gantt, the Crew Board,
-Daily Dispatch and the CSV, and raises double-book errors, exactly like a live one. That
-inverts the 2026-09-09 `Planned` decision on the one surface a PM uses *while choosing dates*.
+### D9. `Jobs.Status` was exported and then discarded — CLOSED
 
-Arguably the planner's behaviour is the **right** one — the reflow's own conflict sweep is
-deliberately tenant-wide for exactly this reason. The problem is that it is accidental and
-gives a PM no way to tell the two apart. Badge them rather than hide them.
+**What it was:** `export-to-planner.js:101` emits `status`. `importFromD2` (L851-861) never
+read it and the planner had no pool-state field. So a `Planned` pool appeared on the Gantt,
+the Crew Board, Daily Dispatch and the CSV, and raised double-book errors, exactly like a live
+one. That inverted the 2026-09-09 `Planned` decision on the one surface a PM uses *while
+choosing dates*.
 
-### D8. Bulk tick contradicts the sign-off gate
+Arguably the planner's behaviour was the **right** one — the reflow's own conflict sweep is
+deliberately tenant-wide for exactly this reason. The problem was that it was accidental and
+gave a PM no way to tell the two apart. The fix badges them rather than hiding them, which is
+the option this section already recommended.
 
-The drawer offers `all` / `none` links (L705) calling `allTasks()` (L716), setting `done` on
-all ~6 tasks in one click, with an INST checkbox next to it that has no precondition. The
-2026-09-07 decision — no sign-off while any task is unresolved, with N/A carrying a mandatory
-reason precisely so a bare block does not produce false ticks — is the most deliberated rule
-in CLAUDE.md, and the planner offers a one-click route around it.
+**What closed it, 2026-09-11:** `importFromD2` now stores `status` on the job, and `jobBadge()`
+(`web/index.html` ~L285) renders a status chip everywhere a pool's name appears — the board, the
+Crew Board, the Jobs list. `Active` gets no chip (the common case should not be noisy); `Planned`
+and `On Hold` each get a visibly distinct one. Nothing was hidden and nothing stops a PM from
+still seeing a `Planned` pool's conflicts while choosing dates — that behaviour was correct all
+along, per the reflow's own tenant-wide sweep — it is now a labelled choice instead of an
+accidental one.
 
-Compounding it: **`Tasks.NotApplicable` is not exported** (`export-to-planner.js:69` selects
-`Id, AssignmentId, Sequence, Title, Complete`). An N/A task imports as *not done*, so a
-sub-phase legitimately signed off at 5 of 6 renders permanently incomplete. The planner has
+### D8. N/A had no third state, so excluded work read as incomplete — CLOSED
+
+**What it was:** **`Tasks.NotApplicable` was not exported** (`export-to-planner.js:69` selected
+`Id, AssignmentId, Sequence, Title, Complete`). An N/A task imported as *not done*, so a
+sub-phase legitimately signed off at 5 of 6 rendered permanently incomplete. The planner had
 no third task state to put it in.
 
-### D4. `Jobs.StartDate` drift corrupts Auto-Schedule, not just a display field
+The bulk-tick half of this finding is a separate, still-open concern: the drawer's `all` / `none`
+links (L705) call `allTasks()` (L716), setting `done` on all ~6 tasks in one click, with an INST
+checkbox next to it that has no precondition. The 2026-09-07 decision — no sign-off while any task
+is unresolved, with N/A carrying a mandatory reason precisely so a bare block does not produce
+false ticks — is the most deliberated rule in CLAUDE.md, and the planner still offers a one-click
+route around it. This fix wave did not touch that; it only closed the N/A-state half.
 
-The 2026-09-11 session log recorded `Jobs.StartDate` as "display-only: nothing reads the
-field after creation". **That is no longer true.** `export-to-planner.js:100` exports it,
-`importFromD2` (L860) writes it to `j.start`, and `autoSchedule` (L309-310) uses it twice:
-to **order the pools** and to **seed each pool's cursor**.
+**What closed it, 2026-09-11:** `export-to-planner.js` now selects and exports
+`Tasks.NotApplicable` as `na`, and the planner has a real third state alongside `done`. A task
+cannot be both `done` and `na` — `importFromD2` normalizes on the way in (done wins, mirroring
+`tick()` already clearing `na` when a task is ticked), so a live row that somehow claimed both
+resolves to exactly one state rather than double-counting. Progress and the whole-job bar now
+read *resolved* (`done + na`) rather than merely `done`, so a sub-phase with one N/A and five
+done reads as finished, matching `Assignments.TasksComplete`'s own "genuinely-done-only" count
+underneath. `fixtures/planner/live-export.js` pins the normalization case directly: a task
+claiming both flags resolves to done-only, and `secCounts` never double-counts it.
 
-Whitfield currently reads `2026-09-21` on Jobs while its first assignment starts
-`2026-06-15`. Auto-Schedule on that import produces a plan anchored three months late.
-`sharepoint/fix-job-startdates.js` fixes the three demo rows; the flow gap behind it is open.
+### D4. `Jobs.StartDate` drift corrupted Auto-Schedule, not just a display field — CLOSED (planner side)
+
+**What it was:** the 2026-09-11 session log recorded `Jobs.StartDate` as "display-only: nothing
+reads the field after creation". **That was no longer true.** `export-to-planner.js:100` exports
+it, `importFromD2` (L860) writes it to `j.start`, and `autoSchedule` (L309-310) used it twice: to
+**order the pools** and to **seed each pool's cursor**.
+
+Whitfield read `2026-09-21` on Jobs while its first assignment started `2026-06-15`. Auto-Schedule
+on that import produced a plan anchored three months late.
+
+**What closed it, 2026-09-11, on the planner side:** a new `jobStart(j)` helper walks a pool's
+own sub-phases for the earliest real, non-skipped `start` and falls back to `j.start` only when
+none exists; `autoSchedule` now sorts pools and seeds each pool's cursor from `jobStart(j)`
+instead of the raw `j.start` field. `fixtures/planner/startdate.js` pins this with the exact
+Whitfield shape (locked early work, a drifted `j.start` months later) plus two isolated
+regression scenarios for the two call sites independently — a revert of either one fails a test
+on its own, because the original single-job scenario alone could not distinguish them.
+
+**Still open, deliberately not touched here:** the underlying SharePoint-side gap. `D2 -
+Reschedule Pool` still never writes `Jobs.StartDate` back after a reflow, so the field stays
+drifted on the SharePoint side regardless of what the planner now does with it on import.
+`sharepoint/fix-job-startdates.js` is the one-off fix for the three demo rows; the flow gap
+behind it is unchanged and is not part of this fix wave.
 
 ### D5. Crew roster, sizes and caveats exist only in the planner
 
@@ -177,20 +243,47 @@ array. Neither touches the tenant. So a pool sketched in the planner never reach
 SharePoint, a pool deleted there returns on the next import, and **two independent job-number
 generators exist with no uniqueness check between them.**
 
-### D11. Nothing marks a pool as diverged after an import
+### D11. Nothing marked a pool as diverged after an import — CLOSED
 
-Four actions rewrite every unlocked row in every pool: Auto-Schedule (L898), `+ Job` (L744),
-Set all durations (L766), Apply template (L768). Only sign-off-locked rows survive
-(`importFromD2` L872 sets `locked = is.locked || is.inst`, which is the right rule and mirrors
-`D2 - Reschedule Pool`). There is no dirty flag, no last-loaded stamp, no diff view. A PM
-cannot tell by looking whether the Gantt is the live schedule or something they reflowed
+**What it was:** four actions rewrite every unlocked row in every pool: Auto-Schedule (L898),
+`+ Job` (L744), Set all durations (L766), Apply template (L768). Only sign-off-locked rows
+survived (`importFromD2` L872 set `locked = is.locked || is.inst`, which is the right rule and
+mirrors `D2 - Reschedule Pool`). There was no dirty flag, no last-loaded stamp, no diff view. A
+PM could not tell by looking whether the Gantt was the live schedule or something they reflowed
 twenty minutes ago.
 
-The import also drops: **`Trade`** (so sub-phase trades always come from the local
+**What closed it, 2026-09-11:** every import now stamps `S.settings.loadedAt` and
+`S.settings.exportedOn`, and the header renders "Live as of `<time>`" (a bare time for a load
+from today, a compact date-and-time otherwise — see the freshness-stamp fix below) plus the
+export date. A per-sub-phase `s.base` snapshot is taken at import time holding exactly the
+fields SharePoint owns (`id, crewId, start, days, locked, skip`, plus `spLocked` — see below);
+`divergedSecs(j)` diffs the live section against that snapshot, and `touch(j)` stamps
+`j.touchedAt` on every action that can move a row, `delCrew` included, which was found and fixed
+in the same pass (a crew deletion mutates sections directly, with no `autoSchedule()` call to
+fall back on, so it has to call `touch()` itself or it guts a pool's assignments in total
+silence). The header shows both how many pools were edited here and how many sub-phases
+diverged. `fixtures/planner/freshness.js` pins the whole chain: import stamps, a baseline exists
+on every imported section, a crew change is divergence, a task tick is deliberately not, and
+`delCrew`'s divergence count agrees with its own `touchedAt` stamp.
+
+**Two things worth calling out because they are easy to get backwards if this is extended
+later.** First, sign-off and task ticks are deliberately kept OUT of `s.base`, on purpose,
+pinned by its own assertion in `freshness.js`: `s.base` is what a future batch write-back would
+diff against to decide what to push to SharePoint, and the planner's `inst`/`pm` are bare
+booleans with no attribution, timestamp or notes, while SharePoint holds
+`InstallerSignOffBy`/`On` and `SignOffNotes` — widening the baseline to include them would let a
+future write-back overwrite an attested sign-off with a flag. Second, `s.base.locked` holds the
+same *derived* lock Auto-Schedule already respects (SharePoint's `Locked` OR sign-off); a
+separate `spLocked` field on the baseline holds the raw SharePoint `Locked` value on its own, so
+a future write-back can still tell a PM's deliberate pin apart from a lock this planner inferred
+from sign-off — the two look identical through `locked` alone.
+
+The import still drops: **`Trade`** (so sub-phase trades always come from the local
 `SEED_TEMPLATE` — if Don's mapping changes `Sub-phase Template.Trade`, the planner keeps
 offering the old qualified-crew set and never knows), `TasksTotal`/`TasksComplete`,
-`ConflictWith`, `Sequence`, `InstallerSignOffBy`/`On`/`SignOffNotes`, the `Crews` list, and
-the Work Calendar.
+`ConflictWith`, `Sequence`, and `InstallerSignOffBy`/`On`/`SignOffNotes` (deliberately, per the
+attribution point above) and the `Crews` list. **The Work Calendar is no longer in this list —
+see D7, now closed — it is imported and acted on.**
 
 ---
 
@@ -240,22 +333,26 @@ planner shows all 11 as warnings; the view shows zero.
 
 ---
 
-## The three to fix first
+## The three to fix first (1 and 3 done 2026-09-11; 2 still stands)
 
-1. **Carry the Work Calendar into the planner (D7).** One field added to
-   `export-to-planner.js` (a `nonWork: []` array), one array in state, and `isWork` becomes
-   `d.getDay() !== 0 && !nonWork.has(fmt(d))`. About thirty lines. It is the only divergence
-   that makes the designated planning surface produce a *wrong plan*, and `oracle-test.js`
-   invariant #9 already fails on it, so the test is waiting.
+1. ~~**Carry the Work Calendar into the planner (D7).**~~ **DONE.** See D7 above.
+   `oracle-test.js` invariant #9, which this section originally cited as "the test is
+   waiting," stayed a string grep rather than becoming a real gate — that was a deliberate
+   call in the implementation plan, because `fixtures/planner/workcalendar.js` is the harness
+   that actually exercises D7 against live data, and it did not exist when this
+   recommendation was first written.
 
-2. **Give rule 1 a detector on the SharePoint side (D1).** A nightly flow shaped like
-   `D2 - Conflict Flag`: join `Assignments.Crew` → `Crews.CrewID` → `Crew-Trades` →
-   `Assignments.Trade`, stamp a mismatch column, add a view. Also finally gives `Crew-Trades`
-   a reason to exist and gives Don's trade-mapping decision somewhere to land. A null `Trade`
-   must be a **pass**, or it fires on 11 rows per pool from the first run.
+2. **Give rule 1 a detector on the SharePoint side (D1).** Still stands as written here. A
+   nightly flow shaped like `D2 - Conflict Flag`: join `Assignments.Crew` → `Crews.CrewID` →
+   `Crew-Trades` → `Assignments.Trade`, stamp a mismatch column, add a view. Also finally gives
+   `Crew-Trades` a reason to exist and gives Don's trade-mapping decision somewhere to land. A
+   null `Trade` must be a **pass**, or it fires on 11 rows per pool from the first run. (See
+   CLAUDE.md for `D2 - Crew Trade Check`, a SharePoint-side flow that does exactly this —
+   whether it fully closes D1's planner-side inconsistencies too, or only the missing detector,
+   is outside this fix wave and was not re-audited here.)
 
-3. **Stop Schedule Check crying wolf (D2, D8, D9).** Three small export changes decide
-   whether the planner's best feature is usable: drop the PM half of the finished-but-unsigned
-   check until `PMSignOff` is a real workflow, carry `Tasks.NotApplicable` and give the planner
-   a third task state, and carry `Jobs.Status` so `Planned` pools are badged rather than
-   indistinguishable.
+3. ~~**Stop Schedule Check crying wolf (D2, D8, D9).**~~ **DONE.** All three export changes
+   landed: the PM half of the finished-but-unsigned check is dropped until `PMSignOff` is a
+   real workflow (D2), `Tasks.NotApplicable` is carried and the planner has a third task state
+   (D8), and `Jobs.Status` is carried so `Planned`/`On Hold` pools are badged rather than
+   indistinguishable from `Active` (D9). See each section above for what closed it.

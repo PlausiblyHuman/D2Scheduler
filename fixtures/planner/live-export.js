@@ -23,8 +23,14 @@ let fail = 0;
 const ok = (l, c, d = '') => { console.log((c ? 'PASS' : 'FAIL') + ' · ' + l + (d ? '  [' + d + ']' : '')); if (!c) fail = 1; };
 
 if (!fs.existsSync(FIXTURE)) {
-  console.log('SKIP: no live-payloads.json fixture. See the header comment.');
-  process.exit(0);
+  // Fix round 2 (final whole-branch review, finding 5): this fixture is
+  // committed, so its absence means something is wrong -- a bad checkout, a
+  // path change, an accidental deletion -- not that the test is inapplicable.
+  // Exiting 0 here made a missing fixture read as a pass, the second silent-
+  // green path in this suite alongside empty.js.
+  console.log('FAIL · live-payloads.json fixture is missing. It is committed to the repo; ' +
+    'see the header comment for how to recapture it if the schema genuinely changed.');
+  process.exit(1);
 }
 const live = JSON.parse(fs.readFileSync(FIXTURE, 'utf8'));
 

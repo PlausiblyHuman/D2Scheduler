@@ -525,6 +525,18 @@ function bandRow(ax,i0,len,inner){
 }
 const emptyRow=ax=>`<td class="cell" colspan="${ax.days.length}"></td>`;
 
+/* Fix round 2 (final whole-branch review, finding 4): "Live as of 09:14" read
+   identically whether the load was five minutes old or from yesterday morning,
+   which defeats the point of the feature -- telling stale apart from fresh.
+   Bare time for a load from today; date-and-time otherwise, kept compact. */
+const FRESH_MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function freshStamp(iso){
+  const d=new Date(iso),now=new Date();
+  const time=d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+  const sameDay=d.getFullYear()===now.getFullYear()&&d.getMonth()===now.getMonth()&&d.getDate()===now.getDate();
+  return sameDay?time:`${FRESH_MONTHS[d.getMonth()]} ${d.getDate()}, ${time}`;
+}
+
 /* ============================== views ============================== */
 let TAB='board';
 function render(){
@@ -533,7 +545,7 @@ function render(){
     const st=S.settings||{};
     const edited=S.jobs.filter(j=>j.touchedAt).length;
     fz.innerHTML = st.loadedAt
-      ? `Live as of ${new Date(st.loadedAt).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}`
+      ? `Live as of ${freshStamp(st.loadedAt)}`
         + (st.exportedOn?` · export ${st.exportedOn}`:'')
         + (edited?` · <b>${edited} pool${edited===1?'':'s'} edited here since (${S.jobs.reduce((n,j)=>n+divergedSecs(j).length,0)} sub-phases)</b>`:'')
       : 'Not loaded from D2';
@@ -993,9 +1005,22 @@ function importFromD2(file){
         }
         /* Baseline: exactly the fields SharePoint owns, as they arrived. Divergence
            is a diff against this rather than a flag, so the same structure answers
-           "has this pool been edited here" and "what would a write-back send". */
+           "has this pool been edited here" and "what would a write-back send".
+           Sign-off (inst/pm) and task ticks are deliberately NEVER in this object --
+           see divergedSecs above. The planner has no attribution model for a
+           sign-off, while SharePoint holds InstallerSignOffBy/On and SignOffNotes,
+           so a future write-back diffing against a baseline that included inst/pm
+           could overwrite an attested sign-off with a bare flag. fixtures/planner/
+           freshness.js pins the exact key set of this object for exactly this
+           reason; extend that assertion if a key is ever deliberately added here.
+           `locked` stays the DERIVED lock (SharePoint's Locked OR sign-off) that
+           divergedSecs and Auto-Schedule both already key off; `spLocked` is the
+           raw SharePoint Locked value on its own, kept alongside so a later
+           write-back can tell a PM's deliberate pin apart from a lock this planner
+           inferred from sign-off -- the two read identically through `locked`. */
         s.base={id:is.id??null,crewId:s.crewId??null,start:s.start??null,
-                days:s.days??null,locked:!!s.locked,skip:!!s.skip};
+                days:s.days??null,locked:!!s.locked,skip:!!s.skip,
+                spLocked:!!is.locked};
       });
     });
     plan.forEach(({inj})=>{const j=S.jobs.find(x=>String(x.jobno)===String(inj.jobno));if(j)delete j.touchedAt;});

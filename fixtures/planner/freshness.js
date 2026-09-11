@@ -67,6 +67,23 @@ win.confirm = () => true; win.alert = () => {};
   ok('the baseline holds the SharePoint row id',
      win.allSecs(j2).every(({ s }) => s.base.id !== undefined));
 
+  // Fix round 2 (final whole-branch review, finding 2 -- the highest-value fix
+  // in the wave): pin s.base's field scope directly, rather than trusting that
+  // nothing ever widens it. Proven by the reviewer: adding inst:!!s.inst,
+  // pm:!!s.pm to the baseline plus matching clauses in divergedSecs left every
+  // harness in this suite green. s.base is what a future batch write-back will
+  // diff against to decide what to push to SharePoint, and inst/pm are the
+  // planner's bare sign-off booleans -- no attribution, no timestamp, no notes --
+  // while SharePoint holds InstallerSignOffBy/On and SignOffNotes. Widening the
+  // baseline to include them would let a future change-set overwrite an attested
+  // sign-off with a flag, which this project forbids outright. This assertion
+  // must be updated, deliberately, if a key is ever legitimately added to
+  // s.base -- it is a scope fence, not a frozen schema.
+  const EXPECTED_BASE_KEYS = 'crewId,days,id,locked,skip,spLocked,start';
+  ok('the baseline holds ONLY the fields SharePoint owns -- never sign-off or ticks',
+     win.allSecs(j2).every(({ s }) => Object.keys(s.base).sort().join(',') === EXPECTED_BASE_KEYS),
+     Object.keys(win.allSecs(j2)[0].s.base).sort().join(','));
+
   // A crew change is divergence; a task tick is not -- the planner is not the
   // authority on sign-off or ticks and must never write them back.
   win.allSecs(j2)[0].s.crewId = 'antonio';
