@@ -26,6 +26,22 @@ and runs the export script's real code with `fetch` stubbed to serve
 throwaway-probe-flow recipe in CLAUDE.md. Neither touches the D2 tenant and neither
 needs credentials. Recapture the fixture if the list schema changes.
 
+**`live-payloads.json` keys**, all captured, never hand-authored:
+
+| Key | Rows | Captured |
+|---|---|---|
+| `jobs` | 3 | 2026-09-11 |
+| `asg` | 138 | 2026-09-11 |
+| `tasks` | 885, each carrying `NotApplicable` | 2026-09-11 (re-captured to add the field) |
+| `cal` | 210 (175 Sundays, 35 holidays), 2026-08-30 -> 2029-12-30 | 2026-09-11 |
+
+`cal` is the Work Calendar list (`Id`, `Title`, `Date`, `ID` per row), read the same
+way as the other three keys: a throwaway `Recurrence`-triggered flow issuing
+read-only `GetByTitle(...)/items` requests, never a hand-built date list. A future
+session extending the Work Calendar (see CLAUDE.md) should recapture this key
+rather than editing it by hand, so a stale row count here is visible against the
+live list's own count.
+
 **Why these exist:** the planner sat untouched from 2026-08-13 to 2026-09-11
 while everything around it changed, and two patches the repo claimed were applied
 were not. Nothing was checking. These are cheap and they run offline.
