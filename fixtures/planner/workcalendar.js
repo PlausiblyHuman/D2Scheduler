@@ -64,6 +64,14 @@ const live = JSON.parse(fs.readFileSync(FIXTURE, 'utf8'));
       if (computed !== is.finish) wrong.push(inj.jobno + ' ' + is.num + ': SharePoint ' + is.finish + ', planner ' + computed);
     });
   });
+  // Guard against a broken join reporting a vacuous pass: `checked` must reach
+  // every checkable section in the payload, not just whatever happened to match.
+  // Same convention as live-export.js's "every assignment mapped to a section".
+  const expected = payload.jobs.reduce((n, j) =>
+    n + j.sections.filter(is => is.start && is.finish && is.days).length, 0);
+  ok('checked every checkable span', checked === expected && expected > 0,
+     checked + ' of ' + expected);
+
   ok('every span agrees with SharePoint', wrong.length === 0,
      wrong.length ? wrong.slice(0, 5).join(' | ') : checked + ' spans checked');
 
