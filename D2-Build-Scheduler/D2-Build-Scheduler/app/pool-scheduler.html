@@ -216,8 +216,15 @@ const isQualified=(c,sk)=>!sk?true:(FIXED[sk]?(c.id===FIXED[sk]||c.unlimited):c.
 const pad=n=>String(n).padStart(2,'0');
 const fmt=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
 function parseD(s){const[a,b,c]=s.split('-').map(Number);return new Date(a,b-1,c);}
-const isWork=d=>d.getDay()!==0;   // Mon–Sat are work days; Sunday is not
-function nextWork(s){let d=parseD(s);let g=0;while(!isWork(d)&&g++<10)d.setDate(d.getDate()+1);return fmt(d);}
+/* Non-work days come from the SharePoint Work Calendar via Load from D2: 175
+   Sundays and 35 holidays. Sunday is ALSO computed, deliberately -- the computed
+   rule is correct forever while the list expires 2029-12-30, so a lapsed calendar
+   degrades to Sundays-only rather than to every day being a work day. This
+   mirrors `D2 - New Pool`, which tests dayOfWeek AND a nonWork set. */
+let NONWORK = new Set();
+function syncNonWork(){ NONWORK = new Set((S && S.settings && S.settings.nonWork) || []); }
+const isWork=d=>d.getDay()!==0 && !NONWORK.has(fmt(d));
+function nextWork(s){let d=parseD(s);let g=0;while(!isWork(d)&&g++<30)d.setDate(d.getDate()+1);return fmt(d);}
 function addCal(s,n){const d=parseD(s);d.setDate(d.getDate()+n);return fmt(d);}
 function workSpan(startStr,n){const out=[];let d=parseD(startStr);let g=0;while(out.length<n&&g++<4000){if(isWork(d))out.push(fmt(d));d.setDate(d.getDate()+1);}return out;}
 const todayStr=()=>fmt(new Date());
@@ -253,7 +260,7 @@ function newJob(name,addr,city,state,zip,start){
 }
 const fullAddr=j=>[j.addr,j.city,[j.state,j.zip].filter(Boolean).join(' ')].filter(Boolean).join(', ');
 function load(){
-  try{const raw=localStorage.getItem(KEY);if(raw){S=JSON.parse(raw);return;}}catch(e){}
+  try{const raw=localStorage.getItem(KEY);if(raw){S=JSON.parse(raw);S.settings=S.settings||{};syncNonWork();return;}}catch(e){}
   S={crews:JSON.parse(JSON.stringify(SEED_CREWS)),template:mkTemplate(),jobs:[],settings:{}};
   /* NO DEMO POOLS. Removed 2026-09-11.
      This used to seed Harrison Residence, Vasquez Pool & Spa and Bell Canyon
@@ -264,6 +271,7 @@ function load(){
      had to be deleted from the live tenant later -- see CLAUDE.md.)
      A first-run browser now starts empty and points at "Load from D2". */
   S.jobs=[];
+  syncNonWork();
 }
 const save=()=>localStorage.setItem(KEY,JSON.stringify(S));
 const crew=id=>S.crews.find(c=>c.id===id);
@@ -798,6 +806,7 @@ function restore(file){
       alert('That file is not a D2 Scheduler backup — it is missing crews, jobs, or the phase template.');return;}
     if(!confirm(`Replace everything in this browser with the backup from ${d.exported||'an unknown date'}?\n\n${st.jobs.length} jobs · ${st.crews.length} crews · ${st.template.length} phases`))return;
     S=st; S.settings=S.settings||{};
+    syncNonWork();
     UI={collapsed:{}}; save(); render();
     alert('Backup restored.');
   };
@@ -847,6 +856,9 @@ function importFromD2(file){
       added+' pool(s) will be added\n'+
       untouched+' pool(s) that exist only in this browser will be left alone\n\n'+
       secs+' sub-phases carrying crew, dates and sign-off state.'))return;
+
+    // Take the tenant's work calendar before anything recomputes a span.
+    if(Array.isArray(d.nonWork)){ S.settings=S.settings||{}; S.settings.nonWork=d.nonWork; syncNonWork(); }
 
     plan.forEach(({inj,existing})=>{
       let j=existing;
