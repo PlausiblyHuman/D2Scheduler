@@ -17,13 +17,13 @@ node oracle-test.js         # the original 16-invariant harness (repo root)
 
 | File | What it pins |
 |---|---|
-| `determinism.js` | Auto-Schedule is idempotent from a settled state. Before the 2026-09-11 patch, 4 of 138 crew picks oscillated on every re-run. |
+| `determinism.js` | Auto-Schedule is idempotent from a settled state. Before the 2026-09-11 patch, 4 of 138 crew picks oscillated on every re-run. Seeds 3 pools itself (the planner ships with none) so the comparison is over 138 real assignments rather than the 0 it silently ran on between 2026-09-11 and the fix round below. |
 | `roundtrip.js` | `Load from D2` merges a SharePoint export correctly: live pools update, local-only pools survive, sign-offs lock against Auto-Schedule, task text stays local. |
 | `empty.js` | A first-run browser seeds no phantom pools and still renders. |
 | `live-export.js` | The real `sharepoint/export-to-planner.js` run against **captured live payloads**, then imported into the real planner. Pins the whole pipeline: 138 assignments, 885 tasks, 47 sign-offs, 398 ticks, nothing dropped. |
 | `workcalendar.js` | The planner's spans match SharePoint's. Before the fix, 2 of 138 live assignments rendered a day short, both crossing Columbus Day 2026-10-12. |
 | `schedulecheck.js` | Schedule Check no longer warns on PM sign-off, which `PMSignOff` never gets set by anything real. Installer sign-off is still checked. |
-| `startdate.js` | Auto-Schedule is anchored on real work, not a drifted `Jobs.StartDate`. `D2 - Reschedule Pool` rewrites Assignments dates and never writes the Jobs row back, so the field can sit months after a pool's first sub-phase; `jobStart()` uses the earliest of the two everywhere `autoSchedule` orders pools or seeds a cursor. |
+| `startdate.js` | Auto-Schedule is anchored on real work, not a drifted `Jobs.StartDate`. `D2 - Reschedule Pool` rewrites Assignments dates and never writes the Jobs row back, so the field can sit months after a pool's first sub-phase; `jobStart()` uses the earliest of the two everywhere `autoSchedule` orders pools or seeds a cursor. Covers the sort comparator and the cursor seed as two isolated scenarios (a two-pool tie-break contest, and a single unlocked-first-row pool), on top of the original single-pool locked-row case, so a revert of either `autoSchedule` call site fails on its own. |
 
 `roundtrip.js` builds its payload from the planner's own `SEED_TEMPLATE`, in the
 exact shape `sharepoint/export-to-planner.js` emits. `live-export.js` goes further

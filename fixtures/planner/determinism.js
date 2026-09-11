@@ -16,6 +16,18 @@ const win = dom.window;
   await new Promise(r => setTimeout(r, 500));
   const S = win.S;
   if (!S) { console.log('FAIL: state not loaded'); process.exit(2); }
+  // The planner no longer seeds demo pools (removed 2026-09-11), so a fresh
+  // load leaves S.jobs empty and every comparison below was passing vacuously
+  // against 0 assignments -- a "STABLE" result that measured nothing. Seed
+  // three pools the same way oracle-test.js does (addJobBtn already calls
+  // autoSchedule() per click), matching the 46 x 3 = 138 scale this harness was
+  // originally built against, so the crew-load tiebreak this test exists to
+  // catch actually has candidates to tie.
+  if (S.jobs.length === 0) {
+    const btn = win.document.getElementById('addJobBtn');
+    btn.click(); btn.click(); btn.click();
+    console.log(`(harness seeded ${S.jobs.length} pools -- the tool ships with none)`);
+  }
   const snap = () => S.jobs.flatMap(j => j.groups.flatMap(g => g.sections.map(s =>
       j.jobno+'|'+s.num+'|'+(s.crewId||'-')+'|'+(s.start||'-'))));
   // settle
