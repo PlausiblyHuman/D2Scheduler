@@ -1163,6 +1163,15 @@ is being deleted, and **the production path is unaffected** because `D2 - New Po
 But do not reuse this generator for real scheduling without fixing the holiday check as well as
 the span check.
 
+**A FULL PLANNER-VS-SHAREPOINT PARITY MAP EXISTS: `docs/planner-vs-sharepoint-parity.md`
+(2026-09-11).** Eleven divergences between the browser planner and this system, bucketed as already
+matched / easily matched / hard (with the wall named) / gap. Read it before changing either side.
+The three that matter most: the planner has **no holiday concept** so it recomputes every imported
+span over Sundays alone and draws holiday-crossing sub-phases a day short, feeding wrong spans into
+its own conflict checks; **business rule 1 is enforced only there**; and the export makes Schedule
+Check permanently cry wolf, because `PMSignOff` is always false, `Tasks.NotApplicable` is not
+exported, and `Jobs.Status` is exported then discarded.
+
 **Data gaps still open (from Rev D §15 / original plan §09):**
 - **10 trades unmapped to any sub-phase:** Retaining Walls, Veneer/Stone, CMU, Brick/Masonry, Landscaping, Pavers, Forms, Water Line Install, Material Runs, Grading. Don owes a mapping decision. George Crew is scheduled zero days until this lands.
 - **11 field-supervision sub-phases sit in Unassigned.** Don owes: shared PM bucket, or specific-person ownership? **This is not an idle choice: see the `office` compliance asymmetry below.** If Don picks "shared PM bucket," these 11 land on the `office` pseudo-crew, which inherits that asymmetry immediately: no reminder ever nudges anyone to finish them, but every one still counts against Don's compliance number the day it finishes.
@@ -2130,7 +2139,14 @@ Two deviations from the runbook, both deliberate:
 
 - **`Unassigned` also matches `Crew = 'unassigned'`,** not just blank. The browser tool models
   `unassigned` as a real pseudo-crew, so filtering only on blank would have missed the actual
-  unassigned work. Currently 0 rows because the seed always sets a crew.
+  unassigned work. **Renders 0 rows, and the reason recorded here twice before was wrong both
+  times.** It is not "the seed always sets a crew", and it is not simply that those rows lack a
+  Trade. The CAML is `(Crew IsNull OR Crew='' OR Crew='unassigned') AND Trade IsNotNull`
+  (`provision-views.js:149`), and the 11 field-supervision sub-phases it exists to find carry the
+  pseudo-trade `@unassigned`, which `gen-template-seed.py` resolves to **no `Trade` lookup at all**
+  (`PSEUDO` sets `trade_code = None`). So the `IsNotNull Trade` clause excludes precisely the rows
+  the view was built for. The browser planner flags all 11; this view shows zero. Whether the Trade
+  clause should be there at all is part of Don's trade-mapping decision, not a typo to fix.
 - **`Incomplete for Today` was built as `Incomplete Tasks`.** The spec wanted it filtered by the
   parent assignment's dates, but CAML cannot filter a view on a lookup's *other* columns without
   a join. Filter is `Complete = No`, grouped by Assignment.

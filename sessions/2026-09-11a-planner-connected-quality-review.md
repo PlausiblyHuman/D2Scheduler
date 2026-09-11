@@ -114,7 +114,12 @@ match live by content**, all Started; one failure in 48h, from that flow's own b
    the tool is current. Open question: wide open, or behind Entra restricted to the D2 tenant.
 2. **`D2 - Reschedule Pool` never writes `Jobs.StartDate`**, so it drifts permanently. Whitfield
    reads `2026-09-21` on the Jobs list while its first assignment starts `2026-06-15` and the pool
-   finishes `2026-09-30`. Verified display-only: nothing reads the field after creation and nothing
+   finishes `2026-09-30`. **CORRECTION, added 2026-09-11 after the parity audit: "display-only" is
+   WRONG and was wrong when written.** `export-to-planner.js:100` exports `Jobs.StartDate`,
+   `importFromD2` writes it to `j.start`, and the planner's `autoSchedule` uses it twice, to order
+   the pools and to seed each pool's date cursor. So a drifted `StartDate` anchors a whole
+   Auto-Schedule run to the wrong month. Original text followed: nothing reads the field after
+   creation and nothing
    triggers on the Jobs list, so realigning it is safe.
    **`sharepoint/fix-job-startdates.js` is ready to paste** and fixes the three demo rows (it has a
    `DRY_RUN` flag). Attempting it unattended was blocked by the write gate, correctly, so it is
