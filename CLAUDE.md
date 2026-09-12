@@ -2089,6 +2089,55 @@ SharePoint's white header. A real header photo must come from D2's own project p
 
 ---
 
+## POOL CREATION HAS ONE PATH — `+ Job` runs `D2 - New Pool`, built 2026-09-12, NOT yet run live
+
+**Shane's instruction, verbatim:** *"The new job should just run the new pool flow. I don't want to
+have a new job flow in the HTML and then a new job flow in the SharePoint site that do different
+things... there should be a pop-up or warning that says please wait 10 to 15 minutes."*
+
+`+ Job` no longer builds a 46-sub-phase pool in the browser. It collects the fields, queues a
+pending create, and the change-set carries it to `sharepoint/apply-planner-changes.js`, which raises
+a **New Pool Requests** row. `D2 - New Pool` then generates the Job, 46 Assignments and ~295 Tasks
+from the template. **This closes parity D10** and collapses the two independent job-number
+generators that ran with no uniqueness check between them.
+
+**`AssignDefaultCrews` IS SENT EXPLICITLY, and that is not cosmetic.** It is `Boolean, Required,
+default 1` on the list, and `D2 - New Pool` reads it as
+`if(AssignDefaultCrews, coalesce(DefaultCrew,'unassigned'), 'unassigned')`. So if it arrives falsy
+or absent, **all 46 sub-phases land `unassigned`** and the tool looks broken rather than configured.
+SharePoint's *form* demonstrably supplies defaults for omitted required fields — proven when
+`Status` was hidden from the New form — but **nothing proves the same for a REST create**, and REST
+item-creation is already known to bypass required-field validation on this tenant. It is now an
+explicit checkbox on the form, defaulting to checked, carried through to the create body. Do not
+"tidy" it back to relying on the default.
+
+**Three creation hazards found in review, all fixed before any live use:**
+
+- **A blank `ProjectManager` would have failed silently, then wasted ten minutes.** `ProjectManagerId`
+  comes from `/_api/web/currentuser`, and with no `r.ok` or null guard an error body still parses as
+  JSON, `cu.Id` is `undefined`, `JSON.stringify` drops the key, and the row lands **201** with the
+  field blank. The PM then waits the full 9 minutes for the flow to fail with "Project Manager is
+  required." Both guards now throw **before** the create loop.
+- **Re-running the same change-set could create two whole pools.** The uniqueness check read live
+  `Jobs` only, and the documented run instructions actively train a re-run because the request sits
+  at `Building` looking stuck. The flow catches it most of the time, but two requests landing in one
+  `GetOnNewItems` batch yields 92 assignments and 590 tasks, at ~6 minutes each to delete. The check
+  now unions `Jobs` with `New Pool Requests` rows whose `Status` is `Requested` or `Building`.
+- **The check was case- and whitespace-sensitive while SharePoint's is not.** `$filter` on a Text
+  column is case-insensitive, so `d2-1042` passed the script and was refused by the flow — safe
+  direction, wasted round trip, reads as the tool being wrong. Now trimmed and lowercased.
+
+**Creation is two-phase and the UI says so**: the form warns ~9 minutes measured, allow **10-15**,
+and that the request sits at `Building` the whole time and looks stuck. A PM then uses Load from D2
+to pull the finished pool. `D2 - New Pool` generates from the **template** and cannot accept a
+planner-authored schedule, which is why sequencing happens after the pool comes back, not before.
+
+**On the first real creation:** dry-run first and read the planned-creates table; do **not** re-run
+the live pass "to be sure"; then open **New Pool Requests** and confirm `Project Manager` is
+populated and `AssignDefaultCrews` is ticked.
+
+---
+
 ## THE PLANNER HEADER IS FOUR BUTTONS — four controls removed 2026-09-12
 
 `⚡ Auto-Schedule · + Job · Save · Load from D2`, plus the freshness stamp. It was eight and wrapped
