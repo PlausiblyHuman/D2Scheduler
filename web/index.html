@@ -414,12 +414,25 @@ function touch(j){ if(j) j.touchedAt=new Date().toISOString(); }
    and task ticks are deliberately never in this list -- see the note on `base`
    in importFromD2 for why. fixtures/planner/writeback.js pins this from both
    ends: the change-set this produces, and the fields sharepoint/apply-planner-
-   changes.js will actually send. */
+   changes.js will actually send.
+
+   `locked` carries a `raw:'spLocked'` override. `s.locked` (and `b.locked` on
+   the baseline) is the DERIVED lock -- SharePoint's raw Locked OR sign-off --
+   which render() and Auto-Schedule both need so signed work is never moved.
+   But that derived value is exactly what must NOT be diffed here: on every
+   signed-off row where SharePoint's actual Locked column is false (a third of
+   live rows), `b.locked` reads true anyway, so diffing against it made a
+   genuine Lock-checkbox edit on a signed row compare against a baseline the
+   row never actually held, and the write was refused as a stale conflict that
+   was never real. `spLocked`/`s.spLocked` track the raw column on its own, so
+   `raw` points both `cur` and `was` at that instead, leaving `s.locked` and
+   the derived behaviour untouched everywhere else. See `saveSec` for how
+   `s.spLocked` is set only when the PM actually touches the Lock checkbox. */
 const WRITEBACK_FIELDS=[
   {key:'crewId',col:'Crew',          bool:false},
   {key:'start', col:'ScheduledStart',bool:false},
   {key:'days',  col:'DurationDays',  bool:false},
-  {key:'locked',col:'Locked',        bool:true},
+  {key:'locked',col:'Locked',        bool:true, raw:'spLocked'},
   {key:'skip',  col:'NotApplicable', bool:true}
 ];
 /* Which owned fields of this sub-phase no longer match what SharePoint sent,
@@ -429,8 +442,9 @@ const WRITEBACK_FIELDS=[
 function secFieldDiffs(s){
   const b=s.base; if(!b)return [];
   const out=[];
-  WRITEBACK_FIELDS.forEach(({key,col,bool})=>{
-    const cur=bool?!!s[key]:(s[key]??null), was=bool?!!b[key]:(b[key]??null);
+  WRITEBACK_FIELDS.forEach(({key,col,bool,raw})=>{
+    const rk=raw||key;
+    const cur=bool?!!s[rk]:(s[rk]??null), was=bool?!!b[rk]:(b[rk]??null);
     if(cur!==was)out.push({key,col,from:was,to:cur});
   });
   return out;
@@ -835,6 +849,13 @@ function vPhases(){
 let CUR=null;
 function editSec(jobId,gi,si){
   const j=S.jobs.find(x=>x.id===jobId),g=j.groups[gi],s=g.sections[si];CUR={jobId,gi,si};
+  // What the Lock checkbox shows as this dialog opens -- the DERIVED lock, so
+  // it reads checked on a signed-off row even when SharePoint's raw Locked is
+  // false. saveSec compares the checkbox against this on the way out: only a
+  // PM actually flipping it counts as touching the raw pin (spLocked); saving
+  // the dialog for an unrelated field with the box left exactly as shown must
+  // not manufacture a Locked write out of what sign-off alone was displaying.
+  CUR.origLocked=!!s.locked;
   const cands=s.skill?qualified(s.skill):[],other=S.crews.filter(c=>!cands.includes(c));
   const c=secCounts(s);
   document.getElementById('dTitle').textContent=`${j.name} › ${s.num} ${s.name}`;
@@ -884,10 +905,17 @@ function saveSec(){
   s.crewId=document.getElementById('fCrew').value||null;
   const st=document.getElementById('fStart').value;s.start=st?nextWork(st):null;
   s.days=Math.max(1,+document.getElementById('fDays').value||1);
-  s.locked=document.getElementById('fLock').checked;
+  // Only a checkbox that actually moved away from what was shown on open is a
+  // PM setting the raw pin. Saving with it left exactly as displayed -- which
+  // is how every signed-off row shows up, checked, whether or not it is
+  // actually SharePoint-Locked -- must not invent a pin that was never asked
+  // for. See the WRITEBACK_FIELDS comment above for why this matters.
+  const lockChecked=document.getElementById('fLock').checked;
+  if(lockChecked!==CUR.origLocked)s.spLocked=lockChecked;
   s.skip=document.getElementById('fSkip').checked;
   s.inst=document.getElementById('fInst').checked;
   s.pm=document.getElementById('fPM').checked;
+  s.locked=!!(s.spLocked||s.inst);   // re-derive; sign-off still locks it regardless of the pin
   g.inst=grpSign(g,'inst')==='all';g.pm=grpSign(g,'pm')==='all';
   touch(j);
   closeDrawer();render();
@@ -1038,6 +1066,7 @@ function importFromD2(file){
         s.skip=!!is.skip;
         s.inst=!!is.inst;
         s.pm=!!is.pm;
+        s.spLocked=!!is.locked;      // the raw SharePoint pin, tracked on its own -- see WRITEBACK_FIELDS
         s.locked=!!(is.locked||is.inst);
         if(Array.isArray(is.tasks)&&Array.isArray(s.tasks)){
           is.tasks.forEach((it,i)=>{
