@@ -1,108 +1,81 @@
-# 2026-09-11d — Phase H Stage 1: parity divergences, brand, and the repo move
+# 2026-09-12a — Overnight: write-back specced, three rule bugs closed
 
-**Session goal:** kick off Phase H development. Became the whole local half of Stage 1 — five
-parity divergences closed against live data, divergence-state tracking added, the planner
-repainted into the D2 palette and moved to `web/index.html`. Executed as a written plan via
-subagent-driven development: 10 tasks, 6 fix rounds, a whole-branch review and a fix wave.
+**Session goal:** continuation of 2026-09-11d. Shane asked what could be done overnight without
+him, chose "spec + the three bug fixes", and authorised me to rule on conflicts and log them
+rather than stopping. Everything below is offline, reversible, and touched no client tenant.
 
 ---
 
 ## What shipped
 
-**Six of the eleven parity divergences are closed**, each verified against the captured live
-payload rather than asserted:
+**1. The batch write-back is specced** —
+`docs/superpowers/specs/2026-09-12-batch-write-back-design.md`. Draft, not approved. Two findings
+overturn assumptions in the parent spec:
 
-| | Before | After |
+- **ETags will not work.** `odata=nometadata` suppresses `odata.etag` entirely, verified against
+  the captured fixture. The stronger objection is that a row-level ETag would produce **constant
+  false conflicts**: five flows write to `Assignments` on schedules unrelated to the PM, so a load
+  at 09:00 and a save at 16:00 would be rejected wholesale because a nightly flow annotated the
+  rows overnight. The design compares the five owned fields instead.
+- **Auto-Schedule cannot be expressed as a `Reschedule Requests` row**, because
+  `D2 - Reschedule Pool` moves dates and never picks a crew. Routing a reflow through it would
+  discard every crew decision the PM just made.
+
+**2. Three planner rule-enforcement bugs fixed**, each with a test proven to fail first:
+
+| | Defect | Effect |
 |---|---|---|
-| D7 work calendar | 2 of 138 live spans drawn a day short (both crossing Columbus Day) | **0**, all 138 agree with SharePoint |
-| D2 PM sign-off | 51 unclearable "missing PM sign-off" warnings | installer-only; PM concept survives everywhere else |
-| D8 N/A | an N/A task imported as not-done, so 5-of-6 read incomplete forever | third state; label stays done-only, bar measures resolved |
-| D9 `Jobs.Status` | exported then discarded, `Planned` looked live | badged, and still raises conflicts by design |
-| D4 `Jobs.StartDate` | Auto-Schedule anchored on a field months adrift | anchored on earliest real work |
-| D11 freshness | no way to tell live data from a local reflow | header stamp, per-sub-phase baseline, `divergedSecs()` |
+| Rule 1 | `qualified()` and `isQualified()` used different predicates on the three `FIXED` pseudo-trades | STL Shotcrete on an `@office` sub-phase raised **no error at all**, while the same UI flagged it under "⚠ Not qualified" |
+| Rule 2 | `autoSchedule`'s busy map did not exempt `unlimited` crews, though `busyMap()` did | a capacity-exempt subcontractor could be skipped as "busy" on a day it was free |
+| Rule 3 | a locked row advanced the cursor **unconditionally** | a locked row starting earlier than preceding rows dragged the cursor backwards and the next unlocked row landed on top of placed work |
 
-Plus: repainted to the measured D2 palette (navy `#082544`, green `#0B594B`, cream `#F6F3ED`,
-Poppins + Source Sans 3) and `git mv`'d the planner to `web/index.html` with
-`staticwebapp.config.json` beside it. `oracle-test.js` 14/16 → 15/16.
-
-**Write-back groundwork, not the write-back.** Shane asked for a batch write-back mid-session. It
-stays out of scope and needs its own spec, but two things were folded in because they were one
-line each now and a retrofit later: the export carries SharePoint row ids (it carried none), and
-the import records `s.base` per sub-phase so divergence is a diff rather than a flag.
-
----
+**3. `planner-stage1-verified` tag** marks the last known-good planner, per Shane's "keep a master
+copy" — as a tag rather than a second file, because this repo already lost weeks to a described-
+but-nonexistent `patched-tool/` copy.
 
 ## Files touched
 
-- `web/index.html` — moved from `D2-Build-Scheduler/D2-Build-Scheduler/app/pool-scheduler.html`;
-  work calendar, N/A state, status badge, `jobStart()`, freshness/divergence, repaint
-- `web/staticwebapp.config.json` — new; SPA fallback, deliberately no `auth`/`routes` block
-- `sharepoint/export-to-planner.js` — carries `nonWork`, `tasks[].na`, and row ids
-- `fixtures/planner/` — `run-export.js` extracted; `workcalendar.js`, `schedulecheck.js`,
-  `startdate.js`, `freshness.js` added; `determinism.js`, `empty.js`, `live-export.js` repaired;
-  `live-payloads.json` gained 210 Work Calendar rows and `NotApplicable` on 885 tasks
-- `docs/planner-vs-sharepoint-parity.md` — six sections rewritten as closed; all 41 line
-  citations re-resolved; D1 corrected
-- `CLAUDE.md` — rule 1 contradiction fixed, Phase H row, new NEXT SESSION section
-- `docs/superpowers/plans/` — the plan and its execution ledger
+- `docs/superpowers/specs/2026-09-12-batch-write-back-design.md` — new
+- `web/index.html` — three rule fixes
+- `fixtures/planner/rules.js` — new, 11 assertions
+- `fixtures/planner/README.md`, `CLAUDE.md`
 
 ## Commits
 
-20 on `canvas-app-handoff`, `cd830ae..3efafea`.
+`8bcfb72` spec · `ddca578` rule 1 · `55794e4` rule 2 · `3e631a0` rule 3, plus this checkpoint.
 
 ---
 
 ## Decisions
 
-- **Divergence fixes before hosting.** Hosting a planner that draws wrong spans would mean
-  patching it in place afterwards.
-- **Batch write-back is Stage 2**, but its two cheap prerequisites land now. Field scope settled:
-  crew, dates, duration, locked, skip — **never sign-off, never task ticks**, because the
-  planner's `inst`/`pm` are bare booleans and SharePoint holds the attribution.
-- **`Planned` pools are badged, not hidden.** A PM choosing dates wants to see the collision; the
-  reflow's own sweep is tenant-wide for the same reason.
-- **The N/A label and progress bar disagree on purpose.** The label must agree with
-  `Assignments.TasksComplete`, which counts genuinely-done only; the bar must reach 100% when
-  everything is resolved.
-- **D4 got a planner-side guard beyond the spec**, because the flow gap behind it is still open
-  and would re-drift the field.
-- **Hosting and billing deferred**, at Shane's call.
-
-## Traps found
-
-- **A test harness can go vacuous and nothing notices — four in one session.**
-  `workcalendar.js` passed on a broken join (`0 spans checked`); `startdate.js` passed against a
-  fully reverted fix; `empty.js` had no assertion and no non-zero exit, so a boot-time break
-  passed the entire suite; and **`determinism.js` had reported `assignments compared : 0` ever
-  since the planner stopped seeding demo pools**, while the repo described it as catching a real
-  4-of-138 oscillation. All four fixed and each proven by mutating production code and watching
-  the harness go red. Same drift class as `flows/definitions/`, the phantom `patched-tool/`, and
-  the stale New Pool export.
-- **CLAUDE.md contradicted itself on business rule 1** — "NOT ENFORCED ANYWHERE ON THE SHAREPOINT
-  SIDE" in the business-rules section, against "the first thing in this system to enforce
-  business rule 1" in the flow table 1400 lines later. Both written the same day. Rule 1 is
-  detected nightly and never prevented.
-- **The parity map's 41 line citations were ~17 lines stale** and the file had moved, while
-  CLAUDE.md tells every session to read that map first.
-- **Nothing pinned the `s.base` field scope.** Adding `inst`/`pm` to the baseline left all nine
-  harnesses green — the exact widening that would let a write-back overwrite an attested
-  sign-off. Now asserted.
+- **Rule 1 fixed by making `isQualified` strict**, not by loosening `qualified()`. The `FIXED` map
+  names which bucket a pseudo-trade routes to; accepting any capacity-exempt crew ignored it.
+  Loosening the other way would have revalidated crew IDs the dropdown never offers, recreating the
+  same UI-vs-validation split in the other direction.
+- **Safety-checked before committing rule 1**, because a stricter predicate can flag existing data:
+  all 72 pseudo-trade rows on the three demo pools already carry their own bucket crew
+  (`office:24, subcon:15, unassigned:33`), so nothing live is newly flagged. The reviewer
+  reproduced that independently with its own script.
+- **Backup, Restore and the file picker retire WITH the live connection, not before.** Until the
+  app reads on open they are the only recovery from a cleared `localStorage`.
+- **Master copy is a git tag, not a duplicate file.**
+- **The server-side half of the rule-3 cursor defect was left alone** — `Set_cursor_pinned` in
+  `D2 - Reschedule Pool` has the identical bug, and fixing it needs the live tenant.
 
 ## Open
 
-- **Azure subscription does not exist.** Not client-gated (Shane has admin rights), but needs a
-  payment method, and whose card decides who owns it.
-- **Entra SPA registration** — does NOT need the subscription, and is the real unblock.
-- **Capture a Graph payload before any mapping code.** Graph is a third field-shape surface.
-- **`sharepoint/fix-job-startdates.js` not run** — human gate. It has `DRY_RUN = false`
-  committed at line 37, so a paste is a live write; set it to `true` first.
-- **The repaint has not been eyeballed by a human.** Verified by headless screenshot against a
-  local server; screenshots sent.
-- `TradeMismatch` still has no view. Crew-lead seats unbought. Phase F Day 2 training and the PM
-  guide both still describe the surface H replaces.
+- **A product question for Don, surfaced by the rule-1 fix:** should `@sub` admit the four *named*
+  subcontractors (`george`, `armondo`, `stl`, `brothers`) rather than only the `subcon` bucket
+  crew? Arguably a subcontractor genuinely is one. Deliberately not decided as a side effect of a
+  bug fix. Widening it means changing both predicates together.
+- **`D2 - Reschedule Pool`'s cursor can still move backwards.** Same defect as rule 3, needs the
+  tenant.
+- Unchanged and still human-gated: the Azure subscription, the Entra SPA registration, any tenant
+  write (`fix-job-startdates.js` has `DRY_RUN = false` committed at line 37), the Graph payload
+  capture, and a human eye on the repaint.
 
 ## Next action
 
-Register the Entra SPA app (no subscription needed), create the Azure subscription, then capture
+Register the Entra SPA app — it needs no Azure subscription and is the real unblock — then capture
 a real Graph payload into `fixtures/planner/live-payloads-graph.json` before writing any mapping
-code. Spec the batch write-back separately.
+code. Review the write-back spec, which has three open questions at the bottom.

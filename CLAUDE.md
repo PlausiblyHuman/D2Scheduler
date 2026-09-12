@@ -91,8 +91,47 @@ The four load-bearing invariants (enforced by the design, not by a database prim
    into rotation and forces a template regeneration, widening the surface this rule is failing to
    police. See the recommended fix under Known bugs.
 2. **A field crew is never on two pools the same day.** Detection is post-hoc within one Power Automate polling interval (event-driven flow scoped to touched Crew + date range), with a nightly full-sweep safety net. This is "acceptable degradation, not equivalence" vs. the Dataverse alternate-key approach — see Rev D §07 for honest framing.
-3. **Sub-phases run in order — one cannot start before the one before it ends.** Enforced by the browser tool's Auto-Schedule; re-enforced by the conflicts checker.
+3. **Sub-phases run in order — one cannot start before the one before it ends.** Enforced by the
+   browser planner's Auto-Schedule; re-enforced by its conflicts checker. **Nothing on the
+   SharePoint side checks it** — no flow does (Nightly Reconciliation, Conflict Flag and
+   Event-Driven Reconciliation all check crew overlap only), CAML cannot express it, and the canvas
+   app does not look. So a PM editing `ScheduledStart` on the edit form can put 3.2 before 3.1 and
+   nothing catches it.
+
+   **A shared defect, half of it now fixed.** Both the planner's `autoSchedule` and
+   `D2 - Reschedule Pool` advanced their cursor to a locked row's end **unconditionally**, so a
+   locked row starting earlier than the rows before it dragged the cursor backwards and the next
+   unlocked row landed on top of work already placed. **The planner half was fixed 2026-09-12**
+   (`web/index.html`, take the later of the cursor and the locked row's end; pinned by
+   `fixtures/planner/rules.js`). **The flow half is still open**: `Set_cursor_pinned` is
+   `addDays(ScheduledFinish, 1)` with no `max()` against the running cursor. It needs the live
+   tenant, so it was deliberately left. The difference today is that the planner will tell you and
+   the flow will not.
 4. **Mon–Sat are work days. Sunday is not.** Extended in the Lists path to include Work Calendar entries (Holidays, Weather days, per-crew shutdowns).
+
+**TWO PLANNER-SIDE RULE BUGS FIXED 2026-09-12, both of which made the planner claim compliance it
+was not delivering.** Both were recorded in `docs/planner-vs-sharepoint-parity.md` D1 and are now
+closed there.
+
+- **Rule 1: `qualified()` and `isQualified()` used different predicates.** `FIXED` maps the three
+  pseudo-trades to one bucket crew each (`@office`→`office`, `@sub`→`subcon`,
+  `@unassigned`→`unassigned`). `qualified()` offered only that crew, while `isQualified()` accepted
+  **any** `unlimited` crew — so putting STL Shotcrete on an `@office` sub-phase produced **no error
+  at all** while the same UI simultaneously flagged it under "⚠ Not qualified". `isQualified` now
+  honours the map. Safety-checked against the three demo pools before committing: all 72
+  pseudo-trade rows already carry their own bucket crew, so the stricter predicate flags nothing
+  that exists (`office:24, subcon:15, unassigned:33`, 0 mismatches).
+
+  **Open product question this surfaced, for Don rather than for code:** should `@sub` admit the
+  four *named* subcontractors (`george`, `armondo`, `stl`, `brothers`) rather than only the
+  `subcon` bucket? Arguably a subcontractor genuinely is "a subcontractor". It was deliberately NOT
+  decided as a side effect of a bug fix, because it is a question about which buckets are open to
+  which crews. Note the drawer dropdown currently offers only the bucket crew, so widening means
+  changing both predicates together or reopening the same UI-vs-validation split.
+
+- **Rule 2: `autoSchedule`'s busy map did not exempt `unlimited` crews** while `busyMap()` did, so a
+  capacity-exempt subcontractor could be skipped as "busy" on a day it was legitimately free,
+  pushing work to another crew or later than necessary. Now matches `busyMap()`.
 
 **Additional rules confirmed by David/Don:**
 
@@ -2047,6 +2086,53 @@ for their marketing site; that does not extend to copying them into their tenant
 different in kind — D2's own mark, on D2's own intranet — and is composited onto navy by
 `make-site-logo.py` because the published mark is white on transparent and invisible on
 SharePoint's white header. A real header photo must come from D2's own project photography.
+
+---
+
+## OVERNIGHT 2026-09-12 — write-back specced, three rule bugs closed
+
+Done unattended while Shane slept, authorised in advance, all of it offline and reversible. No
+tenant write, no Entra registration, no Azure signup — those were explicitly held.
+
+**1. The batch write-back is specced, not built:**
+`docs/superpowers/specs/2026-09-12-batch-write-back-design.md`. Two findings change what the
+parent spec assumed:
+
+- **ETags will not work**, for two reasons and the second is the one that matters.
+  `odata=nometadata` suppresses `odata.etag` entirely (verified against the fixture — no assignment
+  row carries one). More importantly a **row-level ETag would produce constant false conflicts**,
+  because five flows write to `Assignments` on schedules unrelated to the PM: Calendar Sync
+  (hourly), Counter Reconciliation, Conflict Flag, Crew Trade Check and Event-Driven Reconciliation.
+  A PM loading at 09:00 and saving at 16:00 would have the whole batch rejected because a nightly
+  flow annotated the rows overnight. **The design compares the five owned fields instead** — precise
+  about the collision that matters, immune to machine writes, and needs no Accept-header change.
+- **Auto-Schedule cannot be expressed as a `Reschedule Requests` row**, because
+  `D2 - Reschedule Pool` moves dates and never picks a crew. A reflow is therefore a large
+  row-edit batch, and the flow stays right for the case it was built for.
+
+Also recorded there: **Backup, Restore and the file picker retire WITH the live connection, never
+before it** — until the app reads on open they are the only recovery from a cleared `localStorage`.
+
+**2. Three planner rule-enforcement bugs fixed** (`ddca578`, `55794e4`, `3e631a0`), pinned by the
+new `fixtures/planner/rules.js` (11 assertions). See the business-rules section above for rule 1
+and rule 2; rule 3's cursor defect is under rule 3. Each fix was reverted in isolation and watched
+go red before being accepted.
+
+**3. `planner-stage1-verified` is a git tag** marking the last known-good planner.
+`git show planner-stage1-verified:web/index.html` recovers it. Shane's instruction was "keep a
+master copy" — a **tag, not a second file**, because this repo already spent weeks with CLAUDE.md
+describing a `patched-tool/pool-scheduler.html` that never existed while the real planner carried
+neither patch it was credited with.
+
+**Shane's standing latitude, 2026-09-12: "you can edit the html, just keep a master copy. it's not
+scripture."** This lifts the parent spec's "not a rewrite of the planner" non-goal. Two constraints
+survive and neither is style preference: the jsdom harnesses stay green, and **structure still comes
+from the local phase template, never from the payload** — that is what makes a partial or malformed
+response unable to corrupt the template.
+
+**Still open and still needing a human:** the Azure subscription, the Entra SPA registration, any
+tenant write (including `fix-job-startdates.js`, which has `DRY_RUN = false` committed at line 37),
+the Graph payload capture, and a human eye on the repaint.
 
 ---
 
