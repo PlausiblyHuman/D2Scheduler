@@ -134,15 +134,10 @@ tr.phrow .nm{background:#f8fafc;font-weight:650}
   <span class="sp"></span>
   <button class="btn p" id="autoBtn">⚡ Auto-Schedule</button>
   <button class="btn" id="addJobBtn">+ Job</button>
-  <button class="btn" id="csvBtn">CSV</button>
   <button class="btn p" id="saveBtn" title="Preview and download everything changed here since the last Load from D2, ready to push back into SharePoint with sharepoint/apply-planner-changes.js">Save</button>
-  <button class="btn" id="backupBtn" title="Download everything — jobs, crews, template, sign-offs — as a .json file">Backup</button>
-  <button class="btn" id="restoreBtn" title="Load a .json backup, replacing what is in this browser">Restore</button>
-  <input type="file" id="restoreFile" accept="application/json,.json" style="display:none">
   <button class="btn" id="d2Btn" title="Load the live schedule exported from the D2 Build Scheduler SharePoint site. Merges by job number - it never touches pools that only exist here.">Load from D2</button>
   <input type="file" id="d2File" accept="application/json,.json" style="display:none">
   <span id="freshness" class="small" style="opacity:.75"></span>
-  <button class="btn" id="resetBtn">Reset</button>
 </header>
 
 <main id="main"></main>
@@ -409,7 +404,7 @@ function touch(j){ if(j) j.touchedAt=new Date().toISOString(); }
 /* The exact fields SharePoint owns and this planner may ever write back to it,
    paired with the column each maps to. This list is the single source of truth
    for the write-back allowlist -- divergedSecs, the Save preview and the
-   change-set file (buildChangeSet, near backup/restore below) are all built
+   change-set file (buildChangeSet, further below) are all built
    from it, so a field cannot slip into a push without an entry here. Sign-off
    and task ticks are deliberately never in this list -- see the note on `base`
    in importFromD2 for why. fixtures/planner/writeback.js pins this from both
@@ -956,52 +951,13 @@ function setAllDays(){const v=prompt('Set every sub-phase duration to how many w
 function applyTemplate(){if(!confirm('Rebuild every job from the template? Crew assignments, sign-offs, and checklist ticks are cleared.'))return;
   S.jobs.forEach(j=>j.groups=mkJobGroups(S.template));autoSchedule();render();}
 
-function exportCSV(){
-  const rows=[['Job ID','Job Name','Street Address','City','State','ZIP','Phase #','Phase','Sub #','Sub-phase','Trade','Crew','Members','Start','End','Days','Checklist done','Checklist total','Checklist N/A','Installer','PM','Status']];
-  S.jobs.forEach(j=>allSecs(j).forEach(({g,s})=>{
-    if(s.skip)return;
-    const c=s.crewId?crew(s.crewId):null,span=s.start?workSpan(s.start,s.days):[];
-    const bad=s.skill&&(!c||!isQualified(c,s.skill));
-    rows.push([j.jobno||'',j.name,j.addr,j.city||'',j.state||'',j.zip||'',g.num+'.0',g.name,s.num,s.name,s.skill?skillLabel(s.skill):'—',
-      c?c.name:'',c?c.members.join(' / '):'',span[0]||'',span[span.length-1]||'',s.days,
-      secCounts(s).done,s.tasks.length,secCounts(s).na,s.inst?'YES':'',s.pm?'YES':'',bad?'NEEDS ATTENTION':'OK']);
-  }));
-  const csv=rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
-  const a=document.createElement('a');
-  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='d2-pool-schedule.csv';a.click();
-}
-
-function backup(){
-  const stamp=fmt(new Date());
-  const blob=new Blob([JSON.stringify({app:'D2 Pool Build Scheduler',version:KEY,exported:stamp,state:S},null,1)],{type:'application/json'});
-  const a=document.createElement('a');
-  a.href=URL.createObjectURL(blob);a.download=`d2-scheduler-backup-${stamp}.json`;a.click();
-}
-function restore(file){
-  const r=new FileReader();
-  r.onload=()=>{
-    let d;
-    try{d=JSON.parse(r.result);}catch(e){alert('That file is not valid JSON.');return;}
-    const st=d&&d.state?d.state:d;
-    if(!st||!Array.isArray(st.crews)||!Array.isArray(st.jobs)||!Array.isArray(st.template)){
-      alert('That file is not a D2 Scheduler backup — it is missing crews, jobs, or the phase template.');return;}
-    if(!confirm(`Replace everything in this browser with the backup from ${d.exported||'an unknown date'}?\n\n${st.jobs.length} jobs · ${st.crews.length} crews · ${st.template.length} phases`))return;
-    S=st; S.settings=S.settings||{};
-    syncNonWork();
-    UI={collapsed:{}}; save(); render();
-    alert('Backup restored.');
-  };
-  r.readAsText(file);
-}
-
-
 /* ===================== import from the SharePoint site =====================
    Reads the payload produced by sharepoint/export-to-planner.js and MERGES it
    into whatever is already in this browser.
 
-   Merge, not replace, deliberately. `restore()` above swaps the whole state,
-   which would destroy any pool a PM had sketched here but not yet raised in
-   SharePoint. This matches on `jobno` and leaves local-only pools alone.
+   Merge, not replace, deliberately: swapping the whole state would destroy any
+   pool a PM had sketched here but not yet raised in SharePoint. This matches on
+   `jobno` and leaves local-only pools alone.
 
    Structure always comes from the local phase template, never from the file.
    Only the things SharePoint actually owns are overlaid: crew, dates, duration,
@@ -1018,7 +974,7 @@ function importFromD2(file){
     let d;
     try{d=JSON.parse(r.result);}catch(e){alert('That file is not valid JSON.');return;}
     if(!d||d.kind!=='d2-sharepoint-export'||!Array.isArray(d.jobs)){
-      alert('That is not a D2 SharePoint export.\n\nUse the Backup/Restore buttons for a scheduler backup file.');return;}
+      alert('That is not a D2 SharePoint export.\n\nUse Load from D2 with the file downloaded from the site.');return;}
 
     const bySec=j=>{const m={};allSecs(j).forEach(({s})=>m[s.num]=s);return m;};
     let added=0,updated=0,secs=0,unmatched=[];
@@ -1209,14 +1165,9 @@ document.getElementById('tabs').addEventListener('click',e=>{
 });
 document.getElementById('autoBtn').onclick=()=>{autoSchedule();render();};
 document.getElementById('addJobBtn').onclick=addJob;
-document.getElementById('csvBtn').onclick=exportCSV;
 document.getElementById('saveBtn').onclick=openSavePreview;
-document.getElementById('backupBtn').onclick=backup;
-document.getElementById('restoreBtn').onclick=()=>document.getElementById('restoreFile').click();
-document.getElementById('restoreFile').onchange=e=>{const f=e.target.files[0];if(f)restore(f);e.target.value='';};
 document.getElementById('d2Btn').onclick=()=>document.getElementById('d2File').click();
 document.getElementById('d2File').onchange=e=>{const f=e.target.files[0];if(f)importFromD2(f);e.target.value='';};
-document.getElementById('resetBtn').onclick=()=>{if(confirm('Reset to the imported template and seeded crews? Any pools loaded here will be cleared.')){localStorage.removeItem(KEY);load();render();}};
 load();render();
 </script>
 </body>
