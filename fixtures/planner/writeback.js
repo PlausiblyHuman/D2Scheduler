@@ -147,6 +147,10 @@ async function partA() {
   ok('+ Job opens the request drawer rather than creating a pool immediately',
      win.document.getElementById('drawer').classList.contains('open') && S.jobs.length === jobsBeforeClick,
      'jobs ' + jobsBeforeClick + ' -> ' + S.jobs.length);
+  // Assign default crews defaults to CHECKED -- checked here before anything
+  // else touches the form, since that is the state a PM sees on open.
+  ok('Assign default crews defaults to checked',
+     win.document.getElementById('ncAssignCrews').checked === true);
   win.document.getElementById('ncJobNo').value = 'D2-2001';
   win.document.getElementById('ncName').value = 'Ridgeway Pool';
   win.document.getElementById('ncAddr').value = '9 Ridge Ct';
@@ -155,19 +159,36 @@ async function partA() {
   win.document.getElementById('ncSubmit').click();
   ok('+ Job still does not create a local 46-sub-phase pool',
      S.jobs.length === jobsBeforeClick, S.jobs.length + ' jobs (was ' + jobsBeforeClick + ')');
-  ok('a queued create lands in S.pendingCreates, not yet marked requested',
-     (S.pendingCreates || []).length === 1 && !S.pendingCreates[0].requestedAt,
+  ok('a queued create lands in S.pendingCreates, not yet marked requested, crews assigned by default',
+     (S.pendingCreates || []).length === 1 && !S.pendingCreates[0].requestedAt &&
+     S.pendingCreates[0].assignDefaultCrews === true,
      JSON.stringify(S.pendingCreates));
   {
     const pc = win.buildPendingCreates();
     ok('a queued create appears in the change-set, correctly shaped',
        pc.length === 1 && pc[0].jobno === 'D2-2001' && pc[0].name === 'Ridgeway Pool' &&
-       pc[0].addr === '9 Ridge Ct' && pc[0].city === 'Franklin' && pc[0].start === '2026-10-05',
+       pc[0].addr === '9 Ridge Ct' && pc[0].city === 'Franklin' && pc[0].start === '2026-10-05' &&
+       pc[0].assignDefaultCrews === true,
        JSON.stringify(pc));
   }
   win.render();
   ok('Save is enabled by a queued create alone, with no edit pending',
      win.document.getElementById('saveBtn').disabled === false);
+
+  // ---- Unchecking Assign default crews on a second request carries `false`
+  // through the same path -- proves the checkbox is a real choice, not a
+  // fixed true wired straight through regardless of what the form shows. ----
+  win.document.getElementById('addJobBtn').click();
+  win.document.getElementById('ncJobNo').value = 'D2-2002';
+  win.document.getElementById('ncName').value = 'Unassigned Test Pool';
+  win.document.getElementById('ncStart').value = '2026-10-06';
+  win.document.getElementById('ncAssignCrews').checked = false;
+  win.document.getElementById('ncSubmit').click();
+  {
+    const pc2 = win.buildPendingCreates().find(x => x.jobno === 'D2-2002');
+    ok('unchecking Assign default crews carries false through to the change-set',
+       !!pc2 && pc2.assignDefaultCrews === false, JSON.stringify(pc2));
+  }
 }
 
 /* ========================================================================
@@ -623,6 +644,28 @@ async function partB() {
     ok('Status and Result are never set -- both are flow-owned and default on the list itself',
        !('Status' in body) && !('Result' in body), Object.keys(body).join(','));
     ok('the create is reported as requested', out.createsRequested === 1 && out.createsBlocked === 0, JSON.stringify(out));
+    // AssignDefaultCrews is REQUIRED on the list with a schema default of
+    // true, and this change-set entry omits it entirely (an older planner
+    // build, or the field simply not offered yet) -- it must still be sent
+    // EXPLICITLY, never left for SharePoint's own default to supply, because
+    // nothing here proves a plain REST create gets that default the way the
+    // New form does.
+    ok('AssignDefaultCrews is present and true when the change-set omits it entirely (defaults true, sent explicitly)',
+       'AssignDefaultCrews' in body && body.AssignDefaultCrews === true, JSON.stringify(body));
+  }
+
+  // ---- a change-set create that explicitly turns crew assignment off must
+  // send AssignDefaultCrews: false, not true and not absent. ----
+  {
+    const store = makeStore([]);
+    const cs = { kind: 'd2-planner-changeset', pools: [], creates: [
+      { jobno: 'D2-1055', name: 'No Crews Pool', addr: '', city: '', start: '2026-11-20', assignDefaultCrews: false }
+    ] };
+    const { calls } = await runApply(loadApplySource(true), cs, store, { jobsStore: [], requestsStore: [] });
+    const createPost = calls.find(c => c.method === 'POST' && /New Pool Requests/.test(decodeURIComponent(c.url)) && /\/items$/.test(c.url));
+    const body = JSON.parse(createPost.body);
+    ok('AssignDefaultCrews is sent as false when the change-set explicitly unchecks it',
+       'AssignDefaultCrews' in body && body.AssignDefaultCrews === false, JSON.stringify(body));
   }
 
   // ---- DRY_RUN creates nothing: no POST at all, but the plan (including the

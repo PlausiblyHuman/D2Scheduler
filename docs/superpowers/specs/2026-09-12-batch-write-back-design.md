@@ -218,33 +218,40 @@ divergence count that drives it.
 
 ---
 
-## What retires once this lands
+## What retired
 
 **Raised by Shane, 2026-09-12: "features like backup and load are useless if it's all plugged
-in."** Correct. Three controls in the header exist only because the planner had no connection:
+in."** Correct. Three controls in the header existed only because the planner had no connection:
 
-| Control | What it does today | After |
+| Control | What it did | Status |
 |---|---|---|
-| **Backup** | downloads the whole `localStorage` state as JSON | retire |
-| **Restore** | uploads that JSON and replaces everything | retire |
-| **Load from D2** | opens a *file picker* for the export script's download | keep the button, drop the file picker — it reads live |
+| **Backup** | downloaded the whole `localStorage` state as JSON | **Retired** |
+| **Restore** | uploaded that JSON and replaced everything | **Retired** |
+| **Load from D2** | opens a *file picker* for the export script's download | Kept — the file picker is still there; it reads live only once Route B lands |
 
-**Sequencing, and it is the whole point of this section: they retire WITH the live connection,
-not before.** Until the app reads SharePoint on open, Backup and Restore are the only recovery
-from a cleared `localStorage`, a different browser, or a second machine. Removing them first
-would take away the safety net before the thing that replaces it exists.
+**RETIRED SAME DAY, AHEAD OF THE SEQUENCING BELOW.** `web/index.html` carries neither control as
+of 2026-09-12. The reasoning that follows argued they should retire *with* the live connection,
+not before — that argument stood when this section was drafted, and it is kept below as the
+record of the tradeoff, not as a description of what the code currently does. `Load from D2` still
+opens a file picker; Route B (the app reading SharePoint live on open, with no file at all) has
+not landed, so the safety-net gap the reasoning below warns about is real today, not hypothetical.
 
-So the order is: Route B lands (the app loads live on open) → *then* Backup, Restore and the file
-picker come out in the same change. Retiring them under Route A would be premature, because Route
-A still passes a file by hand.
+**Sequencing, as originally argued: they should retire WITH the live connection, not before.**
+Until the app reads SharePoint on open, Backup and Restore were the only recovery from a cleared
+`localStorage`, a different browser, or a second machine. Removing them first takes away the
+safety net before the thing that replaces it exists — which is what happened.
 
-**`restore()` also goes**, and with it a whole-state replace path that has always been the one
-route capable of destroying a local sketch — it swaps `S` wholesale, which is precisely why
-`importFromD2` was written to merge instead. Removing it shrinks the app's blast radius.
+So the order that was meant to hold: Route B lands (the app loads live on open) → *then* Backup,
+Restore and the file picker come out in the same change. Retiring them under Route A was meant to
+be premature, because Route A still passes a file by hand — and Route A is still all that exists.
 
-**What replaces them:** nothing, for backup. SharePoint is the durable store and it has versioning
-on `Assignments`; the browser stops being a place where anything only exists. That is the actual
-point of plugging it in.
+**`restore()` also went**, and with it a whole-state replace path that had always been the one
+route capable of destroying a local sketch — it swapped `S` wholesale, which is precisely why
+`importFromD2` was written to merge instead. Removing it shrank the app's blast radius.
+
+**What replaced them:** nothing, for backup. SharePoint is meant to be the durable store, with
+versioning on `Assignments`; the browser is meant to stop being a place where anything only
+exists. That is the actual point of plugging it in — once Route B actually lands.
 
 ---
 

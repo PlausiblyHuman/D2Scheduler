@@ -53,8 +53,10 @@
  * for a sign-off and must never be its authority. ScheduledFinish is derived
  * on the planner side (`workSpan(start,days).pop()`, the same arithmetic the
  * flows use) and is never sent either. The create path has no allowlist of
- * this kind because it writes exactly five fixed fields on a brand-new row --
- * see step 4b below -- never anything the caller supplies a column name for.
+ * this kind because it writes exactly six fixed fields on a brand-new row --
+ * Title, JobNumber, Address, City, StartDate, AssignDefaultCrews, plus the
+ * resolved ProjectManagerId -- see step 4b and step 8b below -- never
+ * anything the caller supplies a column name for.
  *
  * SuppressReconcileUntil is set a few minutes ahead in the same MERGE as
  * every EDIT write, exactly as `D2 - Reschedule Pool` does, so a batch does
@@ -282,7 +284,12 @@
     createsByJobno.set(jobno, {
       jobno, name: String(c.name).trim(),
       addr: c.addr ? String(c.addr) : '', city: c.city ? String(c.city) : '',
-      start: day(c.start)
+      start: day(c.start),
+      // Defaults true (matches the list's own schema default and how every
+      // real pool has been built so far) when a change-set omits the field
+      // entirely -- an older planner build that predates this checkbox still
+      // produces a valid create. Only an explicit `false` turns it off.
+      assignDefaultCrews: c.assignDefaultCrews === false ? false : true
     });
   });
   const creates = [...createsByJobno.values()];
@@ -484,7 +491,19 @@
           __metadata: { type: createEntityType },
           Title: c.name, JobNumber: c.jobno,
           Address: c.addr || '', City: c.city || '',
-          StartDate: c.start, ProjectManagerId: pmId
+          StartDate: c.start, ProjectManagerId: pmId,
+          // Required on the list (sharepoint/provision-pool-lists.js), with a
+          // schema default of true -- but SET EXPLICITLY rather than relying
+          // on that default. The only thing proven about SharePoint applying
+          // a column default to an omitted required field on this tenant is
+          // the New-FORM case (Status hidden, still defaults to Requested).
+          // Nothing here proves the same for a plain REST create, and if it
+          // does not, `D2 - New Pool` reads a missing/falsy value as "leave
+          // everything unassigned" -- all 46 sub-phases land `unassigned`
+          // with no error anywhere, which reads as the tool being broken, not
+          // as a setting. Sending it explicitly means the question never
+          // comes up.
+          AssignDefaultCrews: !!c.assignDefaultCrews
         })
       });
       if (!r.ok) throw new Error(r.status + ' ' + (await r.text()).slice(0, 300));

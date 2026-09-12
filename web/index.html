@@ -792,12 +792,13 @@ function vJobs(){
   const pendingCard=pend.length?`<div class="card"><h2>Pending Pool Requests<span class="sp"></span>
       <span class="muted small" style="text-transform:none">Queued here — pushed to SharePoint by Save</span></h2>
     <table><thead><tr><th style="width:92px">Job ID</th><th>Name</th><th>Address</th><th style="width:100px">Start</th>
-      <th style="width:230px">Status</th><th></th></tr></thead><tbody>
+      <th style="width:100px">Crews</th><th style="width:230px">Status</th><th></th></tr></thead><tbody>
     ${pend.map(c=>`<tr>
       <td class="mono small">${esc(c.jobno)}</td>
       <td>${esc(c.name)}</td>
       <td class="small muted">${esc([c.addr,c.city].filter(Boolean).join(', '))}</td>
       <td class="small muted">${pretty(c.start)}</td>
+      <td class="small muted">${c.assignDefaultCrews?'Assign':'Unassigned'}</td>
       <td class="small">${c.requestedAt
         ?`Requested ${freshStamp(c.requestedAt)} — allow 10–15 min, then Load from D2`
         :'<span class="chip jb local">Not yet pushed</span> — press Save'}</td>
@@ -982,7 +983,12 @@ function addJob(){
     <div class="row">
       <div class="fld"><label>City</label><input id="ncCity" placeholder="City"></div>
       <div class="fld"><label>Start date</label><input type="date" id="ncStart" value="${nextWork(todayStr())}"></div>
-    </div>`;
+    </div>
+    <div class="fld"><label><input type="checkbox" id="ncAssignCrews" checked> Assign default crews</label>
+      <div class="hint" style="padding:4px 0 0">Checked pulls each sub-phase's default crew from the
+      template (rule 1 is checked nightly by D2 - Crew Trade Check either way, never enforced at
+      creation). Unchecked leaves all 46 sub-phases <span class="mono">unassigned</span> for a PM to
+      allocate by hand.</div></div>`;
   document.getElementById('dFoot').innerHTML=
     `<button class="btn p" id="ncSubmit" onclick="confirmNewPoolRequest()">Queue request</button>
      <button class="btn" onclick="closeDrawer()">Cancel</button>`;
@@ -1000,12 +1006,13 @@ function confirmNewPoolRequest(){
   const addr=document.getElementById('ncAddr').value.trim();
   const city=document.getElementById('ncCity').value.trim();
   const start=document.getElementById('ncStart').value;
+  const assignDefaultCrews=document.getElementById('ncAssignCrews').checked;
   if(!jobno||!name||!start){alert('Job number, pool name and start date are all required.');return;}
   S.pendingCreates=S.pendingCreates||[];
   if(S.jobs.some(j=>String(j.jobno)===jobno)||S.pendingCreates.some(c=>c.jobno===jobno)){
     alert(jobno+' is already in use here — pick a different job number.');return;}
   S.pendingCreates.push({id:'pc'+Math.random().toString(36).slice(2,8),
-    jobno,name,addr,city,start,queuedAt:new Date().toISOString(),requestedAt:null});
+    jobno,name,addr,city,start,assignDefaultCrews,queuedAt:new Date().toISOString(),requestedAt:null});
   closeDrawer();
   TAB='jobs';
   document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.t==='jobs'));
@@ -1216,7 +1223,8 @@ function buildChangeSet(){
    creation of a new one. */
 function buildPendingCreates(){
   return (S.pendingCreates||[]).filter(c=>!c.requestedAt)
-    .map(c=>({jobno:c.jobno,name:c.name,addr:c.addr||'',city:c.city||'',start:c.start}));
+    .map(c=>({jobno:c.jobno,name:c.name,addr:c.addr||'',city:c.city||'',start:c.start,
+      assignDefaultCrews:!!c.assignDefaultCrews}));
 }
 function downloadChangeSet(pools,creates){
   const stamp=fmt(new Date());
@@ -1271,7 +1279,8 @@ function openSavePreview(){
       <table><tbody>${creates.map(c=>`<tr><td class="small"><b>${esc(c.jobno)}</b></td>
         <td class="small">${esc(c.name)}</td>
         <td class="small muted">${esc([c.addr,c.city].filter(Boolean).join(', '))}</td>
-        <td class="small muted">${esc(pretty(c.start))}</td></tr>`).join('')}
+        <td class="small muted">${esc(pretty(c.start))}</td>
+        <td class="small muted">${c.assignDefaultCrews?'Assign default crews':'Leave unassigned'}</td></tr>`).join('')}
       </tbody></table></div>`:'')+
     pools.map(p=>`<div class="fld"><label>${esc(p.jobno)} · ${esc(p.name)} — ${p.sections.length} sub-phase${p.sections.length===1?'':'s'}</label>
       <table><tbody>${p.sections.map(sec=>Object.keys(sec.fields).map(col=>
