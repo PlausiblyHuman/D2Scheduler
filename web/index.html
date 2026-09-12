@@ -227,7 +227,10 @@ const SEED_CREWS = [
    straight to one of the three buckets above via these @-codes. */
 const FIXED={'@office':'office','@sub':'subcon','@unassigned':'unassigned'};
 const fixedCrew=sk=>FIXED[sk]?crew(FIXED[sk]):null;
-const isQualified=(c,sk)=>!sk?true:(FIXED[sk]?(c.id===FIXED[sk]||c.unlimited):c.skills.includes(sk));
+/* Must agree with qualified(), which for a FIXED code only ever offers the one
+   bucket crew that code names -- an unlimited crew outside that bucket is not
+   a qualified stand-in just because it is capacity-exempt. */
+const isQualified=(c,sk)=>!sk?true:(FIXED[sk]?c.id===FIXED[sk]:c.skills.includes(sk));
 
 /* ============================== dates ============================== */
 const pad=n=>String(n).padStart(2,'0');
