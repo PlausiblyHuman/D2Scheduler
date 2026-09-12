@@ -2089,6 +2089,60 @@ SharePoint's white header. A real header photo must come from D2's own project p
 
 ---
 
+## THE ENTRA APP REGISTRATION EXISTS — created 2026-09-12, consented tenant-wide
+
+This is what lets the planner read and write SharePoint from **any origin**, rather than only from
+a page served by SharePoint itself. It needs **no Azure subscription**: app registrations are an
+Entra feature and D2's tenant already existed. Hosting is a separate, still-open question.
+
+| | |
+|---|---|
+| Display name | `D2 Build Scheduler (planner)` |
+| **Client (app) id** | `1aa00e61-e5e7-42bd-95b4-fd58863e5b54` |
+| App object id | `fe3739d0-6cd8-4213-96aa-45786ecaa6d7` |
+| Service principal object id | `87f681ec-a4a4-47df-8423-8fc28c2d2324` |
+| Tenant | `f24d9b39-6a71-4f4e-a376-03b6f61c97e4` |
+| Platform | **SPA** (`spa.redirectUris`), NOT `web` |
+| Redirect URIs | `http://localhost:8787` and `http://localhost:8787/` |
+| Sign-in audience | `AzureADMyOrg` (single tenant) |
+| Graph permission | **delegated `Sites.ReadWrite.All`**, id `89fe6a52-be36-487e-b7d8-d061c450a026` |
+| Consent | granted tenant-wide, `consentType: AllPrincipals` |
+
+**SPA, not web, and that is load-bearing.** A SPA app uses auth-code + PKCE and holds **no client
+secret** — there is no credential to leak into a static file or a repo. Registering it under `web`
+would have implied a confidential client and a secret this design must never have.
+
+**The scope is DELEGATED, so the app grants nothing on its own.** Effective access is always the
+signed-in user's own SharePoint permission: a PM in the Members group gets Edit, a visitor gets
+Read. `Sites.ReadWrite.All` was chosen over `Sites.Read.All` so the write-back needs no second
+consent round, not because anything needed broader rights.
+
+**Redirect URI is localhost only, deliberately** — there is no hosting yet. Add the Static Web App
+URL alongside it when that lands; MSAL accepts several. `8787` matches the port the local static
+server already uses for rendering the planner.
+
+**TRAP, cost a cycle: `az ad app permission admin-consent` FAILS if you have already run
+`az ad sp create`.** It tries to create the service principal itself and returns
+`Request_BadRequest ... service principal name is already present for the tenant`, which reads like
+a permissions problem and is not. Grant the consent directly instead, by POSTing an
+`oauth2PermissionGrant` to Graph with `clientId` = the **service principal** object id (not the app
+id), `resourceId` = the Microsoft Graph service principal's object id **in this tenant**
+(`257f1ab3-2be6-47f9-aec2-171b6c381ed1`, which is tenant-specific — look it up, never hard-code it
+from another tenant), `consentType: "AllPrincipals"`, and `scope` as the space-separated scope
+names. Verify by reading `oauth2PermissionGrants` back; the `az` command's own exit code is not
+trustworthy here, since it returned 0 while printing the failure.
+
+**What this does NOT unblock:** hosting. Static Web Apps still needs an Azure subscription, which
+still needs a payment method and the ownership decision.
+
+**Next use of it:** capture a real Graph payload into `fixtures/planner/live-payloads-graph.json`
+**before** writing any Graph mapping code. Graph is a **third** field-shape surface alongside raw
+REST and the Power Automate connector; the existing REST fixture does not validate it. Delegated
+auth needs an interactive sign-in, so the capture wants a small MSAL page served on
+`http://localhost:8787` — roughly 40 lines, and it is the first real piece of the hosted app.
+
+---
+
 ## OVERNIGHT 2026-09-12 — write-back specced, three rule bugs closed
 
 Done unattended while Shane slept, authorised in advance, all of it offline and reversible. No
