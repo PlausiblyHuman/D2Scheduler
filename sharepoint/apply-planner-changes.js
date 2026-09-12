@@ -60,10 +60,14 @@
  * ROW IDENTITY IS VERIFIED, NOT TRUSTED. A change-set names a row by its
  * SharePoint id alone. Before any field on that row is compared or written,
  * the row's live `Title` (e.g. "D2-1042 · 2.1 Engineering Review by PM")
- * is checked against the change-set's own jobno and sub-phase number. This is
- * a plain includes check, deliberately not an exact-format match -- the
- * separator is a non-ASCII middle dot, and this project has already lost time
- * once assuming an exact rendered shape instead of reading it. A mismatch
+ * is checked against the change-set's own jobno and sub-phase number, TOKEN-
+ * anchored on the spaces the format always carries around each part --
+ * deliberately not an exact-format match on the whole string, since the
+ * separator is a non-ASCII middle dot and this project has already lost time
+ * once assuming an exact rendered shape instead of reading it. A plain
+ * substring test is not enough: "2.1" is a substring of "2.10", and once any
+ * phase group gains a tenth sub-phase that would silently write a "2.1" edit
+ * onto a "2.10" row. See `titleMatches` for the exact anchoring. A mismatch
  * refuses the whole row and reports it; nothing about a mismatched row is
  * ever compared or written. The live Title is also what the dry-run plan
  * prints, so a human reviewing it is reading SharePoint's own account of the
@@ -197,11 +201,23 @@
   const live = await all("/_api/web/lists/GetByTitle('Assignments')/items" + SELECT);
   const liveById = new Map(live.map(r => [r.Id, r]));
 
-  // Plain includes check, deliberately not an exact-format match -- see the
-  // header comment ("ROW IDENTITY IS VERIFIED, NOT TRUSTED").
+  // Token-anchored, deliberately not an exact-format match -- see the header
+  // comment ("ROW IDENTITY IS VERIFIED, NOT TRUSTED"). A plain substring test
+  // on `num` alone matched "2.1" inside "2.10" -- a real row could silently
+  // take another sub-phase's write once a phase group reaches a tenth
+  // sub-phase. `jobno` had the same hole: "D2-104" matched "D2-1042". Anchor
+  // both on the spaces the format always carries around them (jobno is
+  // always followed by a space before the middle dot; num is always preceded
+  // by a space and, since a name always follows it in this project's
+  // template, followed by one too -- `endsWith` covers the case where it
+  // does not). Do not anchor on the middle dot itself; it is non-ASCII and
+  // this project has already lost time once assuming an exact rendered shape
+  // instead of reading it.
   function titleMatches(title, jobno, num) {
     if (typeof title !== 'string' || !title) return false;
-    return title.indexOf(String(jobno)) === 0 && title.includes(String(num));
+    const j = String(jobno), n = String(num);
+    if (!title.startsWith(j + ' ')) return false;
+    return title.includes(' ' + n + ' ') || title.endsWith(' ' + n);
   }
 
   // ---- 5. compare-before-write, per FIELD, not per row. A row with two

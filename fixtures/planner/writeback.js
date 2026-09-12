@@ -335,6 +335,80 @@ async function partB() {
        out.rowsMismatched === 0 && out.rowsWritten === 1, JSON.stringify(out));
   }
 
+  // ---- Finding 2, round 2: titleMatches must be TOKEN-anchored, not a plain
+  // substring test. Reproduces the re-reviewer's exact exploit -- a row
+  // genuinely titled sub-phase "2.10" must not be mistaken for "2.1" just
+  // because "2.1" is a substring of "2.10". Dormant against today's live data
+  // (the 46-row template tops out at single digits), armed the moment any
+  // phase group gains a tenth sub-phase. ----
+  {
+    const store = makeStore([baseRow(97, 'D2-1042', '2.10')]);
+    store[0].Title = 'D2-1042 · 2.10 Some Other Row'; // genuinely 2.10, not 2.1
+    const cs = { kind: 'd2-planner-changeset', pools: [{ jobno: 'D2-1042', name: 'Reyes', sections: [
+      { id: 97, num: '2.1', name: 'Steel', fields: { Crew: { from: 'devon', to: 'saul' } } } // asks for 2.1
+    ] }] };
+    const { out, calls } = await runApply(loadApplySource(true), cs, store);
+    const merges = calls.filter(c => c.headers && c.headers['X-HTTP-Method'] === 'MERGE');
+    ok('"2.1" does not match a row genuinely titled "2.10" -- refused as mismatched, not written',
+       out.rowsMismatched === 1 && out.rowsWritten === 0 && merges.length === 0, JSON.stringify(out));
+  }
+  // ---- the jobno side has the same substring hole: "D2-104" must not match
+  // a row actually titled "D2-1042 · ...". ----
+  {
+    const store = makeStore([baseRow(98, 'D2-1042', '3.1')]);
+    const cs = { kind: 'd2-planner-changeset', pools: [{ jobno: 'D2-104', name: 'Wrong Pool', sections: [
+      { id: 98, num: '3.1', name: 'Steel', fields: { Crew: { from: 'devon', to: 'saul' } } }
+    ] }] };
+    const { out, calls } = await runApply(loadApplySource(true), cs, store);
+    const merges = calls.filter(c => c.headers && c.headers['X-HTTP-Method'] === 'MERGE');
+    ok('"D2-104" does not match a row actually titled "D2-1042" -- refused as mismatched, not written',
+       out.rowsMismatched === 1 && out.rowsWritten === 0 && merges.length === 0, JSON.stringify(out));
+  }
+  // ---- the num anchor's "last token" branch (endsWith), for a Title with no
+  // name after the number at all -- never produced by this project's own
+  // template (a name always follows), but titleMatches must not assume that,
+  // since it is reading a live column, not something it generated itself. ----
+  {
+    const store = makeStore([baseRow(94, 'D2-1042', '7.0')]);
+    store[0].Title = 'D2-1042 · 7.0'; // num is the LAST token, nothing after it
+    const cs = { kind: 'd2-planner-changeset', pools: [{ jobno: 'D2-1042', name: 'Reyes', sections: [
+      { id: 94, num: '7.0', name: 'X', fields: { Crew: { from: 'devon', to: 'saul' } } }
+    ] }] };
+    const { out } = await runApply(loadApplySource(true), cs, store);
+    ok('a Title ending exactly at the sub-phase number still matches (the endsWith fallback)',
+       out.rowsMismatched === 0 && out.rowsWritten === 1, JSON.stringify(out));
+  }
+  // ---- and the same last-token shape must still refuse a substring
+  // impostor: Title ends at "7.0" but the change-set asks for "7." (a
+  // pathological but not impossible malformed num) ----
+  {
+    const store = makeStore([baseRow(93, 'D2-1042', '7.0')]);
+    store[0].Title = 'D2-1042 · 7.0';
+    const cs = { kind: 'd2-planner-changeset', pools: [{ jobno: 'D2-1042', name: 'Reyes', sections: [
+      { id: 93, num: '7.', name: 'X', fields: { Crew: { from: 'devon', to: 'saul' } } }
+    ] }] };
+    const { out } = await runApply(loadApplySource(true), cs, store);
+    ok('a truncated num does not match via the endsWith fallback either',
+       out.rowsMismatched === 1 && out.rowsWritten === 0, JSON.stringify(out));
+  }
+  // ---- the guard must not be so strict it refuses the LEGITIMATE cases --
+  // every one of the 46 real sub-phase numbers against a correctly-titled
+  // row, boundary cases included: "0.0" (first), "7.0" (last group), and
+  // "6.9" (the token immediately before a would-be double-digit number). ----
+  {
+    let ok46 = true, bad = [];
+    for (const num of ['0.0', '6.9', '7.0', '2.1', '3.10' /* a real future double-digit, once armed */]) {
+      const store = makeStore([baseRow(99, 'D2-1042', num)]);
+      const cs = { kind: 'd2-planner-changeset', pools: [{ jobno: 'D2-1042', name: 'Reyes', sections: [
+        { id: 99, num, name: 'X', fields: { Crew: { from: 'devon', to: 'saul' } } }
+      ] }] };
+      const { out } = await runApply(loadApplySource(true), cs, store);
+      if (out.rowsMismatched !== 0 || out.rowsWritten !== 1) { ok46 = false; bad.push(num); }
+    }
+    ok('a correctly-titled row still matches for every sub-phase-number shape, single- and double-digit alike',
+       ok46, 'failed on: ' + bad.join(','));
+  }
+
   // ---- Finding 3: the write side normalizes a date exactly like the read
   // side already does. A change-set carrying a full timestamp (never emitted
   // by the planner today, but nothing stops a hand-edited or future file)
