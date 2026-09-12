@@ -215,13 +215,18 @@ const baseRow = (id, jobno = 'D2-1042', num = '0.0') => ({
 // that one bad row does not stop the rest of the batch.
 //
 // cfg.jobsStore: live Jobs rows ({JobNumber}) for the creates uniqueness
-// check. cfg.requestsStore: live New Pool Requests rows -- a successful
-// create appends to it (unless its jobno is in cfg.createSilentDropJobnos,
-// mirroring silentDropIds above but for the create path's own verify-after-
-// write pass), so a second run or the post-create verify read sees it.
-// cfg.createFailJobnos: the create POST returns a genuine error for that
-// jobno. cfg.currentUserId: the id /_api/web/currentuser resolves to for
-// ProjectManagerId (default 42).
+// check. cfg.requestsStore: live New Pool Requests rows -- serves BOTH the
+// F2 pending-request uniqueness read ({JobNumber,Status}) and the post-create
+// verify read; a successful create appends to it (unless its jobno is in
+// cfg.createSilentDropJobnos, mirroring silentDropIds above but for the
+// create path's own verify-after-write pass), so a second run or the
+// post-create verify read sees it. cfg.createFailJobnos: the create POST
+// returns a genuine error for that jobno. cfg.currentUserId: the id
+// /_api/web/currentuser resolves to for ProjectManagerId (default 42).
+// cfg.currentUserOk: false simulates currentuser returning a non-ok status
+// (a lapsed session) -- F1. cfg.currentUserMissingId: true simulates
+// currentuser returning 200 with a JSON body that parses but carries no `Id`
+// (an error body that still parses as JSON) -- also F1.
 function runApply(src, cs, store, cfg = {}) {
   const silentDropIds = cfg.silentDropIds || new Set();
   const failIds = cfg.failIds || new Set();
@@ -230,6 +235,8 @@ function runApply(src, cs, store, cfg = {}) {
   const createFailJobnos = cfg.createFailJobnos || new Set();
   const createSilentDropJobnos = cfg.createSilentDropJobnos || new Set();
   const currentUserId = cfg.currentUserId != null ? cfg.currentUserId : 42;
+  const currentUserOk = cfg.currentUserOk !== false;
+  const currentUserMissingId = !!cfg.currentUserMissingId;
   return new Promise((resolve, reject) => {
     const calls = [];
     const fakeFile = { name: 'changes.json', text: async () => JSON.stringify(cs) };
@@ -256,6 +263,16 @@ function runApply(src, cs, store, cfg = {}) {
         return { ok: true, status: 200, json: async () => ({ value: jobsStore.map(r => ({ ...r })) }) };
       }
       if (/_api\/web\/currentuser/.test(url)) {
+        // The !ok response still has a working .json() -- a real SharePoint
+        // error response usually does too. If the mock's !ok branch could
+        // not be JSON-parsed at all, removing the r.ok check would crash on
+        // cuResp.json() regardless of whether the check ever ran, which
+        // would make a mutation of that check pass this test for the wrong
+        // reason. Giving it a real (if empty) body means removing the r.ok
+        // check actually falls through to -- and depends on -- the SEPARATE
+        // pmId-null guard, which is what the test needs to isolate.
+        if (!currentUserOk) return { ok: false, status: 403, json: async () => ({ 'odata.error': { message: { value: 'session lapsed' } } }), text: async () => 'session lapsed' };
+        if (currentUserMissingId) return { ok: true, status: 200, json: async () => ({ 'odata.error': { message: { value: 'weird body, no Id' } } }) };
         return { ok: true, status: 200, json: async () => ({ Id: currentUserId }) };
       }
       if (/GetByTitle\('New Pool Requests'\)\?\$select=ListItemEntityTypeFullName/.test(url)) {
@@ -268,7 +285,14 @@ function runApply(src, cs, store, cfg = {}) {
         const body = JSON.parse(opts.body);
         if (createFailJobnos.has(body.JobNumber)) return { ok: false, status: 500, text: async () => 'simulated create failure' };
         if (!createSilentDropJobnos.has(body.JobNumber)) {
-          requestsStore.push({ Id: 900 + requestsStore.length, Title: body.Title, JobNumber: body.JobNumber, StartDate: body.StartDate, ProjectManagerId: body.ProjectManagerId });
+          const row = { Id: 900 + requestsStore.length, Title: body.Title, JobNumber: body.JobNumber,
+            StartDate: body.StartDate, ProjectManagerId: body.ProjectManagerId, AssignDefaultCrews: body.AssignDefaultCrews };
+          // Simulates a write landing with one or more fields corrupted or
+          // ignored -- the exact "200/201 and does nothing (to THIS field)"
+          // signature, narrowed to specific columns rather than the whole row.
+          const corrupt = (cfg.createCorruptFields || {})[body.JobNumber];
+          if (corrupt) Object.assign(row, corrupt);
+          requestsStore.push(row);
         }
         return { ok: true, status: 201, json: async () => ({ d: { ID: 900 } }), text: async () => '' };
       }
@@ -725,6 +749,154 @@ async function partB() {
       { jobsStore: [], requestsStore: [], createSilentDropJobnos: new Set(['D2-1054']) });
     ok('verify-after-write catches a create that reported success but did not actually land',
        out.createVerifyMismatch.length === 1 && out.createVerifyMismatch[0].jobno === 'D2-1054', JSON.stringify(out.createVerifyMismatch));
+  }
+
+  /* ====================================================================
+   * FIX ROUND 2/5 -- reviewer findings F1-F4 plus the M7 test gap.
+   * ==================================================================== */
+
+  // ---- F1a: currentuser returning a non-ok status aborts BEFORE any create
+  // POST -- never a create with a blank ProjectManager. ----
+  {
+    const store = makeStore([]);
+    const cs = { kind: 'd2-planner-changeset', pools: [], creates: [
+      { jobno: 'D2-1070', name: 'Lapsed Session Pool', addr: '', city: '', start: '2026-12-21' }
+    ] };
+    const { out, calls } = await runApply(loadApplySource(true), cs, store,
+      { jobsStore: [], requestsStore: [], currentUserOk: false });
+    const createPosts = calls.filter(c => c.method === 'POST' && /New Pool Requests/.test(decodeURIComponent(c.url)) && /\/items$/.test(c.url));
+    // Asserts the SPECIFIC r.ok-check message, not merely "it aborted" --
+    // the separate pmId-null guard would also abort safely if only the r.ok
+    // check were removed (this mock's error body never happens to contain a
+    // real Id), so a looser assertion would not actually prove the r.ok
+    // check exists. Naming the status code and "resolving the current user"
+    // is what a PM/dev needs to tell "session lapsed" apart from "resolved,
+    // but no numeric id" -- the finding's whole point.
+    ok('currentuser returning a non-ok status aborts before any create POST, with a message naming the failed status check',
+       createPosts.length === 0 && out.createsRequested === 0 && out.aborted === true &&
+       /403/.test(out.abortedError) && /resolving the current user/.test(out.abortedError), JSON.stringify(out));
+  }
+
+  // ---- F1b: currentuser returning 200 with a body that parses but carries
+  // no Id -- exactly the failure mode named in the finding: `.json()`
+  // succeeds, `cu.Id` is `undefined`, and without the guard
+  // `JSON.stringify` would silently drop ProjectManagerId from the POST
+  // while the row still lands 201. ----
+  {
+    const store = makeStore([]);
+    const cs = { kind: 'd2-planner-changeset', pools: [], creates: [
+      { jobno: 'D2-1072', name: 'No Id Pool', addr: '', city: '', start: '2026-12-23' }
+    ] };
+    const { out, calls } = await runApply(loadApplySource(true), cs, store,
+      { jobsStore: [], requestsStore: [], currentUserMissingId: true });
+    const createPosts = calls.filter(c => c.method === 'POST' && /New Pool Requests/.test(decodeURIComponent(c.url)) && /\/items$/.test(c.url));
+    ok('currentuser resolving to no Id aborts before any create POST, never a create with a blank ProjectManager',
+       createPosts.length === 0 && out.createsRequested === 0 && out.aborted === true, JSON.stringify(out));
+  }
+
+  // ---- F1c: step 9b's verify-after-write also compares ProjectManagerId and
+  // AssignDefaultCrews, not just Title and StartDate -- a create that landed
+  // with the right name and date but the wrong PM used to verify as clean. ----
+  {
+    const store = makeStore([]);
+    const cs = { kind: 'd2-planner-changeset', pools: [], creates: [
+      { jobno: 'D2-1073', name: 'Wrong PM Pool', addr: '', city: '', start: '2026-12-24' }
+    ] };
+    const { out } = await runApply(loadApplySource(true), cs, store, {
+      jobsStore: [], requestsStore: [], currentUserId: 55,
+      createCorruptFields: { 'D2-1073': { ProjectManagerId: 999 } }
+    });
+    ok('verify-after-write catches a create that landed with the wrong ProjectManagerId even though Title/StartDate matched',
+       out.createVerifyMismatch.length === 1 && out.createVerifyMismatch[0].jobno === 'D2-1073', JSON.stringify(out.createVerifyMismatch));
+  }
+
+  // ---- F4: a throw resolving the current user does not swallow what already
+  // landed. An edit in scope alongside a create whose PM cannot be resolved
+  // must still be reported as written, and the script must still produce a
+  // summary rather than a bare rejection. ----
+  {
+    const store = makeStore([baseRow(600, 'D2-1042', '6.1')]);
+    const cs = { kind: 'd2-planner-changeset',
+      pools: [{ jobno: 'D2-1042', name: 'Reyes', sections: [
+        { id: 600, num: '6.1', name: 'Coping', fields: { Crew: { from: 'devon', to: 'saul' } } }
+      ] }],
+      creates: [{ jobno: 'D2-1071', name: 'Aborted PM Pool', addr: '', city: '', start: '2026-12-22' }]
+    };
+    const { out, store: after } = await runApply(loadApplySource(true), cs, store,
+      { jobsStore: [], requestsStore: [], currentUserOk: false });
+    ok('a throw resolving the current user does not stop the summary from printing, and reports the abort',
+       out.aborted === true && typeof out.abortedError === 'string' && out.abortedError.length > 0, JSON.stringify(out));
+    ok('the field edit that already landed before the abort is still reported as written',
+       out.rowsWritten === 1 && after[0].Crew === 'saul', JSON.stringify(after));
+    ok('no create was raised once currentuser could not be resolved',
+       out.createsRequested === 0, JSON.stringify(out));
+  }
+
+  // ---- F2: the uniqueness check also covers pending New Pool Requests rows
+  // sitting at Requested or Building -- not just live Jobs. D2 - New Pool
+  // does not create the Jobs row until minutes into its own run, so a PM
+  // re-running the same downloaded change-set (plausible: the request sits
+  // at Building looking stuck for 9-15 minutes, and the HOW TO RUN trains a
+  // re-run) would otherwise sail past a Jobs-only check and raise a second
+  // request for the same job number. ----
+  {
+    const store = makeStore([]);
+    const cs = { kind: 'd2-planner-changeset', pools: [], creates: [
+      { jobno: 'D2-1061', name: 'Second Attempt', addr: '', city: '', start: '2026-12-20' }
+    ] };
+    const { out, calls } = await runApply(loadApplySource(true), cs, store,
+      { jobsStore: [], requestsStore: [{ Id: 1, JobNumber: 'D2-1061', Status: 'Building' }] });
+    const createPosts = calls.filter(c => c.method === 'POST' && /New Pool Requests/.test(decodeURIComponent(c.url)) && /\/items$/.test(c.url));
+    ok('a job number already sitting in a Requested/Building New Pool Requests row is refused, not raised again',
+       out.createsBlocked === 1 && out.createsRequested === 0 && createPosts.length === 0, JSON.stringify(out));
+  }
+  // ---- F2, other direction: a request that already reached Done or Failed
+  // must NOT block its own job number -- Done means the Jobs row already
+  // exists (the plain Jobs check covers it); Failed means the number never
+  // actually got used. ----
+  {
+    const store = makeStore([]);
+    const cs = { kind: 'd2-planner-changeset', pools: [], creates: [
+      { jobno: 'D2-1062', name: 'Retry After Failure', addr: '', city: '', start: '2026-12-20' }
+    ] };
+    const { out, calls } = await runApply(loadApplySource(true), cs, store,
+      { jobsStore: [], requestsStore: [{ Id: 2, JobNumber: 'D2-1062', Status: 'Failed' }], currentUserId: 42 });
+    const createPost = calls.find(c => c.method === 'POST' && /New Pool Requests/.test(decodeURIComponent(c.url)) && /\/items$/.test(c.url));
+    ok('a job number whose only prior request Failed is NOT blocked -- that number never actually got used',
+       out.createsBlocked === 0 && out.createsRequested === 1 && !!createPost, JSON.stringify(out));
+  }
+
+  // ---- F3: the uniqueness check is case- and whitespace-insensitive, to
+  // match SharePoint's own case-insensitive $filter on a Text column. A
+  // change-set job number differing only in case or surrounding whitespace
+  // from a live one must still be refused here, not sail through and get
+  // refused ten minutes later by the flow instead. ----
+  {
+    const store = makeStore([]);
+    const cs = { kind: 'd2-planner-changeset', pools: [], creates: [
+      { jobno: '  d2-1042  ', name: 'Case Test Pool', addr: '', city: '', start: '2026-12-26' }
+    ] };
+    const { out, calls } = await runApply(loadApplySource(true), cs, store, { jobsStore: [{ JobNumber: 'D2-1042' }] });
+    const createPosts = calls.filter(c => c.method === 'POST' && /New Pool Requests/.test(decodeURIComponent(c.url)) && /\/items$/.test(c.url));
+    ok('a job number differing only in case/whitespace from a live one is still refused',
+       out.createsBlocked === 1 && out.createsRequested === 0 && createPosts.length === 0, JSON.stringify(out));
+  }
+
+  // ---- M7 (test gap closed): a change-set carrying two creates with the
+  // SAME job number must never raise both -- that branch is the only thing
+  // stopping one change-set from building the same pool twice, and it had no
+  // coverage at all before this test. Neither copy is raised; the collision
+  // is reported instead. ----
+  {
+    const store = makeStore([]);
+    const cs = { kind: 'd2-planner-changeset', pools: [], creates: [
+      { jobno: 'D2-1080', name: 'First Copy', addr: '', city: '', start: '2026-12-28' },
+      { jobno: 'D2-1080', name: 'Second Copy', addr: '', city: '', start: '2026-12-29' }
+    ] };
+    const { out, calls } = await runApply(loadApplySource(true), cs, store, { jobsStore: [], requestsStore: [] });
+    const createPosts = calls.filter(c => c.method === 'POST' && /New Pool Requests/.test(decodeURIComponent(c.url)) && /\/items$/.test(c.url));
+    ok('a change-set carrying two creates with the same job number never raises either, and reports the collision',
+       out.createsRejected === 1 && out.createsRequested === 0 && createPosts.length === 0, JSON.stringify(out));
   }
 }
 

@@ -39,9 +39,24 @@
  * wrong is the SAME job number already being in use, which the planner and
  * `D2 - New Pool` have never checked against each other (D10 in
  * docs/planner-vs-sharepoint-parity.md: two independent job-number
- * generators, no check between them). So this re-reads live Jobs once for
- * the whole batch and refuses any create whose job number already exists.
- * REFUSED, NEVER SILENTLY RENAMED -- a PM picked that number for a reason.
+ * generators, no check between them). So this re-reads live Jobs AND live
+ * New Pool Requests once each for the whole batch and refuses any create
+ * whose job number already appears in either. REFUSED, NEVER SILENTLY
+ * RENAMED -- a PM picked that number for a reason.
+ *
+ * BOTH LISTS, NOT JUST JOBS -- a fix, not a nicety. `D2 - New Pool` does not
+ * create the Jobs row until minutes into its own run (Building), so a PM who
+ * runs this script twice against the SAME downloaded change-set -- plausible,
+ * since the HOW TO RUN below trains a re-run and the request sits at
+ * Building looking stuck for 9-15 minutes -- would sail past a Jobs-only
+ * check both times and raise two New Pool Requests rows for one job number.
+ * Two pools racing to build is expensive to undo (`D2 - Delete Pool` is
+ * ~6 minutes each) for a trigger that is a PM doing something entirely
+ * reasonable. So the block set is live Jobs UNIONED with New Pool Requests
+ * rows whose Status is still `Requested` or `Building` -- a request that has
+ * already reached `Done` or `Failed` no longer blocks its own job number
+ * (Done means the Jobs row exists and the plain Jobs check already covers
+ * it; Failed means the number never actually got used).
  *
  * THE ALLOWLIST IS THE SAFETY PROPERTY OF THE EDIT PATH, enforced in code,
  * not assumed from what a file happens to contain. FIELD_DEFS below is the
@@ -145,6 +160,15 @@
   const H = { Accept: 'application/json;odata=nometadata' };
   const day = v => (v ? String(v).slice(0, 10) : null);
   const CHUNK = 8; // item writes may run in parallel; field CREATES on the same list must be sequential (see CLAUDE.md) -- not relevant here, this script never creates fields.
+  // Comparison key for a job number, used ONLY for equality/membership checks
+  // -- trimmed and lower-cased, because SharePoint's own `$filter=JobNumber
+  // eq '...'` is case-insensitive on a Text column while a plain JS Set is
+  // not. Without this, "d2-1042" sails past this script's uniqueness check
+  // and is then refused by `D2 - New Pool` ten minutes later -- safe
+  // direction, but a wasted round trip on exactly the check that exists to
+  // avoid one. The DISPLAYED/WRITTEN job number is never altered by this --
+  // only ever used as a map/set key.
+  const jobKey = v => String(v == null ? '' : v).trim().toLowerCase();
 
   const WAIT_WARNING = 'D2 - New Pool takes about 9 minutes measured -- allow 10-15 minutes. '
     + 'Each request sits at "Building" the whole time in New Pool Requests and looks stuck, but is not. '
@@ -264,24 +288,28 @@
   // job number BEFORE any network call -- the same discipline as step 4, on
   // a wholly different list. A create missing jobno/name/start cannot be
   // raised at all (New Pool Requests itself requires JobNumber, StartDate and
-  // Title); a job number repeated within one change-set is dropped entirely,
-  // both occurrences, never last-write-wins, for the same reason a repeated
-  // row id is dropped above. ----
+  // Title); a job number repeated within one change-set (case- and
+  // whitespace-insensitively, via jobKey -- see above) is dropped entirely,
+  // BOTH occurrences, never last-write-wins, for the same reason a repeated
+  // row id is dropped above: this is not the place to guess which copy was
+  // meant, and it is the only thing standing between one change-set and two
+  // New Pool Requests rows racing to build the same pool twice. ----
   const rejectedCreates = [];
-  const createsByJobno = new Map();
+  const createsByJobno = new Map(); // jobKey(jobno) -> the create entry
   (Array.isArray(cs.creates) ? cs.creates : []).forEach(c => {
     const jobno = c && c.jobno != null ? String(c.jobno).trim() : '';
+    const key = jobKey(jobno);
     const missing = REQUIRED_CREATE.filter(k => !(c && String(c[k] == null ? '' : c[k]).trim()));
     if (!jobno || missing.length) {
       rejectedCreates.push({ jobno: jobno || '(blank)', reason: 'missing required field(s): ' + (missing.join(', ') || 'jobno') });
       return;
     }
-    if (createsByJobno.has(jobno)) {
+    if (createsByJobno.has(key)) {
       rejectedCreates.push({ jobno, reason: 'duplicate job number in this change-set -- request dropped entirely' });
-      createsByJobno.delete(jobno);
+      createsByJobno.delete(key);
       return;
     }
-    createsByJobno.set(jobno, {
+    createsByJobno.set(key, {
       jobno, name: String(c.name).trim(),
       addr: c.addr ? String(c.addr) : '', city: c.city ? String(c.city) : '',
       start: day(c.start),
@@ -377,24 +405,35 @@
   if (missing.length) console.table(missing);
   if (mismatched.length) console.table(mismatched);
 
-  // ---- 6b. THE UNIQUENESS CHECK for CREATES. One read of live Jobs for the
-  // whole batch, exactly like the compare-before-write read above. A create
-  // whose job number is already live is refused, never silently renamed --
-  // a PM picked that number for a reason, and this is the check that has
-  // never existed (D10). Skipped entirely when there is nothing to create. ----
+  // ---- 6b. THE UNIQUENESS CHECK for CREATES. One read of live Jobs plus one
+  // read of live New Pool Requests for the whole batch, exactly like the
+  // compare-before-write read above. A create whose job number is already
+  // live -- as a Jobs row, OR as a New Pool Requests row still Requested or
+  // Building -- is refused, never silently renamed. See the header comment
+  // ("BOTH LISTS, NOT JUST JOBS") for why the second list is not optional.
+  // Skipped entirely when there is nothing to create. ----
   let createsPlanned = [], createsBlocked = [];
   if (creates.length) {
+    const PENDING_STATUSES = new Set(['Requested', 'Building']);
     const liveJobs = await all("/_api/web/lists/GetByTitle('Jobs')/items?$select=JobNumber&$top=5000");
-    const liveJobNumbers = new Set(liveJobs.map(r => String(r.JobNumber)));
+    const pendingRequests = await all("/_api/web/lists/GetByTitle('New Pool Requests')/items?$select=JobNumber,Status&$top=5000");
+    const inUse = new Map(); // jobKey(jobno) -> why it is blocked
+    liveJobs.forEach(r => inUse.set(jobKey(r.JobNumber), 'a Jobs row with this job number already exists live'));
+    pendingRequests.forEach(r => {
+      if (!PENDING_STATUSES.has(r.Status)) return;
+      const k = jobKey(r.JobNumber);
+      if (!inUse.has(k)) inUse.set(k, 'a New Pool Requests row with this job number is still ' + r.Status);
+    });
     creates.forEach(c => {
-      if (liveJobNumbers.has(c.jobno)) {
-        createsBlocked.push({ jobno: c.jobno, name: c.name, reason: 'a Jobs row with this job number already exists live -- refusing to create a duplicate pool' });
+      const why = inUse.get(jobKey(c.jobno));
+      if (why) {
+        createsBlocked.push({ jobno: c.jobno, name: c.name, reason: 'refusing to create a duplicate pool -- ' + why });
       } else {
         createsPlanned.push(c);
       }
     });
     console.log(createsPlanned.length + ' new pool request(s) planned. '
-      + createsBlocked.length + ' refused -- job number already exists live.');
+      + createsBlocked.length + ' refused -- job number already in use live.');
     if (createsPlanned.length) console.table(createsPlanned);
     if (createsBlocked.length) console.table(createsBlocked);
     if (createsPlanned.length) console.log(WAIT_WARNING);
@@ -411,7 +450,8 @@
       planned, refused, missing, mismatched, rejected,
       createsRequested: 0, wouldCreatePools: createsPlanned.length, createsBlocked: createsBlocked.length,
       createsRejected: rejectedCreates.length, createsFailed: [], createVerifyMismatch: [],
-      plannedCreates: createsPlanned, blockedCreates: createsBlocked, rejectedCreates
+      plannedCreates: createsPlanned, blockedCreates: createsBlocked, rejectedCreates,
+      aborted: false, abortedError: null
     };
   }
   if (!toWrite.length && !createsPlanned.length) {
@@ -421,128 +461,180 @@
       rowsMissing: missing.length, rowsMismatched: mismatched.length, fieldsRejected: rejected.length,
       failed: [], verifyMismatch: [],
       createsRequested: 0, createsBlocked: createsBlocked.length, createsRejected: rejectedCreates.length,
-      createsFailed: [], createVerifyMismatch: []
+      createsFailed: [], createVerifyMismatch: [],
+      aborted: false, abortedError: null
     };
   }
 
-  // ---- 7. digest, shared by both paths -- it is site-wide, not list-
-  // specific, so one fetch covers a MERGE on Assignments and a POST on New
-  // Pool Requests alike. ----
-  const dg = await (await fetch(site + '/_api/contextinfo', {
-    method: 'POST', credentials: 'include', headers: { Accept: 'application/json;odata=verbose' }
-  })).json();
-  const digest = dg.d.GetContextWebInformation.FormDigestValue;
-
-  // ---- 8. write EDITS, in chunks of 8. Item writes may run in parallel; it
-  // is field CREATES on the same list that must be sequential (see
-  // CLAUDE.md) -- not applicable here, this script only creates ITEMS. ----
+  // ---- 7 THROUGH 9b: THE WRITE PHASE, wrapped in one try/catch. Every
+  // network call in here used to be unwrapped, so a throw ANYWHERE -- the
+  // digest fetch, either metadata read, `currentuser` -- aborted with a bare
+  // stack trace and printed no summary at all, even when field edits from
+  // step 8 had already landed for real. A single row's MERGE failure or a
+  // single create's POST failure never reaches this catch: both already have
+  // their OWN per-item try/catch below, which is what lets one bad row/create
+  // fail without stopping the rest of the batch. This outer catch is only for
+  // the surrounding machinery, which had no guard of any kind before this
+  // fix. failed/createdOk/createFailed/verifyMismatch/createVerifyMismatch
+  // are declared OUTSIDE the try so the catch block, and the summary built
+  // after it, can still see whatever was populated before an abort. ----
   const failed = [];
-  if (toWrite.length) {
-    const meta = await (await fetch(site + "/_api/web/lists/GetByTitle('Assignments')?$select=ListItemEntityTypeFullName",
-      { headers: H, credentials: 'include' })).json();
-    const entityType = meta.ListItemEntityTypeFullName;
-
-    async function mergeRow(id, body) {
-      const r = await fetch(site + "/_api/web/lists/GetByTitle('Assignments')/items(" + id + ")", {
-        method: 'POST', credentials: 'include',
-        headers: {
-          Accept: 'application/json;odata=verbose',
-          'Content-Type': 'application/json;odata=verbose',
-          'X-RequestDigest': digest,
-          'X-HTTP-Method': 'MERGE',
-          'IF-MATCH': '*'
-        },
-        body: JSON.stringify({ __metadata: { type: entityType }, ...body })
-      });
-      if (!r.ok) throw new Error(r.status + ' ' + (await r.text()).slice(0, 300));
-    }
-    for (let i = 0; i < toWrite.length; i += CHUNK) {
-      const chunk = toWrite.slice(i, i + CHUNK);
-      await Promise.all(chunk.map(async row => {
-        const body = { ...row.body, SuppressReconcileUntil: new Date(Date.now() + 10 * 60000).toISOString() };
-        try { await mergeRow(row.id, body); }
-        catch (e) { failed.push({ jobno: row.jobno, num: row.num, id: row.id, error: String(e.message || e) }); }
-      }));
-    }
-  }
-
-  // ---- 8b. create the New Pool Requests rows. ProjectManager is resolved
-  // ONCE, to the current signed-in user -- see the header comment for why
-  // that identity and not the change-set's own name/notes fields. Status and
-  // Result are never set: both are flow-owned, default to Requested, and are
-  // hidden from the New form (sharepoint/configure-request-lists.js). ----
   const createdOk = [], createFailed = [];
-  if (createsPlanned.length) {
-    const cu = await (await fetch(site + '/_api/web/currentuser', { headers: H, credentials: 'include' })).json();
-    const pmId = cu.Id;
-    const cMeta = await (await fetch(site + "/_api/web/lists/GetByTitle('New Pool Requests')?$select=ListItemEntityTypeFullName",
-      { headers: H, credentials: 'include' })).json();
-    const createEntityType = cMeta.ListItemEntityTypeFullName;
+  let verifyMismatch = [], createVerifyMismatch = [];
+  let abortedError = null;
 
-    async function createRequest(c) {
-      const r = await fetch(site + "/_api/web/lists/GetByTitle('New Pool Requests')/items", {
-        method: 'POST', credentials: 'include',
-        headers: {
-          Accept: 'application/json;odata=verbose',
-          'Content-Type': 'application/json;odata=verbose',
-          'X-RequestDigest': digest
-        },
-        body: JSON.stringify({
-          __metadata: { type: createEntityType },
-          Title: c.name, JobNumber: c.jobno,
-          Address: c.addr || '', City: c.city || '',
-          StartDate: c.start, ProjectManagerId: pmId,
-          // Required on the list (sharepoint/provision-pool-lists.js), with a
-          // schema default of true -- but SET EXPLICITLY rather than relying
-          // on that default. The only thing proven about SharePoint applying
-          // a column default to an omitted required field on this tenant is
-          // the New-FORM case (Status hidden, still defaults to Requested).
-          // Nothing here proves the same for a plain REST create, and if it
-          // does not, `D2 - New Pool` reads a missing/falsy value as "leave
-          // everything unassigned" -- all 46 sub-phases land `unassigned`
-          // with no error anywhere, which reads as the tool being broken, not
-          // as a setting. Sending it explicitly means the question never
-          // comes up.
-          AssignDefaultCrews: !!c.assignDefaultCrews
-        })
+  try {
+    // ---- 7. digest, shared by both paths -- it is site-wide, not list-
+    // specific, so one fetch covers a MERGE on Assignments and a POST on New
+    // Pool Requests alike. ----
+    const dg = await (await fetch(site + '/_api/contextinfo', {
+      method: 'POST', credentials: 'include', headers: { Accept: 'application/json;odata=verbose' }
+    })).json();
+    const digest = dg.d.GetContextWebInformation.FormDigestValue;
+
+    // ---- 8. write EDITS, in chunks of 8. Item writes may run in parallel;
+    // it is field CREATES on the same list that must be sequential (see
+    // CLAUDE.md) -- not applicable here, this script only creates ITEMS. ----
+    if (toWrite.length) {
+      const meta = await (await fetch(site + "/_api/web/lists/GetByTitle('Assignments')?$select=ListItemEntityTypeFullName",
+        { headers: H, credentials: 'include' })).json();
+      const entityType = meta.ListItemEntityTypeFullName;
+
+      async function mergeRow(id, body) {
+        const r = await fetch(site + "/_api/web/lists/GetByTitle('Assignments')/items(" + id + ")", {
+          method: 'POST', credentials: 'include',
+          headers: {
+            Accept: 'application/json;odata=verbose',
+            'Content-Type': 'application/json;odata=verbose',
+            'X-RequestDigest': digest,
+            'X-HTTP-Method': 'MERGE',
+            'IF-MATCH': '*'
+          },
+          body: JSON.stringify({ __metadata: { type: entityType }, ...body })
+        });
+        if (!r.ok) throw new Error(r.status + ' ' + (await r.text()).slice(0, 300));
+      }
+      for (let i = 0; i < toWrite.length; i += CHUNK) {
+        const chunk = toWrite.slice(i, i + CHUNK);
+        await Promise.all(chunk.map(async row => {
+          const body = { ...row.body, SuppressReconcileUntil: new Date(Date.now() + 10 * 60000).toISOString() };
+          try { await mergeRow(row.id, body); }
+          catch (e) { failed.push({ jobno: row.jobno, num: row.num, id: row.id, error: String(e.message || e) }); }
+        }));
+      }
+    }
+
+    // ---- 8b. create the New Pool Requests rows. ProjectManager is resolved
+    // ONCE, to the current signed-in user -- see the header comment for why
+    // that identity and not the change-set's own name/notes fields. Status
+    // and Result are never set: both are flow-owned, default to Requested,
+    // and are hidden from the New form
+    // (sharepoint/configure-request-lists.js).
+    //
+    // `currentuser` is checked for `r.ok` and for a resolvable numeric `Id`
+    // BEFORE the create loop starts, and either failure THROWS rather than
+    // proceeding. Without this, a lapsed session or an error body from
+    // `currentuser` still parses as JSON, `cu.Id` comes back `undefined`,
+    // `JSON.stringify` silently drops the key from the POST body, and the
+    // row lands 201 with a blank ProjectManager -- REST item-creation on
+    // this tenant bypasses required-field validation, so nothing else stops
+    // that write. The PM then waits the full 10-15 minutes only for
+    // `D2 - New Pool`'s `Condition_missing_pm` to fail the request. Throwing
+    // here means no create is ever attempted without a real ProjectManagerId;
+    // the throw is caught by the try/catch around this whole phase, so the
+    // summary still prints and any edits already merged above are still
+    // reported accurately. ----
+    let pmId = null;
+    if (createsPlanned.length) {
+      const cuResp = await fetch(site + '/_api/web/currentuser', { headers: H, credentials: 'include' });
+      if (!cuResp.ok) throw new Error(cuResp.status + ' resolving the current user for ProjectManagerId -- aborting before any create is attempted.');
+      const cu = await cuResp.json();
+      pmId = cu && cu.Id;
+      if (pmId == null) throw new Error('Could not resolve a numeric site-user id from /_api/web/currentuser (got ' + JSON.stringify(cu) + ') -- aborting before any create is attempted. A create must never be sent with a blank ProjectManager.');
+
+      const cMeta = await (await fetch(site + "/_api/web/lists/GetByTitle('New Pool Requests')?$select=ListItemEntityTypeFullName",
+        { headers: H, credentials: 'include' })).json();
+      const createEntityType = cMeta.ListItemEntityTypeFullName;
+
+      async function createRequest(c) {
+        const r = await fetch(site + "/_api/web/lists/GetByTitle('New Pool Requests')/items", {
+          method: 'POST', credentials: 'include',
+          headers: {
+            Accept: 'application/json;odata=verbose',
+            'Content-Type': 'application/json;odata=verbose',
+            'X-RequestDigest': digest
+          },
+          body: JSON.stringify({
+            __metadata: { type: createEntityType },
+            Title: c.name, JobNumber: c.jobno,
+            Address: c.addr || '', City: c.city || '',
+            StartDate: c.start, ProjectManagerId: pmId,
+            // Required on the list (sharepoint/provision-pool-lists.js), with
+            // a schema default of true -- but SET EXPLICITLY rather than
+            // relying on that default. The only thing proven about
+            // SharePoint applying a column default to an omitted required
+            // field on this tenant is the New-FORM case (Status hidden,
+            // still defaults to Requested). Nothing here proves the same for
+            // a plain REST create, and if it does not, `D2 - New Pool` reads
+            // a missing/falsy value as "leave everything unassigned" -- all
+            // 46 sub-phases land `unassigned` with no error anywhere, which
+            // reads as the tool being broken, not as a setting. Sending it
+            // explicitly means the question never comes up.
+            AssignDefaultCrews: !!c.assignDefaultCrews
+          })
+        });
+        if (!r.ok) throw new Error(r.status + ' ' + (await r.text()).slice(0, 300));
+      }
+      for (let i = 0; i < createsPlanned.length; i += CHUNK) {
+        const chunk = createsPlanned.slice(i, i + CHUNK);
+        await Promise.all(chunk.map(async c => {
+          try { await createRequest(c); createdOk.push(c); }
+          catch (e) { createFailed.push({ jobno: c.jobno, error: String(e.message || e) }); }
+        }));
+      }
+    }
+
+    // ---- 9. verify EDITS by reading back, never by the status code ----
+    if (toWrite.length) {
+      const after = await all("/_api/web/lists/GetByTitle('Assignments')/items" + SELECT);
+      const afterById = new Map(after.map(r => [r.Id, r]));
+      const failedIds = new Set(failed.map(f => f.id));
+      verifyMismatch = planned.filter(p => !failedIds.has(p.id)).filter(p => {
+        const r = afterById.get(p.id); if (!r) return true;
+        return !FIELD_DEFS[p.field].eq(FIELD_DEFS[p.field].read(r), p.to);
       });
-      if (!r.ok) throw new Error(r.status + ' ' + (await r.text()).slice(0, 300));
     }
-    for (let i = 0; i < createsPlanned.length; i += CHUNK) {
-      const chunk = createsPlanned.slice(i, i + CHUNK);
-      await Promise.all(chunk.map(async c => {
-        try { await createRequest(c); createdOk.push(c); }
-        catch (e) { createFailed.push({ jobno: c.jobno, error: String(e.message || e) }); }
-      }));
+
+    // ---- 9b. verify CREATES the same way -- by reading New Pool Requests
+    // back, never by the 201 status code. Catches exactly the "write returns
+    // success and does nothing" signature this whole project watches for.
+    // Compares ProjectManagerId and AssignDefaultCrews too, not just Title
+    // and StartDate -- a create that landed with the right name and date but
+    // a blank ProjectManager used to verify as clean. ----
+    if (createdOk.length) {
+      const afterRequests = await all("/_api/web/lists/GetByTitle('New Pool Requests')/items?$select=Id,Title,JobNumber,StartDate,ProjectManagerId,AssignDefaultCrews&$top=2000");
+      const byJobno = new Map(afterRequests.map(r => [String(r.JobNumber), r]));
+      createVerifyMismatch = createdOk.filter(c => {
+        const r = byJobno.get(c.jobno);
+        if (!r) return true;
+        return r.Title !== c.name || day(r.StartDate) !== c.start ||
+          r.ProjectManagerId !== pmId || !!r.AssignDefaultCrews !== !!c.assignDefaultCrews;
+      });
     }
+  } catch (e) {
+    // Field edits merged in step 8 before an abort here are real writes,
+    // already reflected in `failed`/`planned` below -- a re-run correctly
+    // sees them as already-applied (refused by compare-before-write, since
+    // the live value now matches what was just written), which is expected,
+    // not a bug.
+    abortedError = String((e && e.message) || e);
+    console.error('Aborted mid-write: ' + abortedError);
+    console.error('Reporting what happened before the abort -- see the summary below. '
+      + 'Field edits already merged above are real writes and do not need re-applying.');
   }
 
-  // ---- 9. verify EDITS by reading back, never by the status code ----
   const failedIds = new Set(failed.map(f => f.id));
   const writtenPlan = planned.filter(p => !failedIds.has(p.id));
-  let verifyMismatch = [];
-  if (toWrite.length) {
-    const after = await all("/_api/web/lists/GetByTitle('Assignments')/items" + SELECT);
-    const afterById = new Map(after.map(r => [r.Id, r]));
-    verifyMismatch = writtenPlan.filter(p => {
-      const r = afterById.get(p.id); if (!r) return true;
-      return !FIELD_DEFS[p.field].eq(FIELD_DEFS[p.field].read(r), p.to);
-    });
-  }
-
-  // ---- 9b. verify CREATES the same way -- by reading New Pool Requests
-  // back, never by the 201 status code. Catches exactly the "write returns
-  // success and does nothing" signature this whole project watches for. ----
-  let createVerifyMismatch = [];
-  if (createdOk.length) {
-    const afterRequests = await all("/_api/web/lists/GetByTitle('New Pool Requests')/items?$select=Id,Title,JobNumber,StartDate&$top=2000");
-    const byJobno = new Map(afterRequests.map(r => [String(r.JobNumber), r]));
-    createVerifyMismatch = createdOk.filter(c => {
-      const r = byJobno.get(c.jobno);
-      return !r || r.Title !== c.name || day(r.StartDate) !== c.start;
-    });
-  }
-
   const out = {
     dryRun: false,
     rowsWritten: toWrite.length - failed.length,
@@ -557,7 +649,9 @@
     createsBlocked: createsBlocked.length,
     createsRejected: rejectedCreates.length,
     createsFailed: createFailed,
-    createVerifyMismatch
+    createVerifyMismatch,
+    aborted: !!abortedError,
+    abortedError
   };
   console.log(JSON.stringify(out, null, 2));
   if (failed.length) console.table(failed);
