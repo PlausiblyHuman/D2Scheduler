@@ -79,7 +79,13 @@ win.confirm = () => true; win.alert = () => {};
   // sign-off with a flag, which this project forbids outright. This assertion
   // must be updated, deliberately, if a key is ever legitimately added to
   // s.base -- it is a scope fence, not a frozen schema.
-  const EXPECTED_BASE_KEYS = 'crewId,days,id,locked,skip,spLocked,start';
+  //
+  // `seq` was added 2026-09-12 for the batch write-back (Stage 2): the row's
+  // SharePoint Sequence, carried so a change-set can order writes and name a
+  // row by sub-phase. It is never diffed and never written -- see
+  // fixtures/planner/writeback.js, which pins that a change-set never carries
+  // it as a writable field.
+  const EXPECTED_BASE_KEYS = 'crewId,days,id,locked,seq,skip,spLocked,start';
   ok('the baseline holds ONLY the fields SharePoint owns -- never sign-off or ticks',
      win.allSecs(j2).every(({ s }) => Object.keys(s.base).sort().join(',') === EXPECTED_BASE_KEYS),
      Object.keys(win.allSecs(j2)[0].s.base).sort().join(','));

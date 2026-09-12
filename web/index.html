@@ -30,6 +30,8 @@ nav button.on{background:#fff;color:var(--navy);font-weight:600}
 .btn.p:hover{background:#094539}
 .btn.d{color:var(--danger);border-color:#fecaca}
 .btn.sm{padding:2px 7px;font-size:11.5px}
+.btn:disabled{opacity:.42;cursor:not-allowed}
+.btn:disabled:hover{background:inherit}
 main{padding:12px 14px 60px}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;margin-bottom:12px;overflow:hidden}
 .card > h2{margin:0;font-size:12.5px;padding:9px 13px;border-bottom:1px solid var(--line);background:#fbf9f5;font-weight:600;font-family:Poppins,"Segoe UI",sans-serif;letter-spacing:.3px;text-transform:uppercase;color:var(--navy);display:flex;align-items:center;gap:8px}
@@ -133,6 +135,7 @@ tr.phrow .nm{background:#f8fafc;font-weight:650}
   <button class="btn p" id="autoBtn">⚡ Auto-Schedule</button>
   <button class="btn" id="addJobBtn">+ Job</button>
   <button class="btn" id="csvBtn">CSV</button>
+  <button class="btn p" id="saveBtn" title="Preview and download everything changed here since the last Load from D2, ready to push back into SharePoint with sharepoint/apply-planner-changes.js">Save</button>
   <button class="btn" id="backupBtn" title="Download everything — jobs, crews, template, sign-offs — as a .json file">Backup</button>
   <button class="btn" id="restoreBtn" title="Load a .json backup, replacing what is in this browser">Restore</button>
   <input type="file" id="restoreFile" accept="application/json,.json" style="display:none">
@@ -403,19 +406,51 @@ function jobStart(j){
    what is on screen is still the live schedule. */
 function touch(j){ if(j) j.touchedAt=new Date().toISOString(); }
 
+/* The exact fields SharePoint owns and this planner may ever write back to it,
+   paired with the column each maps to. This list is the single source of truth
+   for the write-back allowlist -- divergedSecs, the Save preview and the
+   change-set file (buildChangeSet, near backup/restore below) are all built
+   from it, so a field cannot slip into a push without an entry here. Sign-off
+   and task ticks are deliberately never in this list -- see the note on `base`
+   in importFromD2 for why. fixtures/planner/writeback.js pins this from both
+   ends: the change-set this produces, and the fields sharepoint/apply-planner-
+   changes.js will actually send. */
+const WRITEBACK_FIELDS=[
+  {key:'crewId',col:'Crew',          bool:false},
+  {key:'start', col:'ScheduledStart',bool:false},
+  {key:'days',  col:'DurationDays',  bool:false},
+  {key:'locked',col:'Locked',        bool:true},
+  {key:'skip',  col:'NotApplicable', bool:true}
+];
+/* Which owned fields of this sub-phase no longer match what SharePoint sent,
+   and what changed on each. Sign-off and task ticks are never compared here --
+   the planner has no attribution model for them and must never be the
+   authority on either. */
+function secFieldDiffs(s){
+  const b=s.base; if(!b)return [];
+  const out=[];
+  WRITEBACK_FIELDS.forEach(({key,col,bool})=>{
+    const cur=bool?!!s[key]:(s[key]??null), was=bool?!!b[key]:(b[key]??null);
+    if(cur!==was)out.push({key,col,from:was,to:cur});
+  });
+  return out;
+}
 /* Which sub-phases of this pool no longer match what SharePoint sent. Compares
    only the fields SharePoint owns; sign-off and task ticks are deliberately not
    in the baseline, because the planner has no attribution model for them and must
    never be the authority on either. */
 function divergedSecs(j){
   const out=[];
-  allSecs(j).forEach(({s})=>{
-    const b=s.base; if(!b)return;
-    if((s.crewId??null)!==b.crewId || (s.start??null)!==b.start ||
-       (s.days??null)!==b.days || !!s.locked!==b.locked || !!s.skip!==b.skip) out.push(s);
-  });
+  allSecs(j).forEach(({s})=>{ if(s.base && secFieldDiffs(s).length) out.push(s); });
   return out;
 }
+/* Has this pool ever been loaded from D2 at all? A pool sketched only in this
+   browser (never raised in SharePoint, or raised but never re-imported) carries
+   no baseline on any of its sub-phases -- it is a local sketch, and Save must
+   exclude it entirely rather than offer to "push" a pool SharePoint has never
+   heard of. Creating a pool is out of scope for the write-back; that stays
+   `New Pool Requests`. */
+function poolHasBaseline(j){ return allSecs(j).some(({s})=>!!s.base); }
 
 /* ============================== sign-off + tasks ============================== */
 /* Resolved, not done. Every task is Done, N/A or still to do; N/A is deliberate
@@ -545,15 +580,22 @@ function freshStamp(iso){
 let TAB='board';
 function render(){
   const fz=document.getElementById('freshness');
+  // Computed once and shared: the header's "edited here" count and whether
+  // Save has anything to push are the same question, divergedSecs summed
+  // across every pool that carries a baseline (a local sketch never diverges,
+  // since it has no s.base to diverge from -- see divergedSecs above).
+  const totalDiverged=S.jobs.reduce((n,j)=>n+divergedSecs(j).length,0);
   if(fz){
     const st=S.settings||{};
     const edited=S.jobs.filter(j=>j.touchedAt).length;
     fz.innerHTML = st.loadedAt
       ? `Live as of ${freshStamp(st.loadedAt)}`
         + (st.exportedOn?` · export ${st.exportedOn}`:'')
-        + (edited?` · <b>${edited} pool${edited===1?'':'s'} edited here since (${S.jobs.reduce((n,j)=>n+divergedSecs(j).length,0)} sub-phases)</b>`:'')
+        + (edited?` · <b>${edited} pool${edited===1?'':'s'} edited here since (${totalDiverged} sub-phases)</b>`:'')
       : 'Not loaded from D2';
   }
+  const saveBtn=document.getElementById('saveBtn');
+  if(saveBtn)saveBtn.disabled=totalDiverged===0;
   document.getElementById('main').innerHTML=
     ({board:vBoard,crewboard:vCrewBoard,dispatch:vDispatch,signoff:vSignoff,jobs:vJobs,crews:vCrews,phases:vPhases})[TAB]();
   document.querySelectorAll('input[data-ind]').forEach(el=>el.indeterminate=true);
@@ -1021,8 +1063,12 @@ function importFromD2(file){
            divergedSecs and Auto-Schedule both already key off; `spLocked` is the
            raw SharePoint Locked value on its own, kept alongside so a later
            write-back can tell a PM's deliberate pin apart from a lock this planner
-           inferred from sign-off -- the two read identically through `locked`. */
-        s.base={id:is.id??null,crewId:s.crewId??null,start:s.start??null,
+           inferred from sign-off -- the two read identically through `locked`.
+           `seq` (the row's SharePoint Sequence) rides along for the write-back:
+           it is never diffed or written itself, just carried onto a change-set
+           entry so a reflow can order writes and a conflict report can be read
+           against the row the way a PM does, by sub-phase. */
+        s.base={id:is.id??null,seq:is.seq??null,crewId:s.crewId??null,start:s.start??null,
                 days:s.days??null,locked:!!s.locked,skip:!!s.skip,
                 spLocked:!!is.locked};
       });
@@ -1038,6 +1084,94 @@ function importFromD2(file){
   r.readAsText(file);
 }
 
+/* ============================== save / write-back ==============================
+   The exact inverse of importFromD2 above: instead of merging a SharePoint
+   export in, this builds the file sharepoint/apply-planner-changes.js reads to
+   push edits back out. It never talks to SharePoint itself -- this only ever
+   downloads a file, the same arrangement export-to-planner.js already has on
+   the read side.
+
+   FIELD SCOPE IS AN ALLOWLIST, not a convention. WRITEBACK_FIELDS (above,
+   next to divergedSecs) is the only place a field can enter a change-set.
+   Sign-off, notes and every Tasks-list field are never candidates -- adding
+   one would also have to survive fixtures/planner/freshness.js's assertion on
+   s.base's key set and fixtures/planner/writeback.js's assertion on what a
+   change-set may carry. */
+function buildChangeSet(){
+  const pools=[];
+  S.jobs.forEach(j=>{
+    if(!poolHasBaseline(j))return;   // a local sketch -- never raised in D2, never pushed
+    const secs=[];
+    allSecs(j).forEach(({s})=>{
+      if(!s.base)return;             // unmatched against the template -- nothing to diff
+      const diffs=secFieldDiffs(s);
+      if(!diffs.length)return;
+      const fields={};
+      diffs.forEach(d=>{fields[d.col]={from:d.from,to:d.to};});
+      secs.push({id:s.base.id,seq:s.base.seq??null,num:s.num,name:s.name,fields});
+    });
+    if(secs.length)pools.push({jobno:j.jobno,name:j.name,sections:secs});
+  });
+  return pools;
+}
+function downloadChangeSet(pools){
+  const stamp=fmt(new Date());
+  const payload={app:'D2 Pool Build Scheduler',kind:'d2-planner-changeset',
+    generated:new Date().toISOString(),pools};
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([JSON.stringify(payload,null,1)],{type:'application/json'}));
+  a.download='d2-planner-changes-'+stamp+'.json';
+  a.click();
+}
+const WB_FIELD_LABEL={Crew:'Crew',ScheduledStart:'Start date',DurationDays:'Duration (days)',
+  Locked:'Locked',NotApplicable:'Not applicable'};
+function wbFmt(col,v){
+  if(v==null||v==='')return '—';
+  if(col==='Crew'){const c=crew(v);return c?c.name:v;}
+  if(col==='ScheduledStart')return pretty(v);
+  if(col==='Locked'||col==='NotApplicable')return v?'Yes':'No';
+  return String(v);
+}
+let PENDING_CHANGESET=null;
+/* The preview a PM must confirm before anything downloads. Grouped by pool,
+   one line per changed field, naming the field and the loaded value next to
+   the new one -- a count is not enough to see "this is about to move 46
+   rows" before it happens. */
+function openSavePreview(){
+  const pools=buildChangeSet();
+  const totalSecs=pools.reduce((n,p)=>n+p.sections.length,0);
+  if(!totalSecs){alert('Nothing to push -- no pool loaded from D2 has changed here since.');return;}
+  const skipped=S.jobs.filter(j=>!poolHasBaseline(j));
+  document.getElementById('dTitle').textContent='Save changes to D2';
+  document.getElementById('dBody').innerHTML=
+    `<div class="hint" style="padding:0 0 11px">
+      ${totalSecs} sub-phase${totalSecs===1?'':'s'} across ${pools.length} pool${pools.length===1?'':'s'} will be pushed to SharePoint.
+      This only downloads a file — nothing reaches D2 until that file is applied with
+      <span class="mono">sharepoint/apply-planner-changes.js</span>.
+      ${skipped.length?`<br><br>${skipped.length} pool${skipped.length===1?'':'s'} sketched only in this browser (never loaded from D2) `
+        +`${skipped.length===1?'is':'are'} excluded — creating a pool is not part of this feature: `
+        +skipped.map(j=>esc(j.jobno||j.name)).join(', ')+'.':''}
+    </div>`+
+    pools.map(p=>`<div class="fld"><label>${esc(p.jobno)} · ${esc(p.name)} — ${p.sections.length} sub-phase${p.sections.length===1?'':'s'}</label>
+      <table><tbody>${p.sections.map(sec=>Object.keys(sec.fields).map(col=>
+        `<tr><td class="small">${esc(sec.num)} ${esc(sec.name)}</td>
+             <td class="small muted">${WB_FIELD_LABEL[col]||col}</td>
+             <td class="small">${esc(wbFmt(col,sec.fields[col].from))}</td>
+             <td class="small muted">→</td>
+             <td class="small"><b>${esc(wbFmt(col,sec.fields[col].to))}</b></td></tr>`).join('')).join('')}
+      </tbody></table></div>`).join('');
+  document.getElementById('dFoot').innerHTML=
+    `<button class="btn p" onclick="confirmSaveChangeSet()">Download change-set (${totalSecs})</button>
+     <button class="btn" onclick="closeDrawer()">Cancel</button>`;
+  PENDING_CHANGESET=pools;
+  document.getElementById('drawer').classList.add('open');
+}
+function confirmSaveChangeSet(){
+  downloadChangeSet(PENDING_CHANGESET||[]);
+  PENDING_CHANGESET=null;
+  closeDrawer();
+}
+
 /* ============================== boot ============================== */
 document.getElementById('tabs').addEventListener('click',e=>{
   const b=e.target.closest('button');if(!b)return;
@@ -1047,6 +1181,7 @@ document.getElementById('tabs').addEventListener('click',e=>{
 document.getElementById('autoBtn').onclick=()=>{autoSchedule();render();};
 document.getElementById('addJobBtn').onclick=addJob;
 document.getElementById('csvBtn').onclick=exportCSV;
+document.getElementById('saveBtn').onclick=openSavePreview;
 document.getElementById('backupBtn').onclick=backup;
 document.getElementById('restoreBtn').onclick=()=>document.getElementById('restoreFile').click();
 document.getElementById('restoreFile').onchange=e=>{const f=e.target.files[0];if(f)restore(f);e.target.value='';};

@@ -6,14 +6,20 @@
  * schedule so it works from current data rather than its own local copy.
  *
  * This closes the SharePoint -> planner direction only. Nothing here writes
- * back. The planner stays a planning surface and SharePoint stays the source of
- * truth for execution state.
+ * back -- the planner's Save button and `sharepoint/apply-planner-changes.js`
+ * are the other direction, and that script is this one's exact inverse.
  *
- * WHY NOT WRITE BACK: the planner has no sign-off model. Its `inst`/`pm` are bare
- * booleans with no attribution, no timestamp and no notes, while SharePoint holds
- * InstallerSignOffBy/On and SignOffNotes. Writing the planner's version over a
- * live row would replace an attested sign-off with a flag, losing who signed,
- * when, and any notes.
+ * WHY THAT WRITE-BACK IS SCOPED TO FIVE FIELDS: the planner has no sign-off
+ * model. Its `inst`/`pm` are bare booleans with no attribution, no timestamp
+ * and no notes, while SharePoint holds InstallerSignOffBy/On and SignOffNotes.
+ * Writing the planner's version of those over a live row would replace an
+ * attested sign-off with a flag, losing who signed, when, and any notes -- so
+ * the write-back only ever sends Crew, ScheduledStart, DurationDays, Locked and
+ * NotApplicable, never sign-off or task ticks.
+ *
+ * `seq` (SharePoint's `Sequence`) rides along per sub-phase so the write-back
+ * can order a batch and a conflict report can name a row the way a PM reads
+ * it, by sub-phase number. It is carried, never diffed or written itself.
  *
  * HOW TO RUN
  *   1. Open https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler
@@ -113,6 +119,7 @@
         .sort((a, b) => (a.Sequence || 0) - (b.Sequence || 0))
         .map(a => ({
           id: a.Id,
+          seq: a.Sequence || null,
           num: a.SubPhaseNumber,
           name: a.SubPhaseName,
           crewId: a.Crew || null,
