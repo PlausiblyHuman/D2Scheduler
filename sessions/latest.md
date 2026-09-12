@@ -1,81 +1,91 @@
-# 2026-09-12a — Overnight: write-back specced, three rule bugs closed
+# 2026-09-12b — Write-back Route A, header cleanup, and one pool-creation path
 
-**Session goal:** continuation of 2026-09-11d. Shane asked what could be done overnight without
-him, chose "spec + the three bug fixes", and authorised me to rule on conflicts and log them
-rather than stopping. Everything below is offline, reversible, and touched no client tenant.
+**Session goal:** continued from the overnight session. Registered the Entra app, built the batch
+write-back Shane asked for, stripped the planner's vestigial controls, and collapsed pool creation
+to a single path. Nothing was run against the live tenant.
 
 ---
 
 ## What shipped
 
-**1. The batch write-back is specced** —
-`docs/superpowers/specs/2026-09-12-batch-write-back-design.md`. Draft, not approved. Two findings
-overturn assumptions in the parent spec:
+**1. Entra app registration — created and consented tenant-wide.** `D2 Build Scheduler (planner)`,
+client id `1aa00e61-e5e7-42bd-95b4-fd58863e5b54`, **SPA** platform (PKCE, no client secret exists),
+delegated `Sites.ReadWrite.All`, `AllPrincipals`. Needs no Azure subscription. Delegated means the
+app grants nothing itself — access is always the signed-in user's own SharePoint permission.
 
-- **ETags will not work.** `odata=nometadata` suppresses `odata.etag` entirely, verified against
-  the captured fixture. The stronger objection is that a row-level ETag would produce **constant
-  false conflicts**: five flows write to `Assignments` on schedules unrelated to the PM, so a load
-  at 09:00 and a save at 16:00 would be rejected wholesale because a nightly flow annotated the
-  rows overnight. The design compares the five owned fields instead.
-- **Auto-Schedule cannot be expressed as a `Reschedule Requests` row**, because
-  `D2 - Reschedule Pool` moves dates and never picks a crew. Routing a reflow through it would
-  discard every crew decision the PM just made.
+**2. Batch write-back, Route A.** A `Save` button produces a change-set file; the new
+`sharepoint/apply-planner-changes.js` applies it from the console. Five safety properties, each
+enforced in code and pinned by a test proven to fail: `DRY_RUN` defaults true; a five-column
+allowlist; compare-before-write per field; a token-anchored row-identity check; and
+`SuppressReconcileUntil` in the same MERGE.
 
-**2. Three planner rule-enforcement bugs fixed**, each with a test proven to fail first:
+**3. Header: eight buttons to four.** `⚡ Auto-Schedule · + Job · Save · Load from D2`. CSV, Backup,
+Restore and Reset removed on Shane's call.
 
-| | Defect | Effect |
-|---|---|---|
-| Rule 1 | `qualified()` and `isQualified()` used different predicates on the three `FIXED` pseudo-trades | STL Shotcrete on an `@office` sub-phase raised **no error at all**, while the same UI flagged it under "⚠ Not qualified" |
-| Rule 2 | `autoSchedule`'s busy map did not exempt `unlimited` crews, though `busyMap()` did | a capacity-exempt subcontractor could be skipped as "busy" on a day it was free |
-| Rule 3 | a locked row advanced the cursor **unconditionally** | a locked row starting earlier than preceding rows dragged the cursor backwards and the next unlocked row landed on top of placed work |
-
-**3. `planner-stage1-verified` tag** marks the last known-good planner, per Shane's "keep a master
-copy" — as a tag rather than a second file, because this repo already lost weeks to a described-
-but-nonexistent `patched-tool/` copy.
+**4. One pool-creation path.** `+ Job` no longer builds a pool in the browser. It raises a
+`New Pool Requests` row so `D2 - New Pool` does the building. Closes parity **D10** and the two
+independent job-number generators.
 
 ## Files touched
 
-- `docs/superpowers/specs/2026-09-12-batch-write-back-design.md` — new
-- `web/index.html` — three rule fixes
-- `fixtures/planner/rules.js` — new, 11 assertions
-- `fixtures/planner/README.md`, `CLAUDE.md`
+`web/index.html` · `sharepoint/apply-planner-changes.js` (new) ·
+`fixtures/planner/writeback.js` (new) · `docs/superpowers/specs/2026-09-12-batch-write-back-design.md` (new) ·
+`flows/pending/reschedule-pool-cursor-fix.md` (new) · `CLAUDE.md` · four existing harnesses
 
 ## Commits
 
-`8bcfb72` spec · `ddca578` rule 1 · `55794e4` rule 2 · `3e631a0` rule 3, plus this checkpoint.
+19 on `canvas-app-handoff`, `5c26e4a..c41947f`. Gate green throughout: 10 harnesses plus
+`oracle-test.js` at 15/16, `determinism.js` at 138/STABLE.
 
 ---
 
 ## Decisions
 
-- **Rule 1 fixed by making `isQualified` strict**, not by loosening `qualified()`. The `FIXED` map
-  names which bucket a pseudo-trade routes to; accepting any capacity-exempt crew ignored it.
-  Loosening the other way would have revalidated crew IDs the dropdown never offers, recreating the
-  same UI-vs-validation split in the other direction.
-- **Safety-checked before committing rule 1**, because a stricter predicate can flag existing data:
-  all 72 pseudo-trade rows on the three demo pools already carry their own bucket crew
-  (`office:24, subcon:15, unassigned:33`), so nothing live is newly flagged. The reviewer
-  reproduced that independently with its own script.
-- **Backup, Restore and the file picker retire WITH the live connection, not before.** Until the
-  app reads on open they are the only recovery from a cleared `localStorage`.
-- **Master copy is a git tag, not a duplicate file.**
-- **The server-side half of the rule-3 cursor defect was left alone** — `Set_cursor_pinned` in
-  `D2 - Reschedule Pool` has the identical bug, and fixing it needs the live tenant.
+- **Write-back is Route A first** (console paste), because the transport is the only part Route B
+  changes. Isolating it makes B a swap rather than a rewrite.
+- **Compare-before-write, not ETags.** `odata=nometadata` suppresses `odata.etag`, and more
+  importantly five flows write to `Assignments` on schedules unrelated to the PM, so a row-level
+  ETag would reject a whole batch because a nightly flow annotated the rows overnight.
+- **Auto-Schedule cannot route through `Reschedule Requests`** — that flow moves dates and never
+  picks a crew, so it would discard every crew decision the PM just made.
+- **Backup and Restore pulled now rather than with Route B**, Shane's call, with the consequence
+  stated: a pool sketched with `+ Job` and never pushed is unrecoverable if `localStorage` clears.
+- **`AssignDefaultCrews` sent explicitly**, never defaulted.
+- **Subcontractor sign-off stays PM-proxy.** Emailing external subcontractors is trivial; letting
+  them sign off is not, and an anonymous link would degrade `InstallerSignOffBy` from a verified
+  user to a typed name — the same reason MS Forms was ruled out.
+
+## Traps found
+
+- **FlowAgent keeps its own token cache and was pointed at the WRONG TENANT.** It reported
+  `stalbot@stratirus.com` in Tennetech's tenant while `az` was on D2, both reporting success, with
+  Tennetech's subscription as the az default. Editing from there would have modified another
+  company's flows. Caught only because the flow-mechanics skill opens with an identity check.
+- **A blank required field lands 201 over REST.** `ProjectManagerId` resolved from `currentuser`
+  with no `r.ok` guard would have been silently dropped, and the PM would wait nine minutes for the
+  flow to fail.
+- **The row-identity guard didn't guard.** A substring match let a `2.1` edit land on a `2.10` row,
+  proven by exploit test. Dormant only because the template tops out at `7.0`.
+- **A test count is not coverage.** `writeback.js` opened at 29 assertions and a mutation sweep
+  found 4 of 6 survived — the allowlist and the comparison were pinned, the write-side date
+  handling, suppression lower bound, chunk loop and verify pass were not.
 
 ## Open
 
-- **A product question for Don, surfaced by the rule-1 fix:** should `@sub` admit the four *named*
-  subcontractors (`george`, `armondo`, `stl`, `brothers`) rather than only the `subcon` bucket
-  crew? Arguably a subcontractor genuinely is one. Deliberately not decided as a side effect of a
-  bug fix. Widening it means changing both predicates together.
-- **`D2 - Reschedule Pool`'s cursor can still move backwards.** Same defect as rule 3, needs the
-  tenant.
-- Unchanged and still human-gated: the Azure subscription, the Entra SPA registration, any tenant
-  write (`fix-job-startdates.js` has `DRY_RUN = false` committed at line 37), the Graph payload
-  capture, and a human eye on the repaint.
+- **Blocked on a permission gate:** applying the `D2 - Reschedule Pool` cursor fix (validated by dry
+  run, preserved in `flows/pending/`), the `TradeMismatch` view, and the dispatch filter change.
+- **Blocked on ~1 minute:** whether D2's M365 billing is a Microsoft Customer Agreement, which
+  decides if the Azure subscription needs a new card at all.
+- **Blocked on ~30 seconds:** one MSAL sign-in to capture a Graph payload, which unblocks the read
+  layer and lets Backup/Restore's replacement exist.
+- **Blocked on Don, Monday:** trade mapping, the 11 field-supervision sub-phases, `@sub`, and the
+  four subcontractor email addresses.
+- **Deferred minor:** the `Jobs` and `New Pool Requests` reads sit outside the new try/catch, so a
+  network failure there exits without a summary. Pre-existing shape, no writes have happened, no
+  data lost.
+- **Nothing in the write-back or the creation path has ever run against the tenant.**
 
 ## Next action
 
-Register the Entra SPA app — it needs no Azure subscription and is the real unblock — then capture
-a real Graph payload into `fixtures/planner/live-payloads-graph.json` before writing any mapping
-code. Review the write-back spec, which has three open questions at the bottom.
+Resolve the permission question for live-tenant writes — either grant it or take console-paste
+scripts. Then the Graph capture, which is the gate on everything hosting-related.
