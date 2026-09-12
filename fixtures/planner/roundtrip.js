@@ -4,7 +4,7 @@ const {JSDOM, VirtualConsole} = require('jsdom');
 const fs = require('fs');
 const P = PLANNER;
 let html = fs.readFileSync(P,'utf8').replace('</body>',
- `<script>window.__x=()=>{window.S=S;window.autoSchedule=autoSchedule;window.importFromD2=importFromD2;window.allSecs=allSecs;window.SEED_TEMPLATE=SEED_TEMPLATE;window.render=render;};</script><script>__x();</script></body>`);
+ `<script>window.__x=()=>{window.S=S;window.autoSchedule=autoSchedule;window.importFromD2=importFromD2;window.allSecs=allSecs;window.SEED_TEMPLATE=SEED_TEMPLATE;window.render=render;window.newJob=newJob;};</script><script>__x();</script></body>`);
 const vc=new VirtualConsole(); vc.on('jsdomError',e=>console.log('[jsdom]',e.message));
 const dom=new JSDOM(html,{runScripts:'dangerously',pretendToBeVisual:true,url:'http://localhost/',virtualConsole:vc});
 const win=dom.window;
@@ -19,11 +19,17 @@ const ok=(l,c,d='')=>{console.log((c?'PASS':'FAIL')+' · '+l+(d?'  ['+d+']':''))
   if(!S){console.log('FAIL: no state');process.exit(2);}
 
   // --- a pool sketched locally that SharePoint has never heard of ---
+  // Built directly via newJob(), not through the +Job button: as of
+  // 2026-09-12 that button no longer creates a local pool at all -- it opens
+  // a New Pool Requests form instead (see fixtures/planner/writeback.js for
+  // that behaviour). newJob() is still exactly what a locally-sketched pool
+  // looks like -- importFromD2 uses it too, for a pool SharePoint has that
+  // this browser does not yet -- so it is the right thing to construct here.
   ok('first run seeds NO phantom pools', S.jobs.length===0, S.jobs.length+' jobs');
-  win.document.getElementById('addJobBtn').click();
-  await new Promise(r=>setTimeout(r,100));
-  S.jobs[0].jobno='LOCAL-1'; S.jobs[0].name='Sketch Only';
-  const localSecsBefore = JSON.stringify(win.allSecs(S.jobs[0]).map(x=>x.s.crewId+'|'+x.s.start));
+  const localJob = win.newJob('Sketch Only','','','','','2026-09-08');
+  localJob.jobno='LOCAL-1';
+  S.jobs.push(localJob);
+  const localSecsBefore = JSON.stringify(win.allSecs(localJob).map(x=>x.s.crewId+'|'+x.s.start));
 
   // --- build a payload shaped exactly like export-to-planner.js emits ---
   const T=win.SEED_TEMPLATE;

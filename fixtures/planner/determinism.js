@@ -5,7 +5,7 @@ const fs = require('fs');
 const target = process.argv[2] || PLANNER;
 let html = fs.readFileSync(target, 'utf8');
 html = html.replace('</body>',
-  `<script>window.__expose=()=>{window.S=S;window.autoSchedule=autoSchedule;};</script>
+  `<script>window.__expose=()=>{window.S=S;window.autoSchedule=autoSchedule;window.newJob=newJob;};</script>
    <script>__expose();</script></body>`);
 const vc = new VirtualConsole();
 vc.on('jsdomError', e => console.log('[jsdom]', e.message));
@@ -19,13 +19,15 @@ const win = dom.window;
   // The planner no longer seeds demo pools (removed 2026-09-11), so a fresh
   // load leaves S.jobs empty and every comparison below was passing vacuously
   // against 0 assignments -- a "STABLE" result that measured nothing. Seed
-  // three pools the same way oracle-test.js does (addJobBtn already calls
-  // autoSchedule() per click), matching the 46 x 3 = 138 scale this harness was
-  // originally built against, so the crew-load tiebreak this test exists to
-  // catch actually has candidates to tie.
+  // three pools directly via newJob() (2026-09-12: `+ Job` / #addJobBtn no
+  // longer builds a local pool at all -- it opens a New Pool Requests form
+  // instead, see fixtures/planner/writeback.js), pushing and re-scheduling
+  // one at a time exactly as the old addJob() did per click, matching the
+  // 46 x 3 = 138 scale this harness was originally built against, so the
+  // crew-load tiebreak this test exists to catch actually has candidates to
+  // tie.
   if (S.jobs.length === 0) {
-    const btn = win.document.getElementById('addJobBtn');
-    btn.click(); btn.click(); btn.click();
+    for (let i = 0; i < 3; i++) { S.jobs.push(win.newJob('New Job','','','','','2026-09-08')); win.autoSchedule(); }
     console.log(`(harness seeded ${S.jobs.length} pools -- the tool ships with none)`);
   }
   const snap = () => S.jobs.flatMap(j => j.groups.flatMap(g => g.sections.map(s =>

@@ -29,7 +29,8 @@ async function partA() {
     `<script>window.__x=()=>{window.S=S;window.allSecs=allSecs;window.importFromD2=importFromD2;
       window.buildChangeSet=buildChangeSet;window.poolHasBaseline=poolHasBaseline;
       window.secFieldDiffs=secFieldDiffs;window.divergedSecs=divergedSecs;window.sign=sign;
-      window.SEED_TEMPLATE=SEED_TEMPLATE;window.render=render;};</script><script>__x();</script></body>`);
+      window.SEED_TEMPLATE=SEED_TEMPLATE;window.render=render;window.newJob=newJob;
+      window.buildPendingCreates=buildPendingCreates;};</script><script>__x();</script></body>`);
   const vc = new VirtualConsole(); vc.on('jsdomError', e => console.log('[jsdom]', e.message));
   const dom = new JSDOM(html, { runScripts: 'dangerously', pretendToBeVisual: true, url: 'http://localhost/', virtualConsole: vc });
   const win = dom.window;
@@ -103,9 +104,11 @@ async function partA() {
      win.divergedSecs(j).length + ' still diverged');
 
   // ---- Save is disabled with nothing to push, enabled once something diverges.
-  // Checked BEFORE the addJobBtn scenario below: adding a job runs a full
-  // autoSchedule() reflow of every pool (not just the new one), which would
-  // itself diverge D2-1042 and make this assertion measure the wrong thing. ----
+  // Checked BEFORE the local-sketch and +Job scenarios below: both push a new
+  // job into S.jobs, and Auto-Schedule (which +Job no longer runs, but a
+  // stray future change might) reflows every pool, not just the new one --
+  // that would itself diverge D2-1042 and make this assertion measure the
+  // wrong thing. ----
   win.render();
   ok('Save is disabled with nothing to push on the loaded pool', win.document.getElementById('saveBtn').disabled === true);
   const secs2 = win.allSecs(j).map(x => x.s);
@@ -113,12 +116,17 @@ async function partA() {
   win.render();
   ok('Save is enabled once a loaded pool diverges', win.document.getElementById('saveBtn').disabled === false);
   secs2[0].days = 2; // revert -- back to baseline before the next scenario
+  win.render();
+  ok('Save is disabled again once the divergence is reverted', win.document.getElementById('saveBtn').disabled === true);
 
   // ---- a local-only sketch has no baseline and is never in the change-set,
-  // even if every field on it is "edited" ----
-  win.document.getElementById('addJobBtn').click();
-  await new Promise(r => setTimeout(r, 100));
-  const local = S.jobs.find(x => !x.status);
+  // even if every field on it is "edited". Built directly via newJob() --
+  // #addJobBtn no longer creates a pool like this at all as of 2026-09-12 (see
+  // the next scenario); newJob() is still exactly what a locally-sketched pool
+  // looks like, since importFromD2 uses it too for a pool this browser has
+  // never seen. ----
+  const local = win.newJob('Local Sketch', '', '', '', '', '2026-09-08');
+  S.jobs.push(local);
   ok('a freshly sketched job has no baseline', !win.poolHasBaseline(local));
   win.allSecs(local).forEach(({ s }) => { s.crewId = 'harrison'; s.days = 9; s.locked = true; });
   {
@@ -126,6 +134,40 @@ async function partA() {
     ok('the local-only pool never appears in the change-set',
        !cs.some(p => p.jobno === local.jobno), cs.map(p => p.jobno).join(','));
   }
+
+  // ---- Batch write-back Stage 2 (2026-09-12): `+ Job` no longer builds a
+  // local pool at all. It opens a request form and queues a pending create
+  // instead -- one path, run by SharePoint's own New Pool flow, per the
+  // owner's own words: "I don't want to have a new job flow in the HTML and
+  // then a new job flow in the SharePoint site that do different things."
+  // See docs/superpowers/specs/2026-09-12-batch-write-back-design.md,
+  // "Create and delete are two-phase, and the UI must say so". ----
+  const jobsBeforeClick = S.jobs.length;
+  win.document.getElementById('addJobBtn').click();
+  ok('+ Job opens the request drawer rather than creating a pool immediately',
+     win.document.getElementById('drawer').classList.contains('open') && S.jobs.length === jobsBeforeClick,
+     'jobs ' + jobsBeforeClick + ' -> ' + S.jobs.length);
+  win.document.getElementById('ncJobNo').value = 'D2-2001';
+  win.document.getElementById('ncName').value = 'Ridgeway Pool';
+  win.document.getElementById('ncAddr').value = '9 Ridge Ct';
+  win.document.getElementById('ncCity').value = 'Franklin';
+  win.document.getElementById('ncStart').value = '2026-10-05';
+  win.document.getElementById('ncSubmit').click();
+  ok('+ Job still does not create a local 46-sub-phase pool',
+     S.jobs.length === jobsBeforeClick, S.jobs.length + ' jobs (was ' + jobsBeforeClick + ')');
+  ok('a queued create lands in S.pendingCreates, not yet marked requested',
+     (S.pendingCreates || []).length === 1 && !S.pendingCreates[0].requestedAt,
+     JSON.stringify(S.pendingCreates));
+  {
+    const pc = win.buildPendingCreates();
+    ok('a queued create appears in the change-set, correctly shaped',
+       pc.length === 1 && pc[0].jobno === 'D2-2001' && pc[0].name === 'Ridgeway Pool' &&
+       pc[0].addr === '9 Ridge Ct' && pc[0].city === 'Franklin' && pc[0].start === '2026-10-05',
+       JSON.stringify(pc));
+  }
+  win.render();
+  ok('Save is enabled by a queued create alone, with no edit pending',
+     win.document.getElementById('saveBtn').disabled === false);
 }
 
 /* ========================================================================
@@ -150,9 +192,23 @@ const baseRow = (id, jobno = 'D2-1042', num = '0.0') => ({
 // whole project is built around catching. Exercises the verify-after-write
 // pass (Finding 6). cfg.failIds: MERGE returns a genuine error, exercising
 // that one bad row does not stop the rest of the batch.
+//
+// cfg.jobsStore: live Jobs rows ({JobNumber}) for the creates uniqueness
+// check. cfg.requestsStore: live New Pool Requests rows -- a successful
+// create appends to it (unless its jobno is in cfg.createSilentDropJobnos,
+// mirroring silentDropIds above but for the create path's own verify-after-
+// write pass), so a second run or the post-create verify read sees it.
+// cfg.createFailJobnos: the create POST returns a genuine error for that
+// jobno. cfg.currentUserId: the id /_api/web/currentuser resolves to for
+// ProjectManagerId (default 42).
 function runApply(src, cs, store, cfg = {}) {
   const silentDropIds = cfg.silentDropIds || new Set();
   const failIds = cfg.failIds || new Set();
+  const jobsStore = cfg.jobsStore || [];
+  const requestsStore = cfg.requestsStore || [];
+  const createFailJobnos = cfg.createFailJobnos || new Set();
+  const createSilentDropJobnos = cfg.createSilentDropJobnos || new Set();
+  const currentUserId = cfg.currentUserId != null ? cfg.currentUserId : 42;
   return new Promise((resolve, reject) => {
     const calls = [];
     const fakeFile = { name: 'changes.json', text: async () => JSON.stringify(cs) };
@@ -175,6 +231,26 @@ function runApply(src, cs, store, cfg = {}) {
         if (row && !silentDropIds.has(id)) Object.keys(body).forEach(k => { if (k !== '__metadata') row[k] = body[k]; });
         return { ok: true, status: 204, text: async () => '' };
       }
+      if (/GetByTitle\('Jobs'\)\/items\?/.test(url)) {
+        return { ok: true, status: 200, json: async () => ({ value: jobsStore.map(r => ({ ...r })) }) };
+      }
+      if (/_api\/web\/currentuser/.test(url)) {
+        return { ok: true, status: 200, json: async () => ({ Id: currentUserId }) };
+      }
+      if (/GetByTitle\('New Pool Requests'\)\?\$select=ListItemEntityTypeFullName/.test(url)) {
+        return { ok: true, status: 200, json: async () => ({ ListItemEntityTypeFullName: 'SP.Data.New_x0020_Pool_x0020_RequestsListItem' }) };
+      }
+      if (/GetByTitle\('New Pool Requests'\)\/items\?/.test(url)) {
+        return { ok: true, status: 200, json: async () => ({ value: requestsStore.map(r => ({ ...r })) }) };
+      }
+      if (/GetByTitle\('New Pool Requests'\)\/items$/.test(url) && opts.method === 'POST') {
+        const body = JSON.parse(opts.body);
+        if (createFailJobnos.has(body.JobNumber)) return { ok: false, status: 500, text: async () => 'simulated create failure' };
+        if (!createSilentDropJobnos.has(body.JobNumber)) {
+          requestsStore.push({ Id: 900 + requestsStore.length, Title: body.Title, JobNumber: body.JobNumber, StartDate: body.StartDate, ProjectManagerId: body.ProjectManagerId });
+        }
+        return { ok: true, status: 201, json: async () => ({ d: { ID: 900 } }), text: async () => '' };
+      }
       throw new Error('unexpected URL in test fetch mock: ' + url);
     };
     const sandbox = {
@@ -191,7 +267,7 @@ function runApply(src, cs, store, cfg = {}) {
     vm.createContext(sandbox);
     try {
       const p = vm.runInContext(src, sandbox);
-      Promise.resolve(p).then(out => resolve({ out, calls, store }), reject);
+      Promise.resolve(p).then(out => resolve({ out, calls, store, requestsStore }), reject);
     } catch (e) { reject(e); }
   });
 }
@@ -504,6 +580,108 @@ async function partB() {
        after.find(r => r.Id === 70).Crew === 'saul' &&
        after.find(r => r.Id === 71).Crew === 'devon' &&
        after.find(r => r.Id === 72).Crew === 'antonio', JSON.stringify(after));
+  }
+
+  /* ====================================================================
+   * PART B, CREATES -- D10: the apply path is also the uniqueness check
+   * that has never existed between the planner's own job-number suggestion
+   * and D2 - New Pool's. A create is a wholly different write (POST of a
+   * new New Pool Requests row, never a MERGE on Assignments) and is
+   * reported through its own counters, never conflated with field edits.
+   * ==================================================================== */
+
+  // ---- refuses a create whose job number already exists live, and says so:
+  // no POST at all, reported as blocked rather than silently renamed. ----
+  {
+    const store = makeStore([]);
+    const cs = { kind: 'd2-planner-changeset', pools: [], creates: [
+      { jobno: 'D2-1042', name: 'Duplicate Attempt', addr: '', city: '', start: '2026-10-01' }
+    ] };
+    const { out, calls } = await runApply(loadApplySource(true), cs, store, { jobsStore: [{ JobNumber: 'D2-1042' }] });
+    const createPosts = calls.filter(c => c.method === 'POST' && /New Pool Requests/.test(decodeURIComponent(c.url)) && /\/items$/.test(c.url));
+    ok('a create whose job number already exists live is refused, not written',
+       out.createsBlocked === 1 && out.createsRequested === 0 && createPosts.length === 0, JSON.stringify(out));
+  }
+
+  // ---- a job number NOT already live lands normally, resolving the current
+  // user to ProjectManagerId and writing a bare yyyy-MM-dd StartDate, never
+  // Status/Result (flow-owned) -- proves the check above is a real gate, not
+  // a permanent refusal. ----
+  {
+    const store = makeStore([]);
+    const cs = { kind: 'd2-planner-changeset', pools: [], creates: [
+      { jobno: 'D2-1050', name: 'Ridgeway Pool', addr: '9 Ridge Ct', city: 'Franklin', start: '2026-10-05T00:00:00Z' }
+    ] };
+    const { out, calls } = await runApply(loadApplySource(true), cs, store, { jobsStore: [], requestsStore: [], currentUserId: 77 });
+    const createPost = calls.find(c => c.method === 'POST' && /New Pool Requests/.test(decodeURIComponent(c.url)) && /\/items$/.test(c.url));
+    ok('a job number not already live is created via a single POST', !!createPost);
+    const body = JSON.parse(createPost.body);
+    ok('the request carries the resolved current user as ProjectManagerId, not an email string',
+       body.ProjectManagerId === 77, JSON.stringify(body));
+    ok('StartDate is normalized to a bare yyyy-MM-dd, the same DateOnly convention as ScheduledStart',
+       body.StartDate === '2026-10-05', body.StartDate);
+    ok('Status and Result are never set -- both are flow-owned and default on the list itself',
+       !('Status' in body) && !('Result' in body), Object.keys(body).join(','));
+    ok('the create is reported as requested', out.createsRequested === 1 && out.createsBlocked === 0, JSON.stringify(out));
+  }
+
+  // ---- DRY_RUN creates nothing: no POST at all, but the plan (including the
+  // uniqueness check, which is read-only) is still reported. ----
+  {
+    const store = makeStore([]);
+    const cs = { kind: 'd2-planner-changeset', pools: [], creates: [
+      { jobno: 'D2-1051', name: 'Dry Run Pool', addr: '', city: '', start: '2026-11-01' }
+    ] };
+    const { out, calls } = await runApply(loadApplySource(false), cs, store, { jobsStore: [] });
+    ok('DRY_RUN performs no POST for the new-pool request either',
+       calls.every(c => c.method !== 'POST'), calls.map(c => c.method).join(','));
+    ok('DRY_RUN still reports the create it would raise', out.dryRun === true && out.wouldCreatePools === 1, JSON.stringify(out));
+  }
+
+  // ---- a create and a field edit in one change-set both work and are
+  // reported through separate counters, never conflated. ----
+  {
+    const store = makeStore([baseRow(500, 'D2-1042', '5.1')]);
+    const cs = { kind: 'd2-planner-changeset',
+      pools: [{ jobno: 'D2-1042', name: 'Reyes', sections: [
+        { id: 500, num: '5.1', name: 'Plaster', fields: { Crew: { from: 'devon', to: 'saul' } } }
+      ] }],
+      creates: [{ jobno: 'D2-1052', name: 'Combo Pool', addr: '2 Rd', city: 'Franklin', start: '2026-11-15' }]
+    };
+    const { out, calls, store: after } = await runApply(loadApplySource(true), cs, store, { jobsStore: [], requestsStore: [] });
+    const merges = calls.filter(c => c.headers && c.headers['X-HTTP-Method'] === 'MERGE');
+    const createPosts = calls.filter(c => c.method === 'POST' && /New Pool Requests/.test(decodeURIComponent(c.url)) && /\/items$/.test(c.url));
+    ok('the field edit landed via MERGE on Assignments', merges.length === 1 && after[0].Crew === 'saul', JSON.stringify(after));
+    ok('the new pool request landed via a separate POST to New Pool Requests', createPosts.length === 1, createPosts.length + '');
+    ok('the two are reported through separate counters, never conflated',
+       out.rowsWritten === 1 && out.fieldsWritten === 1 && out.createsRequested === 1, JSON.stringify(out));
+  }
+
+  // ---- a malformed create (missing a required field) is rejected before any
+  // network call, and never silently dropped without a reason. ----
+  {
+    const store = makeStore([]);
+    const cs = { kind: 'd2-planner-changeset', pools: [], creates: [
+      { jobno: 'D2-1053', name: '', addr: '', city: '', start: '2026-12-01' } // name blank
+    ] };
+    const { out, calls } = await runApply(loadApplySource(true), cs, store, { jobsStore: [] });
+    ok('a create missing a required field is rejected before any read, and never created',
+       out.createsRejected === 1 && out.createsRequested === 0 &&
+       !calls.some(c => c.method === 'POST'), JSON.stringify(out));
+  }
+
+  // ---- verify-after-write on the create path: a POST that reports success
+  // but the row does not actually land is caught, not trusted from the status
+  // code -- the same discipline as Finding 6e on the edit path. ----
+  {
+    const store = makeStore([]);
+    const cs = { kind: 'd2-planner-changeset', pools: [], creates: [
+      { jobno: 'D2-1054', name: 'Ghost Pool', addr: '', city: '', start: '2026-12-10' }
+    ] };
+    const { out } = await runApply(loadApplySource(true), cs, store,
+      { jobsStore: [], requestsStore: [], createSilentDropJobnos: new Set(['D2-1054']) });
+    ok('verify-after-write catches a create that reported success but did not actually land',
+       out.createVerifyMismatch.length === 1 && out.createVerifyMismatch[0].jobno === 'D2-1054', JSON.stringify(out.createVerifyMismatch));
   }
 }
 

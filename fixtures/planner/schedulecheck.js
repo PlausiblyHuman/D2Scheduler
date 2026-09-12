@@ -14,7 +14,7 @@ let fail = 0;
 const ok = (l, c, d = '') => { console.log((c ? 'PASS' : 'FAIL') + ' · ' + l + (d ? '  [' + d + ']' : '')); if (!c) fail = 1; };
 
 const html = fs.readFileSync(PLANNER, 'utf8').replace('</body>',
-  `<script>window.__x=()=>{window.S=S;window.allSecs=allSecs;window.conflicts=conflicts;};</script><script>__x();</script></body>`);
+  `<script>window.__x=()=>{window.S=S;window.allSecs=allSecs;window.conflicts=conflicts;window.newJob=newJob;};</script><script>__x();</script></body>`);
 const vc = new VirtualConsole(); vc.on('jsdomError', e => console.log('[jsdom]', e.message));
 const dom = new JSDOM(html, { runScripts: 'dangerously', pretendToBeVisual: true, url: 'http://localhost/', virtualConsole: vc });
 const win = dom.window;
@@ -26,8 +26,10 @@ win.confirm = () => true; win.alert = () => {};
 
   // One pool, everything finished in the past, installer signed, PM never signed --
   // which is the state every real pool is in, because nothing sets PMSignOff.
-  win.document.getElementById('addJobBtn').click();
-  await new Promise(r => setTimeout(r, 100));
+  // Built directly via newJob() -- #addJobBtn no longer creates a local pool
+  // as of 2026-09-12, it opens a New Pool Requests form instead (see
+  // fixtures/planner/writeback.js).
+  S.jobs.push(win.newJob('New Job','','','','','2026-09-08'));
   const j = S.jobs[0];
   j.start = '2026-01-05';
   win.allSecs(j).forEach(({ s }) => { s.start = '2026-01-05'; s.days = 1; s.inst = true; s.pm = false; s.skip = false; });

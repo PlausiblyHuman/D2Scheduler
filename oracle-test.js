@@ -8,7 +8,7 @@ let html = fs.readFileSync(path, 'utf8');
 
 // Append an expose script so we can introspect the module-scoped `let` bindings.
 html = html.replace('</body>',
-  `<script>window.__expose=()=>{window.S=S;window.autoSchedule=autoSchedule;window.conflicts=conflicts;window.crew=crew;window.isQualified=isQualified;window.workSpan=workSpan;window.FIXED=FIXED;window.qualified=qualified;};</script>
+  `<script>window.__expose=()=>{window.S=S;window.autoSchedule=autoSchedule;window.conflicts=conflicts;window.crew=crew;window.isQualified=isQualified;window.workSpan=workSpan;window.FIXED=FIXED;window.qualified=qualified;window.newJob=newJob;};</script>
    <script>__expose();</script></body>`);
 
 const vc = new VirtualConsole();
@@ -28,8 +28,11 @@ if (!S) { console.log('FAIL: state not loaded'); process.exit(2); }
 // "no crew double-booked" over zero assignments. So the harness builds its own
 // two pools. Two, not one, because the double-book check needs a second job.
 if (S.jobs.length === 0) {
-  const btn = win.document.getElementById('addJobBtn');
-  btn.click(); btn.click();
+  // Built directly via newJob() -- #addJobBtn no longer creates a local pool
+  // as of 2026-09-12, it opens a New Pool Requests form instead (see
+  // fixtures/planner/writeback.js).
+  S.jobs.push(win.newJob('New Job','','','','','2026-09-08'));
+  S.jobs.push(win.newJob('New Job','','','','','2026-09-08'));
   win.autoSchedule();
   console.log(`(harness seeded ${S.jobs.length} pools -- the tool ships with none)`);
 }

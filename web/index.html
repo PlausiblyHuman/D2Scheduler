@@ -266,9 +266,19 @@ function mkJobGroups(tpl){
       crewId:null,start:null,skip:false,locked:false,inst:false,pm:false,
       tasks:s.tasks.map(t=>({t,done:false,na:false}))}))}));
 }
+/* A local SUGGESTION only. SharePoint's own Jobs list is the uniqueness
+   authority once a request is actually pushed -- sharepoint/apply-planner-
+   changes.js reads live Jobs and refuses a create whose job number is
+   already in use rather than silently renaming it (D10 in
+   docs/planner-vs-sharepoint-parity.md: two independent generators with no
+   check between them used to exist). This also looks at jobs already queued
+   but not yet pushed, so two +Job requests in a row do not suggest the same
+   number twice. */
 function nextJobNo(){
-  const n=S&&S.jobs?S.jobs.reduce((m,j)=>{const t=String(j.jobno||'').match(/(\d+)\s*$/);
-    return t?Math.max(m,parseInt(t[1],10)):m;},1000):1000;
+  const nums=[];
+  (S&&S.jobs?S.jobs:[]).forEach(j=>{const t=String(j.jobno||'').match(/(\d+)\s*$/);if(t)nums.push(parseInt(t[1],10));});
+  (S&&S.pendingCreates?S.pendingCreates:[]).forEach(c=>{const t=String(c.jobno||'').match(/(\d+)\s*$/);if(t)nums.push(parseInt(t[1],10));});
+  const n=nums.length?Math.max(...nums):1000;
   return 'D2-'+(n+1);
 }
 function newJob(name,addr,city,state,zip,start){
@@ -291,8 +301,8 @@ function jobBadge(j){
   return `<span class="chip jb ${cls}" title="Jobs.Status in D2">${esc(j.status)}</span>`+edited;
 }
 function load(){
-  try{const raw=localStorage.getItem(KEY);if(raw){S=JSON.parse(raw);S.settings=S.settings||{};syncNonWork();return;}}catch(e){}
-  S={crews:JSON.parse(JSON.stringify(SEED_CREWS)),template:mkTemplate(),jobs:[],settings:{}};
+  try{const raw=localStorage.getItem(KEY);if(raw){S=JSON.parse(raw);S.settings=S.settings||{};S.pendingCreates=S.pendingCreates||[];syncNonWork();return;}}catch(e){}
+  S={crews:JSON.parse(JSON.stringify(SEED_CREWS)),template:mkTemplate(),jobs:[],settings:{},pendingCreates:[]};
   /* NO DEMO POOLS. Removed 2026-09-11.
      This used to seed Harrison Residence, Vasquez Pool & Spa and Bell Canyon
      Remodel, three fictional California pools invented before this tool was
@@ -594,6 +604,7 @@ function render(){
   // across every pool that carries a baseline (a local sketch never diverges,
   // since it has no s.base to diverge from -- see divergedSecs above).
   const totalDiverged=S.jobs.reduce((n,j)=>n+divergedSecs(j).length,0);
+  const queuedCreates=(S.pendingCreates||[]).filter(c=>!c.requestedAt).length;
   if(fz){
     const st=S.settings||{};
     const edited=S.jobs.filter(j=>j.touchedAt).length;
@@ -601,10 +612,15 @@ function render(){
       ? `Live as of ${freshStamp(st.loadedAt)}`
         + (st.exportedOn?` · export ${st.exportedOn}`:'')
         + (edited?` · <b>${edited} pool${edited===1?'':'s'} edited here since (${totalDiverged} sub-phases)</b>`:'')
+        + (queuedCreates?` · <b>${queuedCreates} new pool${queuedCreates===1?'':'s'} queued</b>`:'')
       : 'Not loaded from D2';
   }
   const saveBtn=document.getElementById('saveBtn');
-  if(saveBtn)saveBtn.disabled=totalDiverged===0;
+  // Save has something to push if a loaded pool diverged OR a new pool is
+  // queued but not yet pushed -- creates and edits are two different reasons
+  // Save can be live, not one combined count (see the Save preview, further
+  // below, which lists them as separate labelled sections for the same reason).
+  if(saveBtn)saveBtn.disabled=(totalDiverged===0&&queuedCreates===0);
   document.getElementById('main').innerHTML=
     ({board:vBoard,crewboard:vCrewBoard,dispatch:vDispatch,signoff:vSignoff,jobs:vJobs,crews:vCrews,phases:vPhases})[TAB]();
   document.querySelectorAll('input[data-ind]').forEach(el=>el.indeterminate=true);
@@ -765,8 +781,30 @@ function vSignoff(){
   }).join('')||'<div class="card pad muted">No jobs.</div>';
 }
 
+/* Pending pool requests -- queued here via +Job, not yet built as sub-phases
+   anywhere. Surfaced on the Jobs tab so a PM can see both what they have
+   raised but not yet pushed (Save still to come) and what they have pushed
+   but not yet received back (waiting on D2 - New Pool, ~9 minutes measured,
+   allow 10-15). A create clears itself the moment the real pool comes back
+   through Load from D2 -- see importFromD2. */
 function vJobs(){
-  return `<div class="card"><h2>Jobs<span class="sp"></span><button class="btn sm p" onclick="addJob()">+ New Job</button></h2>
+  const pend=S.pendingCreates||[];
+  const pendingCard=pend.length?`<div class="card"><h2>Pending Pool Requests<span class="sp"></span>
+      <span class="muted small" style="text-transform:none">Queued here — pushed to SharePoint by Save</span></h2>
+    <table><thead><tr><th style="width:92px">Job ID</th><th>Name</th><th>Address</th><th style="width:100px">Start</th>
+      <th style="width:230px">Status</th><th></th></tr></thead><tbody>
+    ${pend.map(c=>`<tr>
+      <td class="mono small">${esc(c.jobno)}</td>
+      <td>${esc(c.name)}</td>
+      <td class="small muted">${esc([c.addr,c.city].filter(Boolean).join(', '))}</td>
+      <td class="small muted">${pretty(c.start)}</td>
+      <td class="small">${c.requestedAt
+        ?`Requested ${freshStamp(c.requestedAt)} — allow 10–15 min, then Load from D2`
+        :'<span class="chip jb local">Not yet pushed</span> — press Save'}</td>
+      <td style="text-align:right">${c.requestedAt?'':`<button class="btn sm d" onclick="cancelPendingCreate('${c.id}')">Remove</button>`}</td>
+      </tr>`).join('')}
+    </tbody></table></div>`:'';
+  return pendingCard+`<div class="card"><h2>Jobs<span class="sp"></span><button class="btn sm p" onclick="addJob()">+ New Job</button></h2>
   <table><thead><tr><th style="width:92px">Job ID</th><th>Job Name</th><th>Street Address</th>
     <th style="width:120px">City</th><th style="width:56px">State</th><th style="width:82px">ZIP</th>
     <th>Start</th><th>Ends</th><th>Sub-phases</th><th></th></tr></thead><tbody>
@@ -920,8 +958,67 @@ const closeDrawer=()=>document.getElementById('drawer').classList.remove('open')
 /* ============================== mutations ============================== */
 const esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
 function setJob(id,k,v){S.jobs.find(x=>x.id===id)[k]=v;save();if(k==='start')render();}
-function addJob(){S.jobs.push(newJob('New Job','','','',''  ,nextWork(todayStr())));autoSchedule();TAB='jobs';
-  document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.t==='jobs'));render();}
+/* `+ Job` used to build a full 46-sub-phase pool directly in this browser,
+   with its own nextJobNo() and no connection to SharePoint at all -- D10 in
+   docs/planner-vs-sharepoint-parity.md. RETIRED 2026-09-12, per the owner,
+   verbatim: "The new job should just run the new pool flow. I don't want to
+   have a new job flow in the HTML and then a new job flow in the SharePoint
+   site that do different things." `D2 - New Pool` is the only thing that
+   builds sub-phases now -- this only collects what New Pool Requests needs
+   and queues it. See confirmNewPoolRequest, buildPendingCreates and the Save
+   preview (openSavePreview, further below). */
+function addJob(){
+  document.getElementById('dTitle').textContent='Request a new pool';
+  document.getElementById('dBody').innerHTML=`
+    <div class="hint" style="padding:0 0 11px">
+      This raises a row in SharePoint's <b>New Pool Requests</b> list — <b>D2 - New Pool</b> builds
+      the 46 sub-phases and 295 tasks from the template. Measured at about 9 minutes: allow
+      <b>10–15 minutes</b>. The request sits at <span class="mono">Building</span> the whole time
+      and looks stuck, but is not. Use <b>Load from D2</b> once it finishes to pull the pool in here.
+    </div>
+    <div class="fld"><label>Job number</label><input id="ncJobNo" value="${esc(nextJobNo())}"></div>
+    <div class="fld"><label>Pool / job name</label><input id="ncName" placeholder="e.g. Reyes Residence"></div>
+    <div class="fld"><label>Street address</label><input id="ncAddr" placeholder="Street"></div>
+    <div class="row">
+      <div class="fld"><label>City</label><input id="ncCity" placeholder="City"></div>
+      <div class="fld"><label>Start date</label><input type="date" id="ncStart" value="${nextWork(todayStr())}"></div>
+    </div>`;
+  document.getElementById('dFoot').innerHTML=
+    `<button class="btn p" id="ncSubmit" onclick="confirmNewPoolRequest()">Queue request</button>
+     <button class="btn" onclick="closeDrawer()">Cancel</button>`;
+  document.getElementById('drawer').classList.add('open');
+}
+/* Validates, then queues -- never writes anything and never builds a section.
+   Save (openSavePreview / buildPendingCreates, further below) is what turns a
+   queued request into a real New Pool Requests row, via sharepoint/apply-
+   planner-changes.js, which ALSO re-checks the job number against live Jobs
+   before creating anything -- the check here is a local sanity check only,
+   never the uniqueness authority. */
+function confirmNewPoolRequest(){
+  const jobno=document.getElementById('ncJobNo').value.trim();
+  const name=document.getElementById('ncName').value.trim();
+  const addr=document.getElementById('ncAddr').value.trim();
+  const city=document.getElementById('ncCity').value.trim();
+  const start=document.getElementById('ncStart').value;
+  if(!jobno||!name||!start){alert('Job number, pool name and start date are all required.');return;}
+  S.pendingCreates=S.pendingCreates||[];
+  if(S.jobs.some(j=>String(j.jobno)===jobno)||S.pendingCreates.some(c=>c.jobno===jobno)){
+    alert(jobno+' is already in use here — pick a different job number.');return;}
+  S.pendingCreates.push({id:'pc'+Math.random().toString(36).slice(2,8),
+    jobno,name,addr,city,start,queuedAt:new Date().toISOString(),requestedAt:null});
+  closeDrawer();
+  TAB='jobs';
+  document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.t==='jobs'));
+  save();render();
+  alert('Queued: '+jobno+' · '+name+'.\n\nPress Save to raise this in SharePoint\'s New Pool Requests list.\n\n'+
+    'D2 - New Pool takes about 9 minutes measured — allow 10–15 minutes. The request sits at '+
+    '"Building" the whole time and looks stuck, but is not. Use Load from D2 once it finishes to pull '+
+    'the finished pool in here.');
+}
+function cancelPendingCreate(id){
+  S.pendingCreates=(S.pendingCreates||[]).filter(c=>c.id!==id);
+  save();render();
+}
 function delJob(id){if(!confirm('Delete this job and its schedule?'))return;S.jobs=S.jobs.filter(x=>x.id!==id);render();}
 function setCrew(id,k,v){const c=crew(id);
   if(k==='members')c.members=v.split(',').map(x=>x.trim()).filter(Boolean);
@@ -1059,6 +1156,14 @@ function importFromD2(file){
       });
     });
     plan.forEach(({inj})=>{const j=S.jobs.find(x=>String(x.jobno)===String(inj.jobno));if(j)delete j.touchedAt;});
+    // A pending create resolves itself the moment the real pool comes back --
+    // no reason to keep telling a PM they are waiting on a request D2 already
+    // finished. Whether it was ever pushed (requestedAt set) or is still only
+    // queued here, the real pool having arrived is what matters.
+    if(S.pendingCreates&&S.pendingCreates.length){
+      const arrived=new Set(d.jobs.map(inj=>String(inj.jobno)));
+      S.pendingCreates=S.pendingCreates.filter(c=>!arrived.has(String(c.jobno)));
+    }
 
     save(); UI={collapsed:{}}; render();
     alert('Loaded from D2.\n\n'+updated+' updated, '+added+' added, '+untouched+' left alone.'+
@@ -1099,10 +1204,24 @@ function buildChangeSet(){
   });
   return pools;
 }
-function downloadChangeSet(pools){
+/* Which queued pool requests have never yet been included in a downloaded
+   change-set -- what a PM has raised here but not yet pushed. A create that
+   HAS been pushed (requestedAt set, by confirmSaveChangeSet below) is never
+   re-offered by a later Save; it is surfaced instead on the Jobs tab as
+   "waiting on D2" until the real pool comes back through Load from D2, which
+   clears the pendingCreates entry entirely (see importFromD2). This is a
+   wholly separate path to a wholly different list (New Pool Requests, never
+   Assignments) and is never subject to the five-field WRITEBACK_FIELDS
+   allowlist above -- that allowlist governs edits to an existing row, not the
+   creation of a new one. */
+function buildPendingCreates(){
+  return (S.pendingCreates||[]).filter(c=>!c.requestedAt)
+    .map(c=>({jobno:c.jobno,name:c.name,addr:c.addr||'',city:c.city||'',start:c.start}));
+}
+function downloadChangeSet(pools,creates){
   const stamp=fmt(new Date());
   const payload={app:'D2 Pool Build Scheduler',kind:'d2-planner-changeset',
-    generated:new Date().toISOString(),pools};
+    generated:new Date().toISOString(),pools,creates:creates||[]};
   const a=document.createElement('a');
   a.href=URL.createObjectURL(new Blob([JSON.stringify(payload,null,1)],{type:'application/json'}));
   a.download='d2-planner-changes-'+stamp+'.json';
@@ -1117,26 +1236,43 @@ function wbFmt(col,v){
   if(col==='Locked'||col==='NotApplicable')return v?'Yes':'No';
   return String(v);
 }
-let PENDING_CHANGESET=null;
+let PENDING_CHANGESET=null, PENDING_CREATES=null;
 /* The preview a PM must confirm before anything downloads. Grouped by pool,
    one line per changed field, naming the field and the loaded value next to
    the new one -- a count is not enough to see "this is about to move 46
-   rows" before it happens. */
+   rows" before it happens. Pending pool requests are their own clearly
+   labelled section, separate from field edits: "1 new pool will be
+   requested" is a different kind of change than "12 sub-phases will be
+   updated" -- one is a two-phase, ~10-15 minute round trip through
+   D2 - New Pool, the other lands immediately. */
 function openSavePreview(){
   const pools=buildChangeSet();
+  const creates=buildPendingCreates();
   const totalSecs=pools.reduce((n,p)=>n+p.sections.length,0);
-  if(!totalSecs){alert('Nothing to push -- no pool loaded from D2 has changed here since.');return;}
+  if(!totalSecs&&!creates.length){alert('Nothing to push -- no pool loaded from D2 has changed here since, and no new pool is queued.');return;}
   const skipped=S.jobs.filter(j=>!poolHasBaseline(j));
   document.getElementById('dTitle').textContent='Save changes to D2';
   document.getElementById('dBody').innerHTML=
     `<div class="hint" style="padding:0 0 11px">
-      ${totalSecs} sub-phase${totalSecs===1?'':'s'} across ${pools.length} pool${pools.length===1?'':'s'} will be pushed to SharePoint.
+      ${totalSecs?`${totalSecs} sub-phase${totalSecs===1?'':'s'} across ${pools.length} pool${pools.length===1?'':'s'} will be updated. `:''}
+      ${creates.length?`${creates.length} new pool${creates.length===1?'':'s'} will be requested. `:''}
       This only downloads a file — nothing reaches D2 until that file is applied with
       <span class="mono">sharepoint/apply-planner-changes.js</span>.
       ${skipped.length?`<br><br>${skipped.length} pool${skipped.length===1?'':'s'} sketched only in this browser (never loaded from D2) `
-        +`${skipped.length===1?'is':'are'} excluded — creating a pool is not part of this feature: `
+        +`${skipped.length===1?'is':'are'} excluded from the edits above — use the +Job form to request a new pool instead: `
         +skipped.map(j=>esc(j.jobno||j.name)).join(', ')+'.':''}
     </div>`+
+    (creates.length?`<div class="fld"><label>New pools to request (${creates.length})</label>
+      <div class="hint" style="padding:0 0 6px">
+        Each raises a row in SharePoint's New Pool Requests list. D2 - New Pool takes about
+        9 minutes measured — allow 10–15 minutes, and the request sits at "Building" the whole time
+        and looks stuck, but is not. Use Load from D2 once it finishes to pull the pool in.
+      </div>
+      <table><tbody>${creates.map(c=>`<tr><td class="small"><b>${esc(c.jobno)}</b></td>
+        <td class="small">${esc(c.name)}</td>
+        <td class="small muted">${esc([c.addr,c.city].filter(Boolean).join(', '))}</td>
+        <td class="small muted">${esc(pretty(c.start))}</td></tr>`).join('')}
+      </tbody></table></div>`:'')+
     pools.map(p=>`<div class="fld"><label>${esc(p.jobno)} · ${esc(p.name)} — ${p.sections.length} sub-phase${p.sections.length===1?'':'s'}</label>
       <table><tbody>${p.sections.map(sec=>Object.keys(sec.fields).map(col=>
         `<tr><td class="small">${esc(sec.num)} ${esc(sec.name)}</td>
@@ -1146,15 +1282,27 @@ function openSavePreview(){
              <td class="small"><b>${esc(wbFmt(col,sec.fields[col].to))}</b></td></tr>`).join('')).join('')}
       </tbody></table></div>`).join('');
   document.getElementById('dFoot').innerHTML=
-    `<button class="btn p" onclick="confirmSaveChangeSet()">Download change-set (${totalSecs})</button>
+    `<button class="btn p" onclick="confirmSaveChangeSet()">Download change-set (${totalSecs} edit${totalSecs===1?'':'s'}`
+      +`${creates.length?', '+creates.length+' new pool'+(creates.length===1?'':'s'):''})</button>
      <button class="btn" onclick="closeDrawer()">Cancel</button>`;
   PENDING_CHANGESET=pools;
+  PENDING_CREATES=creates;
   document.getElementById('drawer').classList.add('open');
 }
 function confirmSaveChangeSet(){
-  downloadChangeSet(PENDING_CHANGESET||[]);
-  PENDING_CHANGESET=null;
-  closeDrawer();
+  const creates=PENDING_CREATES||[];
+  downloadChangeSet(PENDING_CHANGESET||[],creates);
+  // Mark these as pushed so a later Save never re-offers them -- they now
+  // read as "waiting on D2" on the Jobs tab until the real pool comes back
+  // through Load from D2, which clears the pendingCreates entry entirely.
+  const now=new Date().toISOString();
+  creates.forEach(c=>{
+    const pc=(S.pendingCreates||[]).find(x=>x.jobno===c.jobno&&!x.requestedAt);
+    if(pc)pc.requestedAt=now;
+  });
+  PENDING_CHANGESET=null; PENDING_CREATES=null;
+  save();
+  closeDrawer();render();
 }
 
 /* ============================== boot ============================== */

@@ -31,7 +31,7 @@ const ok = (l, c, d = '') => { console.log((c ? 'PASS' : 'FAIL') + ' · ' + l + 
 
 const html = fs.readFileSync(PLANNER, 'utf8').replace('</body>',
   `<script>window.__x=()=>{window.S=S;window.allSecs=allSecs;window.autoSchedule=autoSchedule;
-    window.jobStart=jobStart;window.nextWork=nextWork;};</script><script>__x();</script></body>`);
+    window.jobStart=jobStart;window.nextWork=nextWork;window.newJob=newJob;};</script><script>__x();</script></body>`);
 const vc = new VirtualConsole(); vc.on('jsdomError', e => console.log('[jsdom]', e.message));
 const dom = new JSDOM(html, { runScripts: 'dangerously', pretendToBeVisual: true, url: 'http://localhost/', virtualConsole: vc });
 const win = dom.window;
@@ -43,9 +43,11 @@ win.confirm = () => true; win.alert = () => {};
 
   // ---- Scenario 1: locked early work resumes correctly. Kept from the original
   // brief -- it pins real behaviour -- even though the reviewer showed it alone
-  // cannot fail on a reversion of either call site. ----
-  win.document.getElementById('addJobBtn').click();
-  await new Promise(r => setTimeout(r, 100));
+  // cannot fail on a reversion of either call site. Built directly via
+  // newJob() -- #addJobBtn no longer creates a local pool as of 2026-09-12,
+  // it opens a New Pool Requests form instead (see
+  // fixtures/planner/writeback.js). ----
+  S.jobs.push(win.newJob('New Job','','','','','2026-09-08'));
   const j = S.jobs[0];
 
   // Exactly the Whitfield shape: the Jobs row says September, the work started in June
