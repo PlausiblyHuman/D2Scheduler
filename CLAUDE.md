@@ -2089,6 +2089,45 @@ SharePoint's white header. A real header photo must come from D2's own project p
 
 ---
 
+## THE PLANNER HEADER IS FOUR BUTTONS — four controls removed 2026-09-12
+
+`⚡ Auto-Schedule · + Job · Save · Load from D2`, plus the freshness stamp. It was eight and wrapped
+to a second row. Removed on Shane's call once the planner stopped being a standalone scratchpad:
+
+| Removed | Why it was vestigial |
+|---|---|
+| **CSV** | *"I don't know why it's there."* Nobody uses it. |
+| **Backup** | downloaded all state as JSON; SharePoint is the durable store now, and it has versioning on `Assignments` |
+| **Restore** | uploaded a backup and replaced `S` **wholesale** — the one path in the app capable of destroying a local sketch, which is exactly why `importFromD2` was written to merge instead |
+| **Reset** | cleared local state and re-seeded. Once `Load from D2` reads live, that IS the reset. Discarding unsaved edits becomes a choice inside the refresh dialog, not a standing button. |
+
+**`Load from D2` keeps its name until the live read lands**, because it genuinely is still a file
+picker. It becomes **`Refresh from D2`** with Route B, and absorbs what Reset used to do — at that
+point its only remaining job is "someone else changed something while I had this open", which is
+real with two PMs, since Save already re-imports after a push.
+
+**ACCEPTED RISK, taken deliberately: a local-only sketch is now unrecoverable if `localStorage`
+clears.** Anything that exists in SharePoint is always re-gettable by re-running
+`export-to-planner.js`, but a pool created with `+ Job` and never pushed has no home to go back to,
+and Backup was the only thing that protected it. Shane chose to pull Backup/Restore now rather than
+wait for Route B, with that stated. **It is the strongest argument for wiring `+ Job` to
+`New Pool Requests`** (parity D10) sooner rather than later — that closes the exposure by giving
+sketches somewhere real to live, and also collapses the two independent job-number generators that
+currently run with no uniqueness check between them.
+
+**One removal trap worth knowing:** the "wrong file" alert in `importFromD2` said *"Use the
+Backup/Restore buttons for a scheduler backup file"* — prose pointing at controls that no longer
+exist. Deleting a control means grepping the **copy** as well as the code. `roundtrip.js`'s
+"rejects a plain backup file" assertion survives deliberately and is now more valuable, not less:
+someone holding an old backup will try it in the only remaining file input.
+
+`restore()` was also one of four `syncNonWork()` call sites. Three remain and that is correct — both
+branches of `load()` and `importFromD2` — but if `NONWORK` ever fails to rebuild the planner
+silently stops honouring the 35 holidays, so `fixtures/planner/workcalendar.js` is the thing that
+proves it still does.
+
+---
+
 ## THE PLANNER CAN NOW WRITE BACK — Route A built 2026-09-12, NOT yet run against the tenant
 
 **Spec:** `docs/superpowers/specs/2026-09-12-batch-write-back-design.md`. Two pieces:
