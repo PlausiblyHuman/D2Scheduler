@@ -3,6 +3,12 @@
  * names, but isQualified() let ANY capacity-exempt crew through
  * (`|| c.unlimited`), so a drawer could put e.g. STL Shotcrete on an @office
  * row and conflicts() would raise nothing. The two predicates must agree.
+ *
+ * D-RULE2: business rule 2 exempts capacity-exempt crews from ever being
+ * "double-booked" -- busyMap() honours this, but autoSchedule()'s own busy
+ * seeding did not, so a subcontractor already locked to one pool on a day
+ * could be treated as unavailable for a second pool the same day, even
+ * though rule 2 says it never is.
  */
 const fs = require('fs');
 const path = require('path');
@@ -62,6 +68,31 @@ const mkJob = (o) => Object.assign({ id: 'j' + Math.random().toString(36).slice(
   ok('...and raises nothing once the correct bucket crew is assigned',
      !msgsGood.some(m => /not qualified/i.test(m)),
      msgsGood.join(' | ').slice(0, 160));
+
+  // ================= D-RULE2: autoSchedule's busy seeding must exempt unlimited crews =================
+  // 'dig' candidates: guillermo, saul, harrison (real crews) and stl (unlimited,
+  // capacity-exempt). Lock the three real crews AND stl to the same day on
+  // separate pools, so the only crew genuinely free that day is stl -- which
+  // rule 2 says is always free regardless of what else it is locked to.
+  const DATE1 = '2026-01-05'; // a Monday, a real work day, not a holiday
+  const jStl = mkJob({ jobno: 'RULE2-STL' });
+  jStl.groups[0].sections.push(mkSec({ num: '0.0', skill: 'dig', crewId: 'stl', start: DATE1, days: 1, locked: true }));
+  const jHarrison = mkJob({ jobno: 'RULE2-H' });
+  jHarrison.groups[0].sections.push(mkSec({ num: '0.0', skill: 'dig', crewId: 'harrison', start: DATE1, days: 1, locked: true }));
+  const jGuillermo = mkJob({ jobno: 'RULE2-G' });
+  jGuillermo.groups[0].sections.push(mkSec({ num: '0.0', skill: 'dig', crewId: 'guillermo', start: DATE1, days: 1, locked: true }));
+  const jSaul = mkJob({ jobno: 'RULE2-S' });
+  jSaul.groups[0].sections.push(mkSec({ num: '0.0', skill: 'dig', crewId: 'saul', start: DATE1, days: 1, locked: true }));
+  const jOpen = mkJob({ jobno: 'RULE2-OPEN', start: DATE1 });
+  jOpen.groups[0].sections.push(mkSec({ num: '0.0', skill: 'dig', locked: false }));
+  S.jobs = [jStl, jHarrison, jGuillermo, jSaul, jOpen];
+
+  win.autoSchedule();
+  const openSec = jOpen.groups[0].sections[0];
+  ok('the open pool lands on the SAME day stl is already locked to, not a later one',
+     openSec.start === DATE1, 'got ' + openSec.start + ' (expected ' + DATE1 + ')');
+  ok('...picking stl, the only crew rule 2 says is actually free that day',
+     openSec.crewId === 'stl', 'got ' + openSec.crewId);
 
   process.exit(fail);
 })();

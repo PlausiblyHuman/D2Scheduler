@@ -337,6 +337,7 @@ function autoSchedule(){
   const busy=new Map();
   S.jobs.forEach(j=>allSecs(j).forEach(({s})=>{
     if(s.locked&&s.crewId&&s.start&&!s.skip){
+      const c=crew(s.crewId);if(c&&c.unlimited)return;   // capacity-exempt buckets never block
       let set=busy.get(s.crewId);if(!set){set=new Set();busy.set(s.crewId,set);}
       workSpan(s.start,s.days).forEach(d=>set.add(d));
     }}));
