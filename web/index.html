@@ -354,7 +354,7 @@ function autoSchedule(){
     allSecs(j).forEach(({s})=>{
       if(s.skip)return;
       const adv=st=>nextWork(addCal(workSpan(st,s.days).pop(),1));
-      if(s.locked&&s.start){cursor=adv(s.start);return;}
+      if(s.locked&&s.start){const nc=adv(s.start);if(nc>cursor)cursor=nc;return;}  // never move the cursor backwards
       if(!s.skill){s.crewId='unassigned';s.start=cursor;cursor=adv(cursor);return;}
       const cands=qualified(s.skill);
       if(!cands.length){s.crewId=null;s.start=cursor;cursor=adv(cursor);return;}

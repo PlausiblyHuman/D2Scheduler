@@ -13,6 +13,7 @@ node fixtures/planner/empty.js
 node fixtures/planner/workcalendar.js
 node fixtures/planner/schedulecheck.js
 node fixtures/planner/startdate.js
+node fixtures/planner/rules.js
 node oracle-test.js         # the original 16-invariant harness (repo root)
 ```
 
@@ -26,6 +27,7 @@ node oracle-test.js         # the original 16-invariant harness (repo root)
 | `workcalendar.js` | The planner's spans match SharePoint's. Before the fix, 2 of 138 live assignments rendered a day short, both crossing Columbus Day 2026-10-12. |
 | `schedulecheck.js` | Schedule Check no longer warns on PM sign-off, which `PMSignOff` never gets set by anything real. Installer sign-off is still checked. |
 | `startdate.js` | Auto-Schedule is anchored on real work, not a drifted `Jobs.StartDate`. `D2 - Reschedule Pool` rewrites Assignments dates and never writes the Jobs row back, so the field can sit months after a pool's first sub-phase; `jobStart()` uses the earliest of the two everywhere `autoSchedule` orders pools or seeds a cursor. Covers the sort comparator and the cursor seed as two isolated scenarios (a two-pool tie-break contest, and a single unlocked-first-row pool), on top of the original single-pool locked-row case, so a revert of either `autoSchedule` call site fails on its own. |
+| `rules.js` | Three business-rule enforcement gaps, confirmed live 2026-09-12, all in the planner only. **Rule 1:** `isQualified()` and `qualified()` disagreed on a FIXED pseudo-trade (`@office`/`@sub`/`@unassigned`) -- `qualified()` offers only the one bucket crew a code names, but `isQualified()` let any capacity-exempt crew through (`\|\| c.unlimited`), so an unlimited crew parked on the wrong bucket sub-phase raised no `conflicts()` error at all. **Rule 2:** `autoSchedule()`'s own busy-seeding loop had no `unlimited` exemption, unlike `busyMap()`, so a subcontractor already locked to one pool on a day could be treated as unavailable for a second pool the same day even though rule 2 says it never is. **Rule 3:** the scheduling `cursor` was set unconditionally to a locked row's own end; a locked row starting earlier than work already placed pulled the cursor backwards and let the next unlocked row land on top of it. Each of the three scenarios is isolated so a revert of any one fix fails only its own assertions. |
 
 `roundtrip.js` builds its payload from the planner's own `SEED_TEMPLATE`, in the
 exact shape `sharepoint/export-to-planner.js` emits. `live-export.js` goes further
