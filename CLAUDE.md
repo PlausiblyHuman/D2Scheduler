@@ -2089,6 +2089,60 @@ SharePoint's white header. A real header photo must come from D2's own project p
 
 ---
 
+## THE PLANNER CAN NOW WRITE BACK — Route A built 2026-09-12, NOT yet run against the tenant
+
+**Spec:** `docs/superpowers/specs/2026-09-12-batch-write-back-design.md`. Two pieces:
+
+- **Save**, in `web/index.html`. Computes what diverged since the last Load from D2 via
+  `divergedSecs(j)`, shows a **per-pool, per-sub-phase, per-field preview the user must confirm**
+  (loaded value beside new value — never a bare count), and downloads a change-set JSON carrying the
+  SharePoint row id, `jobno`, `num`, and both the baseline and new value for each changed field.
+  Disabled when nothing diverged. Local-only pools are excluded by three independent guards; pool
+  creation is out of scope.
+- **`sharepoint/apply-planner-changes.js`**, the console-paste applier and the exact inverse of
+  `export-to-planner.js`.
+
+**FIVE SAFETY PROPERTIES, each enforced in code and each pinned by a test proven to fail:**
+
+1. **`DRY_RUN` defaults `true`.** It does the whole compare pass and prints the plan, writing
+   nothing. (Note `fix-job-startdates.js` defaults `false`; that is treated here as a hazard, not a
+   precedent.)
+2. **An allowlist of exactly five columns** — `Crew`, `ScheduledStart`, `DurationDays`, `Locked`,
+   `NotApplicable`. Anything else is rejected and reported. `ScheduledFinish` is derived and never
+   sent. **No sign-off column and nothing on the `Tasks` list is reachable from any path** — the
+   sign-off names appear in that file only in the header prose explaining their exclusion.
+3. **Compare-before-write, per FIELD not per row.** A row with two changed fields can have one
+   refused and the other land. **Deliberately NOT ETags:** `odata=nometadata` suppresses
+   `odata.etag` entirely, and more importantly five flows write to `Assignments` on schedules
+   unrelated to the PM (Calendar Sync hourly, Counter Reconciliation, Conflict Flag, Crew Trade
+   Check, Event-Driven Reconciliation), so a row-level ETag would reject a whole batch because a
+   nightly flow annotated the rows overnight.
+4. **Row-identity check.** The live `Title` is read and verified against the change-set's `jobno`
+   and `num` before any write, and printed in the dry-run plan so a human reads SharePoint's own
+   account of the row rather than the file's. **The match is token-anchored**, because a substring
+   test let a `2.1` edit land on a `2.10` row — proven by exploit test, dormant only because the
+   current template tops out at `7.0`.
+5. **`SuppressReconcileUntil` (+10 min) in the SAME MERGE as the data**, exactly as
+   `D2 - Reschedule Pool` does, so a 46-row batch does not burn one Event-Driven Reconciliation run
+   per row. A second write would re-trigger the flow it is suppressing.
+
+**NOT YET RUN AGAINST THE TENANT, and one mechanism is unverified:** `input.click()` opening a file
+picker from a console-pasted script. If it silently does nothing, use DevTools > Sources > Snippets,
+which also avoids the paste guard. On the first real run: dry-run a single-field change first and
+confirm the printed `from` matches what the row shows in SharePoint; deliberately provoke a refusal
+by changing one row's `Crew` in SharePoint after loading; then after the first live write **open the
+rows** rather than reading the summary, and watch Event-Driven Reconciliation's run count for ten
+minutes to confirm the suppression held.
+
+**A HARNESS CAN PIN THE CORE AND MISS EVERY MARGIN.** `writeback.js` opened at 29 assertions and the
+reviewer's mutation sweep found **4 of 6 survived** — write-side date normalisation, the suppression
+window's lower bound, writing every chunk rather than only the first, and the verify-after-write pass
+were all untested, while the allowlist and compare-before-write were genuinely pinned. Now 44
+assertions with each of those mutations confirmed red. **When a test count is cited as coverage, ask
+what it fails on.**
+
+---
+
 ## THE ENTRA APP REGISTRATION EXISTS — created 2026-09-12, consented tenant-wide
 
 This is what lets the planner read and write SharePoint from **any origin**, rather than only from
