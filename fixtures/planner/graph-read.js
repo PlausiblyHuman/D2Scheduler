@@ -4,7 +4,7 @@
  * This is a stronger check than asserting field names on one surface alone.
  * It runs the real `sharepoint/export-to-planner.js` against the captured
  * REST fixture (via run-export.js, exactly as live-export.js does), runs the
- * real `sharepoint/graph-to-planner.js` against the captured Graph fixture,
+ * real `web/graph-to-planner.js` against the captured Graph fixture,
  * and asserts the two payloads agree pool-for-pool, sub-phase-for-sub-phase.
  * If the Graph mapping's join is wrong anywhere -- wrong field name, wrong
  * type, a `===` between a string and a number -- this is what catches it,
@@ -23,7 +23,7 @@ const fs = require('fs');
 const path = require('path');
 const { JSDOM, VirtualConsole } = require('jsdom');
 const { runExport } = require('./run-export');
-const { toPlannerPayload } = require('../../sharepoint/graph-to-planner.js');
+const { toPlannerPayload } = require('../../web/graph-to-planner.js');
 
 const ROOT = path.resolve(__dirname, '../..');
 const PLANNER = path.join(ROOT, 'web/index.html');

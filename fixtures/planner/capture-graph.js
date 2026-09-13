@@ -39,7 +39,10 @@ const path = require('path');
 const PORT = 8787;
 const OUT = path.join(__dirname, 'live-payloads-graph.json');
 const PAGE_FILE = path.join(__dirname, 'capture-graph.html');
-const MSAL_FILE = path.join(__dirname, 'vendor', 'msal-browser.min.js');
+// Read from web/vendor, not a second copy under fixtures/ -- that is the same
+// file the planner itself loads at runtime (web/index.html), and this repo has
+// already been burned once by two copies of a file drifting apart.
+const MSAL_FILE = path.join(__dirname, '..', '..', 'web', 'vendor', 'msal-browser.min.js');
 /* Served from here rather than a CDN. The Microsoft CDN path returns 404 and the
    page then fails with nothing but a dead button, so the dependency is local and
    the failure is visible. Fetched once if missing; jsdelivr and unpkg both serve
