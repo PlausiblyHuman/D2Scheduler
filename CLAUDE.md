@@ -2231,6 +2231,69 @@ what it fails on.**
 
 ---
 
+## GRAPH IS A THIRD FIELD-SHAPE SURFACE, AND THE CAPTURE PROVED IT — 2026-09-13
+
+`fixtures/planner/live-payloads-graph.json` is a real Graph capture of all four lists (jobs 3,
+asg 138, tasks 885, cal 210), taken with `fixtures/planner/capture-graph.js`. **Every mapping
+against Graph must be written from that file, never from the REST fixture.** The shapes differ in
+the exact places a join depends on:
+
+| | raw REST (`odata=nometadata`) | **Graph** |
+|---|---|---|
+| Assignments -> Job | `JobId` — **number** | **`fields.JobLookupId` — STRING** |
+| Tasks -> Assignment | `AssignmentId` — **number** | **`fields.AssignmentLookupId` — STRING** |
+| item id | `Id` — **number** | **`fields.id` — STRING** |
+| Person column | `InstallerSignOffById` | `fields.InstallerSignOffByLookupId` — string |
+| `Crew` (Choice) | plain string | plain string — **same** |
+| `Sequence`, `DurationDays`, `TasksTotal` | number | number — **same** |
+| booleans | bool | bool — **same** |
+| DateOnly | `2026-09-08T05:00:00Z` | identical — slice(0,10) still correct |
+
+Every row is `{ id, eTag, fields: {...} }`; the columns live under `fields`.
+
+**Lookups are renamed AND retyped, and the retype is the dangerous half.** `"20" === 20` is false,
+so an unnormalised join matches nothing, errors nowhere, and reports success — the same silent
+empty-join that made `D2 - Crew Trade Check` flag 66 rows wrongly. Normalise both sides with
+`String()`.
+
+**`ProjectManagerLookupId` is an id with no display name.** REST got the name via
+`$expand=ProjectManager&$select=ProjectManager/Title`; Graph returns `"16"`. Harmless —
+`importFromD2` never reads the job-level PM name.
+
+**The read layer maps Graph into the payload `export-to-planner.js` already emits**
+(`web/graph-to-planner.js`), rather than inventing a second shape. That is why `importFromD2` needed
+no change at all: merging by job number, locking signed work, and taking structure from the local
+template are all untouched and still covered by their existing tests. `fixtures/planner/graph-read.js`
+is an **equivalence** test — it maps the REST fixture one way and the Graph fixture the other and
+asserts they agree pool by pool. Breaking the `JobLookupId` join name collapses every count to zero
+and the test names the mismatch.
+
+**MSAL CANNOT REDIRECT TO `file://`, so a live read only works when the planner is SERVED.** The
+file-picker path therefore stays until hosting exists. `Load from D2` detects its situation
+(`location.protocol`, plus both libraries being present) and says which mode it is in, rather than
+trying and failing confusingly. Auth uses **`loginPopup`, deliberately not `loginRedirect`** — a
+redirect would discard in-memory planner state.
+
+**THE PLANNER IS NO LONGER A SELF-CONTAINED SINGLE FILE, and that was decided rather than
+stumbled into.** It now has two runtime dependencies, `web/vendor/msal-browser.min.js` and
+`web/graph-to-planner.js`, both served alongside it from `web/`, which is the Static Web Apps deploy
+root. This contradicts the basis recorded for the `download.aspx` distribution route ("no external
+scripts... no network of any kind"), and that is accepted: the nav link was pulled at go-live, the
+PM guide does not mention the planner, nobody is trained on the download, and Phase H retires that
+copy outright.
+
+**A jsdom harness CANNOT catch a broken `<script src>`** — jsdom does not fetch external scripts
+unless told to, so all twelve harnesses passed while the tags pointed into `fixtures/`, i.e. outside
+the deploy root at test scaffolding that must never ship. Verify script tags **in a real browser
+over HTTP**, both hosted and from `file://`. Doing so confirmed 200s and live-Graph mode when
+served, and silent 404s with the file-picker fallback intact from `file://`.
+
+**Do not re-add a CDN.** `https://alcdn.msauth.net/browser/2.38.3/js/msal-browser.min.js` returns
+**404** — the path is wrong, not blocked. jsdelivr and unpkg serve the identical bytes, and MSAL is
+vendored so there is no runtime CDN dependency at all.
+
+---
+
 ## THE ENTRA APP REGISTRATION EXISTS — created 2026-09-12, consented tenant-wide
 
 This is what lets the planner read and write SharePoint from **any origin**, rather than only from
