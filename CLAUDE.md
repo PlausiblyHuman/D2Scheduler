@@ -2397,6 +2397,76 @@ auth needs an interactive sign-in, so the capture wants a small MSAL page served
 
 ---
 
+## NEXT SESSION — HOST THE PLANNER, THEN TEST IT UNATTENDED (written 2026-09-13c)
+
+**Read `sessions/latest.md` first.** Everything needed to host now exists. Nothing is client-gated.
+
+**Shane's goal for the next session, verbatim:** *"make sure the HTML is properly hosted and
+running then do some unattended testing of the solution."*
+
+### What is already in place
+
+| | |
+|---|---|
+| Azure subscription | `D2 Build Scheduler`, `cbcbe68b-bbaa-4926-bd9a-d33f0a9bd312`, Enabled, on D2's MCA. No card needed. |
+| Entra SPA app | `1aa00e61-e5e7-42bd-95b4-fd58863e5b54`, delegated `Sites.ReadWrite.All`, consented tenant-wide |
+| Deploy root | **`web/`** — `index.html`, `graph-to-planner.js`, `vendor/msal-browser.min.js`, `staticwebapp.config.json` |
+| Graph read layer | built and equivalence-tested against a real captured payload |
+| Redirect URI registered | `http://localhost:8787/` **only** |
+
+### Hosting, in order
+
+1. **Assert the tenant first** — `az account set --subscription f24d9b39-…`, confirm
+   `stratirus@d2pools.com`. Use the `m365-tenant-guard` skill. The context drifted three times in
+   two days, including between two reads minutes apart.
+2. Register the resource provider (`Microsoft.Web`) on the new subscription if needed, create a
+   resource group, then a **Static Web App on the Free tier**.
+3. Deploy `web/`. The spec prefers Azure DevOps Pipelines since the repo is already there; the SWA
+   CLI or a deployment token are fine for a first stand-up.
+4. **Add the SWA URL as a SECOND redirect URI on the Entra app.** Keep `localhost:8787` — it is
+   what the capture tool and local dev use. Without this, sign-in fails on the hosted site.
+5. **Verify by loading the page and signing in**, not by the pipeline status. Confirm both
+   `vendor/msal-browser.min.js` and `graph-to-planner.js` return **200** — the jsdom harnesses
+   cannot see a broken `<script src>` and passed while those paths were wrong.
+
+**Then `Load from D2` becomes a live read** and the file picker stops being the only route. It
+currently falls back automatically, because **MSAL cannot redirect to `file://`**.
+
+### Unattended testing — what is worth testing, and what must not be
+
+**Everything below has NEVER run against the tenant.** The write-back, `+ Job`, and the Graph read
+are all verified only against captured fixtures.
+
+Safe to exercise, on the three demo pools:
+
+- **Graph read** — sign in on the hosted site, Load from D2, confirm 3 pools / 138 sub-phases /
+  885 tasks and that spans match SharePoint.
+- **Write-back, `DRY_RUN = true` first.** Change one crew in the planner, Save, run
+  `sharepoint/apply-planner-changes.js`, read the printed plan. Only then set `DRY_RUN = false`.
+  **Deliberately provoke a refusal** too: change a row in SharePoint after loading, then push, and
+  confirm that field is refused while a second changed field on the same row still lands. A refusal
+  path nobody has watched fire is not known to work.
+- **`+ Job`** — dry-run first. Do **not** re-run the live pass "to be sure": the uniqueness check
+  now covers pending requests, but the whole point is that a second run is what used to create two
+  pools.
+
+Do **not** test against a real pool. The tenant holds only `D2-1042`, `D2-1043`, `D2-1044`, all
+fictional — keep it that way until Phase E.
+
+**After the first live write, open the rows rather than reading the summary**, and watch
+Event-Driven Reconciliation's run count for ten minutes to confirm `SuppressReconcileUntil` held.
+
+### Still blocked
+
+- **A permission gate gave `+ Job`'s sibling work no route to the tenant.** The validated
+  `D2 - Reschedule Pool` cursor fix sits in `flows/pending/reschedule-pool-cursor-fix.md`, along
+  with the `TradeMismatch` view and the dispatch-filter change. Resolve once: grant it, or take
+  console-paste scripts in the `sharepoint/` pattern.
+- **Don, Monday:** trade mapping, the 11 field-supervision sub-phases, `@sub`, and the four
+  subcontractor email addresses.
+
+---
+
 ## OVERNIGHT 2026-09-12 — write-back specced, three rule bugs closed
 
 Done unattended while Shane slept, authorised in advance, all of it offline and reversible. No
