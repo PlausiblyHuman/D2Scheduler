@@ -398,7 +398,7 @@ pilot is not the first real use.
 
 Three things a future session should not have to rediscover:
 
-- **D2 HAS NO AZURE SUBSCRIPTION.** Verified 2026-09-11 as `stratirus@d2pools.com`:
+- ~~**D2 HAS NO AZURE SUBSCRIPTION.**~~ **SUPERSEDED 2026-09-13 — the subscription now exists; see the Azure subscription entry below.** Original finding, 2026-09-11 as `stratirus@d2pools.com`:
   `az account list` returns `N/A(tenant level account)` against tenant `f24d9b39-…` and the ARM
   subscriptions call returns empty. The only subscription on Shane's machine is `INTERNAL_BILL`,
   in **Tennetech's** tenant. Creating a subscription is free and SWA Free tier is free, so the
@@ -2228,6 +2228,55 @@ window's lower bound, writing every chunk rather than only the first, and the ve
 were all untested, while the allowlist and compare-before-write were genuinely pinned. Now 44
 assertions with each of those mutations confirmed red. **When a test count is cited as coverage, ask
 what it fails on.**
+
+---
+
+## D2 HAS AN AZURE SUBSCRIPTION — created 2026-09-13, and it needed NO new card
+
+**This reverses the long-standing "D2 HAS NO AZURE SUBSCRIPTION" entry**, which was true when
+written and is now not.
+
+| | |
+|---|---|
+| Subscription | **`D2 Build Scheduler`** |
+| Subscription id | `cbcbe68b-bbaa-4926-bd9a-d33f0a9bd312` |
+| State | Enabled |
+| Tenant | `f24d9b39-6a71-4f4e-a376-03b6f61c97e4` |
+| Billing account | `d2pools.com`, **MicrosoftCustomerAgreement**, Active |
+| Billing profile | `OZ4Q-64DH-BG7-PGB` — *July_2026 Billing Migration* |
+| Invoice section | `9a17703f-399e-4337-aa96-eb7982de7fba` (`d2pools.com`) |
+
+**No new payment method was needed, and the reason generalises.** D2 is on a **Microsoft Customer
+Agreement**, where Azure and M365 share one billing account and one payment method — so the card
+already carrying Copilot pay-as-you-go covers Azure too. The ownership question the Phase H spec
+raised ("whose card decides who owns it") answers itself: it is D2's existing MCA, so D2 owns the
+infrastructure, which is exactly why the spec chose Azure over Netlify. Expected steady-state cost
+is still **$0** on the Static Web Apps Free tier.
+
+**There is a second, legacy billing profile** — `XZ52-6QS7-BG7-PGB`, *GoDaddy.com, LLC*. That is
+the pre-migration one, matching the GoDaddy-era debris recorded elsewhere in this file. **Attach
+nothing to it.**
+
+**THE BILLING QUESTION WAS ANSWERED WRONG THREE TIMES FIRST, AND THE REASON IS THE TENANT TRAP.**
+`az rest .../billingAccounts` returned **0 accounts** on three separate attempts across two API
+versions, and that was read as "D2 has no billing account". It had drifted to **Tennetech's**
+tenant, where zero is the correct answer. Pinning `az` to D2 and re-running returned the account
+immediately. **An empty Microsoft listing means "wrong tenant" as often as it means "empty"** — and
+this nearly became a purchasing decision. See the `m365-tenant-guard` skill, and the standing rule
+below.
+
+**TENANT ASSERTION FOR THIS PROJECT — run it before any write, not once per session.** The context
+has drifted mid-session three times in two days, including between two reads minutes apart:
+
+```bash
+az account set --subscription f24d9b39-6a71-4f4e-a376-03b6f61c97e4
+az account show --query tenantId -o tsv | grep -q "^f24d9b39" && echo CONFIRMED || echo ABORT
+```
+
+Expected identity is `stratirus@d2pools.com`. FlowAgent keeps a **separate** token cache, so fix
+`az` first, then FlowAgent `reconnect`, then confirm `list_environments` shows **D2 Automation**.
+ARM calls are the likeliest to cause drift, because D2's non-subscription account cannot serve them
+and `az` falls back to the one account that has a subscription — which is Tennetech's.
 
 ---
 
