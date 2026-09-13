@@ -148,6 +148,15 @@ tr.phrow .nm{background:#f8fafc;font-weight:650}
   <div class="foot" id="dFoot"></div>
 </div>
 
+<!-- Graph read path. Vendored, never a CDN -- see CLAUDE.md "MSAL is
+     vendored ... do not add a CDN dependency". Both are optional: the main
+     script below feature-detects window.msal and window.D2GraphToPlanner and
+     falls back to the file picker when either is absent (opened as a
+     downloaded file, not yet hosted, or these paths do not resolve in a
+     given deployment). Paths assume this file is served alongside a plain
+     checkout of this repo; adjust them if the Phase H build layout differs. -->
+<script src="../fixtures/planner/vendor/msal-browser.min.js"></script>
+<script src="../sharepoint/graph-to-planner.js"></script>
 <script>
 const SEED_TEMPLATE = [{"num":"0","name":"Pre Construction/Sales","sections":[{"num":"0.0","name":"Sales to Production Handoff","skill":"@office","days":2,"tasks":["Contract review","Signed","Change orders process","Draw schedule","Design verification","Approved Construction Plans","Pools Dimensions Verified","Spa Dimensions Verified","Feature locations","Equipment specifications approved","Material Selections Approved","Selections","Start ordering Materials as needed?","Budget verification","Permit submission","Procurement planning","HOA Submittals to Client"]}]},{"num":"1","name":"Preconstruction Back Office Admin","sections":[{"num":"1.0","name":"Pre-Construction Back Office Admin","skill":"@office","days":2,"tasks":["Survey Submitted","Survey completed","Fence Location Verified","Equipment Pad Verified","Permits","Permit Obtained","Electric Permit","HOA Approval","811 Utilities Submission","Order Shell if Fiberglass to meet schedule","Plan View","Dig Sheet","PortaPotty Submitted","Delivered","HOA Submission Document","Site Inspection prior to Permit/Codes","Permit Downloaded/Printed/shared","D2 Pool Sign in the Yard","Contruction Tote for supplies onsite"]},{"num":"1.1","name":"Pre-Construction Verification - HANDOVER FROM OFFICE TO FIELD PM","skill":"@office","days":2,"tasks":["Client Meeting - SEE FORM FOR AGENDA FINAL CLIENT SIGH OFF","Review Selections","PM Assigned/Introduced","Vendor Schedule","Materials Procured/Handoff to Admin/Backoffice","Contract scope review","Plan revision verification","Easement review","Property access review","PreCon Meeting PM and Dig Team>digsheet/plan view"]},{"num":"1.2","name":"Site Preparation","skill":"demolition","days":2,"tasks":["Construction Entrance and Curb Protection","Identify Site Obstacles","Site Prep and Demo (existing fence etc)","Security Fence","Silt Fence installed","Landscaping protection","Staging area designation","Material delivery planning","Neighbor notification as needed"]},{"num":"1.3","name":"Pool Layout","skill":"dig","days":2,"tasks":["Benchmark establishment","Stake Perimeter","House-to-pool measurements","Setback verification","Elevation verification","Feature layout (spa, tanning ledge, fire features, water features","Auto Cover Layout","Equipment location confirmation"]},{"num":"1.4","name":"Pre-Dig Quality Check","skill":"@unassigned","days":2,"tasks":["Layout sign-off","Dig depth calculations","Dig Sheet and Plan View OnSite to Excavation Team","Soil condition review","Overdig requirements","Dewatering assessment","Hauloff Coordination"]},{"num":"1.5","name":"Excavation Operations","skill":"dig","days":2,"tasks":["Dig supervision","Evacuate Shell","Evacuate Spa","Evacuate benches","Evacuate Steps","Evacuate Plumbing and Electrical trenches","Shelf and bench measurements","Transition slope verification","Deep-end depth verification","Water Feature(s) verification","Equipment Pad Verification"]},{"num":"1.6","name":"Post-Excavation Review","skill":"@unassigned","days":2,"tasks":["Excavation dimension check","Evacuation Shape","Verify Overdig","Soil stability inspection","Soil pile management","Haul-off verification","Evacuation Images obtained","Excavation acceptance sign-off by PM"]}]},{"num":"2","name":"Engineering","sections":[{"num":"2.1","name":"Engineering Review by PM","skill":"@office","days":2,"tasks":["Structural plan review","Engineering Details","Rebar schedule review","Beam requirement review","Specialty feature reinforcement review","Spa wall reinforcement verification"]},{"num":"2.2","name":"Steel Installation and Forms","skill":"rebar","days":2,"tasks":["Radius formation","Beam construction","Floor steel placement","Wall steel placement","Step reinforcement","Spa Reinforcement","Bench reinforcement"]},{"num":"2.3","name":"Bond Beam Preparation","skill":"rebar","days":2,"tasks":["Bonding Wire","Bond Steel Cage","Beam width verification","Beam height verification","Skimmer reinforcement review","Bond Metallic components","Future deck interface review"]},{"num":"2.4","name":"Bonding System Installation","skill":"@sub","days":2,"tasks":["Bond wire installation","Grid continuity verification","Equipment bonding preparation","Metal component bonding"]},{"num":"2.5","name":"Steel QC Inspection Municipal Inspection","skill":"@sub","days":2,"tasks":["Rebar spacing verification","Steel elevation verification","Steel clearance verification","Bond Beam Verification","Chair placement and height verification","Penetration reinforcement review","Structural Elements Thickened Wall, Raised Bond Beam Review and verification"]},{"num":"2.6","name":"Pre-Gunite Structural Inspection","skill":"@sub","days":2,"tasks":["Internal QC inspection","Municipal inspection preparation","Correction list completion","Inspection sign-off"]}]},{"num":"3","name":"Site Prep","sections":[{"num":"3.1","name":"Hydraulic Design Verification","skill":"@office","days":2,"tasks":["Plumbing Plan Approved","Pipe sizing review","Verify Suction Lines","Verify Feature plumbing","Equipment compatibility review","Flow calculations","Water feature hydraulic review"]},{"num":"3.2","name":"Underground Plumbing Installation","skill":"plumbing","days":2,"tasks":["Main drain installation","Skimmer installation","Return line installation","Cleaner line installation","Spa jet plumbing","Water feature plumbing","Auto Leveler, Overflow Drains"]},{"num":"3.3","name":"Plumbing Pressure Testing","skill":"plumbing","days":2,"tasks":["Pressurize Lines","Monitor Pressure","Isolation testing","Pressure hold verification","Document Results","Leak identification","Repair documentation"]},{"num":"3.4","name":"Electrical Rough-In","skill":"@sub","days":2,"tasks":["Conduit routing","Junction box placement (J Box)","Light niche installation","Low-voltage routing","Automation conduit preparation","Conduit for Water Features and Lights","Auto Cover Conduit"]},{"num":"3.5","name":"Bonding Grid Completion","skill":"@sub","days":2,"tasks":["Grid installation","Grid continuity testing","Deck bonding preparation","Equipment bonding preparation"]},{"num":"3.6","name":"Equipment Pad Preparation","skill":"gas","days":2,"tasks":["Verify Pad Location and Slope","Equipment orientation planning","Service clearance verification","Drainage planning","Future Service Availability","Utility stub-out verification","Transformer and light conduit planning and verification"]},{"num":"3.7","name":"Rough Inspection Preparation","skill":"@unassigned","days":2,"tasks":["Plumbing QC review","Electrical QC review","Bonding QC review","Inspection sign-off"]}]},{"num":"4","name":"Gunite And Shotcrete","sections":[{"num":"4.1","name":"Pre-Shoot Readiness Review","skill":"@unassigned","days":2,"tasks":["Structural inspection approval","Plumbing pressure confirmation","Steel acceptance verification","Electrical  Conduit Approved","Pressure Test Activated","Auto Cover Conduit in Vault","Weather assessment"]},{"num":"4.2","name":"Crew Pre-Shoot Meeting","skill":"@unassigned","days":2,"tasks":["Scope review","Thickness requirements review","Feature details review","Safety review"]},{"num":"4.3","name":"Shotcrete Placement","skill":"shotcrete","days":2,"tasks":["Floor shoot","Wall shoot","Bond beam shoot","Spa shoot","Pad Shoot","Feature shoot","Auto Cover shoot"]},{"num":"4.4","name":"Real-Time QC Monitoring","skill":"@unassigned","days":2,"tasks":["Thickness verification","Encapsulation verification","Nozzle Angle and Rebound management","Pipe penetration review"]},{"num":"4.5","name":"Shaping & Finishing","skill":"shotcrete","days":2,"tasks":["Step shaping","Bench shaping","Radius refinement","Spillway shaping"]},{"num":"4.6","name":"Post-Shoot Inspection","skill":"@unassigned","days":2,"tasks":["Hollow area inspection","Crack review","Thickness documentation","Photograph and document images","Engineer review (if required)"]},{"num":"4.7","name":"Curing Program","skill":"@unassigned","days":2,"tasks":["Cure instruction delivery","Daily cure monitoring","Daily Moisture Curing Schedule 7-10 Days (watering)","Cure log documentation","Customer education"]}]},{"num":"5","name":"Preconstruction Material","sections":[{"num":"5.1","name":"Material Verification","skill":"@office","days":2,"tasks":["Tile approval","Coping approval","Deck material approval","Color approval","Quantity verification"]},{"num":"5.2","name":"Waterproofing & Surface Prep","skill":"sealant","days":2,"tasks":["Beam preparation","Surface cleaning","Waterproofing application","Expansion joint planning"]},{"num":"5.3","name":"Tile Installation","skill":"tile","days":2,"tasks":["Waterline tile layout","Feature tile installation","Spa tile installation","Tile Level Verification","Verify Grout Joint Alignment","Expansion Joints Installation"]},{"num":"5.4","name":"Coping Installation","skill":"coping","days":2,"tasks":["Elevation verification","Overhang verification","Joint spacing verification","Radius consistency review","Water Feature and Veneers","Spa Veneer","Water Feature Veneer"]},{"num":"5.5","name":"Deck Preparation","skill":"finishgrade","days":2,"tasks":["Subgrade preparation","Compaction testing","Form setup","Drain installation"]},{"num":"5.6","name":"Deck Placement","skill":"hardscape","days":2,"tasks":["Concrete placement","Paver installation","Paver Edge Placed","Auto Cover Rough in","Decorative finish application","Expansion joint installation"]},{"num":"5.7","name":"Drainage Verification","skill":"drainage","days":2,"tasks":["Deck slope testing","Water flow testing","Area drain testing","Equipment pad drainage review"]},{"num":"5.8","name":"Hardscape Final QC","skill":"@unassigned","days":2,"tasks":["Surface consistency review","Joint inspection","Trip hazard inspection","Finish approval"]}]},{"num":"6","name":"Construction Equipment Installation","sections":[{"num":"6.1","name":"Equipment Installation","skill":"plumbing","days":2,"tasks":["Pump installation","Filter installation","Heater installation","Chiller Instalation","Automation installation","Sanitizer installation"]},{"num":"6.2","name":"Equipment Plumbing","skill":"plumbing","days":2,"tasks":["Manifold assembly","Valve installation","Check valve installation","Flow verification","Water Feature verification","Auto Leveler and Pool Drain verification"]},{"num":"6.3","name":"Equipment Electrical","skill":"automation","days":2,"tasks":["Breaker installation","Automation wiring","Bonding completion","GFCI verification","Auto Cover Switch"]},{"num":"6.4","name":"Interior Finish Preparation","skill":"plaster","days":2,"tasks":["Surface cleaning","Fill preparation","Water source verification","Trim Out Pool - Main Drains and Covers","Startup planning"]},{"num":"6.5","name":"Interior Finish & Fill","skill":"pebbletech","days":2,"tasks":["Plaster/Pebble installation","Surface inspection","Fill supervision","Fill documentation"]},{"num":"6.6","name":"Startup Procedures","skill":"@unassigned","days":2,"tasks":["Initial equipment startup","Leak Inspection","Auto Cover Installed","Lights Pulled In","Flow balancing","Valve adjustment","Automation programming"]},{"num":"6.7","name":"Water Chemistry Startup","skill":"@unassigned","days":2,"tasks":["Initial testing","Chemical balancing","Brushing schedule","Startup log creation"]},{"num":"6.8","name":"Client Orientation","skill":"poolschool","days":2,"tasks":["Equipment training","Automation training","Maintenance education","Warranty Submission","Documentation handoff"]},{"num":"6.9","name":"Final Project Closeout","skill":"@office","days":2,"tasks":["Punch-list completion","Final inspection","Photo documentation","Warranty registration","Customer Pool School"]}]},{"num":"7","name":"Post Constuction Completion Phase","sections":[{"num":"7.0","name":"Warranty & 30-Day Follow-Up","skill":"@office","days":2,"tasks":["7-day startup review","30-day chemistry review","Warranty inspection","Customer satisfaction survey","Service department handoff"]}]}];
 
@@ -1077,6 +1086,19 @@ function importFromD2(file){
   r.onload=()=>{
     let d;
     try{d=JSON.parse(r.result);}catch(e){alert('That file is not valid JSON.');return;}
+    importFromD2Payload(d);
+  };
+  r.readAsText(file);
+}
+/* The shared core of importFromD2, split out so the Graph read path (below)
+   can feed it a payload directly -- Graph never produces a File, so there is
+   nothing for a FileReader to read. Both callers hand this the exact same
+   {kind:'d2-sharepoint-export', jobs:[...]} shape; see
+   sharepoint/export-to-planner.js and sharepoint/graph-to-planner.js, which
+   are written to produce byte-for-byte the same structure from two different
+   surfaces. This function does not know or care which one produced its
+   argument. */
+function importFromD2Payload(d){
     if(!d||d.kind!=='d2-sharepoint-export'||!Array.isArray(d.jobs)){
       alert('That is not a D2 SharePoint export.\n\nUse Load from D2 with the file downloaded from the site.');return;}
 
@@ -1177,8 +1199,6 @@ function importFromD2(file){
       (unmatched.length?'\n\n'+unmatched.length+' sub-phase(s) in the file matched nothing in this phase template:\n'+
         unmatched.slice(0,8).join(', ')+(unmatched.length>8?' ...':'')+
         '\n\nThat means the template here is out of step with SharePoint.':''));
-  };
-  r.readAsText(file);
 }
 
 /* ============================== save / write-back ==============================
@@ -1323,8 +1343,127 @@ document.getElementById('tabs').addEventListener('click',e=>{
 document.getElementById('autoBtn').onclick=()=>{autoSchedule();render();};
 document.getElementById('addJobBtn').onclick=addJob;
 document.getElementById('saveBtn').onclick=openSavePreview;
-document.getElementById('d2Btn').onclick=()=>document.getElementById('d2File').click();
+
+/* ============================== Graph read path ==============================
+   Load from D2 reads live through Microsoft Graph when this page is served
+   over http/https AND both MSAL and the mapping module are on the page;
+   otherwise it falls back to the existing file picker, unchanged. That
+   fallback is NOT a stopgap to remove later -- MSAL cannot complete a
+   sign-in redirect back to a file:// URL, and PMs open this planner as a
+   downloaded standalone file today (see CLAUDE.md "THE PLANNER IS
+   DISTRIBUTED AS A SHAREPOINT DOWNLOAD"). Until a hosted deployment exists,
+   graphModeAvailable() is always false for every real user, by design, and
+   the file picker is the only path that ever runs.
+
+   The mapping from a Graph read to this planner's payload shape lives in
+   sharepoint/graph-to-planner.js, loaded below via <script> as
+   window.D2GraphToPlanner -- not duplicated here -- so the code this app
+   runs and the code fixtures/planner/graph-read.js tests are the same file.
+   MSAL itself is loaded from a vendored copy, never a CDN (see
+   fixtures/planner/vendor/msal-browser.min.js and its header comment); a
+   hosted deployment carries its own copy of both alongside this file.
+
+   Popup, not redirect, for the sign-in: a redirect would navigate this page
+   away and back, and unlike fixtures/planner/capture-graph.html (a one-shot
+   capture tool with no state to lose) this planner has in-memory schedule
+   state a PM may not have saved yet. */
+const D2_GRAPH={
+  clientId:'1aa00e61-e5e7-42bd-95b4-fd58863e5b54',
+  authority:'https://login.microsoftonline.com/f24d9b39-6a71-4f4e-a376-03b6f61c97e4',
+  scopes:['https://graph.microsoft.com/Sites.ReadWrite.All'],
+  siteHost:'netorgft15040037.sharepoint.com',
+  sitePath:'/sites/D2BuildScheduler',
+  // Same four list GUIDs as fixtures/planner/capture-graph.js -- carried
+  // here rather than re-typed as a second source of truth would invite.
+  lists:{
+    jobs:'ee0ecabf-2f11-458d-a9ea-641f76d10cc3',
+    asg:'49ef7006-d3fe-40a7-a52f-c4c18545bd35',
+    tasks:'22c45847-ff0d-417a-b53e-1ea018fbb6d3',
+    cal:'d36758cf-9d27-4342-84e4-817f8dcfa2ba'
+  }
+};
+function graphModeAvailable(){
+  return location.protocol!=='file:' &&
+    typeof window.msal!=='undefined' && !!window.msal.PublicClientApplication &&
+    typeof window.D2GraphToPlanner!=='undefined';
+}
+let D2_PCA=null;
+/* Deliberately not named msal -- see capture-graph.html: naming the instance
+   msal shadows the library's own global and every call below throws before
+   anything useful happens. */
+function graphPca(){
+  if(!D2_PCA)D2_PCA=new window.msal.PublicClientApplication({
+    auth:{clientId:D2_GRAPH.clientId,authority:D2_GRAPH.authority,
+          redirectUri:location.origin+location.pathname},
+    cache:{cacheLocation:'sessionStorage'}
+  });
+  return D2_PCA;
+}
+async function graphToken(){
+  const pca=graphPca();
+  const account=pca.getActiveAccount()||pca.getAllAccounts()[0];
+  if(account){
+    try{
+      const r=await pca.acquireTokenSilent({scopes:D2_GRAPH.scopes,account});
+      return r.accessToken;
+    }catch(e){/* falls through to an interactive sign-in below */}
+  }
+  const r=await pca.loginPopup({scopes:D2_GRAPH.scopes});
+  pca.setActiveAccount(r.account);
+  return r.accessToken;
+}
+// Page through a Graph collection. Tasks is 885 rows today and grows by 295
+// per pool, so following @odata.nextLink is never optional -- see
+// capture-graph.html, which paid for this once already.
+async function graphPageAll(url,tok){
+  let out=[];
+  while(url){
+    const r=await fetch(url,{headers:{Authorization:'Bearer '+tok}});
+    if(!r.ok)throw new Error('Graph '+r.status+' on '+url.slice(0,120));
+    const d=await r.json();
+    out=out.concat(d.value||[]);
+    url=d['@odata.nextLink']||null;
+  }
+  return out;
+}
+async function loadFromD2ViaGraph(){
+  const tok=await graphToken();
+  const siteResp=await fetch(
+    'https://graph.microsoft.com/v1.0/sites/'+D2_GRAPH.siteHost+':'+D2_GRAPH.sitePath,
+    {headers:{Authorization:'Bearer '+tok}});
+  if(!siteResp.ok)throw new Error('Site lookup failed: '+siteResp.status);
+  const site=await siteResp.json();
+  const base='https://graph.microsoft.com/v1.0/sites/'+site.id+'/lists/';
+  const keys=Object.keys(D2_GRAPH.lists);
+  const rows=await Promise.all(keys.map(k=>
+    graphPageAll(base+D2_GRAPH.lists[k]+'/items?$expand=fields&$top=500',tok)));
+  const graphPayload={site:site.webUrl};
+  keys.forEach((k,i)=>{graphPayload[k]=rows[i];});
+  const payload=window.D2GraphToPlanner.toPlannerPayload(graphPayload);
+  importFromD2Payload(payload);
+}
+function updateD2ButtonLabel(){
+  const b=document.getElementById('d2Btn');
+  if(graphModeAvailable()){
+    b.title='Reads the live schedule from the D2 Build Scheduler site over Microsoft Graph. Merges by job number -- it never touches pools that only exist here.';
+  }else{
+    b.title='Load the live schedule exported from the D2 Build Scheduler SharePoint site. Merges by job number - it never touches pools that only exist here.'+
+      (location.protocol==='file:'?' (Opened as a downloaded file -- pick the exported .json below.)':'');
+  }
+}
+document.getElementById('d2Btn').onclick=()=>{
+  if(graphModeAvailable()){
+    loadFromD2ViaGraph().catch(e=>{
+      alert('Could not load live from D2 over Graph: '+e.message+
+        '\n\nFalling back to the file picker -- choose the exported .json from the site instead.');
+      document.getElementById('d2File').click();
+    });
+  }else{
+    document.getElementById('d2File').click();
+  }
+};
 document.getElementById('d2File').onchange=e=>{const f=e.target.files[0];if(f)importFromD2(f);e.target.value='';};
+updateD2ButtonLabel();
 load();render();
 </script>
 </body>

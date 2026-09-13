@@ -1,0 +1,133 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Capture Graph payloads</title>
+<style>
+  body{font:15px/1.5 system-ui,sans-serif;max-width:680px;margin:40px auto;padding:0 16px;color:#111827}
+  h1{font-size:19px;margin:0 0 4px}
+  .muted{color:#6b7280;font-size:13px}
+  button{font:inherit;padding:9px 18px;border-radius:7px;border:1px solid #0B594B;
+         background:#0B594B;color:#fff;cursor:pointer;margin-top:18px}
+  button:disabled{opacity:.5;cursor:default}
+  pre{background:#f6f3ed;border:1px solid #e3ded4;border-radius:7px;padding:12px;
+      white-space:pre-wrap;font-size:12.5px;margin-top:18px;min-height:80px}
+</style>
+<h1>Capture Graph payloads</h1>
+<p class="muted">Signs you in and reads Jobs, Assignments, Tasks and Work Calendar through
+Microsoft Graph, then writes them to a local fixture file. Read-only &mdash; it issues GETs
+only and writes nothing to SharePoint.</p>
+<button id="go" disabled>Sign in and capture</button>
+<pre id="log">Loading MSAL...</pre>
+
+<script src="/msal.js"></script>
+<script>
+/* Every failure is surfaced in the page. A silent JS error looks identical to
+   "the button does nothing", which is exactly how this shipped broken the first
+   time -- the instance was named msal, shadowing the library's own global, so the
+   whole script threw before the click handler was ever bound. */
+var logEl = document.getElementById('log');
+function log(m) { logEl.textContent += '\n' + m; }
+window.onerror = function (m, src, line) { log('ERROR: ' + m + '  (line ' + line + ')'); };
+window.onunhandledrejection = function (e) {
+  log('ERROR: ' + ((e.reason && e.reason.message) || e.reason));
+};
+
+/* Deliberately NOT named msal. */
+var pca = null;
+var SCOPES = ['https://graph.microsoft.com/Sites.ReadWrite.All'];
+var CLIENT_ID = '__CLIENT_ID__';
+var TENANT_ID = '__TENANT_ID__';
+var REDIRECT  = '__REDIRECT__';
+var SITE_HOST = '__SITE_HOST__';
+var SITE_PATH = '__SITE_PATH__';
+var LISTS     = __LISTS__;
+
+function boot() {
+  if (!window.msal || !window.msal.PublicClientApplication) {
+    log('ERROR: MSAL did not load. Expected it at /msal.js from this server.');
+    return;
+  }
+  pca = new window.msal.PublicClientApplication({
+    auth: { clientId: CLIENT_ID,
+            authority: 'https://login.microsoftonline.com/' + TENANT_ID,
+            redirectUri: REDIRECT },
+    cache: { cacheLocation: 'sessionStorage' }
+  });
+  /* Runs on load, not on click: a sign-in comes back here via redirect and the
+     result has to be collected before anything else happens. */
+  pca.handleRedirectPromise().then(function (res) {
+    if (res && res.account) {
+      pca.setActiveAccount(res.account);
+      logEl.textContent = 'Signed in as ' + res.account.username + '. Capturing...';
+      capture();
+    } else {
+      logEl.textContent = 'Ready. Click to sign in and capture.';
+      document.getElementById('go').disabled = false;
+    }
+  }).catch(function (e) { log('ERROR on redirect: ' + e.message); });
+}
+
+function token() {
+  var account = pca.getActiveAccount() || pca.getAllAccounts()[0];
+  if (!account) { pca.loginRedirect({ scopes: SCOPES }); return Promise.resolve(null); }
+  pca.setActiveAccount(account);
+  return pca.acquireTokenSilent({ scopes: SCOPES, account: account })
+    .then(function (t) { return t.accessToken; })
+    .catch(function () { pca.acquireTokenRedirect({ scopes: SCOPES }); return null; });
+}
+
+/* Page through a Graph collection. Graph caps a page below our row counts (Tasks
+   is 885 and grows by 295 per pool), so following @odata.nextLink is not optional
+   -- one unpaged call would silently return a partial list. */
+async function all(url, tok) {
+  var out = [];
+  while (url) {
+    var r = await fetch(url, { headers: { Authorization: 'Bearer ' + tok } });
+    if (!r.ok) throw new Error(r.status + ' ' + (await r.text()).slice(0, 300));
+    var d = await r.json();
+    out = out.concat(d.value || []);
+    url = d['@odata.nextLink'] || null;
+  }
+  return out;
+}
+
+async function capture() {
+  var btn = document.getElementById('go');
+  btn.disabled = true;
+  try {
+    var tok = await token();
+    if (!tok) return;                          // redirecting to sign in
+    log('Token acquired. Resolving the site...');
+
+    var siteResp = await fetch(
+      'https://graph.microsoft.com/v1.0/sites/' + SITE_HOST + ':' + SITE_PATH,
+      { headers: { Authorization: 'Bearer ' + tok } });
+    if (!siteResp.ok) {
+      throw new Error('site lookup ' + siteResp.status + ' ' + (await siteResp.text()).slice(0, 300));
+    }
+    var site = await siteResp.json();
+    log('site id: ' + site.id);
+
+    var payload = { capturedAt: new Date().toISOString(), siteId: site.id, site: site.webUrl };
+    var keys = Object.keys(LISTS);
+    for (var i = 0; i < keys.length; i++) {
+      var key = keys[i];
+      log('reading ' + key + '...');
+      payload[key] = await all(
+        'https://graph.microsoft.com/v1.0/sites/' + site.id + '/lists/' + LISTS[key] +
+        '/items?$expand=fields&$top=500', tok);
+      log('  ' + key + ': ' + payload[key].length + ' rows');
+    }
+
+    var post = await fetch('/capture', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload) });
+    log(await post.text());
+  } catch (e) {
+    log('FAILED: ' + e.message);
+    btn.disabled = false;
+  }
+}
+
+document.getElementById('go').addEventListener('click', capture);
+window.addEventListener('load', boot);
+</script>
