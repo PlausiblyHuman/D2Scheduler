@@ -2140,7 +2140,7 @@ populated and `AssignDefaultCrews` is ticked.
 
 ## THE PLANNER HEADER IS FOUR BUTTONS — four controls removed 2026-09-12
 
-`⚡ Auto-Schedule · + Job · Save · Load from D2`, plus the freshness stamp. It was eight and wrapped
+`⚡ Auto-Schedule · + Job · Save · Refresh`, plus the freshness stamp. It was eight and wrapped
 to a second row. Removed on Shane's call once the planner stopped being a standalone scratchpad:
 
 | Removed | Why it was vestigial |
@@ -2148,10 +2148,11 @@ to a second row. Removed on Shane's call once the planner stopped being a standa
 | **CSV** | *"I don't know why it's there."* Nobody uses it. |
 | **Backup** | downloaded all state as JSON; SharePoint is the durable store now, and it has versioning on `Assignments` |
 | **Restore** | uploaded a backup and replaced `S` **wholesale** — the one path in the app capable of destroying a local sketch, which is exactly why `importFromD2` was written to merge instead |
-| **Reset** | cleared local state and re-seeded. Once `Load from D2` reads live, that IS the reset. Discarding unsaved edits becomes a choice inside the refresh dialog, not a standing button. |
+| **Reset** | cleared local state and re-seeded. Once `Refresh` reads live, that IS the reset. Discarding unsaved edits becomes a choice inside the refresh dialog, not a standing button. |
 
-**`Load from D2` keeps its name until the live read lands**, because it genuinely is still a file
-picker. It becomes **`Refresh from D2`** with Route B, and absorbs what Reset used to do — at that
+**RENAMED TO `Refresh` ON 2026-09-13b, and the "from D2" half is gone for good** — everyone who
+opens this tool works at D2, so naming D2 as the other party read from the builder's seat. See the
+copy rule under the hosting-posture section. It absorbs what Reset used to do — at that
 point its only remaining job is "someone else changed something while I had this open", which is
 real with two PMs, since Save already re-imports after a push.
 
@@ -2397,7 +2398,202 @@ auth needs an interactive sign-in, so the capture wants a small MSAL page served
 
 ---
 
-## NEXT SESSION — HOST THE PLANNER, THEN TEST IT UNATTENDED (written 2026-09-13c)
+## THE PLANNER'S HOSTING AND SECURITY POSTURE — decided 2026-09-13b, config written, NOT deployed
+
+**Shane's requirement: "this shouldn't be public and should sit behind a SSO wall."** The answer
+is **Static Web Apps Free plan with the built-in Entra provider**, not Standard. The reasoning
+matters more than the choice, because the obvious reading of that requirement costs $9/month and
+buys almost nothing.
+
+**THE PLANNER HAS TWO INDEPENDENT GATES AND ONLY THE OUTER ONE WAS EVER IN QUESTION.**
+
+| Gate | Protects | Enforced by |
+|---|---|---|
+| **Data** | every schedule row | MSAL sign-in against the single-tenant Entra app, then SharePoint's own permissions |
+| **Shell** | the crew roster, the 46/295 template, the site identifiers | whatever the host puts in front of the HTML |
+
+No hosting choice can weaken the data gate: a delegated Graph token is the only way to read a
+single row, and that app is already single-tenant. So the host-level wall protects **only the
+shell**, and a tenant-restricted wall in front of already-tenant-restricted data is overbuying.
+
+**What Free actually gives you, in Microsoft's own words:**
+
+> The preconfigured Microsoft Entra ID provider **allows any Microsoft account to sign in.**
+
+Restricting sign-in to one tenant needs a **custom** provider, and *"custom authentication is only
+available in the Azure Static Web Apps Standard plan."* Standard is **$9.00 per app per month** —
+read from Azure's retail price API, US regions, 100 GB bandwidth included and $0.20/GB over. Note
+the docs *pricing page renders its figures client-side*, so fetching that page returns dashes; the
+retail API is the way to get a real number.
+
+| | Cost | What it actually gates |
+|---|---|---|
+| **A** Free + `allowedRoles:["authenticated"]` | **$0 — CHOSEN** | blocks anonymous and crawlers; any Microsoft account still passes |
+| **B** Free + invitation roles | $0 | only invited identities, cap 25, but the invitation is a **forwardable redeemable link** |
+| **C** Standard + custom Entra provider | $9.00/app/mo | only D2 tenant accounts can sign in at all |
+
+**B was rejected on this project's own precedent.** A forwardable link is the same weakness that
+ruled out anonymous Forms sign-off — *"a typed name on a forwardable link"* — and the 25 cap sits
+close to ~5 office staff plus ~7 crew leads.
+
+**USERNAME AND PASSWORD WAS ASKED FOR AND DOES NOT FIT. Do not re-raise it.** Static Web Apps has
+no such provider (built-ins are GitHub and Entra only); a custom OIDC provider is the same Standard
+tier at the same $9; a client-side check is bypassable with View Source. The decisive point is none
+of those: **every user must sign in with their D2 account anyway, because the Graph read needs a
+delegated token.** A password wall would be a second, weaker credential stacked on a sign-in that is
+already mandatory — friction added, nothing removed.
+
+**Residual risk, accepted:** a Microsoft account holder who also knows the URL could see the shell.
+Mitigated by `noindex` three ways (header, `robots.txt`, meta), by 404'ing the GitHub provider, and
+by keeping the random `*.azurestaticapps.net` hostname rather than a guessable custom domain.
+**Moving to Standard later is a plan toggle in the portal, not a rebuild.**
+
+**THE CONFIG IS UNVERIFIED UNTIL DEPLOYED** — none of it can be tested against a local static
+server. On first deploy, check in this order:
+
+1. An unauthenticated request **redirects to the Entra sign-in** rather than serving the page.
+2. A request for a **nonsense path** does the same. This is the one most likely to be wrong:
+   the docs say *"route rules aren't applied on requests that trigger `navigationFallback`"*, and
+   our fallback rewrites unknown paths to `/index.html`. If that bypasses the `/*` auth rule the
+   wall is worthless, and it will look fine from the front door.
+3. All assets still return **200 after sign-in**.
+4. The browser console is **free of CSP violations** during a Refresh.
+
+**The CSP keeps `'unsafe-inline'` on `script-src`, deliberately and with the cost stated.** The
+planner uses inline `<script>` and inline `onclick=` throughout, so a strict `script-src 'self'`
+would break it outright. The valuable half is still enforced: `connect-src` limits exfiltration to
+Graph and `login.microsoftonline.com`, `frame-ancestors 'none'` blocks clickjacking, and
+`object-src`/`base-uri` are shut. `frame-src` allows `login.microsoftonline.com` for MSAL's
+silent-renew iframe. Tightening `script-src` means refactoring every inline handler first.
+
+### The security review that produced this — findings and what closed them
+
+**SIX renderers put a PM-typed pool name into `innerHTML` unescaped, not the two a grep found.**
+`conflicts()` built both its `ref` string and its double-book message raw, and `vBoard`, the
+crew-board bar, `vSignoff` and `vDispatch` each painted `j.name` raw. On two of those lines
+`j.jobno` was **already escaped immediately beside the unescaped name**.
+
+Exploiting it needs someone with SharePoint Edit on the site, so it is an insider vector rather
+than an anonymous one. The impact is what makes it worth fixing: once served from a real origin
+the page holds a delegated `Sites.ReadWrite.All` token, so script in that origin can read and
+write every SharePoint site the signed-in user can reach. Microsoft states the division of
+responsibility plainly in the MSAL v4 notes — cache hardening is *"not to provide additional
+security … It's your responsibility to ensure your application isn't vulnerable to XSS."*
+
+**Escaped at construction, never at the sink**, because the Schedule Check messages deliberately
+carry `<b>` and `<u>`.
+
+**THE METHOD LESSON, which is the durable part: a pattern grep answered the question wrongly and
+I acted on it.** Searching `${j.name}` cannot see `x.j.name` reached through `.map()` and string
+concatenation. What caught the other four was `fixtures/planner/escaping.js` sweeping **all seven
+tabs** with an `<svg id="xss-probe">` in the pool name — an assertion that does not depend on a
+script executing, and that turns "two fixes" into an invariant. **When a grep defines the scope of
+a fix, the fix is only as complete as the pattern.** Same family as every other
+read-the-shape-off-reality rule in this file.
+
+**MSAL 2.38.3 IS THE CORRECT PIN AND IS NOT TECHNICAL DEBT. Do not "upgrade" it.** Per Microsoft's
+own library table, **v2.x is the LTS line still receiving critical security fixes**, while **v3.x
+and v4.x have transitioned OUT of active support** (v5 is active). Vendoring is also mandatory
+rather than a preference: msal-browser left the CDN at v3, which is why the `alcdn` path 404s.
+A v3 upgrade would also be a breaking API change (`initialize()` became required).
+
+**Everything else in `web/` reviewed clean:** no secrets (client id, tenant id and list GUIDs are
+identifiers, correct for a PKCE SPA); zero `eval` / `new Function` / `document.write` /
+`insertAdjacentHTML`; MSAL caches to **`sessionStorage`**, so the token dies with the tab; and the
+newest code — the write-back preview, `+ Job`, `vJobs` — already escaped everything.
+
+**The fonts are self-hosted as of 2026-09-13b**, removing the last third-party request. Poppins and
+Source Sans 3 are OFL; 4 files, 52 KB, latin subset only, in `web/fonts/` with `web/fonts.css`.
+Regenerate with the script recorded in the session log.
+
+**Two traps worth keeping from that job.** A font that silently falls back still returns **200 for
+every file**, so verify by measuring rendered text in a real browser, not by the files existing —
+and **measure only after explicitly `document.fonts.load()`-ing each face**, because the first
+measurement of an unused weight reports fallback metrics and looks exactly like a broken font.
+Second: Source Sans 3's 400 and 600 resolve to the **same file**. A static face declared at two
+weights renders both identically and quietly loses every semibold, so that needed proving rather
+than assuming — it measures 716.91 against 735.11 at 64px, so the file is variable and the weight
+axis is live.
+
+### The planner must not call D2 the other party — copy rule, applied 2026-09-13b
+
+The tool said **"Load from D2"**, **"Not loaded from D2"**, **"nothing reaches D2"**. Everyone who
+opens it works at D2, so the copy read from the builder's seat rather than the user's. 25 strings
+were rewritten; most needed no referent at all.
+
+| Was | Now |
+|---|---|
+| `Load from D2` | **`Refresh`** |
+| `Not loaded from D2` | **`No schedule loaded yet`** (pairs with the existing `Live as of …`) |
+| `Not yet pushed` | **`Draft — not saved`** |
+| `Save changes to D2` | **`Save changes`** |
+| `not a D2 SharePoint export` | `not a schedule export` |
+
+Where a referent is genuinely needed — the apply script, the request lists — it now says
+**SharePoint**, which is where the PM guide already sends them. **The element ids `d2Btn` and
+`d2File` are deliberately unchanged**: internal, asserted on by `empty.js`, and renaming them buys
+nothing. This also retires the older note that `Load from D2` would become "Refresh from D2" with
+Route B — "from D2" is the exact phrase being removed.
+
+**Four harness assertions pinned the old strings and had to move in lockstep**, or the suite goes
+red for the wrong reason. Grep the harnesses before any copy change.
+
+---
+
+## NEXT SESSION — CREATE THE STATIC WEB APP (written 2026-09-13b)
+
+**Read `sessions/latest.md` first.** Everything local is done: the planner is reviewed, escaped,
+renamed, self-hosting its fonts, and carrying a finished `staticwebapp.config.json`. What is left
+is one Azure resource and the verification that needs a human sign-in.
+
+**Held deliberately overnight, and why:** creating the app is not the hard part, but **the
+deployment method is a fork that should not be picked at midnight.** Azure DevOps Pipelines (the
+spec's preference, and the repo is already there) wants to commit a workflow file into this repo;
+a deployment token is quicker but creates a secret to manage. Shane picks.
+
+### Staged facts, read from the live subscription 2026-09-13b
+
+| | |
+|---|---|
+| Subscription | `D2 Build Scheduler`, `cbcbe68b-bbaa-4926-bd9a-d33f0a9bd312` |
+| **`Microsoft.Web` provider** | **`NotRegistered` — register it FIRST**, it propagates for a few minutes |
+| Resource groups | **none — the subscription is completely empty** |
+| Existing Static Web Apps | none |
+| Entra app SPA redirect URIs | `http://localhost:8787` and `http://localhost:8787/` **only** |
+| Entra app | `D2 Build Scheduler (planner)`, `AzureADMyOrg`, publisherDomain `NETORGFT15040037.onmicrosoft.com` |
+
+### Order of work
+
+1. **Assert the tenant.** `az` had **drifted to Tennetech again** when checked tonight — that is
+   four times in three days. `az account set --subscription cbcbe68b-…` fixed it with no
+   interactive login. Use the `m365-tenant-guard` skill; re-assert *after* ARM calls too.
+2. `az provider register -n Microsoft.Web`, then a resource group, then a **Free tier** Static Web
+   App. Kick the provider registration off first so it propagates while you do the rest.
+3. Deploy `web/`.
+4. **Add the SWA hostname as a THIRD SPA redirect URI.** Keep both localhost entries — they are
+   what `fixtures/planner/capture-graph.html` and local dev use. Without this, sign-in fails on the
+   hosted site.
+5. **Verify by signing in, not by pipeline status**, and run the four config checks listed under
+   the hosting-posture section above — especially the nonsense-path one.
+
+### Then the unattended testing Shane asked for
+
+**Nothing — the write-back, `+ Job`, or the Graph read — has ever run against the tenant.** Safe to
+exercise on the three fictional demo pools, in this order: Graph read (expect 3 pools / 138
+sub-phases / 885 tasks), then write-back with `DRY_RUN = true`, then a deliberate refusal (change a
+row in SharePoint after loading, push, confirm that field is refused while a second changed field
+on the same row still lands), then `+ Job` dry-run. Do **not** re-run the `+ Job` live pass "to be
+sure" — a second run is exactly what used to create two pools.
+
+### Still blocked on other people
+
+- **A permission gate** still blocks live-tenant writes: the validated Reschedule cursor fix in
+  `flows/pending/`, the `TradeMismatch` view, the dispatch filter.
+- **Don:** trade mapping, the 11 field-supervision sub-phases, `@sub`, subcontractor emails.
+
+---
+
+## Superseded: NEXT SESSION — HOST THE PLANNER, THEN TEST IT UNATTENDED (written 2026-09-13c)
 
 **Read `sessions/latest.md` first.** Everything needed to host now exists. Nothing is client-gated.
 
