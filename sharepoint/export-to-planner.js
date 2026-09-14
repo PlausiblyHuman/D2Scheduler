@@ -28,7 +28,7 @@
  *      Chrome's paste guard entirely; in the Console you must first type the
  *      words `allow pasting`.
  *   3. It downloads `d2-live-schedule-<date>.json`.
- *   4. Open the planner and click "Load from D2", pick that file.
+ *   4. Open the planner and click "Refresh", pick that file.
  *
  * FIELD NAMES ARE READ OFF A REAL PAYLOAD, not guessed -- they come from the
  * write bodies in flows/exports/D2-New-Pool-*.json, which is what actually

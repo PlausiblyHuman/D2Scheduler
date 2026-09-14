@@ -2178,7 +2178,7 @@ proves it still does.
 
 ---
 
-## THE PLANNER CAN NOW WRITE BACK — Route A built 2026-09-12, NOT yet run against the tenant
+## THE PLANNER CAN NOW WRITE BACK — Route A built 2026-09-12, VERIFIED LIVE 2026-09-14
 
 **Spec:** `docs/superpowers/specs/2026-09-12-batch-write-back-design.md`. Two pieces:
 
@@ -2397,6 +2397,84 @@ auth needs an interactive sign-in, so the capture wants a small MSAL page served
 `http://localhost:8787` — roughly 40 lines, and it is the first real piece of the hosted app.
 
 ---
+
+## THE WRITE-BACK HAS RUN AGAINST THE TENANT — verified 2026-09-14, all five safety properties
+
+First live exercise of Route A. Run on `D2-1044 Salcedo · 5.3 Tile Installation` (row **436**),
+chosen because it is unlocked, unsigned, trade-checkable and dated October. **The row was restored
+to its exact pre-test values afterwards**, and the tenant ends as it began: 3 jobs, 138 assignments,
+3 legitimate `New Pool Requests` rows, no stray test data.
+
+**The refusal path fired, which is the thing nobody had ever watched.** Two fields were changed in
+the planner on one row, then `DurationDays` was deliberately diverged in SharePoint before applying:
+
+| Field | Baseline | Live at apply | Wanted | Outcome |
+|---|---|---|---|---|
+| `Crew` | cirilo | cirilo | guillermo | **written** |
+| `DurationDays` | 2 | **4** | 3 | **refused** |
+
+`{loaded: 2, nowLive: 4, wanted: 3}` was reported and the row read back as `Crew=guillermo,
+DurationDays=4`. **Compare-before-write is genuinely per-FIELD, not per-row** — one field refused
+and the other landed on the same row in the same pass.
+
+**Provoke divergence on `DurationDays`, never on `Crew`, when testing this.** Event-Driven
+Reconciliation's version-history gate watches `Crew`, `ScheduledStart` and `ScheduledFinish`, so a
+duration edit cannot raise a conflict alert. A `Crew` edit can, and Salcedo's PM is Don.
+
+**`SuppressReconcileUntil` PROVEN, not inferred.** The write set it to +10 minutes in the same
+MERGE. Exactly one Flow 3 run fired (1.9s), and its action list is the evidence:
+
+```
+Get_versions                  Succeeded
+Condition_scheduling_changed  Succeeded   <- correctly saw a real Crew edit
+Get_touched_meta              Succeeded   <- read SuppressReconcileUntil
+Terminate_suppressed          Succeeded   <- STOPPED HERE
+Get_overlapping / Condition_conflict / Send_email_alert   all Skipped
+```
+
+So the edit passed the version gate as it should and the suppression stopped it before any conflict
+evaluation or email. **A short run duration alone would not have proved this** — read the actions.
+
+**`+ Job` dry run is clean and the duplicate guard blocks.** A request for `TEST-9101` planned
+correctly with `assignDefaultCrews: true` carried through. A hand-crafted change-set reusing
+`D2-1042` was **refused**: *"refusing to create a duplicate pool -- a Jobs row with this job number
+already exists live"*. That guard is what stands between a re-run and 92 assignments plus 590 tasks.
+
+**KNOWN GAP CONFIRMED: a duration write leaves `ScheduledFinish` stale.** The allowlist deliberately
+excludes it as derived, so writing `DurationDays` alone leaves the old finish date in place until a
+reflow recomputes it. Related to the Phase G item about a duration edit reflowing the pool by
+itself; not a defect in the applier, but do not expect the dates to agree after a duration-only push.
+
+### Driving the applier headlessly — the recipe, because it took several dead ends
+
+The applier must run on the **SharePoint origin** (REST needs same-origin cookies), and it reads its
+change-set through `input.click()`. Both are awkward to automate, and these fail:
+
+| Attempt | Result |
+|---|---|
+| `page.addScriptTag({path})` | **CSP**: *"Executing inline script violates ... script-src"* |
+| `require` / `import('node:fs')` in the Playwright code VM | not available; the VM exposes only `page` |
+| Registering `page.once('filechooser', ...)` | the MCP registers its own handler and wins |
+
+What works: **read the applier into the page through a file input**, the same mechanism the applier
+itself uses, then `(0, eval)(src)`. SharePoint's CSP allows `'unsafe-eval'`, and `page.evaluate`
+goes through CDP anyway, exactly like a console paste. Sequence: open an input and store the text
+promise on `window`; fill it with the MCP's file-upload; `eval` the source; fill the applier's own
+chooser; then `await` the stored promise for the result. Wrap `console.log/warn/error/table` first,
+because the plan is printed rather than returned.
+
+**Two traps:** file paths must be under the MCP's allowed root and are **case-sensitive on the
+drive letter** (`c:\src\...`, not `C:\src\...`); and a change-set in the scratchpad is outside that
+root, so stage it inside the repo.
+
+**`DRY_RUN` was flipped by string-replacing the source in memory**, never by editing the committed
+file. The repo keeps its safe default.
+
+**A third instance of grep-bounded scope.** The applier's own completion message still said *"Use
+Load from D2 in the planner"* after the rename pass, because that pass grepped `web/` only. Found by
+reading the live output rather than the code. When renaming user-facing copy, grep **every**
+surface that prints it, `sharepoint/*.js` included.
+
 
 ## THE PLANNER IS HOSTED — deployed 2026-09-14, wall verified anonymously
 

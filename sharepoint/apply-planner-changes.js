@@ -172,7 +172,7 @@
 
   const WAIT_WARNING = 'D2 - New Pool takes about 9 minutes measured -- allow 10-15 minutes. '
     + 'Each request sits at "Building" the whole time in New Pool Requests and looks stuck, but is not. '
-    + 'Use Load from D2 in the planner once it finishes to pull the pool in.';
+    + 'Use Refresh in the planner once it finishes to pull the pool in.';
 
   // ---- 1. THE ALLOWLIST for EDITS -- the only Assignments columns this
   // script will ever touch. `write` normalizes a change-set value before it
