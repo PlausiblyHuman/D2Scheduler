@@ -528,7 +528,12 @@ function conflicts(){
     let prevEnd=null;
     allSecs(j).forEach(({g,gi,s,si})=>{
       if(s.skip)return;
-      const ref=`${j.name} › ${s.num} ${s.name}`;
+      /* esc() here, not at the sink: these messages deliberately carry markup
+         (<b>, <u>) and flagsCard paints them with innerHTML, so escaping msg
+         wholesale would render the tags as text. The pool name is free text a
+         PM types into SharePoint, so it is the part that must be neutralised.
+         Pinned by fixtures/planner/escaping.js. */
+      const ref=`${esc(j.name)} › ${esc(s.num)} ${esc(s.name)}`;
       if(!s.start){out.push({lvl:'err',msg:`<b>${ref}</b> — not scheduled.`});return;}
       if(s.skill&&!s.crewId){const q=qualified(s.skill);
         out.push({lvl:'err',msg:`<b>${ref}</b> — no crew assigned${q.length?'':` and <u>no crew has the ${skillLabel(s.skill)} skill</u>`}.`});}
@@ -555,7 +560,7 @@ function conflicts(){
       if(list.length<2)return;
       const k=list.map(x=>x.j.id+x.s.num).sort().join('|');
       if(seen.has(k))return;seen.add(k);
-      out.push({lvl:'err',msg:`<b>${crew(cid)?crew(cid).name:cid}</b> double-booked ${pretty(d)}: ${list.map(x=>x.j.name+' ('+x.s.num+' '+x.s.name+')').join(' vs ')}.`});
+      out.push({lvl:'err',msg:`<b>${crew(cid)?crew(cid).name:cid}</b> double-booked ${pretty(d)}: ${list.map(x=>esc(x.j.name)+' ('+esc(x.s.num)+' '+esc(x.s.name)+')').join(' vs ')}.`});
     });
   });
   for(let a=0;a<S.crews.length;a++)for(let b=a+1;b<S.crews.length;b++){
@@ -668,7 +673,7 @@ function vBoard(){
     const jbar=(js&&ax.idx[js]!=null)
       ? bandRow(ax,ax.idx[js],Math.max(1,(ax.idx[je]??ax.idx[js])-ax.idx[js]+1),`<div class="jobbar" style="background:#94a3b8"></div>`)
       : emptyRow(ax);
-    let html=`<tr class="jobrow"><td class="nm"><div class="nmflex"><span class="t">${j.name} <span class="muted small mono">${esc(j.jobno||'')}</span>${jobBadge(j)}</span>
+    let html=`<tr class="jobrow"><td class="nm"><div class="nmflex"><span class="t">${esc(j.name)} <span class="muted small mono">${esc(j.jobno||'')}</span>${jobBadge(j)}</span>
       <span class="muted small">${pretty(js)} → ${pretty(je)}</span></div></td>${jbar}</tr>`;
     j.groups.forEach((g,gi)=>{
       const ck=`${j.id}/${gi}`, col=UI.collapsed[ck];
@@ -728,7 +733,7 @@ function vCrewBoard(){
       if(v.many){let n=0;while(k+n<ax.days.length&&cells[k+n]&&cells[k+n].many&&cells[k+n].n===v.n)n++;
         html+=`<td colspan="${n}" style="padding:0"><div class="bar" style="background:${crewColor(c.id)};opacity:.85">${v.n} jobs at once</div></td>`;k+=n;continue;}
       let n=0;while(k+n<ax.days.length&&cells[k+n]&&cells[k+n]!=='DBL'&&!cells[k+n].many&&cells[k+n].s===v.s)n++;
-      html+=`<td colspan="${n}" style="padding:0"><div class="bar" style="background:${crewColor(c.id)}" onclick="editSec('${v.j.id}',${v.gi},${v.si})">${v.j.name} — ${v.s.num} ${v.s.name}</div></td>`;k+=n;
+      html+=`<td colspan="${n}" style="padding:0"><div class="bar" style="background:${crewColor(c.id)}" onclick="editSec('${v.j.id}',${v.gi},${v.si})">${esc(v.j.name)} — ${esc(v.s.num)} ${esc(v.s.name)}</div></td>`;k+=n;
     }
     return `<tr><td class="nm"><b>${c.name}</b><div class="muted small">${c.skills.map(skillLabel).join(', ')}</div></td>${html}</tr>`;
   }).join('');
@@ -761,7 +766,7 @@ function vDispatch(){
       <td>${cell}${hits.length>1?(c.unlimited?` <span class="chip sub">${hits.length} jobs</span>`:' <span class="chip" style="background:#fee2e2;color:#991b1b">DOUBLE-BOOKED</span>'):''}</td></tr>`;
   }).join('');
   const subs=[];
-  S.jobs.forEach(j=>allSecs(j).forEach(({s})=>{if(!s.skip&&!s.crewId&&s.start&&workSpan(s.start,s.days).includes(DDATE))subs.push(`${j.name} — ${s.num} ${s.name}`);}));
+  S.jobs.forEach(j=>allSecs(j).forEach(({s})=>{if(!s.skip&&!s.crewId&&s.start&&workSpan(s.start,s.days).includes(DDATE))subs.push(`${esc(j.name)} — ${esc(s.num)} ${esc(s.name)}`);}));
   return `<div class="card"><h2>Daily Dispatch<span class="sp"></span>
       <button class="btn sm" onclick="shiftDay(-1)">◀</button>
       <input type="date" value="${DDATE}" onchange="DDATE=nextWork(this.value);render()">
@@ -779,7 +784,7 @@ function vSignoff(){
     const tot=secs.reduce((a,x)=>a+x.s.tasks.length,0),
           dn=secs.reduce((a,x)=>a+secCounts(x.s).done,0),
           na=secs.reduce((a,x)=>a+secCounts(x.s).na,0);
-    return `<div class="card"><h2>${j.name} <span class="muted mono" style="text-transform:none">${esc(j.jobno||'')}</span>${jobBadge(j)}<span class="sp"></span>
+    return `<div class="card"><h2>${esc(j.name)} <span class="muted mono" style="text-transform:none">${esc(j.jobno||'')}</span>${jobBadge(j)}<span class="sp"></span>
       <span class="small" style="text-transform:none">Installer ${i}/${secs.length} · PM ${p}/${secs.length} · checklist ${dn}/${tot}${na?` · ${na} N/A`:''}</span></h2>
       <div class="pad" style="padding-bottom:0"><div class="tw2"><i style="width:${tot?(dn+na)/tot*100:0}%"></i></div></div>
       <table><thead><tr><th style="width:70px">#</th><th>Sub-phase</th><th style="width:130px">Crew</th><th style="width:150px">Dates</th>
