@@ -1705,6 +1705,7 @@ properly:
 | Reyes Residence | 08 Sep to 28 Dec | 1 of 46 | 26/295 | 1 | Cody Campbell |
 | Salcedo Residence | 10 Aug to 28 Nov | 13 of 46 | 121/295 | 12 | **Don Borgeson** (was Cody, changed 2026-09-10) |
 | Whitfield Estate | 15 Jun to 30 Sep | 37 of 46 | 251/295 | 35 | Emon Alexander |
+| **Navarro Residence** | **20 Jul to 05 Nov** | **23 of 46** | **174/295** | **21** | **David Taylor** |
 
 Staging notes worth keeping: the pools were **reflowed with `D2 - Reschedule Pool`** rather than
 hand-dated, so the working-day and holiday logic did the work; **four sub-phases are deliberately
@@ -2397,6 +2398,67 @@ auth needs an interactive sign-in, so the capture wants a small MSAL page served
 `http://localhost:8787` — roughly 40 lines, and it is the first real piece of the hosted app.
 
 ---
+
+## D2-1045 NAVARRO RESIDENCE — created 2026-09-14 through the supported path, end to end
+
+The first pool ever created the way a PM is meant to create one: `+ Job` in the planner, Save,
+`sharepoint/apply-planner-changes.js`, `D2 - New Pool`. No REST hand-loading anywhere in the chain.
+
+| | |
+|---|---|
+| Job | **23**, `D2-1045`, Navarro Residence, 1580 Lindero Canyon Road, Westlake Village |
+| Span | 2026-07-20 to 2026-11-05 |
+| Staged at | **23 of 46 finished, 21 signed, 174/295 tasks** — deliberately between Salcedo (11) and Whitfield (35) |
+| PM | **David Taylor** (site user 13), which gives all four people with access a pool of their own |
+| Sign-offs | attributed to David, timestamped to each sub-phase's own finish date |
+| Left unsigned | **2.1** (finished 08-08) and **3.2** (finished 08-25), so `Sign-off Overdue` has genuinely overdue content |
+| In progress today | 4.3 Shotcrete Placement, tasks half ticked |
+
+Verified against the live rows rather than the write summary: counter drift **0**, no signed work
+finishing in the future, no required-but-null fields, `TasksComplete` never exceeds `TasksTotal`.
+Tenant totals are now 4 jobs / 184 assignments / 1180 tasks.
+
+**`D2 - New Pool` CAN CREATE BUSINESS-RULE-2 VIOLATIONS, AND DID. This is the find of the session.**
+
+The flow assigns each sub-phase its `Sub-phase Template.DefaultCrew` with **no awareness of what
+that crew is already booked on in other pools**. Creating Navarro immediately produced three
+cross-pool double-bookings of `harrison`:
+
+```
+8/24/26   Salcedo 1.5 Excavation Operations   vs  Navarro 3.2 Underground Plumbing
+10/14/26  Reyes   3.2 Underground Plumbing    vs  Navarro 6.1 Equipment Installation
+10/16/26  Reyes   3.3 Plumbing Pressure Test  vs  Navarro 6.2 Equipment Plumbing
+```
+
+This is consistent with the documented grammar — rule 2 is **detected post-hoc, never prevented** —
+but it is the first time it has been seen arising *as a direct consequence of the supported
+creation path* rather than from a hand edit. **Every new pool should be expected to arrive with
+conflicts**, and the check after creating one is not optional. Nothing alerted at the time only
+because the job was still `Planned` during the inserts, so Flow 3 terminated at
+`Skip_non_active_job`; the nightly `D2 - Conflict Flag` would have flagged them the next morning.
+
+**A related capacity finding: only TWO crews hold `plumbing`** — `harrison` and `stl`. With harrison
+booked, the only qualified alternative was `stl`, which is `Unlimited` and therefore capacity-exempt.
+So the conflict was resolvable only by moving work to a subcontractor. That is a real constraint in
+D2's crew/trade data rather than a scheduling accident, and it belongs in Don's trade-mapping
+conversation: a trade held by one field crew plus one subcontractor has no slack at all.
+
+**The fix was applied through the write-back, not by hand**, which exercised the whole loop on a
+genuine corrective action: three `Crew` edits in the planner, Save, apply. 3 rows written, 0
+refused, verify clean, suppression set. Planner errors went 3 -> 0.
+
+**MEASURED RUNTIME WAS 16.5 MINUTES, NOT 9.** Request raised 19:03:45, `Done` 19:20:17. Worse, it
+**stalled for six minutes mid-run** — assignments sat at 144 and tasks at 949 from 19:06 to 19:12,
+then resumed and finished normally. So the existing "9m 03s measured, allow 10-15 minutes" guidance
+is optimistic, and the PM guide's callout understates it. A PM watching `Building` for a quarter of
+an hour will think it has hung. **Treat a stall as normal; do not re-raise the request** — that is
+exactly how two pools get created.
+
+**Incidental confirmation of the `Jobs.StartDate` drift mechanism.** Navarro is the only pool whose
+`Jobs.StartDate` matches its own first assignment, because it was created directly at its real start
+date instead of being created and then reflowed. The other three drift precisely because
+`D2 - Reschedule Pool` never writes the job's start date back. Creating at the intended date avoids
+the drift entirely, which is worth knowing when staging future pools.
 
 ## THE WRITE-BACK HAS RUN AGAINST THE TENANT — verified 2026-09-14, all five safety properties
 
