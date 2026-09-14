@@ -1,14 +1,35 @@
 {
+  "routes": [
+    {
+      "route": "/.auth/login/github",
+      "statusCode": 404
+    },
+    {
+      "route": "/*",
+      "allowedRoles": ["authenticated"]
+    }
+  ],
+  "responseOverrides": {
+    "401": {
+      "statusCode": 302,
+      "redirect": "/.auth/login/aad"
+    },
+    "404": {
+      "rewrite": "/index.html"
+    }
+  },
   "navigationFallback": {
     "rewrite": "/index.html",
-    "exclude": ["/*.{png,jpg,gif,svg,ico,css,js,json}"]
-  },
-  "responseOverrides": {
-    "404": { "rewrite": "/index.html" }
+    "exclude": ["/*.{png,jpg,gif,svg,ico,css,js,json,txt,woff,woff2}"]
   },
   "globalHeaders": {
+    "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com; frame-src https://login.microsoftonline.com; form-action 'self' https://login.microsoftonline.com; frame-ancestors 'none'; object-src 'none'; base-uri 'none'",
     "X-Content-Type-Options": "nosniff",
-    "Referrer-Policy": "strict-origin-when-cross-origin"
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
+    "Strict-Transport-Security": "max-age=31536000",
+    "X-Robots-Tag": "noindex, nofollow"
   },
   "mimeTypes": {
     ".json": "application/json"
