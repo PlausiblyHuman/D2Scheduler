@@ -38,6 +38,28 @@ win.confirm = () => true; win.alert = () => {};
   ok('no PM sign-off warnings', !msgs.some(m => /PM sign-off/i.test(m)),
      msgs.filter(m => /PM sign-off/i.test(m)).length + ' found');
 
+  /* The roster uses '?' for a crew member whose name is not known yet. Campos
+     and Harrison each carry one, so a shared-member check that treats it as a
+     name reports "?, ? is on both Campos +2 and Harrison +2 -- confirm these
+     are different people". Unclearable by definition, and found only by running
+     the hosted planner against live data.
+
+     The check only fires for crews that share a WORKING DAY, so two sub-phases
+     have to be put on the same date under the two crews. Without that setup the
+     assertion passes whether or not the bug is present -- it was written that
+     way first and proved nothing. */
+  const secs = win.allSecs(j);
+  secs[0].s.crewId = 'campos';
+  secs[1].s.crewId = 'harrison';
+  [secs[0].s, secs[1].s].forEach(x => { x.start = '2026-01-05'; x.days = 1; x.skip = false; });
+
+  const shared = win.conflicts().map(c => c.msg).filter(m => /is on both/.test(m));
+  ok('two crews sharing a day is a scenario this test actually reaches',
+     win.conflicts().some(c => /Campos|Harrison/.test(c.msg)), 'crews are on the board');
+  ok('placeholder crew members raise no shared-member warning',
+     shared.length === 0,
+     shared.length ? shared[0].replace(/<[^>]+>/g, '').slice(0, 80) : 'none');
+
   // Installer sign-off is real and must still be checked.
   win.allSecs(j).forEach(({ s }) => { s.inst = false; });
   const msgs2 = win.conflicts().map(c => c.msg);

@@ -306,7 +306,7 @@ function nextJobNo(){
 function newJob(name,addr,city,state,zip,start){
   return {id:'j'+Math.random().toString(36).slice(2,8),jobno:nextJobNo(),
     name,addr,city:city||'',state:state||'',zip:zip||'',start,
-    status:null,          // null = exists only in this browser, never raised in D2
+    status:null,          // null = exists only in this browser, never raised in SharePoint
     groups:mkJobGroups(S?S.template:mkTemplate())};
 }
 const fullAddr=j=>[j.addr,j.city,[j.state,j.zip].filter(Boolean).join(' ')].filter(Boolean).join(', ');
@@ -317,10 +317,10 @@ const fullAddr=j=>[j.addr,j.city,[j.state,j.zip].filter(Boolean).join(' ')].filt
    missing, not the behaviour. */
 function jobBadge(j){
   const edited=j.touchedAt?'<span class="chip jb edited" title="Changed here since the last Refresh">edited here</span>':'';
-  if(!j.status)return '<span class="chip jb local" title="Sketched here, not yet raised in D2">Local only</span>'+edited;
+  if(!j.status)return '<span class="chip jb local" title="Sketched here, not yet raised in SharePoint">Local only</span>'+edited;
   if(j.status==='Active')return edited;
   const cls=j.status==='Planned'?'planned':j.status==='On Hold'?'hold':'other';
-  return `<span class="chip jb ${cls}" title="Jobs.Status in D2">${esc(j.status)}</span>`+edited;
+  return `<span class="chip jb ${cls}" title="Jobs.Status in SharePoint">${esc(j.status)}</span>`+edited;
 }
 function load(){
   try{const raw=localStorage.getItem(KEY);if(raw){S=JSON.parse(raw);S.settings=S.settings||{};S.pendingCreates=S.pendingCreates||[];syncNonWork();return;}}catch(e){}
@@ -565,7 +565,14 @@ function conflicts(){
   });
   for(let a=0;a<S.crews.length;a++)for(let b=a+1;b<S.crews.length;b++){
     const A=S.crews[a],B=S.crews[b];
-    const both=A.members.filter(m=>m&&m!=='+2'&&B.members.includes(m));
+    /* '?' is the roster's placeholder for a crew member whose name we do not
+       have yet, not a person. Campos and Harrison both carry one, so without
+       this the check reported "?, ? is on both Campos +2 and Harrison +2 --
+       confirm these are different people", which is unclearable by definition
+       and is exactly the cry-wolf warning that got PM sign-off removed from
+       Schedule Check. '+2' was already excluded for the same reason. */
+    const PLACEHOLDER=m=>!m||m==='+2'||m==='?';
+    const both=A.members.filter(m=>!PLACEHOLDER(m)&&B.members.includes(m));
     if(!both.length)continue;
     const da=byDay[A.id]||{},db=byDay[B.id]||{};
     const clash=Object.keys(da).filter(d=>db[d]).sort();
@@ -1132,7 +1139,7 @@ function importFromD2Payload(d){
     const untouched=S.jobs.filter(j=>!d.jobs.some(i=>String(i.jobno)===String(j.jobno))).length;
 
     if(!confirm(
-      'Load the live D2 schedule exported '+(d.exported||'(unknown date)')+'?\n\n'+
+      'Load the live schedule exported '+(d.exported||'(unknown date)')+'?\n\n'+
       updated+' pool(s) already here will be updated\n'+
       added+' pool(s) will be added\n'+
       untouched+' pool(s) that exist only in this browser will be left alone\n\n'+
@@ -1204,7 +1211,7 @@ function importFromD2Payload(d){
     });
     plan.forEach(({inj})=>{const j=S.jobs.find(x=>String(x.jobno)===String(inj.jobno));if(j)delete j.touchedAt;});
     // A pending create resolves itself the moment the real pool comes back --
-    // no reason to keep telling a PM they are waiting on a request D2 already
+    // no reason to keep telling a PM they are waiting on a request SharePoint already
     // finished. Whether it was ever pushed (requestedAt set) or is still only
     // queued here, the real pool having arrived is what matters.
     if(S.pendingCreates&&S.pendingCreates.length){
@@ -1235,7 +1242,7 @@ function importFromD2Payload(d){
 function buildChangeSet(){
   const pools=[];
   S.jobs.forEach(j=>{
-    if(!poolHasBaseline(j))return;   // a local sketch -- never raised in D2, never pushed
+    if(!poolHasBaseline(j))return;   // a local sketch -- never raised in SharePoint, never pushed
     const secs=[];
     allSecs(j).forEach(({s})=>{
       if(!s.base)return;             // unmatched against the template -- nothing to diff

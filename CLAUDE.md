@@ -2432,6 +2432,44 @@ forms plus the hosted origin with and without a trailing slash. The planner sets
 `redirectUri: location.origin + location.pathname`, so the trailing-slash form is the one it
 actually requests at the root.
 
+**VERIFIED SIGNED IN, 2026-09-14, against live tenant data.** Both libraries load over HTTPS,
+`graphModeAvailable()` is **true** (so the planner is in live-Graph mode, not the file-picker
+fallback), the console is clean at every level, and **Refresh pulled 3 pools / 138 sub-phases /
+47 sign-offs** with first-start dates matching the `Jobs.StartDate` drift table exactly. The
+Work Calendar imports as a **210-entry Set** and Thanksgiving, Christmas, Labor Day and Sundays
+all evaluate non-work, so divergence D7 holds on the hosted build.
+
+**THE SECOND SIGN-IN IS SILENT, as hoped but not previously provable.** The SWA wall establishes
+an Entra session, and MSAL's `loginPopup` then completes with no popup and no second prompt. Users
+sign in once.
+
+**THE TWO CONSENT PROMPTS ARE A ONE-TIME ADMIN EVENT, NOT A PER-USER TAX.** Signing in the first
+time raised consent for **Azure Static Web Apps** (`openid profile email`) and for the planner
+(`Sites.ReadWrite.All`). Both grants now read **`consentType: AllPrincipals`**, so Don, David, Cody
+and Emon will see no consent dialog at all. Check with:
+
+```
+az rest --method get --url "https://graph.microsoft.com/v1.0/oauth2PermissionGrants?\$filter=clientId eq '<sp-object-id>'"
+```
+
+`2e705612-1b82-416e-aa1c-d7043cad9e4f` is the Azure Static Web Apps SP in this tenant;
+`87f681ec-a4a4-47df-8423-8fc28c2d2324` is the planner's.
+
+**A "Chrome is being automated" banner during testing is Playwright's own flag**
+(`--disable-blink-features=AutomationControlled`), not the application. Real users never see it.
+
+**Running it on live data found a cry-wolf warning that no harness had reached.** The crew roster
+uses `'?'` for a member whose name is not known yet; Campos and Harrison each carry one, and the
+shared-member check excluded `'+2'` but not `'?'`. It reported *"?, ? is on both Campos +2 and
+Harrison +2 -- confirm these are different people"*, which is unclearable by definition and is the
+same failure that got PM sign-off removed from Schedule Check. Fixed; live warnings went 41 -> 40.
+
+**The assertion that pins it was VACUOUS on the first attempt and passed with the bug present.**
+The shared-member check only fires for crews sharing a working day, and the harness's scenario put
+no two crews on the same date, so it asserted over an empty set. It now builds the overlap and
+carries a second assertion confirming the scenario is reached. **A new assertion has to be watched
+fail before it is worth anything** -- the fourth time this file has recorded that lesson.
+
 ## The decision behind that — hosting and security posture, decided 2026-09-13b
 
 **Shane's requirement: "this shouldn't be public and should sit behind a SSO wall."** The answer
