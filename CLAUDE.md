@@ -2398,7 +2398,41 @@ auth needs an interactive sign-in, so the capture wants a small MSAL page served
 
 ---
 
-## THE PLANNER'S HOSTING AND SECURITY POSTURE — decided 2026-09-13b, config written, NOT deployed
+## THE PLANNER IS HOSTED — deployed 2026-09-14, wall verified anonymously
+
+| | |
+|---|---|
+| URL | **`https://mango-sky-0d6904310.5.azurestaticapps.net`** |
+| Resource | `swa-d2-build-scheduler` in `rg-d2-build-scheduler`, `centralus`, **Free** sku |
+| Subscription | `D2 Build Scheduler` `cbcbe68b-bbaa-4926-bd9a-d33f0a9bd312` |
+| Deploy method | **SWA CLI with a deployment token pulled on demand** from `az staticwebapp secrets list`. No CI integration, no workflow file in this repo, **no stored secret**. |
+| Redeploy | `npx -y @azure/static-web-apps-cli deploy ./web --deployment-token "$TOKEN" --env production` |
+
+**`Microsoft.Web` had to be registered first** (`az provider register -n Microsoft.Web`); it took
+about 60 seconds. The subscription was completely empty before this.
+
+**VERIFIED ANONYMOUSLY, and the check most likely to fail passed.** Every path — `/`,
+`/index.html`, both scripts, `/robots.txt`, and a nonsense path — returns **302 to
+`/.auth/login/aad`**. The documented worry that `navigationFallback` bypasses route rules and would
+serve `index.html` unauthenticated **did not materialise**. `/.auth/login/github` returns **404** as
+intended, and all seven security headers including the CSP are served.
+
+**Side effect worth knowing: `robots.txt` is itself behind the wall**, so no crawler can read it.
+Harmless — nothing is reachable to crawl — but it means the `noindex` work is belt-and-braces
+rather than the actual control. The wall is the control.
+
+**The sign-in redirect confirms the Free-plan limitation empirically**, which is worth seeing once:
+the authorize URL is `login.microsoftonline.com/**common**/...&client_id=d414ee2d-73e5-4e5b-bb16-03ef55fea597`.
+That client id is **Static Web Apps' own shared platform app**, not ours, and `/common/` is why any
+Microsoft account can pass the wall. Our single-tenant app id only ever appears in the *in-page*
+MSAL sign-in that guards the data.
+
+**Four SPA redirect URIs are now registered** on `D2 Build Scheduler (planner)`: both localhost
+forms plus the hosted origin with and without a trailing slash. The planner sets
+`redirectUri: location.origin + location.pathname`, so the trailing-slash form is the one it
+actually requests at the root.
+
+## The decision behind that — hosting and security posture, decided 2026-09-13b
 
 **Shane's requirement: "this shouldn't be public and should sit behind a SSO wall."** The answer
 is **Static Web Apps Free plan with the built-in Entra provider**, not Standard. The reasoning
