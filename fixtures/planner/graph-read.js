@@ -160,7 +160,7 @@ const totalNa = p => p.jobs.reduce((n, j) => n + j.sections.reduce((m, s) => m +
   const liveSigned = graphLive.asg.filter(a => a.fields.InstallerSignOff).length;
   const liveDone = graphLive.tasks.filter(t => t.fields.Complete).length;
 
-  ok('planner accepted the Graph-derived export', alerts.some(a => /Loaded from D2/.test(a)));
+  ok('planner accepted the Graph-derived export', alerts.some(a => /Schedule loaded/.test(a)));
   ok('no sub-phase failed to match the template', !alerts.some(a => /matched nothing/.test(a)),
      alerts.join(' | ').slice(0, 120));
   ok('3 pools landed', S.jobs.length === 3, S.jobs.map(j => j.jobno).join(','));

@@ -95,5 +95,5 @@ const ok=(l,c,d='')=>{console.log((c?'PASS':'FAIL')+' · '+l+(d?'  ['+d+']':''))
   alerts=[];
   win.importFromD2(new win.File([JSON.stringify({state:{jobs:[],crews:[],template:[]}})],'b.json',{type:'application/json'}));
   await new Promise(r=>setTimeout(r,300));
-  ok('rejects a plain backup file', alerts.some(a=>/not a D2 SharePoint export/.test(a)));
+  ok('rejects a plain backup file', alerts.some(a=>/not a schedule export/.test(a)));
 })();

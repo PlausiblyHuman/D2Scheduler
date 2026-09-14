@@ -1,4 +1,4 @@
-/* A first-run browser starts with S.jobs=[] and nothing loaded from D2 (see the
+/* A first-run browser starts with S.jobs=[] and nothing loaded from SharePoint (see the
  * "NO DEMO POOLS" comment in web/index.html). This pins that the planner still
  * boots cleanly in that state, rather than merely printing numbers about it.
  *
@@ -39,7 +39,7 @@ setTimeout(() => {
   const subPhases = S && S.template ? S.template.reduce((n, g) => n + g.sections.length, 0) : 0;
   ok('phase template loaded', subPhases > 0, 'sub-phases=' + subPhases);
 
-  ok('Load from D2 button present', !!w.document.getElementById('d2Btn'));
+  ok('Refresh button present', !!w.document.getElementById('d2Btn'));
 
   let threw = false, threwMsg = '';
   try { w.autoSchedule(); } catch (e) { threw = true; threwMsg = e.message; }

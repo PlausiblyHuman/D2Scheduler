@@ -85,7 +85,7 @@ const live = JSON.parse(fs.readFileSync(FIXTURE, 'utf8'));
   await new Promise(r => setTimeout(r, 500));
 
   const S = win.S;
-  ok('planner accepted the live export', alerts.some(a => /Loaded from D2/.test(a)));
+  ok('planner accepted the live export', alerts.some(a => /Schedule loaded/.test(a)));
   ok('no sub-phase failed to match the template', !alerts.some(a => /matched nothing/.test(a)),
      alerts.join(' | ').slice(0, 120));
   ok('3 pools in the planner', S.jobs.length === 3, S.jobs.map(j => j.jobno).join(','));

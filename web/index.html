@@ -134,8 +134,8 @@ tr.phrow .nm{background:#f8fafc;font-weight:650}
   <span class="sp"></span>
   <button class="btn p" id="autoBtn">⚡ Auto-Schedule</button>
   <button class="btn" id="addJobBtn">+ Job</button>
-  <button class="btn p" id="saveBtn" title="Preview and download everything changed here since the last Load from D2, ready to push back into SharePoint with sharepoint/apply-planner-changes.js">Save</button>
-  <button class="btn" id="d2Btn" title="Load the live schedule exported from the D2 Build Scheduler SharePoint site. Merges by job number - it never touches pools that only exist here.">Load from D2</button>
+  <button class="btn p" id="saveBtn" title="Preview and download everything changed here since the last Refresh, ready to push back into SharePoint with sharepoint/apply-planner-changes.js">Save</button>
+  <button class="btn" id="d2Btn" title="Load the current schedule from SharePoint. Merges by job number - it never touches pools that only exist here.">Refresh</button>
   <input type="file" id="d2File" accept="application/json,.json" style="display:none">
   <span id="freshness" class="small" style="opacity:.75"></span>
 </header>
@@ -256,7 +256,7 @@ const isQualified=(c,sk)=>!sk?true:(FIXED[sk]?c.id===FIXED[sk]:c.skills.includes
 const pad=n=>String(n).padStart(2,'0');
 const fmt=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
 function parseD(s){const[a,b,c]=s.split('-').map(Number);return new Date(a,b-1,c);}
-/* Non-work days come from the SharePoint Work Calendar via Load from D2: 175
+/* Non-work days come from the SharePoint Work Calendar via Refresh: 175
    Sundays and 35 holidays. Sunday is ALSO computed, deliberately -- the computed
    rule is correct forever while the list expires 2029-12-30, so a lapsed calendar
    degrades to Sundays-only rather than to every day being a work day. This
@@ -316,7 +316,7 @@ const fullAddr=j=>[j.addr,j.city,[j.state,j.zip].filter(Boolean).join(' ')].filt
    why the reflow's own conflict sweep is tenant-wide too. Only the label was
    missing, not the behaviour. */
 function jobBadge(j){
-  const edited=j.touchedAt?'<span class="chip jb edited" title="Changed here since the last Load from D2">edited here</span>':'';
+  const edited=j.touchedAt?'<span class="chip jb edited" title="Changed here since the last Refresh">edited here</span>':'';
   if(!j.status)return '<span class="chip jb local" title="Sketched here, not yet raised in D2">Local only</span>'+edited;
   if(j.status==='Active')return edited;
   const cls=j.status==='Planned'?'planned':j.status==='On Hold'?'hold':'other';
@@ -332,7 +332,7 @@ function load(){
      the pools in SharePoint, and a PM had no way to tell they were fake.
      ("Harrison Residence" also leaked into the SharePoint seed as D2-1001 and
      had to be deleted from the live tenant later -- see CLAUDE.md.)
-     A first-run browser now starts empty and points at "Load from D2". */
+     A first-run browser now starts empty and points at "Refresh". */
   S.jobs=[];
   syncNonWork();
 }
@@ -428,7 +428,7 @@ function jobStart(j){
   return a||todayStr();
 }
 
-/* Marks a pool as diverged from the last Load from D2. Everything that rewrites
+/* Marks a pool as diverged from the last Refresh. Everything that rewrites
    schedule or sign-off state calls this, so the header can say plainly whether
    what is on screen is still the live schedule. */
 function touch(j){ if(j) j.touchedAt=new Date().toISOString(); }
@@ -485,7 +485,7 @@ function divergedSecs(j){
   allSecs(j).forEach(({s})=>{ if(s.base && secFieldDiffs(s).length) out.push(s); });
   return out;
 }
-/* Has this pool ever been loaded from D2 at all? A pool sketched only in this
+/* Has this pool ever been loaded from SharePoint at all? A pool sketched only in this
    browser (never raised in SharePoint, or raised but never re-imported) carries
    no baseline on any of its sub-phases -- it is a local sketch, and Save must
    exclude it entirely rather than offer to "push" a pool SharePoint has never
@@ -640,7 +640,7 @@ function render(){
         + (st.exportedOn?` · export ${st.exportedOn}`:'')
         + (edited?` · <b>${edited} pool${edited===1?'':'s'} edited here since (${totalDiverged} sub-phases)</b>`:'')
         + (queuedCreates?` · <b>${queuedCreates} new pool${queuedCreates===1?'':'s'} queued</b>`:'')
-      : 'Not loaded from D2';
+      : 'No schedule loaded yet';
   }
   const saveBtn=document.getElementById('saveBtn');
   // Save has something to push if a loaded pool diverged OR a new pool is
@@ -813,7 +813,7 @@ function vSignoff(){
    raised but not yet pushed (Save still to come) and what they have pushed
    but not yet received back (waiting on D2 - New Pool, ~9 minutes measured,
    allow 10-15). A create clears itself the moment the real pool comes back
-   through Load from D2 -- see importFromD2. */
+   through Refresh -- see importFromD2. */
 function vJobs(){
   const pend=S.pendingCreates||[];
   const pendingCard=pend.length?`<div class="card"><h2>Pending Pool Requests<span class="sp"></span>
@@ -827,8 +827,8 @@ function vJobs(){
       <td class="small muted">${pretty(c.start)}</td>
       <td class="small muted">${c.assignDefaultCrews?'Assign':'Unassigned'}</td>
       <td class="small">${c.requestedAt
-        ?`Requested ${freshStamp(c.requestedAt)} — allow 10–15 min, then Load from D2`
-        :'<span class="chip jb local">Not yet pushed</span> — press Save'}</td>
+        ?`Requested ${freshStamp(c.requestedAt)} — allow 10–15 min, then Refresh`
+        :'<span class="chip jb local">Draft — not saved</span> — press Save'}</td>
       <td style="text-align:right">${c.requestedAt?'':`<button class="btn sm d" onclick="cancelPendingCreate('${c.id}')">Remove</button>`}</td>
       </tr>`).join('')}
     </tbody></table></div>`:'';
@@ -1002,7 +1002,7 @@ function addJob(){
       This raises a row in SharePoint's <b>New Pool Requests</b> list — <b>D2 - New Pool</b> builds
       the 46 sub-phases and 295 tasks from the template. Measured at about 9 minutes: allow
       <b>10–15 minutes</b>. The request sits at <span class="mono">Building</span> the whole time
-      and looks stuck, but is not. Use <b>Load from D2</b> once it finishes to pull the pool in here.
+      and looks stuck, but is not. Use <b>Refresh</b> once it finishes to pull the pool in here.
     </div>
     <div class="fld"><label>Job number</label><input id="ncJobNo" value="${esc(nextJobNo())}"></div>
     <div class="fld"><label>Pool / job name</label><input id="ncName" placeholder="e.g. Reyes Residence"></div>
@@ -1046,7 +1046,7 @@ function confirmNewPoolRequest(){
   save();render();
   alert('Queued: '+jobno+' · '+name+'.\n\nPress Save to raise this in SharePoint\'s New Pool Requests list.\n\n'+
     'D2 - New Pool takes about 9 minutes measured — allow 10–15 minutes. The request sits at '+
-    '"Building" the whole time and looks stuck, but is not. Use Load from D2 once it finishes to pull '+
+    '"Building" the whole time and looks stuck, but is not. Use Refresh once it finishes to pull '+
     'the finished pool in here.');
 }
 function cancelPendingCreate(id){
@@ -1118,7 +1118,7 @@ function importFromD2(file){
    argument. */
 function importFromD2Payload(d){
     if(!d||d.kind!=='d2-sharepoint-export'||!Array.isArray(d.jobs)){
-      alert('That is not a D2 SharePoint export.\n\nUse Load from D2 with the file downloaded from the site.');return;}
+      alert('That is not a schedule export.\n\nUse Refresh with the file downloaded from the site.');return;}
 
     const bySec=j=>{const m={};allSecs(j).forEach(({s})=>m[s.num]=s);return m;};
     let added=0,updated=0,secs=0,unmatched=[];
@@ -1213,7 +1213,7 @@ function importFromD2Payload(d){
     }
 
     save(); UI={collapsed:{}}; render();
-    alert('Loaded from D2.\n\n'+updated+' updated, '+added+' added, '+untouched+' left alone.'+
+    alert('Schedule loaded.\n\n'+updated+' updated, '+added+' added, '+untouched+' left alone.'+
       (unmatched.length?'\n\n'+unmatched.length+' sub-phase(s) in the file matched nothing in this phase template:\n'+
         unmatched.slice(0,8).join(', ')+(unmatched.length>8?' ...':'')+
         '\n\nThat means the template here is out of step with SharePoint.':''));
@@ -1253,7 +1253,7 @@ function buildChangeSet(){
    change-set -- what a PM has raised here but not yet pushed. A create that
    HAS been pushed (requestedAt set, by confirmSaveChangeSet below) is never
    re-offered by a later Save; it is surfaced instead on the Jobs tab as
-   "waiting on D2" until the real pool comes back through Load from D2, which
+   "waiting on SharePoint" until the real pool comes back through Refresh, which
    clears the pendingCreates entry entirely (see importFromD2). This is a
    wholly separate path to a wholly different list (New Pool Requests, never
    Assignments) and is never subject to the five-field WRITEBACK_FIELDS
@@ -1295,16 +1295,16 @@ function openSavePreview(){
   const pools=buildChangeSet();
   const creates=buildPendingCreates();
   const totalSecs=pools.reduce((n,p)=>n+p.sections.length,0);
-  if(!totalSecs&&!creates.length){alert('Nothing to push -- no pool loaded from D2 has changed here since, and no new pool is queued.');return;}
+  if(!totalSecs&&!creates.length){alert('Nothing to push -- no pool has changed here since the last Refresh, and no new pool is queued.');return;}
   const skipped=S.jobs.filter(j=>!poolHasBaseline(j));
-  document.getElementById('dTitle').textContent='Save changes to D2';
+  document.getElementById('dTitle').textContent='Save changes';
   document.getElementById('dBody').innerHTML=
     `<div class="hint" style="padding:0 0 11px">
       ${totalSecs?`${totalSecs} sub-phase${totalSecs===1?'':'s'} across ${pools.length} pool${pools.length===1?'':'s'} will be updated. `:''}
       ${creates.length?`${creates.length} new pool${creates.length===1?'':'s'} will be requested. `:''}
-      This only downloads a file — nothing reaches D2 until that file is applied with
+      This only downloads a file — nothing is sent until that file is applied with
       <span class="mono">sharepoint/apply-planner-changes.js</span>.
-      ${skipped.length?`<br><br>${skipped.length} pool${skipped.length===1?'':'s'} sketched only in this browser (never loaded from D2) `
+      ${skipped.length?`<br><br>${skipped.length} pool${skipped.length===1?'':'s'} sketched only in this browser `
         +`${skipped.length===1?'is':'are'} excluded from the edits above — use the +Job form to request a new pool instead: `
         +skipped.map(j=>esc(j.jobno||j.name)).join(', ')+'.':''}
     </div>`+
@@ -1312,7 +1312,7 @@ function openSavePreview(){
       <div class="hint" style="padding:0 0 6px">
         Each raises a row in SharePoint's New Pool Requests list. D2 - New Pool takes about
         9 minutes measured — allow 10–15 minutes, and the request sits at "Building" the whole time
-        and looks stuck, but is not. Use Load from D2 once it finishes to pull the pool in.
+        and looks stuck, but is not. Use Refresh once it finishes to pull the pool in.
       </div>
       <table><tbody>${creates.map(c=>`<tr><td class="small"><b>${esc(c.jobno)}</b></td>
         <td class="small">${esc(c.name)}</td>
@@ -1341,7 +1341,7 @@ function confirmSaveChangeSet(){
   downloadChangeSet(PENDING_CHANGESET||[],creates);
   // Mark these as pushed so a later Save never re-offers them -- they now
   // read as "waiting on D2" on the Jobs tab until the real pool comes back
-  // through Load from D2, which clears the pendingCreates entry entirely.
+  // through Refresh, which clears the pendingCreates entry entirely.
   const now=new Date().toISOString();
   creates.forEach(c=>{
     const pc=(S.pendingCreates||[]).find(x=>x.jobno===c.jobno&&!x.requestedAt);
@@ -1363,7 +1363,7 @@ document.getElementById('addJobBtn').onclick=addJob;
 document.getElementById('saveBtn').onclick=openSavePreview;
 
 /* ============================== Graph read path ==============================
-   Load from D2 reads live through Microsoft Graph when this page is served
+   Refresh reads live through Microsoft Graph when this page is served
    over http/https AND both MSAL and the mapping module are on the page;
    otherwise it falls back to the existing file picker, unchanged. That
    fallback is NOT a stopgap to remove later -- MSAL cannot complete a
@@ -1472,7 +1472,7 @@ function updateD2ButtonLabel(){
 document.getElementById('d2Btn').onclick=()=>{
   if(graphModeAvailable()){
     loadFromD2ViaGraph().catch(e=>{
-      alert('Could not load live from D2 over Graph: '+e.message+
+      alert('Could not load the live schedule: '+e.message+
         '\n\nFalling back to the file picker -- choose the exported .json from the site instead.');
       document.getElementById('d2File').click();
     });
