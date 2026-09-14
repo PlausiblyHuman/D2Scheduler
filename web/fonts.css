@@ -1,0 +1,38 @@
+/* Brand faces, served from this origin so the planner makes no
+   third-party request. Poppins and Source Sans 3 are both OFL.
+   Latin subset only. Regenerate with scratchpad/fonts.py. */
+@font-face {
+  font-family: 'Poppins';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url(fonts/Poppins-500.woff2) format('woff2');
+}
+@font-face {
+  font-family: 'Poppins';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url(fonts/Poppins-600.woff2) format('woff2');
+}
+@font-face {
+  font-family: 'Poppins';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url(fonts/Poppins-700.woff2) format('woff2');
+}
+@font-face {
+  font-family: 'Source Sans 3';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(fonts/SourceSans3-400.woff2) format('woff2');
+}
+@font-face {
+  font-family: 'Source Sans 3';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url(fonts/SourceSans3-400.woff2) format('woff2');
+}
