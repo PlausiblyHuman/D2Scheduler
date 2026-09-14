@@ -1,97 +1,96 @@
-# 2026-09-13b — security review, hosting posture, and the planner's copy
+# 2026-09-14a — the planner is hosted, the write-back is proven, and a pool was born the right way
 
-**Session goal:** verify the planner end to end over HTTP (step 3), then — on Shane's ask — review
-the security of what actually ships and settle how it gets hosted, since it should not be public.
-The session pivoted from "stand up hosting" to "decide what hosting has to do first", and that
-turned out to be the right order: the obvious answer was wrong.
+**Session goal:** stand the planner up on Azure, verify it signed in rather than by pipeline status,
+then exercise the write-back and `+ Job` against the tenant for the first time. All of it done.
+Continues `2026-09-13b`, which covered the overnight security review, the naming pass and the
+Static Web Apps config.
 
 ---
 
 ## What shipped
 
-**1. Six renderers were putting a PM-typed pool name straight into `innerHTML`.** Not two, which is
-what a grep for `${j.name}` reported. `conflicts()` built both its `ref` string and its double-book
-message raw; `vBoard`, the crew-board bar, `vSignoff` and `vDispatch` each painted `j.name` raw. On
-two of those lines `j.jobno` was **already escaped immediately beside the unescaped name**.
+**1. The planner is hosted.** `https://mango-sky-0d6904310.5.azurestaticapps.net` — Free tier,
+`swa-d2-build-scheduler` in `rg-d2-build-scheduler`, D2's own subscription. Deployed with a
+deployment token pulled on demand, so **no workflow file in this repo and no stored secret**.
+`Microsoft.Web` had to be registered first (~60s).
 
-Escaped at construction rather than at the sink, because the Schedule Check messages deliberately
-carry `<b>` and `<u>`. Pinned by the new `fixtures/planner/escaping.js`, which probes with an
-`<svg id="xss-probe">` in the pool name — no dependence on a script actually executing — and sweeps
-**all seven tabs**. It was watched fail twice with the probe genuinely in the DOM before it passed.
+**The wall was verified anonymously before anyone signed in.** Every path including a nonsense one
+302s to `/.auth/login/aad`; the GitHub provider 404s; all seven security headers are live. The
+`navigationFallback` bypass I flagged as most likely to fail did not happen.
 
-**2. The hosting decision: Static Web Apps Free, not Standard.** `web/staticwebapp.config.json` now
-carries the wall, a CSP, `noindex` and the security headers. Written, not deployed.
+**2. Verified signed in, against live data.** Both libraries load, `graphModeAvailable()` is true,
+console clean at every level, and Refresh pulled 3 pools / 138 sub-phases / 47 sign-offs with the
+Work Calendar arriving as a 210-entry Set. **The second sign-in is silent** — the wall establishes
+an Entra session and MSAL completes with no prompt. The two first-time consent dialogs are a
+**one-time admin event**; both grants read `AllPrincipals`, so the four PMs will see nothing.
 
-**3. The planner stopped calling D2 the other party.** 25 strings; `Load from D2` is now `Refresh`,
-`Not loaded from D2` is `No schedule loaded yet`, `Not yet pushed` is `Draft — not saved`.
+**3. The write-back has run against the tenant.** All five safety properties demonstrated, including
+the refusal path nobody had watched: on one row, `Crew` was written while `DurationDays` was refused
+(`loaded 2, nowLive 4, wanted 3`). Compare-before-write is genuinely per **field**.
+`SuppressReconcileUntil` proven by reading the flow's action list — `Terminate_suppressed`
+succeeded, `Send_email_alert` skipped. The row was restored to its exact pre-test values.
 
-**4. Fonts self-hosted**, removing the last third-party request. 4 files, 52 KB, latin only.
-
-**5. Step 3's mechanical half is done** — all deploy-root assets return 200 over HTTP, the check
-CLAUDE.md flags as invisible to the jsdom harnesses. The interactive sign-in half still needs Shane.
+**4. `D2-1045 Navarro Residence` — the first pool created the supported way**, end to end with no
+REST hand-loading. 23 of 46 finished, 21 signed, 174/295 tasks, assigned to **David Taylor**, so all
+four people with access now have a pool. Tenant now 4 jobs / 184 assignments / 1180 tasks.
 
 ## Decisions
 
-- **Free plan, not Standard, and the reasoning is the durable part.** The planner has two gates.
-  MSAL against the single-tenant Entra app plus SharePoint permissions protect every schedule row,
-  and no hosting choice can weaken that. The host wall protects only the shell. So a
-  tenant-restricted wall in front of already-tenant-restricted data is overbuying at $9/app/month.
-  I initially recommended Standard and revised after Shane pushed back on cost for a small team;
-  he was right.
-- **Manual usernames and passwords: no.** Static Web Apps has no such provider, a client-side check
-  is bypassable with View Source, and — decisively — every user must sign in with their D2 account
-  anyway for the Graph token. A password would be a second, weaker credential removing nothing.
-- **Invitation roles rejected** on this project's own precedent: a forwardable redeemable link is
-  the weakness that killed anonymous Forms sign-off.
-- **Creating the Azure resource was held for Shane.** Not because it could not be done unattended,
-  but because the deployment method is a real fork — an Azure DevOps pipeline wants to commit a
-  workflow file into this repo.
+- **Deployment token over an Azure DevOps pipeline**, for the first stand-up. The pipeline wants to
+  commit a workflow file into this repo; the token route changes nothing here and stores no secret.
+  The pipeline can be wired now that hosting is proven.
+- **Hosting stayed on SWA Free**, per 09-13b. Nothing in the live verification changed that.
+- **Navarro was created at its real start date** rather than created-then-reflowed, so it carries no
+  `Jobs.StartDate` drift. Cheaper and cleaner for staging future pools.
+- **The double-booking fix went through the write-back**, not a hand MERGE — it is the supported path
+  and it carries the suppression window.
 
-## Traps found
+## Findings
 
-- **A pattern grep defined the scope of a fix and got it wrong.** `${j.name}` cannot see
-  `x.j.name` reached through `.map()` and concatenation. The all-tabs sweep is what caught the other
-  four. When a grep bounds a fix, the fix is only as complete as the pattern.
-- **`az` had drifted to Tennetech again** — fourth time in three days, caught by asserting before a
-  read rather than after acting on one. `az account set` fixed it with no interactive login.
-- **An empty Azure retail-price query meant a wrong filter, not a zero price** — same shape as the
-  billing-account episode. `serviceName eq 'Azure Static Web Apps'` returns nothing;
-  `contains(productName,'Static Web')` returns 72 rows.
-- **The Azure pricing page renders its figures client-side**, so fetching it returns dashes. The
-  retail API is how to get a real number.
-- **MSAL 2.38.3 is the LTS line and still gets critical security fixes**, while v3 and v4 are *out*
-  of active support. A future session "upgrading" it would be moving to something less supported.
-- **A font that silently falls back still returns 200 for every file**, and measuring an unused
-  weight before `document.fonts.load()` reports fallback metrics — which looks identical to a broken
-  font. Source Sans 3's 400 and 600 share one file, so that needed proving variable rather than
-  assuming: 716.91 vs 735.11 at 64px.
-- **Four harness assertions pinned the old copy** and had to move in lockstep with the rename.
+- **`D2 - New Pool` can create business-rule-2 violations, and did.** It assigns the template
+  `DefaultCrew` with no awareness of existing bookings; Navarro arrived with three cross-pool
+  double-bookings of `harrison`. Consistent with the documented "detect, never prevent" grammar, but
+  the first time it has been seen from the *supported creation path*. **Expect every new pool to
+  arrive with conflicts.**
+- **Only two crews hold `plumbing`** — `harrison` and `stl`. With harrison booked, the sole
+  qualified alternative was the capacity-exempt subcontractor. A trade with one field crew plus one
+  subcontractor has no slack; this belongs in Don's trade-mapping conversation.
+- **Runtime was 16.5 minutes, not 9**, including a **six-minute stall** with counts frozen mid-run.
+  The PM guide's "allow 10-15 minutes" understates it, and a stall must not trigger a re-raise.
+- **A cry-wolf warning found only by running on live data:** the roster uses `'?'` for unknown crew
+  members, and the shared-member check excluded `'+2'` but not `'?'`, reporting *"?, ? is on both
+  Campos +2 and Harrison +2"*. Fixed; live warnings 41 -> 40.
+- **The assertion pinning that fix was vacuous on the first attempt** and passed with the bug still
+  in, because the scenario never put two crews on the same day. Rebuilt with the overlap plus a
+  guard that the scenario is reached.
+- **A third instance of a rename scoped by a grep:** the applier still printed *"Use Load from D2"*
+  because the pass covered `web/` only. Found by reading live output, not code.
 
 ## Files touched
 
 `web/index.html` · `web/staticwebapp.config.json` · `web/fonts.css` + `web/fonts/` (new) ·
-`web/robots.txt` (new) · `fixtures/planner/escaping.js` (new) · `fixtures/planner/{roundtrip,
-empty,graph-read,live-export}.js` · `fixtures/planner/README.md` · `CLAUDE.md` ·
-memory `planner-hosting-decision`, `prove-blocks-before-reporting` (new)
+`web/robots.txt` (new) · `fixtures/planner/escaping.js` (new) · `fixtures/planner/schedulecheck.js` ·
+`fixtures/planner/{roundtrip,empty,graph-read,live-export}.js` + README ·
+`sharepoint/{apply-planner-changes,export-to-planner}.js` · `CLAUDE.md`
 
 ## Commits
 
-`c5c1758`, `6a2f0fe`, `ee6eb56`, `bec6522` on `canvas-app-handoff`, pushed.
-Gate throughout: **12 planner harnesses pass** (11 existing plus `escaping.js`), `oracle-test.js`
-at its documented **15/16**, zero browser console messages at any level on a cold load.
+`c5c1758 · 6a2f0fe · ee6eb56 · bec6522 · e6c2f77 · 94d236c · 30dd059 · 64f1b7f · fcc05c9`
+on `canvas-app-handoff`, all pushed. Gate: **12/12 harnesses**, `oracle-test.js` **15/16**.
 
 ## Open
 
-- **Create the Static Web App.** `Microsoft.Web` is `NotRegistered` and the subscription is
-  completely empty — register the provider first, it propagates for a few minutes.
-- **Add the SWA hostname as a third SPA redirect URI**; keep both localhost entries.
-- **The config is unverified until deployed.** Four checks are listed in CLAUDE.md; the one most
-  likely to be wrong is that `navigationFallback` is documented not to apply route rules, so a
-  nonsense path could serve `index.html` unauthenticated while the front door looks fine.
-- Nothing — write-back, `+ Job`, or the Graph read — has ever run against the tenant.
-- Unchanged: the `flows/pending/` permission gate, and Don's trade mapping.
+- **The PM guide needs reissuing** — it understates the New Pool runtime, doesn't warn about the
+  stall, and still describes the SharePoint surface that Phase H replaces.
+- **Wire the Azure DevOps pipeline** now that hosting is proven, if the token route is not wanted
+  long term.
+- **Phase F Day 2 office training** still documents the SharePoint views.
+- **A permission gate** still blocks the validated `D2 - Reschedule Pool` cursor fix in
+  `flows/pending/`, the `TradeMismatch` view, and the dispatch filter.
+- **Don:** trade mapping, the 11 field-supervision sub-phases, `@sub`, subcontractor emails — now
+  with the plumbing-capacity finding as extra evidence.
 
 ## Next action
 
-Register `Microsoft.Web`, create a Free-tier Static Web App in D2's subscription, deploy `web/`,
-add the redirect URI, then verify by signing in rather than by pipeline status.
+Reissue the PM guide against the hosted planner, correcting the New Pool runtime and adding the
+stall warning, then decide whether Phase E pilots on this surface.
