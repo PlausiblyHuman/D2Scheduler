@@ -134,7 +134,7 @@ tr.phrow .nm{background:#f8fafc;font-weight:650}
   <span class="sp"></span>
   <button class="btn p" id="autoBtn">⚡ Auto-Schedule</button>
   <button class="btn" id="addJobBtn">+ Job</button>
-  <button class="btn p" id="saveBtn" title="Preview and download everything changed here since the last Refresh, ready to push back into SharePoint with sharepoint/apply-planner-changes.js">Save</button>
+  <button class="btn p" id="saveBtn" title="Review everything changed here since the last Refresh, then write it back to SharePoint. Nothing is sent until you confirm.">Save</button>
   <button class="btn" id="d2Btn" title="Load the current schedule from SharePoint. Merges by job number - it never touches pools that only exist here.">Refresh</button>
   <input type="file" id="d2File" accept="application/json,.json" style="display:none">
   <span id="freshness" class="small" style="opacity:.75"></span>
@@ -1635,11 +1635,12 @@ document.getElementById('saveBtn').onclick=openSavePreview;
    over http/https AND both MSAL and the mapping module are on the page;
    otherwise it falls back to the existing file picker, unchanged. That
    fallback is NOT a stopgap to remove later -- MSAL cannot complete a
-   sign-in redirect back to a file:// URL, and PMs open this planner as a
-   downloaded standalone file today (see CLAUDE.md "THE PLANNER IS
-   DISTRIBUTED AS A SHAREPOINT DOWNLOAD"). Until a hosted deployment exists,
-   graphModeAvailable() is always false for every real user, by design, and
-   the file picker is the only path that ever runs.
+   sign-in redirect back to a file:// URL, and a downloaded standalone copy
+   of this planner still exists in the site's Documents library (see CLAUDE.md
+   "THE PLANNER IS DISTRIBUTED AS A SHAREPOINT DOWNLOAD"). Since the Static Web
+   App went live on 2026-09-14, graphModeAvailable() is TRUE for anyone using
+   the hosted planner, which is the supported surface; the file picker now only
+   runs for someone who opened a downloaded copy.
 
    The mapping from a Graph read to this planner's payload shape lives in
    web/graph-to-planner.js, loaded above via <script> as
@@ -1730,7 +1731,15 @@ async function loadFromD2ViaGraph(silent){
   const payload=window.D2GraphToPlanner.toPlannerPayload(graphPayload);
   importFromD2Payload(payload,silent);
 }
-function updateD2ButtonLabel(){
+function updateButtonTooltips(){
+  const sv=document.getElementById('saveBtn');
+  if(sv){
+    sv.title=graphModeAvailable()
+      ? 'Review everything changed here since the last Refresh, then write it back to '
+        +'SharePoint. Nothing is sent until you confirm.'
+      : 'Review everything changed here since the last Refresh and download it as a file. '
+        +'Opened as a downloaded copy, this planner cannot write to SharePoint itself.';
+  }
   const b=document.getElementById('d2Btn');
   if(graphModeAvailable()){
     b.title='Reads the live schedule from the D2 Build Scheduler site over Microsoft Graph. Merges by job number -- it never touches pools that only exist here.';
@@ -1751,7 +1760,7 @@ document.getElementById('d2Btn').onclick=()=>{
   }
 };
 document.getElementById('d2File').onchange=e=>{const f=e.target.files[0];if(f)importFromD2(f);e.target.value='';};
-updateD2ButtonLabel();
+updateButtonTooltips();
 load();render();
 </script>
 </body>
