@@ -869,8 +869,9 @@ function vSignoff(){
 /* Pending pool requests -- queued here via +Job, not yet built as sub-phases
    anywhere. Surfaced on the Jobs tab so a PM can see both what they have
    raised but not yet pushed (Save still to come) and what they have pushed
-   but not yet received back (waiting on D2 - New Pool, ~9 minutes measured,
-   allow 10-15). A create clears itself the moment the real pool comes back
+   but not yet received back (waiting on D2 - New Pool, measured at 16m 33s with a
+   six-minute stall mid-run, so the copy says 10-20). A create clears itself the
+   moment the real pool comes back
    through Refresh -- see importFromD2. */
 function vJobs(){
   const pend=S.pendingCreates||[];
@@ -885,7 +886,7 @@ function vJobs(){
       <td class="small muted">${pretty(c.start)}</td>
       <td class="small muted">${c.assignDefaultCrews?'Assign':'Unassigned'}</td>
       <td class="small">${c.requestedAt
-        ?`Requested ${freshStamp(c.requestedAt)} — allow 10–15 min, then Refresh`
+        ?`Requested ${freshStamp(c.requestedAt)} — allow 10–20 min, then Refresh`
         :'<span class="chip jb local">Draft — not saved</span> — press Save'}</td>
       <td style="text-align:right">${c.requestedAt?'':`<button class="btn sm d" onclick="cancelPendingCreate('${c.id}')">Remove</button>`}</td>
       </tr>`).join('')}
@@ -1079,8 +1080,9 @@ function addJob(){
   document.getElementById('dBody').innerHTML=`
     <div class="hint" style="padding:0 0 11px">
       This raises a row in SharePoint's <b>New Pool Requests</b> list — <b>D2 - New Pool</b> builds
-      the 46 sub-phases and 295 tasks from the template. Measured at about 9 minutes: allow
-      <b>10–15 minutes</b>. The request sits at <span class="mono">Building</span> the whole time
+      the 46 sub-phases and 295 tasks from the template. The last measured run took
+      <b>16 and a half minutes</b>, and stalled for six of them: allow <b>10–20 minutes</b>.
+      The request sits at <span class="mono">Building</span> the whole time
       and looks stuck, but is not. Use <b>Refresh</b> once it finishes to pull the pool in here.
     </div>
     <div class="fld"><label>Job number</label><input id="ncJobNo" value="${esc(nextJobNo())}"></div>
@@ -1124,7 +1126,7 @@ function confirmNewPoolRequest(){
   document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.t==='jobs'));
   save();render();
   alert('Queued: '+jobno+' · '+name+'.\n\nPress Save to raise this in SharePoint\'s New Pool Requests list.\n\n'+
-    'D2 - New Pool takes about 9 minutes measured — allow 10–15 minutes. The request sits at '+
+    'D2 - New Pool took 16 and a half minutes when last measured, stalling for six of them — allow 10–20 minutes. The request sits at '+
     '"Building" the whole time and looks stuck, but is not. Use Refresh once it finishes to pull '+
     'the finished pool in here.');
 }
@@ -1514,7 +1516,7 @@ let PENDING_CHANGESET=null, PENDING_CREATES=null;
    rows" before it happens. Pending pool requests are their own clearly
    labelled section, separate from field edits: "1 new pool will be
    requested" is a different kind of change than "12 sub-phases will be
-   updated" -- one is a two-phase, ~10-15 minute round trip through
+   updated" -- one is a two-phase, 10-20 minute round trip through
    D2 - New Pool, the other lands immediately. */
 function openSavePreview(){
   const pools=buildChangeSet();
@@ -1546,7 +1548,8 @@ function openSavePreview(){
     (creates.length?`<div class="fld"><label>New pools to request (${creates.length})</label>
       <div class="hint" style="padding:0 0 6px">
         Each raises a row in SharePoint's New Pool Requests list. D2 - New Pool takes about
-        9 minutes measured — allow 10–15 minutes, and the request sits at "Building" the whole time
+        16m 33s when last measured, with a six-minute stall — allow 10–20 minutes, and the
+        request sits at "Building" the whole time
         and looks stuck, but is not. Use Refresh once it finishes to pull the pool in.
       </div>
       <table><tbody>${creates.map(c=>`<tr><td class="small"><b>${esc(c.jobno)}</b></td>
