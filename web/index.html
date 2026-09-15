@@ -437,6 +437,43 @@ function jobStart(j){
   return a||todayStr();
 }
 
+/* Dates-only reflow of ONE pool from ONE sub-phase forward.
+   This exists because editing a duration used to record the new number and move
+   nothing, so a PM had to follow every edit with an Auto-Schedule or a
+   Reschedule Request. That is two steps for what reads as one action.
+
+   It deliberately mirrors `D2 - Reschedule Pool` rather than Auto-Schedule:
+   it walks in Sequence order, it NEVER moves a row that is locked or signed off,
+   and it never lets a pinned row drag the cursor backwards -- the same defect
+   fixed in that flow on 2026-09-15, and in autoSchedule on 2026-09-12. It
+   assigns no crews, which is the whole difference from Auto-Schedule: a PM
+   fixing a duration wants the dates to follow on, not the crew board reshuffled.
+
+   Rows before the starting one are never touched, exactly as FromSequence works
+   server-side. Returns what happened so the caller can explain a no-op. */
+function reflowFrom(jobId,gi,si){
+  const j=S.jobs.find(x=>x.id===jobId); if(!j)return null;
+  const list=allSecs(j);
+  const at=list.findIndex(x=>x.gi===gi&&x.si===si);
+  if(at<0)return null;
+  const adv=(st,days)=>nextWork(addCal(workSpan(st,days).pop(),1));
+  let cursor=list[at].s.start||todayStr();
+  let moved=0,pinned=0,badDays=0;
+  for(let i=at;i<list.length;i++){
+    const s=list[i].s;
+    if(s.skip)continue;
+    if(!(s.days>0)){badDays++;continue;}          // logged, never guessed at
+    if(s.locked||s.inst){                          // pinned or signed: leave it
+      if(s.start){const nc=adv(s.start,s.days); if(nc>cursor)cursor=nc;}
+      pinned++; continue;
+    }
+    if(s.start!==cursor){s.start=cursor;moved++;}
+    cursor=adv(s.start,s.days);
+  }
+  if(moved)touch(j);
+  return {moved,pinned,badDays};
+}
+
 /* Marks a pool as diverged from the last Refresh. Everything that rewrites
    schedule or sign-off state calls this, so the header can say plainly whether
    what is on screen is still the live schedule. */
@@ -856,7 +893,7 @@ function vJobs(){
   return pendingCard+`<div class="card"><h2>Jobs<span class="sp"></span><button class="btn sm p" onclick="addJob()">+ New Job</button></h2>
   <table><thead><tr><th style="width:92px">Job ID</th><th>Job Name</th><th>Street Address</th>
     <th style="width:120px">City</th><th style="width:56px">State</th><th style="width:82px">ZIP</th>
-    <th>Start</th><th>Ends</th><th>Sub-phases</th><th style="width:92px">Status</th><th></th></tr></thead><tbody>
+    <th style="width:104px">Starts</th><th style="width:104px">Ends</th><th>Sub-phases</th><th style="width:92px">Status</th><th></th></tr></thead><tbody>
   ${S.jobs.map(j=>{const [a,b]=jobSpan(j);return `<tr>
     <td><input value="${esc(j.jobno||'')}" onchange="setJob('${j.id}','jobno',this.value)" style="width:82px;font-family:ui-monospace,Menlo,monospace"></td>
     <td><input value="${esc(j.name)}" onchange="setJob('${j.id}','name',this.value)" style="width:160px"></td>
@@ -864,8 +901,10 @@ function vJobs(){
     <td><input value="${esc(j.city)}" onchange="setJob('${j.id}','city',this.value)" style="width:110px" placeholder="City"></td>
     <td><input value="${esc(j.state)}" onchange="setJob('${j.id}','state',this.value)" style="width:46px" maxlength="2" placeholder="CA"></td>
     <td><input value="${esc(j.zip)}" onchange="setJob('${j.id}','zip',this.value)" style="width:72px" placeholder="ZIP"></td>
-    <td><input type="date" value="${j.start}" onchange="setJob('${j.id}','start',this.value)"></td>
-    <td class="small muted">${pretty(a)} → ${pretty(b)}</td>
+    <td class="small">${a
+      ? pretty(a)
+      : `<input type="date" value="${j.start}" onchange="setJob('${j.id}','start',this.value)">`}</td>
+    <td class="small muted">${b?pretty(b):''}</td>
     <td class="small">${allSecs(j).filter(x=>!x.s.skip).length} active ${jobBadge(j)}</td>
     <td class="small">${j.status==='Planned'&&graphModeAvailable()
       ? `<button class="btn sm p" onclick="commitPool('${j.id}')">Commit</button>`
@@ -968,7 +1007,9 @@ function editSec(jobId,gi,si){
         <input type="checkbox" ${t.done?'checked':''} onchange="tick(${ti},this.checked)"><span>${esc(t.t)}</span>
         <a href="#" class="small natog" title="Not applicable on this pool"
            onclick="toggleNA(${ti});return false">${t.na?'N/A ✕':'N/A'}</a></div>`).join('')||'<span class="muted small">No tasks.</span>'}</div></div>`;
-  document.getElementById('dFoot').innerHTML=`<button class="btn p" onclick="saveSec()">Save</button><button class="btn" onclick="closeDrawer()">Cancel</button>`;
+  document.getElementById('dFoot').innerHTML=`<button class="btn p" onclick="saveSec()">Save</button>`
+    +`<button class="btn" onclick="saveSec(true)" title="Saves this sub-phase, then moves every later sub-phase in this pool to follow on. Locked and signed-off work is never moved.">Save + reflow</button>`
+    +`<button class="btn" onclick="closeDrawer()">Cancel</button>`;
   document.getElementById('drawer').classList.add('open');
   ['fCrew','fStart','fDays'].forEach(id=>document.getElementById(id).addEventListener('input',showAvail));
   showAvail();
@@ -987,7 +1028,7 @@ function showAvail(){
       return `<div>${hit.length?'🔴':'🟢'} <b>${c.name}</b> ${hit.length?`<span class="err-txt">busy ${hit.length} of these days (${pretty(hit[0])}…)</span>`:'<span class="ok-txt">free</span>'}</div>`;}).join('')
       :'<span class="err-txt">No crew has this trade.</span>');
 }
-function saveSec(){
+function saveSec(reflow){
   const j=S.jobs.find(x=>x.id===CUR.jobId),g=j.groups[CUR.gi],s=g.sections[CUR.si];
   s.crewId=document.getElementById('fCrew').value||null;
   const st=document.getElementById('fStart').value;s.start=st?nextWork(st):null;
@@ -1005,6 +1046,18 @@ function saveSec(){
   s.locked=!!(s.spLocked||s.inst);   // re-derive; sign-off still locks it regardless of the pin
   g.inst=grpSign(g,'inst')==='all';g.pm=grpSign(g,'pm')==='all';
   touch(j);
+  /* Silence on success: the board visibly moves, so a dialog would just be
+     another click. Explain only the surprising case, a reflow that moved
+     nothing, which otherwise reads as the button being broken. */
+  if(reflow){
+    const r=reflowFrom(CUR.jobId,CUR.gi,CUR.si);
+    if(r&&!r.moved){
+      alert(['Nothing moved.',''].join(String.fromCharCode(10))+(r.pinned
+        ? r.pinned+' later sub-phase'+(r.pinned===1?' is':'s are')+' locked or already signed off, '
+          +'and those are never moved. Anything else was already in the right place.'
+        : 'Everything after this sub-phase was already scheduled to follow on.'));
+    }
+  }
   closeDrawer();render();
 }
 const closeDrawer=()=>document.getElementById('drawer').classList.remove('open');
