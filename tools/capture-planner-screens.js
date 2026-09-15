@@ -16,7 +16,7 @@
  *
  * Prerequisites, both of which the script checks for and explains:
  *   1. A static server on 8787 serving web/     python -m http.server 8787
- *   2. Chrome listening on 9222, on a THROWAWAY profile:
+ *   2. Chrome listening on 9222 (or $CDP_PORT), on a THROWAWAY profile:
  *        chrome --headless=new --remote-debugging-port=9222 \
  *               --user-data-dir=<scratch> --window-size=1440,1000 --hide-scrollbars
  *      A throwaway profile matters: the chrome-devtools MCP cannot attach when
@@ -38,7 +38,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const PORT_CDP = 9222;
+const PORT_CDP = Number(process.env.CDP_PORT || 9222);
 const PAGE = 'http://localhost:8787/index.html';
 const OUT = process.argv[2] || '.';
 

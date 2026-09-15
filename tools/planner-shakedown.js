@@ -11,7 +11,7 @@
  * captured fixtures through the planner's own import path.
  *
  *   cd web && python -m http.server 8787
- *   chrome --headless=new --remote-debugging-port=9223 --user-data-dir=<throwaway>
+ *   chrome --headless=new --remote-debugging-port=9222 --user-data-dir=<throwaway>
  *   node tools/planner-shakedown.js
  *
  * Use a THROWAWAY Chrome profile: the chrome-devtools MCP cannot attach when Chrome
@@ -22,7 +22,7 @@
  */
 const fs = require('fs');
 const path = require('path');
-const PORT = 9223;
+const PORT = Number(process.env.CDP_PORT || 9222);
 async function http(p){const r=await fetch('http://127.0.0.1:'+PORT+p,{method:'PUT'});return r.json();}
 function connect(ws){return new Promise((res,rej)=>{const s=new WebSocket(ws);let id=0;const w=new Map();const logs=[];
  s.onopen=()=>res({logs,send(m,p={}){return new Promise((ok,no)=>{const i=++id;w.set(i,{ok,no});s.send(JSON.stringify({id:i,method:m,params:p}));});},close:()=>s.close()});

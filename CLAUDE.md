@@ -2862,6 +2862,93 @@ every real user because no hosted deployment exists. It has existed since 2026-0
 
 ---
 
+## THE PLANNER GAINED A REFLOW, AND THE JOBS TAB STOPPED CONTRADICTING ITSELF — 2026-09-15b
+
+Two of the traps the PM guide had to document are now closed in the planner instead. Both were
+approved as "cheap and worth doing" precisely because the guide is downstream of the planner: fix the
+behaviour and the trap entry disappears rather than needing to be explained.
+
+**`Save + reflow`, in the sub-phase drawer.** Editing a duration recorded the number and moved
+nothing, so every edit needed a follow-up Auto-Schedule or a `Reschedule Requests` row. `reflowFrom()`
+walks one pool from one sub-phase forward and **mirrors `D2 - Reschedule Pool`, not Auto-Schedule**:
+Sequence order, never moves a `locked` or signed-off row, never lets a pinned row drag the cursor
+backwards, and **assigns no crews**. Rows before the starting one are never touched. It is silent on
+success and explains only the surprising case, a reflow that moved nothing.
+
+The standing Phase G item (a flow that reflows automatically on a duration edit) is **not** closed by
+this and is still the awkward one, because of debouncing and the `SuppressReconcileUntil` window. This
+is the cheap client-side answer that removes the trap without touching a flow.
+
+**The Jobs tab showed two dates that disagreed.** An editable `Start` box holding `Jobs.StartDate`,
+beside a span computed from the assignments: Salcedo read **09/28** next to a schedule running
+**08/10 to 11/28**. Worse, the box was **inert** -- `Jobs.StartDate` is not on the write allowlist, so
+editing it changed nothing anywhere. `Starts` and `Ends` now both come from the schedule. The editable
+box survives only on a pool with no scheduled work, where it is the only date there is.
+
+This is the D4 drift made harmless on the surface rather than in the data. `Jobs.StartDate` is still
+never written back by a reflow, so the underlying drift is unchanged; the planner simply stops showing
+it as if it were the schedule.
+
+**Eight assertions in `fixtures/planner/rules.js`, every one watched failing against a deliberate
+mutation**: cursor allowed backwards, signed-off unpinned, locked unpinned, and the walk started from
+row 0. The first mutation needed a longer anchor, because `if(nc>cursor)cursor=nc` now appears in both
+`autoSchedule` and `reflowFrom`.
+
+---
+
+## `tools/planner-shakedown.js` — RUN IT BEFORE A DEMO
+
+Drives every tab, Auto-Schedule, the Save preview, `+ Job` and Commit in a **real browser** over CDP,
+and fails on any console error or exception. No tenant access and no sign-in: it serves `web/` locally
+(hosted mode, since `graphModeAvailable()` keys off protocol rather than host) and injects a payload
+built from `fixtures/planner/live-payloads.json`.
+
+**It exists because the jsdom harnesses cannot see this class of defect at all.** They cannot see a
+broken `<script src>`, a control that renders but throws on click, or a console error -- all twelve
+passed once while the vendored MSAL path was wrong.
+
+**It earned itself on the first run** by catching `+ Job` still saying *"Measured at about 9 minutes:
+allow 10-15 minutes"* against a measured **16m 33s with a six-minute stall**. A PM told 10-15 who waits
+17 concludes it has hung and re-raises, which is the exact thing the new duplicate guard exists to
+catch. Now 10-20 in all six places it appeared.
+
+Current state on the demo pools: every tab renders, **0 hard errors / 43 warnings**, Auto-Schedule
+moves no signed-off work and introduces no errors, Commit appears only on a `Planned` pool, console
+clean.
+
+**The 43 warnings are expected and are not a defect**: pseudo-trade rows sitting in `Unassigned`, and
+missing installer sign-off while crew leads have no accounts. The **error** count is the one to watch.
+Both families shrink on their own once Don's trade mapping lands and the crew seats are bought.
+
+`CDP_PORT` overrides the default 9222 on both this and `capture-planner-screens.js`.
+
+---
+
+## THE HOSTED PLANNER WAS REDEPLOYED 2026-09-15b — and the wall was re-verified after it
+
+Six planner changes were made this session, so the Static Web App was redeployed. **A code change that
+is not deployed is not a fix**: the hosted site is the surface, and it had been serving the pre-fix
+build.
+
+```bash
+az account set --subscription cbcbe68b-bbaa-4926-bd9a-d33f0a9bd312
+TOKEN=$(az staticwebapp secrets list --name swa-d2-build-scheduler \
+          --resource-group rg-d2-build-scheduler --query "properties.apiKey" -o tsv)
+npx -y @azure/static-web-apps-cli deploy ./web --deployment-token "$TOKEN" --env production
+```
+
+**Re-run the wall checks after every deploy**, because `staticwebapp.config.json` ships with the
+content and a bad one fails open rather than closed. Verified after this deploy: `/`, `/index.html`,
+both scripts, `/robots.txt` and a **nonsense path** all return **302** to `/.auth/login/aad`, and
+`/.auth/login/github` returns **404**. The documented worry that `navigationFallback` bypasses the
+route rules still does not materialise.
+
+**What could NOT be verified without a sign-in: the page content behind the wall.** Anonymous requests
+never get past the 302, so "the new build is live" rests on the CLI reporting success plus the local
+verification, not on reading the hosted page. Someone signing in confirms it in seconds.
+
+---
+
 ## `D2 - New Pool` NOW REFUSES A CONCURRENT DUPLICATE — added and proven live 2026-09-15b
 
 The flow already had `Get_existing_job` / `Condition_duplicate`, which checks the **Jobs** list. That
@@ -2933,6 +3020,10 @@ if the planner is not in hosted mode, so a figure can never quietly show the fal
 Two gotchas it encodes: `/json/new` must be called with **PUT** (a GET returns a deprecation notice
 as plain text that then fails to parse as JSON), and the Job Board timeline starts at the earliest
 date across **all** pools, so an unscrolled capture is empty grid with every bar off to the right.
+
+**Version 2, published 2026-09-15b**, drops the duration and Start-column traps (both fixed in the
+planner instead), documents `Save + reflow`, and separates the two controls called Save: the one in
+a sub-phase panel records locally, the one at the top writes to SharePoint.
 
 **Guide content worth keeping even if the draft is rewritten:**
 
