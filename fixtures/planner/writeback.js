@@ -30,7 +30,8 @@ async function partA() {
       window.buildChangeSet=buildChangeSet;window.poolHasBaseline=poolHasBaseline;
       window.secFieldDiffs=secFieldDiffs;window.divergedSecs=divergedSecs;window.sign=sign;
       window.SEED_TEMPLATE=SEED_TEMPLATE;window.render=render;window.newJob=newJob;
-      window.buildPendingCreates=buildPendingCreates;};</script><script>__x();</script></body>`);
+      window.buildPendingCreates=buildPendingCreates;window.saveStaleness=saveStaleness;
+      window.pushChangeSet=pushChangeSet;};</script><script>__x();</script></body>`);
   const vc = new VirtualConsole(); vc.on('jsdomError', e => console.log('[jsdom]', e.message));
   const dom = new JSDOM(html, { runScripts: 'dangerously', pretendToBeVisual: true, url: 'http://localhost/', virtualConsole: vc });
   const win = dom.window;
@@ -189,6 +190,31 @@ async function partA() {
     ok('unchecking Assign default crews carries false through to the change-set',
        !!pc2 && pc2.assignDefaultCrews === false, JSON.stringify(pc2));
   }
+
+  // ---- staleness -------------------------------------------------------
+  // A PM diffing against a baseline loaded yesterday produces refusals that
+  // read like failures rather than like staleness. Warn instead of silently
+  // generating them. Deliberately generous: loading in the morning and
+  // pushing after lunch is normal and must not nag.
+  {
+    const H = 3600000;
+    win.S.settings.loadedAt = new Date(Date.parse('2026-09-15T09:00:00Z')).toISOString();
+    const at3 = win.saveStaleness(Date.parse('2026-09-15T09:00:00Z') + 3 * H);
+    ok('a baseline loaded 3 hours ago is not stale', at3.stale === false, JSON.stringify(at3));
+    const at5 = win.saveStaleness(Date.parse('2026-09-15T09:00:00Z') + 5.5 * H);
+    ok('a baseline loaded 5.5 hours ago IS stale', at5.stale === true, JSON.stringify(at5));
+
+    // An earlier CALENDAR day is stale regardless of the hour gap: loaded
+    // 23:30, pushed 01:00 is only 90 minutes but is still yesterday's schedule.
+    win.S.settings.loadedAt = new Date(2026, 8, 14, 23, 30).toISOString();
+    const nextDay = win.saveStaleness(new Date(2026, 8, 15, 1, 0).getTime());
+    ok('a baseline loaded on an earlier calendar day is stale even 90 minutes later',
+       nextDay.stale === true, JSON.stringify(nextDay));
+
+    win.S.settings.loadedAt = null;
+    ok('no baseline at all is not reported as stale (Save is already disabled then)',
+       win.saveStaleness(Date.now()).stale === false);
+  }
 }
 
 /* ========================================================================
@@ -315,6 +341,7 @@ function runApply(src, cs, store, cfg = {}) {
       Promise.resolve(p).then(out => resolve({ out, calls, store, requestsStore }), reject);
     } catch (e) { reject(e); }
   });
+
 }
 
 // Reads the REAL script and, only for the tests that need to see a write

@@ -170,6 +170,15 @@ tr.phrow .nm{background:#f8fafc;font-weight:650}
      Static Web Apps deployment of this directory. -->
 <script src="vendor/msal-browser.min.js"></script>
 <script src="graph-to-planner.js"></script>
+<!-- The write path. writeback-core.js holds the decisions (allowlist, per-field
+     compare, row identity, suppression) and graph-writeback.js holds the Graph
+     shapes. Both are served from this same directory, which is the Static Web
+     Apps deploy root. A jsdom harness CANNOT catch a broken src here, because
+     jsdom does not fetch external scripts -- verify these return 200 in a real
+     browser over HTTP, which is how a previous round of twelve green harnesses
+     shipped with both tags pointing outside the deploy root. -->
+<script src="writeback-core.js"></script>
+<script src="graph-writeback.js"></script>
 <script>
 const SEED_TEMPLATE = [{"num":"0","name":"Pre Construction/Sales","sections":[{"num":"0.0","name":"Sales to Production Handoff","skill":"@office","days":2,"tasks":["Contract review","Signed","Change orders process","Draw schedule","Design verification","Approved Construction Plans","Pools Dimensions Verified","Spa Dimensions Verified","Feature locations","Equipment specifications approved","Material Selections Approved","Selections","Start ordering Materials as needed?","Budget verification","Permit submission","Procurement planning","HOA Submittals to Client"]}]},{"num":"1","name":"Preconstruction Back Office Admin","sections":[{"num":"1.0","name":"Pre-Construction Back Office Admin","skill":"@office","days":2,"tasks":["Survey Submitted","Survey completed","Fence Location Verified","Equipment Pad Verified","Permits","Permit Obtained","Electric Permit","HOA Approval","811 Utilities Submission","Order Shell if Fiberglass to meet schedule","Plan View","Dig Sheet","PortaPotty Submitted","Delivered","HOA Submission Document","Site Inspection prior to Permit/Codes","Permit Downloaded/Printed/shared","D2 Pool Sign in the Yard","Contruction Tote for supplies onsite"]},{"num":"1.1","name":"Pre-Construction Verification - HANDOVER FROM OFFICE TO FIELD PM","skill":"@office","days":2,"tasks":["Client Meeting - SEE FORM FOR AGENDA FINAL CLIENT SIGH OFF","Review Selections","PM Assigned/Introduced","Vendor Schedule","Materials Procured/Handoff to Admin/Backoffice","Contract scope review","Plan revision verification","Easement review","Property access review","PreCon Meeting PM and Dig Team>digsheet/plan view"]},{"num":"1.2","name":"Site Preparation","skill":"demolition","days":2,"tasks":["Construction Entrance and Curb Protection","Identify Site Obstacles","Site Prep and Demo (existing fence etc)","Security Fence","Silt Fence installed","Landscaping protection","Staging area designation","Material delivery planning","Neighbor notification as needed"]},{"num":"1.3","name":"Pool Layout","skill":"dig","days":2,"tasks":["Benchmark establishment","Stake Perimeter","House-to-pool measurements","Setback verification","Elevation verification","Feature layout (spa, tanning ledge, fire features, water features","Auto Cover Layout","Equipment location confirmation"]},{"num":"1.4","name":"Pre-Dig Quality Check","skill":"@unassigned","days":2,"tasks":["Layout sign-off","Dig depth calculations","Dig Sheet and Plan View OnSite to Excavation Team","Soil condition review","Overdig requirements","Dewatering assessment","Hauloff Coordination"]},{"num":"1.5","name":"Excavation Operations","skill":"dig","days":2,"tasks":["Dig supervision","Evacuate Shell","Evacuate Spa","Evacuate benches","Evacuate Steps","Evacuate Plumbing and Electrical trenches","Shelf and bench measurements","Transition slope verification","Deep-end depth verification","Water Feature(s) verification","Equipment Pad Verification"]},{"num":"1.6","name":"Post-Excavation Review","skill":"@unassigned","days":2,"tasks":["Excavation dimension check","Evacuation Shape","Verify Overdig","Soil stability inspection","Soil pile management","Haul-off verification","Evacuation Images obtained","Excavation acceptance sign-off by PM"]}]},{"num":"2","name":"Engineering","sections":[{"num":"2.1","name":"Engineering Review by PM","skill":"@office","days":2,"tasks":["Structural plan review","Engineering Details","Rebar schedule review","Beam requirement review","Specialty feature reinforcement review","Spa wall reinforcement verification"]},{"num":"2.2","name":"Steel Installation and Forms","skill":"rebar","days":2,"tasks":["Radius formation","Beam construction","Floor steel placement","Wall steel placement","Step reinforcement","Spa Reinforcement","Bench reinforcement"]},{"num":"2.3","name":"Bond Beam Preparation","skill":"rebar","days":2,"tasks":["Bonding Wire","Bond Steel Cage","Beam width verification","Beam height verification","Skimmer reinforcement review","Bond Metallic components","Future deck interface review"]},{"num":"2.4","name":"Bonding System Installation","skill":"@sub","days":2,"tasks":["Bond wire installation","Grid continuity verification","Equipment bonding preparation","Metal component bonding"]},{"num":"2.5","name":"Steel QC Inspection Municipal Inspection","skill":"@sub","days":2,"tasks":["Rebar spacing verification","Steel elevation verification","Steel clearance verification","Bond Beam Verification","Chair placement and height verification","Penetration reinforcement review","Structural Elements Thickened Wall, Raised Bond Beam Review and verification"]},{"num":"2.6","name":"Pre-Gunite Structural Inspection","skill":"@sub","days":2,"tasks":["Internal QC inspection","Municipal inspection preparation","Correction list completion","Inspection sign-off"]}]},{"num":"3","name":"Site Prep","sections":[{"num":"3.1","name":"Hydraulic Design Verification","skill":"@office","days":2,"tasks":["Plumbing Plan Approved","Pipe sizing review","Verify Suction Lines","Verify Feature plumbing","Equipment compatibility review","Flow calculations","Water feature hydraulic review"]},{"num":"3.2","name":"Underground Plumbing Installation","skill":"plumbing","days":2,"tasks":["Main drain installation","Skimmer installation","Return line installation","Cleaner line installation","Spa jet plumbing","Water feature plumbing","Auto Leveler, Overflow Drains"]},{"num":"3.3","name":"Plumbing Pressure Testing","skill":"plumbing","days":2,"tasks":["Pressurize Lines","Monitor Pressure","Isolation testing","Pressure hold verification","Document Results","Leak identification","Repair documentation"]},{"num":"3.4","name":"Electrical Rough-In","skill":"@sub","days":2,"tasks":["Conduit routing","Junction box placement (J Box)","Light niche installation","Low-voltage routing","Automation conduit preparation","Conduit for Water Features and Lights","Auto Cover Conduit"]},{"num":"3.5","name":"Bonding Grid Completion","skill":"@sub","days":2,"tasks":["Grid installation","Grid continuity testing","Deck bonding preparation","Equipment bonding preparation"]},{"num":"3.6","name":"Equipment Pad Preparation","skill":"gas","days":2,"tasks":["Verify Pad Location and Slope","Equipment orientation planning","Service clearance verification","Drainage planning","Future Service Availability","Utility stub-out verification","Transformer and light conduit planning and verification"]},{"num":"3.7","name":"Rough Inspection Preparation","skill":"@unassigned","days":2,"tasks":["Plumbing QC review","Electrical QC review","Bonding QC review","Inspection sign-off"]}]},{"num":"4","name":"Gunite And Shotcrete","sections":[{"num":"4.1","name":"Pre-Shoot Readiness Review","skill":"@unassigned","days":2,"tasks":["Structural inspection approval","Plumbing pressure confirmation","Steel acceptance verification","Electrical  Conduit Approved","Pressure Test Activated","Auto Cover Conduit in Vault","Weather assessment"]},{"num":"4.2","name":"Crew Pre-Shoot Meeting","skill":"@unassigned","days":2,"tasks":["Scope review","Thickness requirements review","Feature details review","Safety review"]},{"num":"4.3","name":"Shotcrete Placement","skill":"shotcrete","days":2,"tasks":["Floor shoot","Wall shoot","Bond beam shoot","Spa shoot","Pad Shoot","Feature shoot","Auto Cover shoot"]},{"num":"4.4","name":"Real-Time QC Monitoring","skill":"@unassigned","days":2,"tasks":["Thickness verification","Encapsulation verification","Nozzle Angle and Rebound management","Pipe penetration review"]},{"num":"4.5","name":"Shaping & Finishing","skill":"shotcrete","days":2,"tasks":["Step shaping","Bench shaping","Radius refinement","Spillway shaping"]},{"num":"4.6","name":"Post-Shoot Inspection","skill":"@unassigned","days":2,"tasks":["Hollow area inspection","Crack review","Thickness documentation","Photograph and document images","Engineer review (if required)"]},{"num":"4.7","name":"Curing Program","skill":"@unassigned","days":2,"tasks":["Cure instruction delivery","Daily cure monitoring","Daily Moisture Curing Schedule 7-10 Days (watering)","Cure log documentation","Customer education"]}]},{"num":"5","name":"Preconstruction Material","sections":[{"num":"5.1","name":"Material Verification","skill":"@office","days":2,"tasks":["Tile approval","Coping approval","Deck material approval","Color approval","Quantity verification"]},{"num":"5.2","name":"Waterproofing & Surface Prep","skill":"sealant","days":2,"tasks":["Beam preparation","Surface cleaning","Waterproofing application","Expansion joint planning"]},{"num":"5.3","name":"Tile Installation","skill":"tile","days":2,"tasks":["Waterline tile layout","Feature tile installation","Spa tile installation","Tile Level Verification","Verify Grout Joint Alignment","Expansion Joints Installation"]},{"num":"5.4","name":"Coping Installation","skill":"coping","days":2,"tasks":["Elevation verification","Overhang verification","Joint spacing verification","Radius consistency review","Water Feature and Veneers","Spa Veneer","Water Feature Veneer"]},{"num":"5.5","name":"Deck Preparation","skill":"finishgrade","days":2,"tasks":["Subgrade preparation","Compaction testing","Form setup","Drain installation"]},{"num":"5.6","name":"Deck Placement","skill":"hardscape","days":2,"tasks":["Concrete placement","Paver installation","Paver Edge Placed","Auto Cover Rough in","Decorative finish application","Expansion joint installation"]},{"num":"5.7","name":"Drainage Verification","skill":"drainage","days":2,"tasks":["Deck slope testing","Water flow testing","Area drain testing","Equipment pad drainage review"]},{"num":"5.8","name":"Hardscape Final QC","skill":"@unassigned","days":2,"tasks":["Surface consistency review","Joint inspection","Trip hazard inspection","Finish approval"]}]},{"num":"6","name":"Construction Equipment Installation","sections":[{"num":"6.1","name":"Equipment Installation","skill":"plumbing","days":2,"tasks":["Pump installation","Filter installation","Heater installation","Chiller Instalation","Automation installation","Sanitizer installation"]},{"num":"6.2","name":"Equipment Plumbing","skill":"plumbing","days":2,"tasks":["Manifold assembly","Valve installation","Check valve installation","Flow verification","Water Feature verification","Auto Leveler and Pool Drain verification"]},{"num":"6.3","name":"Equipment Electrical","skill":"automation","days":2,"tasks":["Breaker installation","Automation wiring","Bonding completion","GFCI verification","Auto Cover Switch"]},{"num":"6.4","name":"Interior Finish Preparation","skill":"plaster","days":2,"tasks":["Surface cleaning","Fill preparation","Water source verification","Trim Out Pool - Main Drains and Covers","Startup planning"]},{"num":"6.5","name":"Interior Finish & Fill","skill":"pebbletech","days":2,"tasks":["Plaster/Pebble installation","Surface inspection","Fill supervision","Fill documentation"]},{"num":"6.6","name":"Startup Procedures","skill":"@unassigned","days":2,"tasks":["Initial equipment startup","Leak Inspection","Auto Cover Installed","Lights Pulled In","Flow balancing","Valve adjustment","Automation programming"]},{"num":"6.7","name":"Water Chemistry Startup","skill":"@unassigned","days":2,"tasks":["Initial testing","Chemical balancing","Brushing schedule","Startup log creation"]},{"num":"6.8","name":"Client Orientation","skill":"poolschool","days":2,"tasks":["Equipment training","Automation training","Maintenance education","Warranty Submission","Documentation handoff"]},{"num":"6.9","name":"Final Project Closeout","skill":"@office","days":2,"tasks":["Punch-list completion","Final inspection","Photo documentation","Warranty registration","Customer Pool School"]}]},{"num":"7","name":"Post Constuction Completion Phase","sections":[{"num":"7.0","name":"Warranty & 30-Day Follow-Up","skill":"@office","days":2,"tasks":["7-day startup review","30-day chemistry review","Warranty inspection","Customer satisfaction survey","Service department handoff"]}]}];
 
@@ -1123,7 +1132,7 @@ function importFromD2(file){
    written to produce byte-for-byte the same structure from two different
    surfaces. This function does not know or care which one produced its
    argument. */
-function importFromD2Payload(d){
+function importFromD2Payload(d,silent){
     if(!d||d.kind!=='d2-sharepoint-export'||!Array.isArray(d.jobs)){
       alert('That is not a schedule export.\n\nUse Refresh with the file downloaded from the site.');return;}
 
@@ -1138,7 +1147,11 @@ function importFromD2Payload(d){
     plan.forEach(p=>{(p.inj.sections||[]).forEach(()=>secs++);});
     const untouched=S.jobs.filter(j=>!d.jobs.some(i=>String(i.jobno)===String(j.jobno))).length;
 
-    if(!confirm(
+    /* `silent` is set only by the automatic re-read after a successful Save.
+       Re-asking "load the live schedule?" one second after the PM confirmed
+       writing to it is noise, and a Cancel there would leave the planner
+       holding baselines it has already written past. */
+    if(!silent&&!confirm(
       'Load the live schedule exported '+(d.exported||'(unknown date)')+'?\n\n'+
       updated+' pool(s) already here will be updated\n'+
       added+' pool(s) will be added\n'+
@@ -1271,6 +1284,53 @@ function buildPendingCreates(){
     .map(c=>({jobno:c.jobno,name:c.name,addr:c.addr||'',city:c.city||'',start:c.start,
       assignDefaultCrews:!!c.assignDefaultCrews}));
 }
+/* ---------------------------- pushing to SharePoint ----------------------------
+   Save has two endings. When this page can reach Graph it pushes directly; from
+   a downloaded copy on file:// it falls back to writing the change-set out for
+   sharepoint/apply-planner-changes.js, which is the route that existed first and
+   is deliberately kept working. The preview in between is identical either way,
+   because the preview is itself a safety property: the PM sees the loaded value
+   beside the new one, per field, before anything moves. */
+
+/* Is the baseline we are about to diff against old enough to be worth stopping
+   for? Compare-before-write means anything changed in SharePoint since the load
+   comes back as a refusal, and a screenful of refusals reads like a broken tool
+   rather than like a stale baseline. Deliberately generous: loading in the
+   morning and pushing after lunch is normal PM behaviour and must not nag,
+   while a baseline from an earlier day is worth a word even ninety minutes
+   later, because "yesterday's schedule" is a different thing from "six hours
+   ago". */
+const STALE_HOURS=4;
+function saveStaleness(nowMs){
+  const at=S.settings&&S.settings.loadedAt;
+  if(!at) return {stale:false,hours:null,loadedAt:null};
+  const t=Date.parse(at), hours=(nowMs-t)/3600000;
+  const earlierDay=new Date(t).toDateString()!==new Date(nowMs).toDateString();
+  return {stale:hours>STALE_HOURS||earlierDay, hours, loadedAt:at};
+}
+
+/* Push the confirmed change-set. Returns everything the results dialog needs,
+   including siteId and the token so the create path can reuse them rather than
+   resolving the site a second time. */
+async function pushChangeSet(pools){
+  const tok=await graphToken();
+  const G=window.D2GraphWriteback, C=window.D2WritebackCore;
+  const siteResp=await fetch('https://graph.microsoft.com/v1.0/sites/'
+    +D2_GRAPH.siteHost+':'+D2_GRAPH.sitePath,{headers:{Authorization:'Bearer '+tok}});
+  if(!siteResp.ok) throw new Error('Could not reach the SharePoint site ('+siteResp.status+'). Nothing was written.');
+  const siteId=(await siteResp.json()).id;
+
+  /* Re-read the rows immediately before writing. Compare-before-write is only
+     as good as the freshness of THIS read, not of the last Refresh. */
+  const rows=await graphPageAll(G.urls(siteId).items(D2_GRAPH.lists.asg)+'?$expand=fields&$top=500',tok);
+  const liveById={};
+  rows.forEach(r=>{liveById[String(r.fields.id)]=r.fields;});
+
+  const plan=C.planEdits(pools,liveById,{nowMs:Date.now(),suppressMinutes:10});
+  const res=await G.applyWrites({token:tok,siteId,listId:D2_GRAPH.lists.asg},plan.writes);
+  return {plan,res,siteId,tok};
+}
+
 function downloadChangeSet(pools,creates){
   const stamp=fmt(new Date());
   const payload={app:'D2 Pool Build Scheduler',kind:'d2-planner-changeset',
@@ -1304,13 +1364,23 @@ function openSavePreview(){
   const totalSecs=pools.reduce((n,p)=>n+p.sections.length,0);
   if(!totalSecs&&!creates.length){alert('Nothing to push -- no pool has changed here since the last Refresh, and no new pool is queued.');return;}
   const skipped=S.jobs.filter(j=>!poolHasBaseline(j));
+  const canPush=graphModeAvailable();
+  const st=saveStaleness(Date.now());
   document.getElementById('dTitle').textContent='Save changes';
   document.getElementById('dBody').innerHTML=
+    (canPush&&st.stale?`<div class="hint" style="padding:0 0 11px;color:#a84a18">
+      <strong>This schedule was loaded ${esc(freshStamp(st.loadedAt))}.</strong>
+      Anything changed in SharePoint since then will be refused rather than overwritten,
+      so you may see refusals below rather than a clean push. Refresh first if you want to
+      be sure you are working from the current schedule.</div>`:'')+
     `<div class="hint" style="padding:0 0 11px">
       ${totalSecs?`${totalSecs} sub-phase${totalSecs===1?'':'s'} across ${pools.length} pool${pools.length===1?'':'s'} will be updated. `:''}
       ${creates.length?`${creates.length} new pool${creates.length===1?'':'s'} will be requested. `:''}
-      This only downloads a file — nothing is sent until that file is applied with
-      <span class="mono">sharepoint/apply-planner-changes.js</span>.
+      ${canPush
+        ? `This writes to SharePoint straight away. Anything changed there since you loaded
+           is refused rather than overwritten, and you will see exactly what landed.`
+        : `This only downloads a file — nothing is sent until that file is applied with
+           <span class="mono">sharepoint/apply-planner-changes.js</span>.`}
       ${skipped.length?`<br><br>${skipped.length} pool${skipped.length===1?'':'s'} sketched only in this browser `
         +`${skipped.length===1?'is':'are'} excluded from the edits above — use the +Job form to request a new pool instead: `
         +skipped.map(j=>esc(j.jobno||j.name)).join(', ')+'.':''}
@@ -1336,14 +1406,128 @@ function openSavePreview(){
              <td class="small"><b>${esc(wbFmt(col,sec.fields[col].to))}</b></td></tr>`).join('')).join('')}
       </tbody></table></div>`).join('');
   document.getElementById('dFoot').innerHTML=
-    `<button class="btn p" onclick="confirmSaveChangeSet()">Download change-set (${totalSecs} edit${totalSecs===1?'':'s'}`
-      +`${creates.length?', '+creates.length+' new pool'+(creates.length===1?'':'s'):''})</button>
+    `<button class="btn p" onclick="confirmSaveChangeSet()">`
+      +(canPush
+        ? `Save ${totalSecs} edit${totalSecs===1?'':'s'} to SharePoint`
+        : `Download change-set (${totalSecs} edit${totalSecs===1?'':'s'}`)
+      +`${creates.length?(canPush?` and request ${creates.length} new pool${creates.length===1?'':'s'}`
+                                 :', '+creates.length+' new pool'+(creates.length===1?'':'s')):''}`
+      +(canPush?'':')')+`</button>
      <button class="btn" onclick="closeDrawer()">Cancel</button>`;
   PENDING_CHANGESET=pools;
   PENDING_CREATES=creates;
   document.getElementById('drawer').classList.add('open');
 }
+/* Save's two endings. Graph mode writes; otherwise the change-set downloads
+   for the console applier, exactly as before. */
 function confirmSaveChangeSet(){
+  return graphModeAvailable()?confirmSaveByPush():confirmSaveByDownload();
+}
+
+/* Raise a New Pool Requests row per queued create.
+   Wholly separate from the edit path: a different list, a different shape, and
+   NOT subject to the five-field allowlist, which governs edits to an existing
+   row rather than the creation of a new one. */
+async function pushCreates(siteId,tok,creates){
+  const G=window.D2GraphWriteback, C=window.D2WritebackCore;
+  const U=G.urls(siteId);
+
+  /* Resolve the signed-in user to a SharePoint site-user id. Exactly one match
+     or refuse: a blank Person column is accepted on write and then fails inside
+     D2 - New Pool about sixteen minutes later, which reads as the tool hanging.
+     The UPN comes from the MSAL account because this token is scoped to
+     Sites.ReadWrite.All and cannot call /me. */
+  const acct=graphPca().getActiveAccount()||graphPca().getAllAccounts()[0];
+  const uil=await graphPageAll(U.userInfo,tok);
+  const who=G.resolveSiteUserId(uil.map(r=>r.fields),acct&&acct.username);
+  if(!who.id) throw new Error(who.ambiguous
+    ? 'Your sign-in matches more than one SharePoint account, so the project manager cannot be set safely. No pool was requested.'
+    : 'Could not identify your SharePoint account, so the project manager cannot be set. No pool was requested.');
+
+  /* Uniqueness spans live Jobs AND requests still Requested or Building. The
+     documented wait actively trains a re-run, because a request sits at
+     Building for about a quarter of an hour and looks stuck. */
+  const jobs=await graphPageAll(U.items(D2_GRAPH.lists.jobs)+'?$expand=fields&$top=500',tok);
+  const reqs=await graphPageAll(U.items(D2_GRAPH.lists.req)+'?$expand=fields&$top=500',tok);
+  const pending=reqs.map(r=>r.fields)
+    .filter(f=>f.Status==='Requested'||f.Status==='Building').map(f=>f.JobNumber);
+  const plan=C.planCreates(creates,jobs.map(r=>r.fields.JobNumber),pending);
+
+  const created=[],failed=[];
+  for(const c of plan.creates){
+    const r=await fetch(U.items(D2_GRAPH.lists.req),
+      {method:'POST',headers:G.headers(tok),body:JSON.stringify({fields:G.createBody(c,who.id)})});
+    if(r.ok) created.push(c.jobno);
+    else failed.push({jobno:c.jobno,status:r.status});
+  }
+  return {created,refused:plan.refusals,failed};
+}
+
+async function confirmSaveByPush(){
+  const pools=PENDING_CHANGESET||[], creates=PENDING_CREATES||[];
+  document.getElementById('dFoot').innerHTML='<span class="hint">Saving…</span>';
+  let out=null,err=null;
+  try{
+    out=await pushChangeSet(pools);
+    if(creates.length){
+      try{ out.creates=await pushCreates(out.siteId,out.tok,creates); }
+      catch(e){ out.createError=e; }
+    }
+  }catch(e){ err=e; }
+
+  /* Only creates that actually landed are marked requested. Marking one that
+     was refused would hide it from every later Save. */
+  if(out&&out.creates&&out.creates.created.length){
+    const now=new Date().toISOString();
+    out.creates.created.forEach(jobno=>{
+      const pc=(S.pendingCreates||[]).find(x=>x.jobno===jobno&&!x.requestedAt);
+      if(pc)pc.requestedAt=now;
+    });
+    save();
+  }
+  showPushResult(out,err);
+  /* Re-read after a successful write: it resets every baseline, picks up what
+     the flows did in the meantime, and means the next Save diffs against
+     something current rather than against what we just moved away from. */
+  if(out&&out.res.written.length){ try{ await loadFromD2ViaGraph(true); }catch(e){} }
+}
+
+/* A refusal nobody sees is silent data loss, so every one is named with both
+   values: what we loaded, what is live now, and what was wanted. */
+function showPushResult(out,err){
+  const body=document.getElementById('dBody');
+  document.getElementById('dTitle').textContent='Save results';
+  if(err||!out){
+    body.innerHTML=`<div class="hint" style="color:#a84a18">Nothing was written. ${esc(err&&err.message||'Unknown error.')}</div>`;
+  }else{
+    const {plan,res}=out;
+    const row=(a,b,c)=>`<tr><td class="small">${esc(a)}</td><td class="small">${esc(b)}</td><td class="small muted">${esc(c)}</td></tr>`;
+    const sec=(label,rows,colour)=>rows.length
+      ? `<div class="fld"><label${colour?` style="color:${colour}"`:''}>${esc(label)} (${rows.length})</label>
+         <table><tbody>${rows.join('')}</tbody></table></div>` : '';
+    body.innerHTML=
+      sec('Saved',res.written.map(w=>row(w.jobno+' '+w.num,w.fields.join(', '),'')))
+     +sec('Refused — changed in SharePoint since you loaded',
+          plan.refusals.map(r=>row(r.jobno+' '+r.num,r.col,
+            r.reason==='diverged'?`loaded ${r.loaded}, now ${r.nowLive}, wanted ${r.wanted}`:r.reason)),'#a84a18')
+     +sec('Skipped',plan.errors.map(e=>row(e.jobno+' '+e.num,e.reason,e.liveTitle||'')),'#a84a18')
+     +sec('Failed',res.failed.map(f=>row(f.jobno+' '+f.num,'HTTP '+f.status,'')),'#a84a18')
+     +(out.creates?sec('Pool requests raised',out.creates.created.map(j=>row(j,'requested','')))
+        +sec('Pool requests refused',out.creates.refused.map(r=>row(r.jobno,r.reason,(r.missing||[]).join(', '))),'#a84a18')
+        +sec('Pool requests failed',out.creates.failed.map(f=>row(f.jobno,'HTTP '+f.status,'')),'#a84a18')
+        +(out.creates.created.length?`<div class="hint" style="padding:8px 0 0">
+            Each request takes about 16 minutes, and one run stalled for six minutes in the
+            middle. It sits at Building the whole time and looks stuck. Do not raise it again —
+            use Refresh once it finishes.</div>`:''):'')
+     +(out.createError?`<div class="hint" style="color:#a84a18;padding:8px 0 0">
+          No pool was requested. ${esc(out.createError.message)}</div>`:'')
+     +(!res.written.length&&!plan.refusals.length&&!plan.errors.length&&!res.failed.length&&!out.creates
+        ? '<div class="hint">Nothing needed saving.</div>':'');
+  }
+  document.getElementById('dFoot').innerHTML='<button class="btn p" onclick="closeDrawer()">Close</button>';
+}
+
+function confirmSaveByDownload(){
   const creates=PENDING_CREATES||[];
   downloadChangeSet(PENDING_CHANGESET||[],creates);
   // Mark these as pushed so a later Save never re-offers them -- they now
@@ -1404,7 +1588,9 @@ const D2_GRAPH={
     jobs:'ee0ecabf-2f11-458d-a9ea-641f76d10cc3',
     asg:'49ef7006-d3fe-40a7-a52f-c4c18545bd35',
     tasks:'22c45847-ff0d-417a-b53e-1ea018fbb6d3',
-    cal:'d36758cf-9d27-4342-84e4-817f8dcfa2ba'
+    cal:'d36758cf-9d27-4342-84e4-817f8dcfa2ba',
+    // Written to only by + Job, via New Pool Requests. Never read on Refresh.
+    req:'13331a5e-ea8e-4ab2-9276-db5b4f4d46bf'
   }
 };
 function graphModeAvailable(){
@@ -1451,7 +1637,7 @@ async function graphPageAll(url,tok){
   }
   return out;
 }
-async function loadFromD2ViaGraph(){
+async function loadFromD2ViaGraph(silent){
   const tok=await graphToken();
   const siteResp=await fetch(
     'https://graph.microsoft.com/v1.0/sites/'+D2_GRAPH.siteHost+':'+D2_GRAPH.sitePath,
@@ -1465,7 +1651,7 @@ async function loadFromD2ViaGraph(){
   const graphPayload={site:site.webUrl};
   keys.forEach((k,i)=>{graphPayload[k]=rows[i];});
   const payload=window.D2GraphToPlanner.toPlannerPayload(graphPayload);
-  importFromD2Payload(payload);
+  importFromD2Payload(payload,silent);
 }
 function updateD2ButtonLabel(){
   const b=document.getElementById('d2Btn');
