@@ -1168,7 +1168,16 @@ function delJob(id){
    same word. "Commit" was developer vocabulary and meant nothing to a PM. */
 function activatePool(jobId){
   const j=S.jobs.find(x=>x.id===jobId); if(!j)return;
-  const mine=conflicts().filter(c=>(c.jobs||[]).includes(j.jobno));
+  /* Split by level. conflicts() returns hard errors AND advisory warnings, and
+     lumping them made this dialog announce "13 unresolved conflicts" on a pool
+     whose only findings were unassigned pseudo-trade rows and sign-offs nobody
+     can give yet, because the crew leads have no accounts. That reads as alarming
+     and is not what this dialog is for: it exists because D2 - New Pool assigns
+     template default crews blind, so a fresh pool routinely arrives genuinely
+     double-booked. Errors are listed; warnings get a single honest line. */
+  const mineAll=conflicts().filter(c=>(c.jobs||[]).includes(j.jobno));
+  const mine=mineAll.filter(c=>c.lvl==='err');
+  const warn=mineAll.length-mine.length;
   document.getElementById('dTitle').textContent='Activate '+(j.jobno||j.name);
   document.getElementById('dBody').innerHTML=
     `<div class="hint" style="padding:0 0 11px">
@@ -1177,11 +1186,14 @@ function activatePool(jobId){
        are written to the shared calendar, and conflict alerts for it go to its project manager.
      </div>`
     +(mine.length
-      ? `<div class="fld"><label style="color:#a84a18">${mine.length} unresolved conflict${mine.length===1?'':'s'} on this pool</label>
+      ? `<div class="fld"><label style="color:#a84a18">${mine.length} scheduling problem${mine.length===1?'':'s'} on this pool</label>
            <div class="hint" style="padding:0 0 6px">These do not block it, but they go live with the pool.</div>
            <table><tbody>${mine.slice(0,12).map(c=>`<tr><td class="small">${c.msg}</td></tr>`).join('')}
            ${mine.length>12?`<tr><td class="small muted">and ${mine.length-12} more — see Schedule Check</td></tr>`:''}</tbody></table></div>`
-      : `<div class="fld"><label>No conflicts detected on this pool</label></div>`);
+      : `<div class="fld"><label>No scheduling problems on this pool</label></div>`)
+    +(warn?`<div class="hint" style="padding:8px 0 0">${warn} advisory warning${warn===1?'':'s'} as well
+        (work with no crew allocated, or finished work not yet signed off). Those are listed under
+        Schedule Check on the Job Board.</div>`:'');
   document.getElementById('dFoot').innerHTML=
     `<button class="btn p" onclick="doActivatePool('${jobId}')">Activate pool</button>
      <button class="btn" onclick="closeDrawer()">Cancel</button>`;
