@@ -870,7 +870,9 @@ function vJobs(){
     <td class="small">${j.status==='Planned'&&graphModeAvailable()
       ? `<button class="btn sm p" onclick="commitPool('${j.id}')">Commit</button>`
       : `<span class="muted">${esc(j.status||'Active')}</span>`}</td>
-    <td style="text-align:right"><button class="btn sm d" onclick="delJob('${j.id}')">Delete</button></td></tr>`;}).join('')}
+    <td style="text-align:right">${poolHasBaseline(j)
+      ? `<button class="btn sm" onclick="delJob('${j.id}')" title="Removes this pool from this screen only. It stays in SharePoint and comes back on the next Refresh.">Remove</button>`
+      : `<button class="btn sm d" onclick="delJob('${j.id}')" title="This pool has never been saved to SharePoint. Deleting it here cannot be undone.">Delete</button>`}</td></tr>`;}).join('')}
   </tbody></table>
   <div class="hint">New jobs are built from the Phase Template. Mark a sub-phase "not applicable" in its editor to skip it on one pool.</div></div>`;
 }
@@ -1077,7 +1079,24 @@ function cancelPendingCreate(id){
   S.pendingCreates=(S.pendingCreates||[]).filter(c=>c.id!==id);
   save();render();
 }
-function delJob(id){if(!confirm('Delete this job and its schedule?'))return;S.jobs=S.jobs.filter(x=>x.id!==id);render();}
+/* Two very different actions behind one column, so the copy has to say which.
+   A pool with a baseline exists in SharePoint: this removes it from this screen
+   and the next Refresh brings it straight back, so calling it "delete" invited a
+   PM to think the pool itself was gone. A pool with no baseline has never been
+   saved anywhere, so this really is the only copy and really is unrecoverable. */
+function delJob(id){
+  const j=S.jobs.find(x=>x.id===id); if(!j)return;
+  const nl='\n\n';
+  const msg=poolHasBaseline(j)
+    ? 'Remove '+j.name+' from this screen?'+nl
+      +'It stays in SharePoint and will come back the next time you press Refresh. '
+      +'To remove a pool for real, raise a Delete Pool Request on the SharePoint site.'
+    : 'Delete '+j.name+'?'+nl
+      +'This pool has never been saved to SharePoint, so this is the only copy of it '
+      +'and it cannot be recovered.';
+  if(!confirm(msg))return;
+  S.jobs=S.jobs.filter(x=>x.id!==id);render();
+}
 
 /* ---- committing a pool: Planned -> Active ----------------------------------
    Nothing dispatches, alerts or reaches the group calendar until a pool is
