@@ -2824,6 +2824,88 @@ legitimate `Reschedule Requests` rows intact.
 
 ---
 
+## THREE PLANNER CONTROLS WERE LYING TO THE USER — found and fixed 2026-09-15b
+
+All three were found by reading the planner as a PM would while writing the guide against it,
+which is the cheapest review this surface has had. None was a logic bug; all three were **copy that
+described behaviour the code does not have**, on the surface Phase E now pilots on.
+
+| Control | Said | Actually does |
+|---|---|---|
+| `Save` tooltip | "download ... ready to push back with `sharepoint/apply-planner-changes.js`" | Writes to SharePoint directly over Graph. The named script is the `file://` fallback. |
+| `Delete` on Jobs | "Delete this job and its schedule?" | Filters the pool out of **local state only**. The next Refresh brings it straight back. |
+| `Refresh` dialog | "N pool(s) already here will be updated" | Also silently overwrites every unsaved edit on those pools. |
+
+**The Save tooltip is the one that would have embarrassed us**: every hosted user is in Graph mode,
+so every real user was being told to run a developer script. The drawer copy *inside* Save was
+already mode-aware and correct, which is exactly why nobody noticed the tooltip. It is now set at
+runtime beside the Refresh tooltip, which already did this.
+
+**`Delete` was not destructive, and that is worth stating precisely** so nobody "fixes" it back. A
+removed pool simply drops out of `S.jobs`, so it contributes nothing to the change-set and no write
+happens. The harm was the sentence. It now splits on `poolHasBaseline(j)`: a SharePoint-backed pool
+offers **Remove** and says it stays in SharePoint and names the Delete Pool Request path; a pool with
+no baseline keeps **Delete** and says plainly that this is the only copy. That second case is real,
+because Backup/Restore were removed on 2026-09-12 and a local-only sketch has nowhere to go back to.
+
+**The Refresh warning is the only one that protected work.** A PM could re-sequence a pool for
+twenty minutes, press Refresh, and lose it with the dialog cheerfully reporting "3 pool(s) will be
+updated". It now counts diverged sub-phases and, only when there are any, says they will be
+overwritten and to Cancel and Save first.
+
+Each was verified in a real browser driven over CDP, both directions where there are two: three
+Remove plus one Delete with the right prompt on each and nothing deleted on Cancel; the warning
+absent with nothing pending and present with the right count and correct singular after one edit.
+
+**The comment above the Graph read path was stale too** and said `graphModeAvailable()` is false for
+every real user because no hosted deployment exists. It has existed since 2026-09-14. Corrected.
+
+---
+
+## THE PM GUIDE HAS A PLANNER-FIRST DRAFT — written 2026-09-15b, NOT sent to anyone
+
+**Draft:** https://claude.ai/artifact/UoeNwV4i4EQQaQgSuJCqiJ (private, separate artifact)
+**Live client guide:** `a84a2e1a-6395-4f3a-b050-8cf53cefa2b5` — **deliberately untouched.**
+
+The draft is planner-first per the 2026-09-15 decision that Phase E pilots on the planner. It reuses
+the live guide's stylesheet verbatim rather than redesigning, because the client has already seen and
+approved that treatment.
+
+**It is a HYBRID, and that is forced by what exists, not a choice.** The planner covers reading the
+day, durations, Save, `+ Job` and Commit. **Rescheduling and removing a pool stay on SharePoint**, so
+the guide sends PMs there for exactly those two, and says why. Sign-off stays on the phone app.
+
+**FINDING THAT NEEDS A DECISION: the live guide's shared link serves a PINNED EARLIER VERSION.**
+Reading `a84a2e1a` reports "shared with anyone with the link (viewers see a pinned earlier version,
+not this live version)". So what the four client users can see is **not** the newest version we
+published, and republishing that artifact does not by itself change what they see. Check this before
+assuming a reissue reaches anybody.
+
+**Screenshots are reproducible offline: `tools/capture-planner-screens.js`.** It serves `web/`
+locally (which puts the planner in the same hosted mode a PM sees, since `graphModeAvailable()` keys
+off protocol rather than host) and injects a payload built from `fixtures/planner/live-payloads.json`
+through the planner's own import path. **No tenant access and no sign-in**, and the figures show the
+three fictional demo pools, which is what a client-facing guide should show anyway. It refuses to run
+if the planner is not in hosted mode, so a figure can never quietly show the fallback UI.
+
+Two gotchas it encodes: `/json/new` must be called with **PUT** (a GET returns a deprecation notice
+as plain text that then fails to parse as JSON), and the Job Board timeline starts at the earliest
+date across **all** pools, so an unscrolled capture is empty grid with every bar off to the right.
+
+**Guide content worth keeping even if the draft is rewritten:**
+
+- **New Pool is documented as 10 to 20 minutes, not 10 to 15**, and it says a multi-minute stall
+  mid-run is normal and not to re-raise the request. That matches the measured 16m 33s with a
+  six-minute stall, and re-raising is how two pools get created.
+- **Schedule Check shows ~43 warnings on the demo data** and a PM opening it cold would reasonably
+  think the schedule is broken. The guide names the two harmless families explicitly (pseudo-trade
+  rows sitting in Unassigned, and missing installer sign-off while crew leads have no accounts) and
+  tells PMs to watch the **error** count instead. Revisit this once Don's trade mapping lands.
+- **`Jobs.StartDate` drift is documented rather than hidden**: the guide says Start is the date the
+  pool was set up with and the span beside it is what to trust after a reflow.
+
+---
+
 ## DRIVING CHROME WITHOUT THE chrome-devtools MCP (2026-09-15)
 
 **The MCP failed to connect because Chrome was already running** — the profile was locked, so it
