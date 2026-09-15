@@ -530,7 +530,12 @@ function sgHTML(jobId,gi,si,o){
     <label class="${o.pm?'on':''}" title="Project Manager sign-off"><input type="checkbox" ${o.pm?'checked':''} onchange="${p}">PM</label></span>`;
 }
 
-/* ============================== conflicts ============================== */
+/* ============================== conflicts ==============================
+   Every conflict carries `jobs`, the job numbers it involves, so a caller can
+   ask "what is wrong with THIS pool" -- which the commit dialog does before
+   turning a pool Active. A double-booking genuinely spans two pools and
+   carries both; the shared-crew-member warning is crew-level and carries
+   none. */
 function conflicts(){
   const out=[],byDay={},T=todayStr();
   S.jobs.forEach(j=>{
@@ -543,14 +548,14 @@ function conflicts(){
          PM types into SharePoint, so it is the part that must be neutralised.
          Pinned by fixtures/planner/escaping.js. */
       const ref=`${esc(j.name)} › ${esc(s.num)} ${esc(s.name)}`;
-      if(!s.start){out.push({lvl:'err',msg:`<b>${ref}</b> — not scheduled.`});return;}
+      if(!s.start){out.push({jobs:[j.jobno],lvl:'err',msg:`<b>${ref}</b> — not scheduled.`});return;}
       if(s.skill&&!s.crewId){const q=qualified(s.skill);
-        out.push({lvl:'err',msg:`<b>${ref}</b> — no crew assigned${q.length?'':` and <u>no crew has the ${skillLabel(s.skill)} skill</u>`}.`});}
+        out.push({jobs:[j.jobno],lvl:'err',msg:`<b>${ref}</b> — no crew assigned${q.length?'':` and <u>no crew has the ${skillLabel(s.skill)} skill</u>`}.`});}
       if(s.skill&&s.crewId){const c=crew(s.crewId);
-        if(!c)out.push({lvl:'err',msg:`<b>${ref}</b> — assigned crew no longer exists.`});
-        else if(!isQualified(c,s.skill))out.push({lvl:'err',msg:`<b>${ref}</b> — ${c.name} is not qualified for ${skillLabel(s.skill)}.`});}
-      if(s.crewId==='unassigned')out.push({lvl:'warn',msg:`<b>${ref}</b> — sitting in <b>Unassigned</b>. Give it Main Office, a Subcontractor, or a field crew.`});
-      if(prevEnd&&s.start<=prevEnd)out.push({lvl:'err',msg:`<b>${ref}</b> — starts ${pretty(s.start)}, on or before the prior sub-phase ends (${pretty(prevEnd)}).`});
+        if(!c)out.push({jobs:[j.jobno],lvl:'err',msg:`<b>${ref}</b> — assigned crew no longer exists.`});
+        else if(!isQualified(c,s.skill))out.push({jobs:[j.jobno],lvl:'err',msg:`<b>${ref}</b> — ${c.name} is not qualified for ${skillLabel(s.skill)}.`});}
+      if(s.crewId==='unassigned')out.push({jobs:[j.jobno],lvl:'warn',msg:`<b>${ref}</b> — sitting in <b>Unassigned</b>. Give it Main Office, a Subcontractor, or a field crew.`});
+      if(prevEnd&&s.start<=prevEnd)out.push({jobs:[j.jobno],lvl:'err',msg:`<b>${ref}</b> — starts ${pretty(s.start)}, on or before the prior sub-phase ends (${pretty(prevEnd)}).`});
       const end=workSpan(s.start,s.days).pop();
       prevEnd=end;
       /* Installer sign-off only. `Assignments.PMSignOff` is written false once at
@@ -558,7 +563,7 @@ function conflicts(){
          warning on it produced one unclearable item per finished sub-phase and
          drowned the checks that are real. The PM checkboxes and counts stay --
          when PM sign-off becomes a workflow, this check comes back with it. */
-      if(end<T&&!s.inst)out.push({lvl:'warn',msg:`<b>${ref}</b> — finished ${pretty(end)} but still missing Installer sign-off.`});
+      if(end<T&&!s.inst)out.push({jobs:[j.jobno],lvl:'warn',msg:`<b>${ref}</b> — finished ${pretty(end)} but still missing Installer sign-off.`});
       const cc=s.crewId?crew(s.crewId):null;
       if(cc&&!cc.unlimited)workSpan(s.start,s.days).forEach(d=>{byDay[s.crewId]=byDay[s.crewId]||{};(byDay[s.crewId][d]=byDay[s.crewId][d]||[]).push({j,s});});
     });
@@ -569,7 +574,7 @@ function conflicts(){
       if(list.length<2)return;
       const k=list.map(x=>x.j.id+x.s.num).sort().join('|');
       if(seen.has(k))return;seen.add(k);
-      out.push({lvl:'err',msg:`<b>${crew(cid)?crew(cid).name:cid}</b> double-booked ${pretty(d)}: ${list.map(x=>esc(x.j.name)+' ('+esc(x.s.num)+' '+esc(x.s.name)+')').join(' vs ')}.`});
+      out.push({jobs:[...new Set(list.map(x=>x.j.jobno))],lvl:'err',msg:`<b>${crew(cid)?crew(cid).name:cid}</b> double-booked ${pretty(d)}: ${list.map(x=>esc(x.j.name)+' ('+esc(x.s.num)+' '+esc(x.s.name)+')').join(' vs ')}.`});
     });
   });
   for(let a=0;a<S.crews.length;a++)for(let b=a+1;b<S.crews.length;b++){
@@ -851,7 +856,7 @@ function vJobs(){
   return pendingCard+`<div class="card"><h2>Jobs<span class="sp"></span><button class="btn sm p" onclick="addJob()">+ New Job</button></h2>
   <table><thead><tr><th style="width:92px">Job ID</th><th>Job Name</th><th>Street Address</th>
     <th style="width:120px">City</th><th style="width:56px">State</th><th style="width:82px">ZIP</th>
-    <th>Start</th><th>Ends</th><th>Sub-phases</th><th></th></tr></thead><tbody>
+    <th>Start</th><th>Ends</th><th>Sub-phases</th><th style="width:92px">Status</th><th></th></tr></thead><tbody>
   ${S.jobs.map(j=>{const [a,b]=jobSpan(j);return `<tr>
     <td><input value="${esc(j.jobno||'')}" onchange="setJob('${j.id}','jobno',this.value)" style="width:82px;font-family:ui-monospace,Menlo,monospace"></td>
     <td><input value="${esc(j.name)}" onchange="setJob('${j.id}','name',this.value)" style="width:160px"></td>
@@ -862,6 +867,9 @@ function vJobs(){
     <td><input type="date" value="${j.start}" onchange="setJob('${j.id}','start',this.value)"></td>
     <td class="small muted">${pretty(a)} → ${pretty(b)}</td>
     <td class="small">${allSecs(j).filter(x=>!x.s.skip).length} active ${jobBadge(j)}</td>
+    <td class="small">${j.status==='Planned'&&graphModeAvailable()
+      ? `<button class="btn sm p" onclick="commitPool('${j.id}')">Commit</button>`
+      : `<span class="muted">${esc(j.status||'Active')}</span>`}</td>
     <td style="text-align:right"><button class="btn sm d" onclick="delJob('${j.id}')">Delete</button></td></tr>`;}).join('')}
   </tbody></table>
   <div class="hint">New jobs are built from the Phase Template. Mark a sub-phase "not applicable" in its editor to skip it on one pool.</div></div>`;
@@ -1070,6 +1078,65 @@ function cancelPendingCreate(id){
   save();render();
 }
 function delJob(id){if(!confirm('Delete this job and its schedule?'))return;S.jobs=S.jobs.filter(x=>x.id!==id);render();}
+
+/* ---- committing a pool: Planned -> Active ----------------------------------
+   Nothing dispatches, alerts or reaches the group calendar until a pool is
+   Active, which is why this is a deliberate act with its own confirmation
+   rather than an inline status dropdown.
+   The conflict count is on the dialog because D2 - New Pool assigns each
+   sub-phase its template default crew with no awareness of what that crew is
+   already booked on, so a freshly generated pool routinely arrives
+   double-booked against live work. The planner knows that and SharePoint does
+   not. Committing one unexamined is how those bookings reach a crew. */
+function commitPool(jobId){
+  const j=S.jobs.find(x=>x.id===jobId); if(!j)return;
+  const mine=conflicts().filter(c=>(c.jobs||[]).includes(j.jobno));
+  document.getElementById('dTitle').textContent='Commit '+(j.jobno||j.name);
+  document.getElementById('dBody').innerHTML=
+    `<div class="hint" style="padding:0 0 11px">
+       Committing moves <strong>${esc(j.jobno)} ${esc(j.name)}</strong> from Planned to Active.
+       From then on it appears in the daily dispatch and the summary emails, its sub-phases
+       are written to the shared calendar, and conflict alerts for it go to its project manager.
+     </div>`
+    +(mine.length
+      ? `<div class="fld"><label style="color:#a84a18">${mine.length} unresolved conflict${mine.length===1?'':'s'} on this pool</label>
+           <div class="hint" style="padding:0 0 6px">These do not block the commit, but they go live with it.</div>
+           <table><tbody>${mine.slice(0,12).map(c=>`<tr><td class="small">${c.msg}</td></tr>`).join('')}
+           ${mine.length>12?`<tr><td class="small muted">and ${mine.length-12} more — see Schedule Check</td></tr>`:''}</tbody></table></div>`
+      : `<div class="fld"><label>No conflicts detected on this pool</label></div>`);
+  document.getElementById('dFoot').innerHTML=
+    `<button class="btn p" onclick="doCommitPool('${jobId}')">Commit to Active</button>
+     <button class="btn" onclick="closeDrawer()">Cancel</button>`;
+  document.getElementById('drawer').classList.add('open');
+}
+
+async function doCommitPool(jobId){
+  const j=S.jobs.find(x=>x.id===jobId); if(!j)return;
+  document.getElementById('dFoot').innerHTML='<span class="hint">Committing…</span>';
+  try{
+    const tok=await graphToken(), G=window.D2GraphWriteback;
+    const siteResp=await fetch('https://graph.microsoft.com/v1.0/sites/'
+      +D2_GRAPH.siteHost+':'+D2_GRAPH.sitePath,{headers:{Authorization:'Bearer '+tok}});
+    if(!siteResp.ok) throw new Error('Could not reach the SharePoint site ('+siteResp.status+').');
+    const siteId=(await siteResp.json()).id, U=G.urls(siteId);
+    const rows=await graphPageAll(U.items(D2_GRAPH.lists.jobs)+'?$expand=fields&$top=500',tok);
+    const row=rows.find(r=>String(r.fields.JobNumber)===String(j.jobno));
+    if(!row) throw new Error('That pool is not in SharePoint yet. Refresh and try again.');
+    /* Compare-before-write for this one field: re-read Status immediately
+       before changing it, so two people committing at once cannot both think
+       they did it, and so a pool already put On Hold is not quietly reactivated. */
+    if(row.fields.Status!=='Planned')
+      throw new Error('This pool is already '+row.fields.Status+' in SharePoint. Nothing was changed.');
+    const r=await fetch(U.fields(D2_GRAPH.lists.jobs,row.fields.id),
+      {method:'PATCH',headers:G.headers(tok),body:JSON.stringify(G.statusBody('Active'))});
+    if(!r.ok) throw new Error('SharePoint refused the change (HTTP '+r.status+').');
+    closeDrawer();
+    await loadFromD2ViaGraph(true);
+  }catch(e){
+    document.getElementById('dBody').innerHTML=`<div class="hint" style="color:#a84a18">${esc(e.message)}</div>`;
+    document.getElementById('dFoot').innerHTML='<button class="btn" onclick="closeDrawer()">Close</button>';
+  }
+}
 function setCrew(id,k,v){const c=crew(id);
   if(k==='members')c.members=v.split(',').map(x=>x.trim()).filter(Boolean);
   else if(k==='size')c.size=(v===''||v==null)?null:Math.max(1,+v||1);else c[k]=v;save();render();}
