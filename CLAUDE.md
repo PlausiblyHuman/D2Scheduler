@@ -2949,6 +2949,41 @@ verification, not on reading the hosted page. Someone signing in confirms it in 
 
 ---
 
+## THERE IS A DEMO RUN SHEET, SEPARATE FROM THE PM GUIDE — 2026-09-15b
+
+**Run sheet:** https://claude.ai/artifact/1nHTtPXXdJhHzKyoTdqKfP (private)
+**PM guide:** https://claude.ai/artifact/UoeNwV4i4EQQaQgSuJCqiJ (private)
+
+Two documents because they have different readers. The PM guide is a reference Cody and Emon read.
+The run sheet is an operator's script read under pressure while presenting, so it carries prep,
+timings, what to say, what to keep out of the demo, and the questions to expect.
+
+**The running order is deliberate: today, then the whole picture, then the work, then what runs on
+its own.** It opens on Daily Dispatch rather than the Job Board, because the board is the best-looking
+screen and leading with it invites people to study the picture instead of listening. Dispatch answers
+a question the audience actually has, which buys attention for the board. Owners get visibility in the
+first three minutes; the PM-level detail comes after.
+
+**Prep items that are genuinely load-bearing**, all recorded there: sign in and Refresh *before* the
+call (sign-in is a Microsoft redirect and doing it live is dead air); **put one pool back to
+`Planned`**, because all four demo pools are `Active` and the `Activate` button is therefore invisible;
+and decide in advance whether a real Save is going to be pushed, since Save writes immediately.
+
+**Schedule Check showing ~43 warnings against 0 errors is pre-empted rather than hidden.** Somebody
+reads that number out loud. The run sheet names the two families (unassigned field-supervision work
+waiting on Don, missing sign-offs waiting on crew accounts) and points at the error count instead.
+
+**Screenshots are reproducible: `tools/capture-planner-drawers.js`** does the states you can only
+reach by clicking (sub-phase panel, Save preview, `+ Job`, Activate, and the Jobs tab with a `Planned`
+pool). Companion to `capture-planner-screens.js`, same rig, no tenant access.
+
+**Its clip is measured from the last child of `#dBody`, not from the drawer.** The drawer is
+full-height and its body flexes to fill, so both `getBoundingClientRect().height` and `scrollHeight`
+report the whole panel, and every figure came out mostly blank. Both earlier attempts looked like they
+worked, because the output was a valid image of the right thing with 600px of whitespace under it.
+
+---
+
 ## "COMMIT" BECAME "ACTIVATE" — renamed 2026-09-15b, and the reason generalises
 
 The button that moves a pool from `Planned` to `Active` was labelled **Commit**. That is developer
