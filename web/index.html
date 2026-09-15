@@ -569,7 +569,7 @@ function sgHTML(jobId,gi,si,o){
 
 /* ============================== conflicts ==============================
    Every conflict carries `jobs`, the job numbers it involves, so a caller can
-   ask "what is wrong with THIS pool" -- which the commit dialog does before
+   ask "what is wrong with THIS pool" -- which the activate dialog does before
    turning a pool Active. A double-booking genuinely spans two pools and
    carries both; the shared-crew-member warning is crew-level and carries
    none. */
@@ -908,7 +908,7 @@ function vJobs(){
     <td class="small muted">${b?pretty(b):''}</td>
     <td class="small">${allSecs(j).filter(x=>!x.s.skip).length} active ${jobBadge(j)}</td>
     <td class="small">${j.status==='Planned'&&graphModeAvailable()
-      ? `<button class="btn sm p" onclick="commitPool('${j.id}')">Commit</button>`
+      ? `<button class="btn sm p" onclick="activatePool('${j.id}')">Activate</button>`
       : `<span class="muted">${esc(j.status||'Active')}</span>`}</td>
     <td style="text-align:right">${poolHasBaseline(j)
       ? `<button class="btn sm" onclick="delJob('${j.id}')" title="Removes this pool from this screen only. It stays in SharePoint and comes back on the next Refresh.">Remove</button>`
@@ -1153,7 +1153,7 @@ function delJob(id){
   S.jobs=S.jobs.filter(x=>x.id!==id);render();
 }
 
-/* ---- committing a pool: Planned -> Active ----------------------------------
+/* ---- activating a pool: Planned -> Active ---------------------------------
    Nothing dispatches, alerts or reaches the group calendar until a pool is
    Active, which is why this is a deliberate act with its own confirmation
    rather than an inline status dropdown.
@@ -1161,32 +1161,36 @@ function delJob(id){
    sub-phase its template default crew with no awareness of what that crew is
    already booked on, so a freshly generated pool routinely arrives
    double-booked against live work. The planner knows that and SharePoint does
-   not. Committing one unexamined is how those bookings reach a crew. */
-function commitPool(jobId){
+   not. Activating one unexamined is how those bookings reach a crew.
+
+   NAMED "Activate", NOT "Commit": the Status column beside the button reads
+   Planned / Active / On Hold, so the verb and the state it produces are the
+   same word. "Commit" was developer vocabulary and meant nothing to a PM. */
+function activatePool(jobId){
   const j=S.jobs.find(x=>x.id===jobId); if(!j)return;
   const mine=conflicts().filter(c=>(c.jobs||[]).includes(j.jobno));
-  document.getElementById('dTitle').textContent='Commit '+(j.jobno||j.name);
+  document.getElementById('dTitle').textContent='Activate '+(j.jobno||j.name);
   document.getElementById('dBody').innerHTML=
     `<div class="hint" style="padding:0 0 11px">
-       Committing moves <strong>${esc(j.jobno)} ${esc(j.name)}</strong> from Planned to Active.
+       This moves <strong>${esc(j.jobno)} ${esc(j.name)}</strong> from Planned to Active.
        From then on it appears in the daily dispatch and the summary emails, its sub-phases
        are written to the shared calendar, and conflict alerts for it go to its project manager.
      </div>`
     +(mine.length
       ? `<div class="fld"><label style="color:#a84a18">${mine.length} unresolved conflict${mine.length===1?'':'s'} on this pool</label>
-           <div class="hint" style="padding:0 0 6px">These do not block the commit, but they go live with it.</div>
+           <div class="hint" style="padding:0 0 6px">These do not block it, but they go live with the pool.</div>
            <table><tbody>${mine.slice(0,12).map(c=>`<tr><td class="small">${c.msg}</td></tr>`).join('')}
            ${mine.length>12?`<tr><td class="small muted">and ${mine.length-12} more — see Schedule Check</td></tr>`:''}</tbody></table></div>`
       : `<div class="fld"><label>No conflicts detected on this pool</label></div>`);
   document.getElementById('dFoot').innerHTML=
-    `<button class="btn p" onclick="doCommitPool('${jobId}')">Commit to Active</button>
+    `<button class="btn p" onclick="doActivatePool('${jobId}')">Activate pool</button>
      <button class="btn" onclick="closeDrawer()">Cancel</button>`;
   document.getElementById('drawer').classList.add('open');
 }
 
-async function doCommitPool(jobId){
+async function doActivatePool(jobId){
   const j=S.jobs.find(x=>x.id===jobId); if(!j)return;
-  document.getElementById('dFoot').innerHTML='<span class="hint">Committing…</span>';
+  document.getElementById('dFoot').innerHTML='<span class="hint">Activating…</span>';
   try{
     const tok=await graphToken(), G=window.D2GraphWriteback;
     const siteResp=await fetch('https://graph.microsoft.com/v1.0/sites/'
@@ -1197,7 +1201,7 @@ async function doCommitPool(jobId){
     const row=rows.find(r=>String(r.fields.JobNumber)===String(j.jobno));
     if(!row) throw new Error('That pool is not in SharePoint yet. Refresh and try again.');
     /* Compare-before-write for this one field: re-read Status immediately
-       before changing it, so two people committing at once cannot both think
+       before changing it, so two people activating at once cannot both think
        they did it, and so a pool already put On Hold is not quietly reactivated. */
     if(row.fields.Status!=='Planned')
       throw new Error('This pool is already '+row.fields.Status+' in SharePoint. Nothing was changed.');

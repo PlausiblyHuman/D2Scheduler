@@ -132,7 +132,7 @@ ok('two matching rows are ambiguous and resolve to nothing rather than the first
 }
 
 // ---------- status body ----------
-ok('committing a pool writes only Status',
+ok('activating a pool writes only Status',
    JSON.stringify(G.statusBody('Active')) === '{"Status":"Active"}');
 
 // ---------- applyWrites ----------

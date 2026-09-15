@@ -2949,6 +2949,33 @@ verification, not on reading the hosted page. Someone signing in confirms it in 
 
 ---
 
+## "COMMIT" BECAME "ACTIVATE" — renamed 2026-09-15b, and the reason generalises
+
+The button that moves a pool from `Planned` to `Active` was labelled **Commit**. That is developer
+vocabulary: it means nothing to a PM, and it sat directly beside a Status column reading
+**Planned / Active / On Hold**. The verb and the state it produced were different words.
+
+It is now **Activate**, so pressing it produces the state it names. The dialog is
+`Activate D2-1044`, the body reads "This moves D2-1044 Salcedo Residence from Planned to Active.
+From then on it appears in the daily dispatch and the summary emails...", and the confirm button is
+`Activate pool`.
+
+**Renamed all the way down, not just the label**: `commitPool` / `doCommitPool` became
+`activatePool` / `doActivatePool`, the `#commit` guide anchor became `#activate`, and the
+`planner-shakedown.js` assertion matches on `Activate`. A function called `commitPool` behind a
+button called Activate is the same artifact-drifts-from-its-description problem this file records
+five times over; renaming the visible half only would have planted another one.
+
+**The general rule this is an instance of: name a control after the state it produces, in the
+vocabulary already on screen.** The Status column was the vocabulary; the button should have used it.
+
+Nothing about the behaviour changed. `Jobs.Status` still goes `Planned` -> `Active`, the
+compare-before-write on that single field is untouched, and the conflict summary still appears before
+the confirm because `D2 - New Pool` assigns template default crews with no awareness of existing
+bookings, so a freshly generated pool routinely arrives double-booked.
+
+---
+
 ## `D2 - New Pool` NOW REFUSES A CONCURRENT DUPLICATE — added and proven live 2026-09-15b
 
 The flow already had `Get_existing_job` / `Condition_duplicate`, which checks the **Jobs** list. That

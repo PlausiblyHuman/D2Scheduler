@@ -99,12 +99,12 @@ const ok=(label,cond,detail='')=>{console.log((cond?'PASS':'FAIL')+' · '+label+
  ok('+ Job carries the default-crews choice', /crew/i.test(addBody));
  await ev("closeDrawer();'ok'");
 
- // Commit only offers itself on a Planned pool.
+ // Activate only offers itself on a Planned pool.
  await ev(`document.querySelector('[data-t="jobs"]').click();'ok'`);await sleep(500);
- const commitsNow=await ev("[...document.querySelectorAll('#main button')].filter(b=>b.textContent==='Commit').length");
+ const commitsNow=await ev("[...document.querySelectorAll('#main button')].filter(b=>b.textContent==='Activate').length");
  await ev(`(()=>{S.jobs[0].status='Planned';render();return 1;})()`);await sleep(400);
- const commitsPlanned=await ev("[...document.querySelectorAll('#main button')].filter(b=>b.textContent==='Commit').length");
- ok('Commit appears only on a Planned pool', commitsNow===0&&commitsPlanned===1,
+ const commitsPlanned=await ev("[...document.querySelectorAll('#main button')].filter(b=>b.textContent==='Activate').length");
+ ok('Activate appears only on a Planned pool', commitsNow===0&&commitsPlanned===1,
     `active=${commitsNow} planned=${commitsPlanned}`);
 
  console.log('\nconsole during shakedown:', c.logs.length?c.logs.join('\n  '):'clean');
