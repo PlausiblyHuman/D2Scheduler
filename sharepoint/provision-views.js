@@ -210,6 +210,43 @@
           "query": "<Where><IsNotNull><FieldRef Name=\"ConflictWith\" /></IsNotNull></Where><GroupBy Collapse=\"FALSE\"><FieldRef Name=\"Crew\" /></GroupBy><OrderBy><FieldRef Name=\"ScheduledStart\" Ascending=\"TRUE\" /></OrderBy>"
       },
       {
+          // ADDED 2026-09-15: business rule 1 made visible. `TradeMismatch` is
+          // stamped nightly at 05:15 Central by `D2 - Crew Trade Check`, which
+          // joins Assignments.Crew -> Crews.CrewID -> Crew-Trades -> the row's
+          // own Trade. Until this view existed the flag was written and then
+          // read by nobody -- the enforcement was invisible unless someone
+          // happened to open an individual row, which is the same as not having
+          // it. Like Conflicts, this is a pure filter on a column a flow already
+          // wrote; CAML cannot traverse a lookup into a second list, so the view
+          // detects nothing itself.
+          //
+          // IsNotNull for the same reason as Conflicts: the clear-write sets
+          // TradeMismatch to "", which SharePoint stores as NULL for a Note
+          // field. Note also that a Note column CANNOT appear in an OData
+          // $filter at all ("cannot be used in the query filter expression"),
+          // so this view is the only practical way to list flagged rows.
+          //
+          // Expect it to be EMPTY most days, and that is the intended state --
+          // 0 mismatches across 66 trade-checkable rows at the time of writing.
+          // An empty view here is a pass, not a broken filter. The 72 rows whose
+          // Trade is null are pseudo-trade rows (@office, @sub, @unassigned) and
+          // are a deliberate PASS, so they never appear.
+          "list": "Assignments",
+          "title": "Trade Mismatch",
+          "viewFields": [
+              "LinkTitle",
+              "Job",
+              "SubPhaseNumber",
+              "SubPhaseName",
+              "Trade",
+              "ScheduledStart",
+              "TradeMismatch"
+          ],
+          "rowLimit": 100,
+          "paged": true,
+          "query": "<Where><IsNotNull><FieldRef Name=\"TradeMismatch\" /></IsNotNull></Where><GroupBy Collapse=\"FALSE\"><FieldRef Name=\"Crew\" /></GroupBy><OrderBy><FieldRef Name=\"ScheduledStart\" Ascending=\"TRUE\" /></OrderBy>"
+      },
+      {
           "list": "Assignments",
           "title": "Today by Crew",
           "viewFields": [

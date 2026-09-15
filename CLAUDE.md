@@ -52,8 +52,10 @@ The four load-bearing invariants (enforced by the design, not by a database prim
 
    **What is still true, and it is most of it.** The flow *detects*; nothing *prevents*. The edit
    form will still accept a carpentry crew on a plumbing sub-phase and the flag appears the next
-   morning. `TradeMismatch` has **no view**, so the enforcement is invisible unless someone opens the
-   row. And it covers only the 22 of 46 sub-phases that carry a trade at all. Everything below about
+   morning. **`TradeMismatch` GAINED A VIEW 2026-09-15** (`Trade Mismatch` on Assignments, in
+   `provision-views.js`, linked from the home page), so the enforcement is no longer invisible; before
+   that the flag was written and read by nobody. And it covers only the 22 of 46 sub-phases that carry
+   a trade at all. Everything below about
    how the check was lost, why a column validation formula cannot do this, and why a null `Trade`
    must be a PASS remains accurate and is why the flow had to be the answer.
 
@@ -103,10 +105,22 @@ The four load-bearing invariants (enforced by the design, not by a database prim
    locked row starting earlier than the rows before it dragged the cursor backwards and the next
    unlocked row landed on top of work already placed. **The planner half was fixed 2026-09-12**
    (`web/index.html`, take the later of the cursor and the locked row's end; pinned by
-   `fixtures/planner/rules.js`). **The flow half is still open**: `Set_cursor_pinned` is
-   `addDays(ScheduledFinish, 1)` with no `max()` against the running cursor. It needs the live
-   tenant, so it was deliberately left. The difference today is that the planner will tell you and
-   the flow will not.
+   `fixtures/planner/rules.js`). **THE FLOW HALF WAS CLOSED 2026-09-15 and both sides now agree.**
+   `Set_cursor_pinned` was `addDays(ScheduledFinish, 1)` with no `max()` against the running cursor;
+   it is now
+   `if(greater(outputs('Compose_pin_end'), outputs('Compose_cursor_now')), ...)` fed by two new
+   sibling `Compose` actions. The read of `cursor` goes through a `Compose` because a `SetVariable`
+   whose value expression references the variable it writes fails save-time validation with an error
+   naming an unrelated action.
+
+   **Verified in BOTH directions on a throwaway pool, because a reflow with no out-of-order pin
+   passes either way.** Three rows, the middle one pinned to 11-09/11-10 while the first ran
+   11-17/11-18. With the fix the follower landed **2026-11-19**; with the one expression reverted and
+   everything else identical it landed **2026-11-12**, i.e. before the row before it even starts. Then
+   re-applied and re-confirmed at 11-19. Do not accept a single clean reflow as evidence here.
+
+   Incidental confirmation from the same test: the broken run skipped 2026-11-11 because Veterans Day
+   is in the Work Calendar, so the holiday logic is doing its job.
 4. **Mon–Sat are work days. Sunday is not.** Extended in the Lists path to include Work Calendar entries (Holidays, Weather days, per-crew shutdowns).
 
 **TWO PLANNER-SIDE RULE BUGS FIXED 2026-09-12, both of which made the planner claim compliance it
@@ -1507,7 +1521,7 @@ covers two flows, the daily and weekly summaries.):**
 | 8 | Reopen Sign-off | Started | **Built 2026-09-07, verified.** `D2 - Reopen Sign-off`, flowId `d7bad02d-cbdf-f8e6-c385-9ff41bac3776` (Dataverse workflowid `0f850a63-beaa-f111-aaac-6045bd0195dd`). PowerAppV2 trigger. Clears `InstallerSignOff` and appends who reopened, when, who had signed, and an optional reason to `SignOffNotes`. Was already live but had never been added to this table. |
 | 9 | New Pool | Started | **NEW 2026-09-08, verified.** `D2 - New Pool`, flowId `02905018-4f41-e05a-d140-74e2afc82052` (Dataverse workflowid `d782ee70-2fab-f111-aaab-6045bd0196b3`). Triggered by a new row in **New Pool Requests** (`ProjectManager` is a required field on that list). Reads the 46-row **Sub-phase Template** and 295-row **Task Template** and generates a full pool: one Job, 46 Assignments, ~295 Tasks. See Known bugs and gotchas for the platform constraints found building it. |
 | 10 | Delete Pool | Started | **NEW 2026-09-08, verified.** `D2 - Delete Pool`, flowId `995099f4-76e6-8bc0-89ef-9fd3557138ce` (Dataverse workflowid `83064f1f-47ab-f111-aaac-6045bd0195dd`). Triggered by a new row in **Delete Pool Requests**. Removes a pool's Tasks, Assignments and Job. |
-| 11 | Reschedule Pool | Started | **NEW 2026-09-09, verified.** `D2 - Reschedule Pool`, flowId `2f2cde97-e0fd-5c5c-934a-02f09a1d83a5` (Dataverse workflowid `210f1d70-e2ab-f111-aaab-6045bd0196b3`). Triggered by a new row in **Reschedule Requests**. Walks a job's assignments from a given `Sequence` forward, recomputing working-day spans, skipping rows that are `Locked` or already signed off. See **Staging / integration contracts** for the `Planned`/`Locked`/`SuppressReconcileUntil` mechanics and Known bugs and gotchas for the platform constraints found building it. **Hardened the same day in the final whole-branch review:** the reflow-walk `Foreach` now carries `concurrency: {repetitions: 1}` like every other variable-mutating loop in this flow (it always ran sequentially; this closes the gap between "does" and "is guaranteed to"); the mid-run failure email now names how many sub-phases already moved and says to re-raise the same request from the same `FromSequence` (the walk is idempotent); and `Send_completion_email`, `Send_failure_email_guard` and `Send_failure_email_action` all gained the PM -> requester -> `stratirus@d2pools.com` fallback that `Send_conflict_alert_email` already had, so a blank `Author.Email` (plausible per the UPN-vs-`mail` note above) can no longer produce a silent `400 To Field cannot be null or empty` on the very email meant to explain a failure. |
+| 11 | Reschedule Pool | Started | **Cursor fix applied and verified both directions 2026-09-15b — a pinned row can no longer drag the reflow cursor backwards; see business rule 3.** **NEW 2026-09-09, verified.** `D2 - Reschedule Pool`, flowId `2f2cde97-e0fd-5c5c-934a-02f09a1d83a5` (Dataverse workflowid `210f1d70-e2ab-f111-aaab-6045bd0196b3`). Triggered by a new row in **Reschedule Requests**. Walks a job's assignments from a given `Sequence` forward, recomputing working-day spans, skipping rows that are `Locked` or already signed off. See **Staging / integration contracts** for the `Planned`/`Locked`/`SuppressReconcileUntil` mechanics and Known bugs and gotchas for the platform constraints found building it. **Hardened the same day in the final whole-branch review:** the reflow-walk `Foreach` now carries `concurrency: {repetitions: 1}` like every other variable-mutating loop in this flow (it always ran sequentially; this closes the gap between "does" and "is guaranteed to"); the mid-run failure email now names how many sub-phases already moved and says to re-raise the same request from the same `FromSequence` (the walk is idempotent); and `Send_completion_email`, `Send_failure_email_guard` and `Send_failure_email_action` all gained the PM -> requester -> `stratirus@d2pools.com` fallback that `Send_conflict_alert_email` already had, so a blank `Author.Email` (plausible per the UPN-vs-`mail` note above) can no longer produce a silent `400 To Field cannot be null or empty` on the very email meant to explain a failure. |
 
 | 12 | Conflict Flag | Started | **NEW 2026-09-09, verified.** `D2 - Conflict Flag`, flowId `972c139d-e55f-6743-a76c-fbd2f08eeb45` (Dataverse workflowid `f0dd9a1d-8bac-f111-aaab-002248043e80`). Nightly 05:00 Central. Annotates `Assignments.ConflictWith` so a crew double-book is visible in SharePoint and not only in email; unlike the alerting flows it deliberately covers `Planned` pools too, so a PM can see collisions while choosing dates. Was missing from this table until 2026-09-10. |
 | 13 | Calendar Sync | Started | **Reports only on the 04:30 full sweep or a real change, since 2026-09-15** -- `Send_report` sits inside `Condition_should_report`. **NEW 2026-09-10, verified.** `D2 - Calendar Sync`, flowId / workflowEntityId `f890f891-48ad-f111-aaab-6045bd0196b3`. Nightly 04:30 Central. Writes one all-day event per in-scope Assignment to the **M365 group calendar** behind the site. See "Group calendar" below. |
@@ -2718,6 +2732,98 @@ the pipe before the data.
 
 ---
 
+## THE `flows/pending/` PERMISSION GATE IS GONE — tested 2026-09-15b, and it was stale
+
+For three days (2026-09-12 to 09-14) four session logs carried "blocked on a permission gate" for
+three items. **It was tested and it does not exist.** `edit_flow` applied to
+`D2 - Reschedule Pool` first time, with `autoResolveConnectionRefs: false` and a `dryRun` preview
+token. The signal that it had gone stale was already in the record: two live flows were edited and
+published on 2026-09-15a with no gate at all, and nobody connected the two.
+
+**The lesson is the cheap one this repo keeps paying for: a block carried forward is a claim, not
+evidence.** Re-derive it before planning around it. Testing it cost about ten minutes and cleared
+three carried items, two of which turned out to be real work and one of which had already been done.
+
+What the three were, and where they landed:
+
+| Item | Outcome |
+|---|---|
+| `D2 - Reschedule Pool` cursor fix | **APPLIED and verified both directions.** See business rule 3. |
+| `TradeMismatch` view | **BUILT.** See below. |
+| "the dispatch filter change" | **Never specified anywhere.** See below. |
+
+**"The dispatch filter change" was carried through five session logs and never once described.**
+It appears exactly once with any context, on 2026-09-12b, as five words in a list. Nothing in
+`flows/`, `docs/` or any spec says what it was. Reading the live flow, `D2 — Daily Dispatch +
+Reminders` already carries every filter this file documents as wanted: the `Get_active_jobs` /
+`Compose_active_job_clause` idiom on both `Get_items` and `Get_items_2`, `NotApplicable ne 1`, the
+`Active eq 1 and Unlimited ne 1` crew scope on `Get_items_3`, and `Condition_has_content` from
+2026-09-15a. **Treat it as closed.** If a dispatch filter is wanted, specify it fresh rather than
+reviving a five-word note. The one dispatch-adjacent thing still genuinely open is the documented
+`office` pseudo-crew compliance asymmetry, which is deliberate behaviour waiting on Don's trade
+mapping, not a filter change.
+
+**THE `Trade Mismatch` VIEW — built 2026-09-15b. Assignments, `IsNotNull TradeMismatch`, grouped by
+Crew.** In `sharepoint/provision-views.js` beside `Conflicts`, which it deliberately mirrors: both
+are pure filters on a column a nightly flow already wrote, because CAML cannot traverse a lookup
+into a second list and so cannot detect anything itself. Linked from the home page in
+`build-home-page.js`.
+
+- **`IsNotNull`, not `Neq ''`** — same reason as `Conflicts`. The clear-write sets the column to
+  `""` and SharePoint stores that as NULL for a Note field. Proven here, not inherited: stamping a
+  value put the row in the view and writing `""` took it straight back out.
+- **A Note column CANNOT appear in an OData `$filter` at all** — `_api/.../items?$filter=TradeMismatch ne null`
+  returns **400 `The field 'TradeMismatch' of type 'Note' cannot be used in the query filter
+  expression.`** So the view is the only practical way to list flagged rows, and any future
+  TradeMismatch tooling must render CAML rather than filter OData.
+- **EMPTY IS THE NORMAL STATE AND IS A PASS.** 0 of 66 trade-checkable rows are flagged today. The
+  72 null-`Trade` rows are pseudo-trade (`@office`, `@sub`, `@unassigned`) and are a deliberate
+  PASS, so they never appear. **An empty view therefore proves nothing on its own** — it was
+  verified by stamping a synthetic value on a throwaway row (view went 0 → 1 with the right text)
+  and clearing it (1 → 0), with an inverted `IsNull` control confirming 187 → 186 → 187 so the
+  query was demonstrably executing rather than silently matching nothing.
+
+---
+
+## A REQUEST-TRIGGERED FLOW IS A GENERIC SHAREPOINT REST PROXY — better than the documented recipe
+
+The recipe recorded above ("HEADLESS SHAREPOINT READS WITHOUT A BROWSER") uses a Recurrence probe
+flow and reads `outputsLink` per action. That works but needs **a flow edit per query**. This is
+strictly better and was used for every live read and write on 2026-09-15b:
+
+Create one throwaway flow whose trigger is `{"type": "Request", "kind": "Http"}` with a schema of
+`method` / `uri` / `headers` / `body`, one `shared_sharepointonline` `HttpRequest` action wired to
+`@triggerBody()?['...']`, and a `Response` action returning `@body('Do')`. Then **fetch its callback
+URL once and drive it from bash**, so the whole read/write loop is local and fast instead of a
+round trip per call:
+
+```bash
+az rest --method post --url ".../flows/<processSimpleId>/triggers/manual/listCallbackUrl?api-version=2016-11-01"   --resource "https://service.flow.microsoft.com/" --query response.value -o tsv
+```
+
+**`--query response.value`, not `value`** — the URL is nested one level deeper than the obvious
+guess, and `--query value` returns empty, which reads as failure.
+
+Add a second `Response` on `runAfter: [Failed, TimedOut, Skipped]` returning `@outputs('Do')`, or a
+SharePoint 400 hangs the caller until timeout instead of reporting itself.
+
+**DELETE THE FLOW WHEN DONE.** While it exists it is an unauthenticated-by-SAS endpoint that runs
+arbitrary SharePoint REST as `stratirus@d2pools.com` in a live client tenant. Deleting the flow
+invalidates the URL. Note also `create_flow` returns the **Dataverse `workflowid`**, which is what
+`PublishXml` and FlowAgent want, while `list_flows` returns the **ProcessSimple id**, which is what
+the `listCallbackUrl` REST path wants — they are different GUIDs for the same flow.
+
+**Test pools belong OFF the client-visible pools.** `D2 - Reschedule Pool` emails
+`Jobs.ProjectManager` first on completion, failure and conflict alike, and all four demo pools now
+have real client PMs (Reyes→Cody, Salcedo→Don, Whitfield→Emon, Navarro→David). A reflow test on any
+of them mails a client. Build a throwaway `Planned` job owned by **D2 Bot (site user 7)** instead: a
+`Planned` pool is invisible to dispatch, the summaries and Calendar Sync, so it strands no calendar
+events and raises no alerts, and three hand-made Assignments rows are enough to exercise a reflow.
+Tenant was audited back to baseline afterwards — 4 jobs, 184 assignments, 1180 tasks, and the three
+legitimate `Reschedule Requests` rows intact.
+
+---
+
 ## DRIVING CHROME WITHOUT THE chrome-devtools MCP (2026-09-15)
 
 **The MCP failed to connect because Chrome was already running** — the profile was locked, so it
@@ -2940,8 +3046,9 @@ sure" — a second run is exactly what used to create two pools.
 
 ### Still blocked on other people
 
-- **A permission gate** still blocks live-tenant writes: the validated Reschedule cursor fix in
-  `flows/pending/`, the `TradeMismatch` view, the dispatch filter.
+- ~~**A permission gate** still blocks live-tenant writes: the validated Reschedule cursor fix in
+  `flows/pending/`, the `TradeMismatch` view, the dispatch filter.~~ **RESOLVED 2026-09-15b — the
+  gate was stale and all three items are closed. See the permission-gate section above.**
 - **Don:** trade mapping, the 11 field-supervision sub-phases, `@sub`, subcontractor emails.
 
 ---
@@ -3007,10 +3114,9 @@ Event-Driven Reconciliation's run count for ten minutes to confirm `SuppressReco
 
 ### Still blocked
 
-- **A permission gate gave `+ Job`'s sibling work no route to the tenant.** The validated
-  `D2 - Reschedule Pool` cursor fix sits in `flows/pending/reschedule-pool-cursor-fix.md`, along
-  with the `TradeMismatch` view and the dispatch-filter change. Resolve once: grant it, or take
-  console-paste scripts in the `sharepoint/` pattern.
+- ~~**A permission gate gave `+ Job`'s sibling work no route to the tenant.**~~ **RESOLVED
+  2026-09-15b — the gate was stale, `flows/pending/` is deleted, and all three items are closed.
+  See the permission-gate section above.**
 - **Don, Monday:** trade mapping, the 11 field-supervision sub-phases, `@sub`, and the four
   subcontractor email addresses.
 
@@ -3142,7 +3248,7 @@ cited as a gate, check what it actually compared.
 paste is a live write — edit it to `true` first. Now cosmetic rather than load-bearing, since the
 planner-side guard means Auto-Schedule no longer depends on that field.
 
-**Still open, unchanged:** `TradeMismatch` has no view. Crew-lead accounts and Business Basic
+**Still open, unchanged:** ~~`TradeMismatch` has no view~~ (built 2026-09-15b). Crew-lead accounts and Business Basic
 seats unbought. Phase F Day 2 training documents the SharePoint surface and must be rewritten.
 The PM guide describes the surface H replaces.
 
@@ -3207,7 +3313,8 @@ palette, and let it become the office surface while SharePoint stays the databas
 
 **Carried over, not Phase H:**
 
-- **`TradeMismatch` still has no view**, so business rule 1 is enforced nightly and invisible. The
+- ~~**`TradeMismatch` still has no view**, so business rule 1 is enforced nightly and invisible.~~
+  **View built 2026-09-15b.** The hourly-diff half below is still open. The
   last item outstanding from the 2026-09-11b checkpoint. Shane also wanted an hourly diff flow so a
   PM does not wait until morning.
 - **Crew-trade mappings from the browser HTML** as the standing source. They already match
