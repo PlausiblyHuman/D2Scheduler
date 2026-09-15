@@ -390,6 +390,11 @@ afterwards.
    and moved it out of the doubled directory — see `docs/planner-vs-sharepoint-parity.md` for what
    each was and what closed it. The Work Calendar HOLD lifted with D7, as intended.
 
+**DECIDED 2026-09-15 by Shane: PHASE E PILOTS ON THE PLANNER SURFACE.** Not SharePoint views. The
+office is trained once, on the surface it keeps. That settles the sequencing question H created and
+makes the PM guide rewrite a pilot prerequisite rather than a tidy-up: the guide currently
+documents the surface the pilot will not use.
+
 **The risk to hold in mind:** Phase E exists to test the system under real work. Piloting on a
 brand-new UI means interface bugs and system bugs arrive together, and this file already records
 how expensive that is — three faults masking each other on the canvas app produced a confident
