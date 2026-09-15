@@ -1237,12 +1237,21 @@ function importFromD2Payload(d,silent){
        Re-asking "load the live schedule?" one second after the PM confirmed
        writing to it is noise, and a Cancel there would leave the planner
        holding baselines it has already written past. */
+    /* A Refresh overwrites crew and dates on every pool it updates, so anything
+       changed here and not yet saved is gone. The dialog said "will be updated"
+       and never said that, which made a Refresh a silent way to lose an
+       afternoon of re-sequencing. Count it and say so. */
+    const pendingSecs=S.jobs.reduce((n,j)=>n+divergedSecs(j).length,0);
+    const pendingWarn=pendingSecs
+      ? '\n\nYou have unsaved changes to '+pendingSecs+' sub-phase'+(pendingSecs===1?'':'s')
+        +'. Loading will overwrite them. Press Cancel and Save first if you want to keep them.'
+      : '';
     if(!silent&&!confirm(
       'Load the live schedule exported '+(d.exported||'(unknown date)')+'?\n\n'+
       updated+' pool(s) already here will be updated\n'+
       added+' pool(s) will be added\n'+
       untouched+' pool(s) that exist only in this browser will be left alone\n\n'+
-      secs+' sub-phases carrying crew, dates and sign-off state.'))return;
+      secs+' sub-phases carrying crew, dates and sign-off state.'+pendingWarn))return;
 
     // Take the tenant's work calendar before anything recomputes a span.
     if(Array.isArray(d.nonWork)){ S.settings=S.settings||{}; S.settings.nonWork=d.nonWork; syncNonWork(); }
