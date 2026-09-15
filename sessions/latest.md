@@ -1,96 +1,119 @@
-# 2026-09-14a — the planner is hosted, the write-back is proven, and a pool was born the right way
+# 2026-09-15a — the planner became the write surface, and the morning email noise stopped
 
-**Session goal:** stand the planner up on Azure, verify it signed in rather than by pipeline status,
-then exercise the write-back and `+ Job` against the tenant for the first time. All of it done.
-Continues `2026-09-13b`, which covered the overnight security review, the naming pass and the
-Static Web Apps config.
+**Session goal:** Shane's call at the outset — *"User-facing platform will be the planner.
+SharePoint will support it on the back end, but all users will use the planner primarily. We need
+to prepare for this to be fully live today."* Scoped to A+B+C: Save writes, `+ Job` creates,
+Commit lands. All three built and the first two verified against the live tenant.
+
+The session opened on a different plan (PM guide, blocked flow work) and pivoted twice: once on
+Shane's platform decision, and once mid-triage when he found two flows spamming his inbox.
 
 ---
 
 ## What shipped
 
-**1. The planner is hosted.** `https://mango-sky-0d6904310.5.azurestaticapps.net` — Free tier,
-`swa-d2-build-scheduler` in `rg-d2-build-scheduler`, D2's own subscription. Deployed with a
-deployment token pulled on demand, so **no workflow file in this repo and no stored secret**.
-`Microsoft.Web` had to be registered first (~60s).
+**1. Two live flows stopped emailing when they have nothing to say.** Triaged first, because a
+noisy client-facing system on go-live week outranks a feature.
 
-**The wall was verified anonymously before anyone signed in.** Every path including a nonsense one
-302s to `/.auth/login/aad`; the GitHub provider 404s; all seven security headers are live. The
-`navigationFallback` bypass I flagged as most likely to fail did not happen.
+| Flow | Was | Now |
+|---|---|---|
+| `D2 - Calendar Sync` | 14/day, `Send_report` unconditional after `For_each_orphan` | `Condition_should_report` — the 04:30 full sweep, or a real change |
+| `D2 — Daily Dispatch` | 7/day, five saying "No sub-phase scheduled today" | `Condition_has_content` — work today, or something outstanding |
 
-**2. Verified signed in, against live data.** Both libraries load, `graphModeAvailable()` is true,
-console clean at every level, and Refresh pulled 3 pools / 138 sub-phases / 47 sign-offs with the
-Work Calendar arriving as a 210-entry Set. **The second sign-in is silent** — the wall establishes
-an Entra session and MSAL completes with no prompt. The two first-time consent dialogs are a
-**one-time admin event**; both grants read `AllPrincipals`, so the four PMs will see nothing.
+~21 emails a morning carrying about two facts, now about three. **Neither reached the client**;
+both go to `stratirus@d2pools.com` alone. Dispatch itself was never broken — `[no lead email]` is
+designed behaviour while `Crews.LeadEmail` is blank.
 
-**3. The write-back has run against the tenant.** All five safety properties demonstrated, including
-the refusal path nobody had watched: on one row, `Crew` was written while `DurationDays` was refused
-(`loaded 2, nowLive 4, wanted 3`). Compare-before-write is genuinely per **field**.
-`SuppressReconcileUntil` proven by reading the flow's action list — `Terminate_suppressed`
-succeeded, `Send_email_alert` skipped. The row was restored to its exact pre-test values.
+**2. The planner writes to SharePoint over Graph.** Three new files: `web/writeback-core.js` (the
+decisions — allowlist, per-field compare, row identity, suppression, create refusal; pure
+functions), `web/graph-writeback.js` (Graph shapes only), and the planner wiring for Push, Commit
+and `+ Job`. The console applier is **frozen, not retired**, guarded by an allowlist parity test.
 
-**4. `D2-1045 Navarro Residence` — the first pool created the supported way**, end to end with no
-REST hand-loading. 23 of 46 finished, 21 signed, 174/295 tasks, assigned to **David Taylor**, so all
-four people with access now have a pool. Tenant now 4 jobs / 184 assignments / 1180 tasks.
+**3. Verified live, reading rows back rather than trusting status codes.** A date push moved
+`2026-09-22 → 2026-09-24` at site-local midnight. The refusal path fired per **field**:
+`DurationDays` refused (`loaded 2, now 4, wanted 3`) while `Locked` landed on the same row in the
+same pass. Flow 3 reached `Terminate_suppressed` with `Send_email_alert` skipped. Row 384 restored
+exactly; tenant audited clean afterwards (4 jobs, 184 assignments, 0 drift).
+
+**4. Chrome driven without the MCP.** The `chrome-devtools` server failed because Chrome was
+already running and held the profile lock — second time that has cost a session. Worked around
+with a second Chrome on a throwaway profile plus a zero-dependency CDP driver on Node 24's global
+`WebSocket`.
 
 ## Decisions
 
-- **Deployment token over an Azure DevOps pipeline**, for the first stand-up. The pipeline wants to
-  commit a workflow file into this repo; the token route changes nothing here and stores no secret.
-  The pipeline can be wired now that hosting is proven.
-- **Hosting stayed on SWA Free**, per 09-13b. Nothing in the live verification changed that.
-- **Navarro was created at its real start date** rather than created-then-reflowed, so it carries no
-  `Jobs.StartDate` drift. Cheaper and cleaner for staging future pools.
-- **The double-booking fix went through the write-back**, not a hand MERGE — it is the supported path
-  and it carries the suppression window.
+- **The planner is the user-facing platform.** SharePoint stays the database and all fourteen
+  flows stay the engine.
+- **Phase E pilots on the planner surface**, confirmed at close.
+- **Scope held to A+B+C.** Deleting a pool and raising a reflow stay in SharePoint; sign-off and
+  task ticks must never become writable from the planner.
+- **Email fixes before the feature**, on the reasoning that a noisy system on go-live week costs
+  more than a day's delay on a feature.
+- **Dispatch skips empty emails entirely**, rather than only while crews are unaddressed.
+- **Probe the Graph write shapes before building on them**, rather than build-then-discover.
 
 ## Findings
 
-- **`D2 - New Pool` can create business-rule-2 violations, and did.** It assigns the template
-  `DefaultCrew` with no awareness of existing bookings; Navarro arrived with three cross-pool
-  double-bookings of `harrison`. Consistent with the documented "detect, never prevent" grammar, but
-  the first time it has been seen from the *supported creation path*. **Expect every new pool to
-  arrive with conflicts.**
-- **Only two crews hold `plumbing`** — `harrison` and `stl`. With harrison booked, the sole
-  qualified alternative was the capacity-exempt subcontractor. A trade with one field crew plus one
-  subcontractor has no slack; this belongs in Don's trade-mapping conversation.
-- **Runtime was 16.5 minutes, not 9**, including a **six-minute stall** with counts frozen mid-run.
-  The PM guide's "allow 10-15 minutes" understates it, and a stall must not trigger a re-raise.
-- **A cry-wolf warning found only by running on live data:** the roster uses `'?'` for unknown crew
-  members, and the shared-member check excluded `'+2'` but not `'?'`, reporting *"?, ? is on both
-  Campos +2 and Harrison +2"*. Fixed; live warnings 41 -> 40.
-- **The assertion pinning that fix was vacuous on the first attempt** and passed with the bug still
-  in, because the scenario never put two crews on the same day. Rebuilt with the overlap plus a
-  guard that the scenario is reached.
-- **A third instance of a rename scoped by a grep:** the applier still printed *"Use Load from D2"*
-  because the pass covered `web/` only. Found by reading live output, not code.
+- **Graph writes behave like raw REST for every column type we use.** Crucially a DateOnly column
+  takes a bare `yyyy-MM-dd` and stores site-local midnight, so the 2026-09-03 off-by-one does not
+  recur. This is why `FIELD_DEFS` carried over unchanged.
+- **A Person column resolves through the User Information List, matched on the claims `Name`,
+  never `EMail`.** D2 Bot's mail differs from its UPN, so an `EMail` match works for all four PMs
+  and fails for exactly one user. `/me` is unavailable on a `Sites.ReadWrite.All` token, so the UPN
+  comes from the MSAL account.
+- **The first version of that resolver returned a SharePoint group**, because groups carry no
+  `EMail` and `'' === ''` is true. Same silent-empty-join that once wrote `TradeMismatch` on 66
+  correct rows.
+- **`New Pool Requests.Title` holds the pool NAME, not the job number, and there is no `PoolName`
+  column.** The plan had both wrong; reading the live columns caught it before any create.
+- **A mojibake "bug" in the dispatch subject did not exist** — `python -m json.tool` decoded UTF-8
+  as cp1252. Byte check showed a clean `0x2014`. Nearly reported as a live defect.
+- **My own mutation sweep gave a confident wrong answer**, reporting a TypeError as "still
+  passing" because it only looked for a FAIL line. A crash now counts as red.
+- **A staleness assertion landed inside `runApply` instead of `partA`** and was unreachable dead
+  code that passed silently — caught only because it printed nothing.
+- **`get_run_history` was stale again**, showing no Flow 3 runs for ten minutes after two had
+  demonstrably fired.
 
 ## Files touched
 
-`web/index.html` · `web/staticwebapp.config.json` · `web/fonts.css` + `web/fonts/` (new) ·
-`web/robots.txt` (new) · `fixtures/planner/escaping.js` (new) · `fixtures/planner/schedulecheck.js` ·
-`fixtures/planner/{roundtrip,empty,graph-read,live-export}.js` + README ·
-`sharepoint/{apply-planner-changes,export-to-planner}.js` · `CLAUDE.md`
+`web/{writeback-core,graph-writeback}.js` (new) · `web/index.html` ·
+`fixtures/planner/{writeback-core,graph-write,writeback-parity}.js` (new) ·
+`fixtures/planner/{mutate.py,writeback.js,README.md}` · `flows/scripts/export-flows.py` (new) ·
+`flows/exports/{D2-Calendar-Sync,D2-Daily-Dispatch-Reminders}-2026-09-15.json` (new) ·
+`docs/superpowers/specs/2026-09-15-planner-as-primary-write-path-design.md` (new) ·
+`docs/superpowers/plans/2026-09-15-planner-primary-write-path.md` (new) · `CLAUDE.md`
 
 ## Commits
 
-`c5c1758 · 6a2f0fe · ee6eb56 · bec6522 · e6c2f77 · 94d236c · 30dd059 · 64f1b7f · fcc05c9`
-on `canvas-app-handoff`, all pushed. Gate: **12/12 harnesses**, `oracle-test.js` **15/16**.
+`e1c407e · dece434 · e8d4bb9 · 7538d25 · ae4c66a · c2a13b9 · 871c5ce · 867881c · 6232ea7 · a92aa7d`
+on `canvas-app-handoff`, all pushed. Gate: **14 harnesses green**, `oracle-test.js` **15/16** (the
+documented data gap). Every new assertion was watched failing against a deliberate mutation.
 
 ## Open
 
-- **The PM guide needs reissuing** — it understates the New Pool runtime, doesn't warn about the
-  stall, and still describes the SharePoint surface that Phase H replaces.
-- **Wire the Azure DevOps pipeline** now that hosting is proven, if the token route is not wanted
-  long term.
-- **Phase F Day 2 office training** still documents the SharePoint views.
-- **A permission gate** still blocks the validated `D2 - Reschedule Pool` cursor fix in
-  `flows/pending/`, the `TradeMismatch` view, and the dispatch filter.
+- **`+ Job` has never created a real pool**, deliberately — one live POST costs ~16 minutes and
+  produces a fifth pool. Refusal and duplicate paths are proven.
+- **The PM guide needs rewriting** against the hosted planner: it documents the SharePoint
+  surface, understates New Pool at 10–15 minutes against a measured 16.5 with a six-minute stall,
+  and knows nothing about Save, Commit or refusals.
+- **The four PMs can reach a surface that now writes** and have not been told it exists. Whether to
+  share the URL before the guide is reissued is unresolved.
+- **A duration-only write leaves `ScheduledFinish` stale** — excluded from the allowlist as
+  derived. Visible in the live test as a finish date before its own start.
+- **The `flows/pending/` permission gate is probably stale.** Two live flows were edited and
+  published today with no gate, so the Reschedule cursor fix, the `TradeMismatch` view and the
+  dispatch filter are likely unblocked. Untested.
+- **Daily email deep links** should ideally point at the planner, but it has no URL routing, so a
+  link can only open it at the top rather than at a pool.
+- **Phase F Day 2 training** still documents the SharePoint views.
 - **Don:** trade mapping, the 11 field-supervision sub-phases, `@sub`, subcontractor emails — now
-  with the plumbing-capacity finding as extra evidence.
+  with the plumbing-capacity finding as evidence, since only `harrison` and `stl` hold that trade.
+- **Crew-lead accounts and Business Basic seats** unbought, which is why `Crews.LeadEmail` is blank
+  and every dispatch lands on Shane.
 
 ## Next action
 
-Reissue the PM guide against the hosted planner, correcting the New Pool runtime and adding the
-stall warning, then decide whether Phase E pilots on this surface.
+Test whether the `flows/pending/` permission gate is still real (ten minutes, likely clears three
+carried items), then rewrite the PM guide against the hosted planner and hold it for Shane's
+review before anything reaches the client.
