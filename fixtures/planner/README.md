@@ -16,8 +16,23 @@ node fixtures/planner/startdate.js
 node fixtures/planner/rules.js
 node fixtures/planner/writeback.js
 node fixtures/planner/graph-read.js
+node fixtures/planner/writeback-core.js
+node fixtures/planner/writeback-parity.js
+node fixtures/planner/graph-write.js
 node oracle-test.js         # the original 16-invariant harness (repo root)
 ```
+
+**Watch an assertion fail before trusting it.** `mutate.py` breaks the
+production code on purpose and checks the harness goes red:
+
+```
+python fixtures/planner/mutate.py fixtures/planner/writeback-core.js web/writeback-core.js
+python fixtures/planner/mutate.py fixtures/planner/graph-write.js  web/graph-writeback.js
+```
+
+A crash counts as red. A mutation whose anchor text is missing is reported
+rather than silently skipped, because a mutation that never lands is worse
+than no mutation at all.
 
 | File | What it pins |
 |---|---|
@@ -59,3 +74,6 @@ live list's own count.
 **Why these exist:** the planner sat untouched from 2026-08-13 to 2026-09-11
 while everything around it changed, and two patches the repo claimed were applied
 were not. Nothing was checking. These are cheap and they run offline.
+| `writeback-core.js` | The five safety properties of the write path as pure functions, with no tenant and no jsdom: the five-column allowlist (a sign-off field in a hostile change-set is refused), compare-before-write per FIELD rather than per row (one field refused while another on the same row lands), token-anchored row identity (a `3.5` edit must not land on a `3.10` row), the suppression stamp on every write, and create refusal on a duplicate job number, a missing required field, or a duplicate within one batch. |
+| `writeback-parity.js` | The write allowlist agrees across the three files that hold it: `WRITEBACK_FIELDS` in the planner, `ALLOWLIST` in `web/writeback-core.js`, and `FIELD_DEFS` in the frozen console applier, which is pasted into a browser console and cannot require the core. Guards the parse before comparing, because two empty lists compare equal. |
+| `graph-write.js` | The Graph-shaped half, against shapes read off the live tenant on 2026-09-15: the PATCH endpoint, the suppression stamp riding in the same body, site-user resolution matching the claims `Name` and never `EMail` (D2 Bot's mail differs from its UPN), refusal on an ambiguous or empty match, the New Pool Requests body (`Title` is the pool name, `JobNumber` the job number, no `PoolName` column exists), and a failed row not aborting the batch. |
