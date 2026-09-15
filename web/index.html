@@ -1300,10 +1300,20 @@ function importFromD2Payload(d,silent){
     }
 
     save(); UI={collapsed:{}}; render();
-    alert('Schedule loaded.\n\n'+updated+' updated, '+added+' added, '+untouched+' left alone.'+
-      (unmatched.length?'\n\n'+unmatched.length+' sub-phase(s) in the file matched nothing in this phase template:\n'+
+    /* The routine summary is skipped on a silent re-read -- that runs straight
+       after a Save, and a "Schedule loaded" modal stacked on top of the save
+       results is noise the PM did not ask for.
+       Unmatched sub-phases are NOT skipped even then. That means the phase
+       template here disagrees with SharePoint, which is exactly the condition
+       under which a push may have been aimed at the wrong rows, so it is worth
+       interrupting for however the load was triggered. */
+    if(unmatched.length){
+      alert(unmatched.length+' sub-phase(s) in the schedule matched nothing in this phase template:\n'+
         unmatched.slice(0,8).join(', ')+(unmatched.length>8?' ...':'')+
-        '\n\nThat means the template here is out of step with SharePoint.':''));
+        '\n\nThat means the template here is out of step with SharePoint.');
+    }else if(!silent){
+      alert('Schedule loaded.\n\n'+updated+' updated, '+added+' added, '+untouched+' left alone.');
+    }
 }
 
 /* ============================== save / write-back ==============================
