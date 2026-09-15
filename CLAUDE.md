@@ -1492,7 +1492,7 @@ covers two flows, the daily and weekly summaries.):**
 
 | # | Flow | State | Notes |
 |---|---|---|---|
-| 1 | Daily Dispatch + Reminders | Started | **DONE — verified end-to-end 2026-09-03.** Both the `?['Value']` fix and the `CrewID` join fix applied and published; a live run produced a populated dispatch email. |
+| 1 | Daily Dispatch + Reminders | Started | **Emails only crews with work, since 2026-09-15** -- `Send_an_email_(V2)` sits inside `Condition_has_content` within `Apply_to_each`. **DONE — verified end-to-end 2026-09-03.** Both the `?['Value']` fix and the `CrewID` join fix applied and published; a live run produced a populated dispatch email. |
 | 2 | Sign-off Intake | Started | DONE, end-to-end verified |
 | 3 | Event-Driven Reconciliation | Started | Trigger condition fixed to version-history comparison 2026-09-07 (see Known bugs); no longer the no-op it was when this table was written. `Get_overlapping` gained the `Get_active_jobs`/`Select_active_job_ids`/`Compose_active_job_clause` idiom 2026-09-09, so a double-book alert can no longer name a `Planned` pool that has not been committed yet (see the `Planned`-suppression entry above). **Stop it before any bulk write to Assignments**, since it still fires on every Crew/date edit. |
 | 4 | Nightly Reconciliation | Started | **DONE — built and both tests passed 2026-09-03.** Created fully headless (no designer). Clean sweep = 0 conflicts, no email; seeded double-book caught and emailed. |
@@ -1505,7 +1505,7 @@ covers two flows, the daily and weekly summaries.):**
 | 11 | Reschedule Pool | Started | **NEW 2026-09-09, verified.** `D2 - Reschedule Pool`, flowId `2f2cde97-e0fd-5c5c-934a-02f09a1d83a5` (Dataverse workflowid `210f1d70-e2ab-f111-aaab-6045bd0196b3`). Triggered by a new row in **Reschedule Requests**. Walks a job's assignments from a given `Sequence` forward, recomputing working-day spans, skipping rows that are `Locked` or already signed off. See **Staging / integration contracts** for the `Planned`/`Locked`/`SuppressReconcileUntil` mechanics and Known bugs and gotchas for the platform constraints found building it. **Hardened the same day in the final whole-branch review:** the reflow-walk `Foreach` now carries `concurrency: {repetitions: 1}` like every other variable-mutating loop in this flow (it always ran sequentially; this closes the gap between "does" and "is guaranteed to"); the mid-run failure email now names how many sub-phases already moved and says to re-raise the same request from the same `FromSequence` (the walk is idempotent); and `Send_completion_email`, `Send_failure_email_guard` and `Send_failure_email_action` all gained the PM -> requester -> `stratirus@d2pools.com` fallback that `Send_conflict_alert_email` already had, so a blank `Author.Email` (plausible per the UPN-vs-`mail` note above) can no longer produce a silent `400 To Field cannot be null or empty` on the very email meant to explain a failure. |
 
 | 12 | Conflict Flag | Started | **NEW 2026-09-09, verified.** `D2 - Conflict Flag`, flowId `972c139d-e55f-6743-a76c-fbd2f08eeb45` (Dataverse workflowid `f0dd9a1d-8bac-f111-aaab-002248043e80`). Nightly 05:00 Central. Annotates `Assignments.ConflictWith` so a crew double-book is visible in SharePoint and not only in email; unlike the alerting flows it deliberately covers `Planned` pools too, so a PM can see collisions while choosing dates. Was missing from this table until 2026-09-10. |
-| 13 | Calendar Sync | Started | **NEW 2026-09-10, verified.** `D2 - Calendar Sync`, flowId / workflowEntityId `f890f891-48ad-f111-aaab-6045bd0196b3`. Nightly 04:30 Central. Writes one all-day event per in-scope Assignment to the **M365 group calendar** behind the site. See "Group calendar" below. |
+| 13 | Calendar Sync | Started | **Reports only on the 04:30 full sweep or a real change, since 2026-09-15** -- `Send_report` sits inside `Condition_should_report`. **NEW 2026-09-10, verified.** `D2 - Calendar Sync`, flowId / workflowEntityId `f890f891-48ad-f111-aaab-6045bd0196b3`. Nightly 04:30 Central. Writes one all-day event per in-scope Assignment to the **M365 group calendar** behind the site. See "Group calendar" below. |
 | 14 | Crew Trade Check | Started | **NEW 2026-09-11, verified both directions.** `D2 - Crew Trade Check`, flowId / workflowEntityId `a5f50628-eead-f111-aaac-6045bd0195dd`. Nightly 05:15 Central. Joins `Assignments.Crew` -> `Crews.CrewID` -> `Crew-Trades` -> `Assignments.Trade` and writes `Assignments.TradeMismatch`, which is **the first thing in this system to enforce business rule 1**. Writes only rows that changed, so a clean night writes nothing. See below for the lookup-shape trap it cost, and for what it does NOT cover. |
 
 **CALENDAR SYNC IS NOW INCREMENTAL, and runs hourly (2026-09-10).** Trigger fires at **04:30 plus
@@ -2609,6 +2609,142 @@ The shared-member check only fires for crews sharing a working day, and the harn
 no two crews on the same date, so it asserted over an empty set. It now builds the overlap and
 carries a second assertion confirming the scenario is reached. **A new assertion has to be watched
 fail before it is worth anything** -- the fourth time this file has recorded that lesson.
+
+## THE PLANNER WRITES DIRECTLY TO SHAREPOINT — Route B built and verified live 2026-09-15
+
+**Spec:** `docs/superpowers/specs/2026-09-15-planner-as-primary-write-path-design.md`.
+**Plan:** `docs/superpowers/plans/2026-09-15-planner-primary-write-path.md`.
+
+Shane's decision, 2026-09-15: *"User-facing platform will be the planner. Sharepoint will support
+it on the back end, but all users will use the planner primarily."* Save now pushes over Graph from
+the hosted page, `+ Job` raises the request row, and a Planned pool can be committed to Active.
+**The console applier is frozen, not retired** — it is still the `file://` fallback, and
+`fixtures/planner/writeback-parity.js` asserts the allowlist agrees across all three copies.
+
+| File | Holds |
+|---|---|
+| `web/writeback-core.js` | the decisions: allowlist, per-field compare, `titleMatches`, suppression stamp, `planEdits`/`planCreates`. Pure functions, no I/O |
+| `web/graph-writeback.js` | the Graph shapes only: URLs, PATCH/POST bodies, `resolveSiteUserId`, `applyWrites` |
+| `fixtures/planner/{writeback-core,graph-write,writeback-parity}.js` | 69 assertions between them |
+| `fixtures/planner/mutate.py` | breaks the source on purpose and checks the harness goes red |
+
+**GRAPH WRITE SHAPES, READ OFF THE LIVE TENANT, NOT ASSUMED.** A non-destructive probe on row 384
+wrote every allowlist field back at its current value; only `SuppressReconcileUntil` moved.
+`PATCH /sites/{siteId}/lists/{listId}/items/{id}/fields` returns 200.
+
+| Column | Sent | Stored |
+|---|---|---|
+| Choice (`Crew`) | plain string | unchanged |
+| **DateOnly (`ScheduledStart`)** | **bare `yyyy-MM-dd`** | **site-local midnight, `T05:00:00Z` under CDT** |
+| Number, Boolean | as-is | unchanged |
+| DateTime (`SuppressReconcileUntil`) | ISO string | stored to the second |
+
+**The DateOnly row is the important one.** Graph interprets a bare date in site-local time exactly
+as raw REST does. Had it read UTC midnight, every write would have landed a day early and reprised
+the 2026-09-03 off-by-one. It does not, which is why `FIELD_DEFS`'s normalisation carries over
+unchanged rather than needing a Graph variant.
+
+**RESOLVING A PERSON COLUMN OVER GRAPH — match the claims `Name`, never `EMail`.** `/me` is **not
+available** on a token scoped to `Sites.ReadWrite.All`, so the UPN comes from the **MSAL account
+object**. The site-user id comes from `/sites/{id}/lists/User Information List/items`, matching
+`Name` (`i:0#.f|membership|<upn>`). **D2 Bot's `EMail` is `d2bot@d2pools.com` while its UPN is
+`stratirus@d2pools.com`**, so an `EMail` match works for all four PMs and fails for exactly one
+user. Live ids: D2 Bot 7, David 13, Cody 14, Emon 15, Don 16.
+
+**AND NEVER MATCH ON EMPTY.** The first version of that resolver returned site-user id **3, "D2
+Build Scheduler Owners" — a SharePoint group** — because the list holds groups and system
+principals too, groups carry no `EMail`, and `'' === ''` is true. Same silent-empty-join that once
+wrote `TradeMismatch` on 66 correctly-qualified rows. Exactly one match or refuse.
+
+**`New Pool Requests` column names, read off the list rather than guessed: `Title` holds the POOL
+NAME and `JobNumber` holds the job number.** There is no `PoolName` column. The plan had both wrong
+and would have created pools titled `D2-1046` with the pool name dropped.
+
+**VERIFIED LIVE, end to end, 2026-09-15.** Every step read the row back rather than trusting a
+status code, and row 384 was restored to its exact pre-test values afterwards (audited: 4 jobs, 184
+assignments, 0 required-but-null, 0 counter drift).
+
+| Checked | Result |
+|---|---|
+| Both new scripts load on the hosted site | `D2WritebackCore` and `D2GraphWriteback` both objects, all assets 200 |
+| A date push | `2026-09-22 -> 2026-09-24`, stored at site-local midnight |
+| **The refusal path, per FIELD** | `DurationDays` refused (`loaded 2, now 4, wanted 3`) while `Locked` landed **on the same row in the same pass** |
+| **Suppression over Graph** | Flow 3 ran, `Condition_scheduling_changed` **Succeeded**, `Terminate_suppressed` **Succeeded**, `Send_email_alert` **Skipped** |
+
+**A duration write still leaves `ScheduledFinish` stale** — the allowlist excludes it as derived.
+Seen plainly in the live test: a start moved to 09-24 while the finish stayed 09-23, i.e. before
+its own start, until reverted. Unchanged from the console applier, and related to the standing
+Phase G item about a duration edit reflowing the pool by itself.
+
+**`get_run_history` WAS STALE AGAIN.** It showed no Flow 3 run for ten minutes after a write that
+had demonstrably fired two; re-reading later returned both. An empty result is not evidence a run
+did not happen — second time this is worth writing down.
+
+---
+
+## EMAIL NOISE: the two scheduled flows now send only when they have something to say (2026-09-15)
+
+Found by Shane reading D2 Bot's mailbox. **Neither reached the client** — both go to
+`stratirus@d2pools.com` alone.
+
+| Flow | Was | Now |
+|---|---|---|
+| `D2 - Calendar Sync` | **14/day** — `Send_report` fired after `For_each_orphan` unconditionally, including the 13 incremental runs that changed nothing | `Condition_should_report`: the 04:30 full sweep, or `created+updated+removed > 0` |
+| `D2 — Daily Dispatch` | **7/day**, five of them *"No sub-phase scheduled today"* | `Condition_has_content` inside `Apply_to_each`: only when the crew has work today or something outstanding from yesterday |
+
+**Daily Dispatch was never broken.** The `[no lead email]` prefix and the fallback recipient are the
+designed behaviour while `Crews.LeadEmail` is blank. Roughly 21 emails a morning carrying about two
+facts was the actual defect.
+
+**Verified by running both and reading the evaluated conditions, not by the edits returning 200.**
+Calendar Sync: `Send_report` Skipped with `ActionBranchingConditionNotSatisfied` while the sync
+itself still ran. Daily Dispatch proved both branches in one run — `expressionResult: false` on the
+five idle crews, `true` on the two with work.
+
+**`flows/scripts/export-flows.py` now exists.** The export recipe had been documented since
+2026-09-05 but the script itself was never committed, which is why exports kept drifting. It
+asserts the tenant, takes the token from `az` but never the response, and verifies each file by
+reading it back.
+
+**A METHOD NOTE WORTH KEEPING: `python -m json.tool` decoded a UTF-8 payload as cp1252 and made a
+clean em dash look like mojibake.** That nearly became a reported encoding bug in a live flow. A
+byte-level check showed codepoint `0x2014`, correct. When a tool's output looks corrupted, suspect
+the pipe before the data.
+
+---
+
+## DRIVING CHROME WITHOUT THE chrome-devtools MCP (2026-09-15)
+
+**The MCP failed to connect because Chrome was already running** — the profile was locked, so it
+hung and blew the 30-second handshake. Second time this has cost a session; the same cause is
+recorded under 2026-09-11c. **The fix is to have no Chrome running when Claude Code starts**, or to
+route around it entirely:
+
+```
+chrome.exe --remote-debugging-port=9222 --user-data-dir=<scratch> --new-window <url>
+```
+
+A second Chrome on its own profile runs happily alongside the user's, leaving their tabs alone.
+**Node 24 has a global `WebSocket`**, so a ~60-line zero-dependency CDP driver reaches it: list
+targets over plain HTTP, open the page's `webSocketDebuggerUrl`, then `Runtime.evaluate` with
+`awaitPromise` and `returnByValue`. Every live verification in this file's 2026-09-15 entries was
+done that way.
+
+Three traps, all paid for:
+
+- **A native `confirm`/`alert` blocks the renderer**, so `Runtime.evaluate` never returns — and
+  `Page.bringToFront` and even `Page.captureScreenshot` hang too. A helper that calls
+  `bringToFront` before clearing the dialog is itself blocked by the dialog.
+- **When a dialog cannot be cleared, close the tab over plain HTTP** (`/json/close/{id}` then
+  `/json/new?<url>`). HTTP cannot be blocked by a stuck renderer.
+- **MSAL caches to `sessionStorage`, so closing the tab drops the token.** The next call does a full
+  `loginPopup`, which was observed timing out once before succeeding on a retry.
+
+**A debug port exposes every tab in that browser instance.** During this session the port also
+carried live Outlook tabs, so anything with CDP access could read them. Keep the port on a
+throwaway profile and close it when done.
+
+---
 
 ## The decision behind that — hosting and security posture, decided 2026-09-13b
 
