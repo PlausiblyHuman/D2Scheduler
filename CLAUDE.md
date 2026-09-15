@@ -2862,6 +2862,48 @@ every real user because no hosted deployment exists. It has existed since 2026-0
 
 ---
 
+## `D2 - New Pool` NOW REFUSES A CONCURRENT DUPLICATE — added and proven live 2026-09-15b
+
+The flow already had `Get_existing_job` / `Condition_duplicate`, which checks the **Jobs** list. That
+covers the documented case (a PM waits out the 16 minutes, thinks it has hung, and raises the request
+again) because the Job row is created early in `Scope_provision_job`, so the second request sees it.
+
+**It does NOT cover two requests in one trigger batch.** The trigger carries
+`splitOn: @triggerOutputs()?['body/value']`, so each new request becomes its own run and the runs are
+concurrent. Both call `Get_existing_job` before either has created a Job, both pass, and you get two
+pools: 92 assignments and 590 tasks, at roughly 6 minutes each to delete.
+
+**The guard is an ID tie-break, which has no race in it.** `Get_earlier_request` looks for another
+row on **New Pool Requests** with the same `JobNumber`, a **lower `ID`**, and a status that is neither
+`Failed` nor `Done`. Row ids are assigned at creation, before either run starts, so exactly one of the
+pair sees the other. The loser sets `Status = Failed` with a message naming the winning request, and
+terminates. `Condition_missing_pm` now runs after this rather than after `Condition_duplicate`.
+
+**`ne 'Failed' and ne 'Done'` rather than `eq 'Requested' or eq 'Building'`, deliberately.** It avoids
+parentheses and `or` in the OData, and it fails safe: an unexpected status blocks rather than builds.
+A genuine retry after a failure is unaffected, because the failed row is excluded.
+
+**PROVEN LIVE IN BOTH DIRECTIONS, on the actual race, and without building a pool.** Two requests for
+a new job number were raised back to back with **no ProjectManager**, so neither could provision
+anything whatever happened:
+
+```
+18 | Failed | Refused: Project Manager is required.
+19 | Failed | Refused: request 18 is already building job number TEST-9300. ...
+```
+
+Row 18 passed the new guard and fell through to the PM check, which proves the false branch and the
+rewired `runAfter`. Row 19 was refused by the new guard, which proves the true branch. `Jobs` held 0
+rows for `TEST-9300` afterwards and the tenant was audited back to baseline.
+
+**Every clause of the `$filter` was proven live before trusting it**, because a `$filter` fails at RUN
+time, not save time, and an over-tight one silently matches nothing: `ID lt 17` excludes row 17 itself
+(0 rows), `Status ne 'Done'` drops the Done row that the same query returns without it, and the
+unfiltered form returns the row. A filter that only ever returns empty looks identical to a guard that
+works.
+
+---
+
 ## THE PM GUIDE HAS A PLANNER-FIRST DRAFT — written 2026-09-15b, NOT sent to anyone
 
 **Draft:** https://claude.ai/artifact/UoeNwV4i4EQQaQgSuJCqiJ (private, separate artifact)
