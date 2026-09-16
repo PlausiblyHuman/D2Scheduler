@@ -59,6 +59,11 @@ win.alert = () => {}; win.confirm = () => true;
       : i === 4 && k === 0 ? { id: 5000 + i * 100 + k, seq: 2, title: t, done: false, na: false }      // moved to 2nd
       : i === 4 && k === 1 ? { id: 5000 + i * 100 + k, seq: 1, title: t, done: false, na: false }      // moved to 1st
       : i === 4 && k === 2 ? { id: 5000 + i * 100 + k, seq: 3, title: t + ' (reworded)', done: false, na: false }
+      : i === 5 && k === 0 ? { id: 5000 + i * 100 + k, seq: 2, title: t + ' (reworded)', done: false, na: false } // moved AND renamed
+      : i === 5 && k === 1 ? { id: 5000 + i * 100 + k, seq: 1, title: t, done: false, na: false }
+      : i === 6 && k === 0 ? { id: 5000 + i * 100 + k, seq: 2, title: t + ' (reworded)', done: false, na: false } // moved AND renamed
+      : i === 6 && k === 1 ? { id: 5000 + i * 100 + k, seq: 1, title: t, done: false, na: false }
+      : i === 6 && k === 2 ? { id: 5000 + i * 100 + k, seq: 3, title: t + ' (renamed)', done: false, na: false }  // renamed in place
       : { id: 5000 + i * 100 + k, seq: k + 1, title: t, done: false, na: false }))
   }));
   win.importFromD2Payload(payload, true);
@@ -68,7 +73,14 @@ win.alert = () => {}; win.confirm = () => true;
   const E = secs[4].s;                                                // reordered and reworded in SharePoint
   ok('a checklist reordered in SharePoint still gives each line the row with its own name',
      E.tasks[0].spId === 5400 && E.tasks[1].spId === 5401, E.tasks[0].spId + ',' + E.tasks[1].spId);
-  ok('a line reworded in SharePoint gets NO row id, so it cannot write to the wrong row', E.tasks[2].spId === null);
+  ok('a task renamed in place keeps its row id: the leftovers line up exactly', E.tasks[2].spId === 5402, String(E.tasks[2].spId));
+  const F = secs[5].s;                                                // one task both moved and renamed
+  ok('a task both moved and renamed gets NO row id, so it cannot write to the wrong row',
+     F.tasks[0].spId === null && F.tasks[1].spId === 5501, F.tasks[0].spId + ',' + F.tasks[1].spId);
+  const H = secs[6].s;
+  ok('when the leftovers do not line up, NONE of them keeps a row id, even one renamed in place',
+     H.tasks[0].spId === null && H.tasks[1].spId === 5601 && H.tasks[2].spId === null,
+     [H.tasks[0].spId, H.tasks[1].spId, H.tasks[2].spId].join(','));
   const nA = A.tasks.length, nC = C.tasks.length;
   ok('scenario has room for the checks (C needs four tasks)', nC >= 4, 'A=' + nA + ' C=' + nC);
   ok('an N/A reason is imported from SharePoint', A.tasks[5].na === true && A.tasks[5].note === 'Inspection pending',
@@ -80,13 +92,13 @@ win.alert = () => {}; win.confirm = () => true;
     InstallerSignOff: false, PMSignOff: false }, extra);
   const live = {
     asg: [asgRow(A), asgRow(B, { InstallerSignOff: true, InstallerSignOffByLookupId: '15', SignOffNotes: 'earlier' }), asgRow(C),
-          asgRow(D, { InstallerSignOff: true, InstallerSignOffByLookupId: '15' }), asgRow(E)],
+          asgRow(D, { InstallerSignOff: true, InstallerSignOffByLookupId: '15' }), asgRow(E), asgRow(F)],
     tasks: [], uil: [
       { id: '14', Title: 'Cody Campbell', Name: 'i:0#.f|membership|cody@d2pools.com' },
       { id: '15', Title: 'Emon Alexander', Name: 'i:0#.f|membership|emon@d2pools.com' },
       { id: '3', Title: 'D2 Build Scheduler Owners' }]
   };
-  [A, B, C, D, E].forEach(s => s.tasks.forEach((t, k) => live.tasks.push({ id: String(t.spId), AssignmentLookupId: String(s.base.id),
+  [A, B, C, D, E, F].forEach(s => s.tasks.forEach((t, k) => live.tasks.push({ id: String(t.spId), AssignmentLookupId: String(s.base.id),
     Complete: false, NotApplicable: false })));
   const liveTask = (s, k) => live.tasks.find(r => r.id === String(s.tasks[k].spId));
   liveTask(A, 5).NotApplicable = true; liveTask(A, 5).Note = 'Inspection pending';
@@ -125,8 +137,9 @@ win.alert = () => {}; win.confirm = () => true;
   ok('...and its handlers refuse too', D.tasks.every(t => !t.done));
   // ...and if a change reaches the change set anyway, the save refuses it.
   D.tasks[0].done = true;
-  // E: tick the first line (matched by name) and the reworded third (no row id).
-  E.tasks[0].done = true; E.tasks[2].done = true;
+  // E: tick the first line (matched by name) and the renamed third (matched by position).
+  // F: tick the line that was both moved and renamed (no row id).
+  E.tasks[0].done = true; E.tasks[2].done = true; F.tasks[0].done = true;
 
   win.sign(j.id, 0, 0, 'inst', true);                         // sign A
   win.sign(j.id, secs[1].gi, secs[1].si, 'inst', false);       // reopen B
@@ -158,7 +171,7 @@ win.alert = () => {}; win.confirm = () => true;
   // ---- preview label ----
   win.openSavePreview();
   const label = win.document.querySelector('#dFoot button.p').textContent.trim();
-  ok('the Save button counts sign-off and checklist changes', /Save 11 sign-off and checklist changes to SharePoint/.test(label), label);
+  ok('the Save button counts sign-off and checklist changes', /Save 12 sign-off and checklist changes to SharePoint/.test(label), label);
   ok('...and never says "0 edits"', !/\b0 edits?\b/.test(label), label);
 
   await win.confirmSaveByPush();
@@ -189,7 +202,9 @@ win.alert = () => {}; win.confirm = () => true;
   ok('a task change under a standing sign-off is never written', !taskP.some(p => p.id === String(D.tasks[0].spId)));
   ok('a tick on a reordered line is written to the row with its name',
      taskP.some(p => p.id === '5400' && p.body.Complete === true) && !taskP.some(p => p.id === '5401'));
-  ok('a tick on a reworded line is not written anywhere', taskP.filter(p => p.id === '5402').length === 0);
+  ok('a tick on a renamed-in-place line is written to its own row', taskP.some(p => p.id === '5402' && p.body.Complete === true));
+  ok('a tick on a moved-and-renamed line is not written anywhere',
+     !taskP.some(p => p.id === '5500') && !taskP.some(p => p.id === '5501'));
 
   // B: reopen matches D2 - Reopen Sign-off field for field.
   const notes = body(B).SignOffNotes || '';

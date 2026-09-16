@@ -1600,33 +1600,46 @@ function importFromD2Payload(d,silent){
         s.spLocked=!!is.locked;      // the raw SharePoint pin, tracked on its own -- see WRITEBACK_FIELDS
         s.locked=!!(is.locked||is.inst);
         if(Array.isArray(is.tasks)&&Array.isArray(s.tasks)){
-          /* Which SharePoint row each checklist line writes to. Matched by the
-             task's NAME first, and only then by position, because position
-             alone writes to the wrong row the moment anyone reorders a
-             checklist on the SharePoint site: ticking "A" would land on "B".
-             A line matched by position only (reworded in SharePoint) still
-             shows SharePoint's state but carries NO row id, so a tick on it is
-             reported rather than written somewhere it may not belong. A line
-             with no row at all (deleted in SharePoint) is treated the same.
+          /* Which SharePoint row each checklist line writes to. Position alone
+             writes to the wrong row the moment a checklist is reordered on the
+             SharePoint site: ticking "A" would land on "B". So:
+
+             1. match by task NAME;
+             2. only what is left over matches by position, and it keeps a row
+                id only when the leftovers line up exactly -- the same number on
+                each side, each at the position of a line still unmatched. That
+                is a task renamed on one side (the SharePoint row, or this
+                browser's Phase Template), and position is then the same task.
+
+             Anything else (a reorder plus a rename, a task added or deleted in
+             SharePoint) still shows SharePoint's state but carries NO row id, so
+             a tick on it is reported instead of written where it may not belong.
              Ids are cleared first so a re-import never keeps a stale one. */
           const claimed=new Set(), sameName=(a,b)=>String(a??'').trim()===String(b??'').trim();
+          const pos=(it,i)=>it.seq!=null?it.seq-1:i;
           s.tasks.forEach(t=>{t.spId=null;});
+          // A task cannot be both done and N/A. No live row sets both today, but
+          // normalize on the way in rather than trust the source: done wins, same
+          // as tick() already clearing na when a task is ticked.
+          const take=(t,it,keepId)=>{
+            claimed.add(t);
+            t.done=!!it.done;t.na=t.done?false:!!it.na;
+            t.note=t.na?String(it.note||''):'';  // the N/A reason, Tasks.Note
+            t.spId=keepId?(it.id??null):null;   // the Tasks row this tick writes to
+            t.base={done:t.done,na:t.na,note:t.note};  // what SharePoint said, for the diff
+          };
+          const rest=[];
           is.tasks.forEach((it,i)=>{
-            let t=s.tasks.find(x=>!claimed.has(x)&&sameName(x.t,it.title)), byName=!!t;
-            if(!t){
-              const p=(it.seq!=null&&s.tasks[it.seq-1])?s.tasks[it.seq-1]:s.tasks[i];
-              if(p&&!claimed.has(p))t=p;
-            }
-            // A task cannot be both done and N/A. No live row sets both today, but
-            // normalize on the way in rather than trust the source: done wins, same
-            // as tick() already clearing na when a task is ticked.
-            if(t){
-              claimed.add(t);
-              t.done=!!it.done;t.na=t.done?false:!!it.na;
-              t.note=t.na?String(it.note||''):'';  // the N/A reason, Tasks.Note
-              t.spId=byName?(it.id??null):null;   // the Tasks row this tick writes to
-              t.base={done:t.done,na:t.na,note:t.note};  // what SharePoint said, for the diff
-            }
+            const t=s.tasks.find(x=>!claimed.has(x)&&sameName(x.t,it.title));
+            if(t)take(t,it,true); else rest.push([it,i]);
+          });
+          const free=s.tasks.filter(t=>!claimed.has(t));
+          const lined=rest.length===free.length
+            && new Set(rest.map(([it,i])=>pos(it,i))).size===rest.length
+            && rest.every(([it,i])=>free.includes(s.tasks[pos(it,i)]));
+          rest.forEach(([it,i])=>{
+            const t=s.tasks[pos(it,i)];
+            if(t&&!claimed.has(t))take(t,it,lined);
           });
           s.tasks.forEach(t=>{if(!claimed.has(t))t.base={done:!!t.done,na:!!t.na,note:t.note||''};});
         }
