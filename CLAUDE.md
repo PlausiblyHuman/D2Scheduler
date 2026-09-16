@@ -2973,11 +2973,12 @@ and a Reopen that has to leave a trace.
 | Change | Writes |
 |---|---|
 | Tick INST | `InstallerSignOff`, `InstallerSignOffByLookupId`, `InstallerSignOffOn` |
-| Un-tick INST | flag and person cleared, plus a `REOPENED … by <name>` line appended to `SignOffNotes` |
+| Un-tick INST | flag, person AND `InstallerSignOffOn` cleared, plus `REOPENED <Central time> by <name> (was signed by <name>) (from the planner)` appended to `SignOffNotes` with `  \|  ` -- the same record `D2 - Reopen Sign-off` writes from the field app |
 | Tick PM | `PMSignOff` only. **There is no `PMSignOffBy` on this list** — schema, not omission |
 | Tick a task | `Complete`, `CompletedOn`, `CompletedByLookupId` |
-| Mark N/A | `NotApplicable` true, `Complete` false, `CompletedOn` cleared |
-| Any tick | `TasksComplete`/`TasksTotal` ride the assignment row, so Don's morning figures are right without waiting for the nightly sweep |
+| Mark N/A | `NotApplicable` true, `Complete` false, `CompletedOn` cleared, **the reason in `Note`**. Refused without one |
+| Clear N/A | `NotApplicable` false and `Note` cleared, as the field app does |
+| Any tick | `TasksComplete`/`TasksTotal` ride the assignment row, **recounted from the live rows after the ticks are written**, so a refused or failed tick is not counted |
 
 **`patchBody` now adds `SuppressReconcileUntil` only when present.** Assignments writes want it;
 **the Tasks list has no such column and sending it fails the PATCH outright.**
@@ -2994,13 +2995,76 @@ agree on 885 ids, no nulls, same numeric type, identical sets.
 every task is Done or N/A first; enforcing that in the planner during the pilot would block PMs
 constantly. Schedule Check names it and counts the open tasks.
 
-**VERIFICATION, and its one honest limit.** 15 browser assertions against a stubbed Graph prove the
-exact PATCH bodies, plus 14 pure-function assertions with four watched failing under mutation. **The
-sign-off write has never touched the tenant**, because a live Graph write needs an interactive MSAL
-sign-in that cannot be done unattended. What supports it instead: the field names come from a real
-Graph capture of these rows, and the `...LookupId` Person pattern is already proven in production by
-`+ Job`'s `ProjectManagerLookupId`. **A failed PATCH is reported in the Save results, not swallowed.**
-Do the first real sign-off on a demo pool and read the row back.
+**VERIFIED LIVE 2026-09-16b, on a throwaway pool, by reading the rows back.** The limit recorded here
+that morning ("needs an interactive sign-in that cannot be done unattended") turned out not to hold:
+the Playwright MCP browser profile still carried a D2 session, so both the Static Web Apps wall and
+MSAL completed with no prompt. **Check that profile before assuming a live test needs a human.**
+
+Run on `TEST-9401`, a `Planned` pool owned by D2 Bot and created for the purpose (see the testing rule
+below), through the real controls:
+
+| Checked | Result |
+|---|---|
+| Tick INST + PM, two tasks, one N/A | all landed; `InstallerSignOffByLookupId` `7`, `InstallerSignOffOn` to the second, counters `2/17`, suppression +10 min |
+| A PM tick made in SharePoint after load | **refused** (`loaded false, now true`) while other rows landed |
+| A task ticked in SharePoint after load | **refused**, not overwritten |
+| Open-task warning | named the right counts (14 and 9 unresolved) |
+| Reopen | flag, person and time cleared; note appended |
+| Every checklist line's row id | **295 of 295** matched the right SharePoint task and parent |
+
+**The run found four defects, all fixed and redeployed the same session (`6c40607`, `309e5da`):**
+
+1. **Counters came from the planner's own count**, so a refused or failed tick still counted and a
+   tick made elsewhere did not. Ticks are now written first and `settleCounters` recounts from the live
+   rows with only the landed writes applied. Re-verified live: a planner tick plus a SharePoint-side tick
+   on the same sub-phase came out `3/10`, where the old code wrote `2`.
+2. **The planner's Reopen and `D2 - Reopen Sign-off` wrote the same audit trail differently**: UTC with
+   no zone, `InstallerSignOffOn` kept, no "was signed by", newline separator. Now identical to the flow.
+3. **The Save button read "Save 0 edits to SharePoint"** over eight sign-off changes, and the results
+   said **"Nothing needed saving."** under five saved ones. Both count sign-off now.
+4. **N/A carried no reason.** The field app requires one in `Tasks.Note`; the planner wrote
+   `NotApplicable` alone and never read `Note`, while the PM guide already told PMs a reason was
+   mandatory. N/A now asks why, refuses a blank answer, shows the reason, and writes it.
+   **Verified live on a second throwaway pool, `TEST-9402`:** a blank answer was refused in the UI;
+   the reason stored in `Note`; it came back on the post-save Refresh; clearing the N/A stored `Note`
+   as empty (Graph then omits the field, which is SharePoint storing `""` as null, not a failed write).
+
+**A fifth gap was found writing the PM guide against the planner, not by the live run: sign-off did not
+lock the checklist** (`12ab5d2`). Business rule 2026-09-06 says a signed-off sub-phase's tasks are read
+only and a recorded reopen is the only way back. The field app enforces it; the planner let a PM untick
+tasks under a saved sign-off and Save. Now the checklist renders disabled while INST is ticked, the
+handlers refuse, and `planTaskTicks` refuses any task write on a sub-phase SharePoint holds as signed
+unless the same save reopens it. Checked on the hosted build read-only: a signed Whitfield sub-phase
+showed 17 of 17 boxes disabled and queued nothing.
+
+The same pass made the Save results say `installer sign-off`, `task counts` and `reopen noted` instead
+of column names, and stopped calling a counters-only write a sign-off.
+
+**Tenant audited back to baseline after both test pools**: 4 jobs, 184 assignments, 1180 tasks, the 4
+real `New Pool Requests` rows, 0 `Delete Pool Requests` rows.
+
+**`fixtures/planner/signoff-push.js`** is the committed test of the bodies `pushSignoffs` sends: the
+real page, core and Graph code with only `fetch` stubbed. It replaced the scratchpad assertions the
+morning commit cited. Every fix above has a mutation that turns it red.
+
+**THE LIVE-TEST RULE for anything that writes sign-off: use a throwaway `Planned` pool owned by D2 Bot,
+never a demo pool.** A Reopen leaves a permanent line in `SignOffNotes` and a version-history entry, so
+"sign it and un-tick it" is not a clean undo on a pool a client PM owns. `+ Job` with **Assign default
+crews unticked** makes one in about 8 minutes (`TEST-9401`: 8m12s, well under the 16m33s recorded on
+2026-09-14) with no crew to double-book, and `Delete Pool Requests` removes it in about 6 (set
+`OverrideSignedOff` if anything is signed). Neither flow emails anyone but D2 Bot. Delete both request
+rows afterwards; those lists are the client's operational log.
+
+---
+
+## EDITING `web/index.html` FROM A SCRIPT: two traps, both cost a cycle on 2026-09-16b
+
+- **The `Edit` tool rewrites the whole working-copy file as CRLF.** `core.autocrlf=true` normalises it
+  back on commit, so the repo and the deploy are unaffected, but a Python `str.replace` with `\n` in its
+  pattern then matches nothing. Detect CRLF and convert the pattern, or use the `Edit` tool throughout.
+- **A bash heredoc eats a level of backslashes, even quoted.** `'\n'` inside a heredoc'd Python script
+  arrives as a real newline and the script fails to parse. Write the script to a file with the `Write`
+  tool and run it, and build control characters with `chr()` rather than escapes.
 
 ---
 
@@ -3059,9 +3123,9 @@ on the demo data) rather than the first one, because a first-match check is what
 phase rows through.
 
 **The browser assertions for the sign-off WRITE path were never committed.** The 10:02 commit cites
-"15 browser assertions against a stubbed Graph", but they lived in a scratchpad. What IS in the repo is
-the pure planning layer (`fixtures/planner/writeback-core.js`). The PATCH bodies `pushSignoffs`
-actually sends are pinned by nothing committed.
+"15 browser assertions against a stubbed Graph", but they lived in a scratchpad. **Closed 2026-09-16b by
+`fixtures/planner/signoff-push.js`**, written after a live run found four defects those assertions had
+not looked for. See "THE PLANNER NOW RECORDS SIGN-OFF" above.
 
 ---
 
