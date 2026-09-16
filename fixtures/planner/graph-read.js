@@ -178,6 +178,18 @@ const totalNa = p => p.jobs.reduce((n, j) => n + j.sections.reduce((m, s) => m +
   ok('sign-offs landed and match the tenant', all.filter(s => s.inst).length === liveSigned,
      all.filter(s => s.inst).length + ' of ' + liveSigned);
   ok('signed work imported as locked', all.filter(s => s.inst).every(s => s.locked));
+  {
+    // Every checklist line must carry the id of the SharePoint row with the SAME
+    // name. Matching by name is what keeps a tick off the wrong row after a
+    // reorder; on the real capture it must still attach every id.
+    const byId = new Map(graphLive.tasks.map(r => [Number(r.fields.id), r.fields.Title]));
+    const lines = all.flatMap(s => s.tasks);
+    const withId = lines.filter(t => t.spId != null);
+    ok('every task line got its SharePoint row id', withId.length === graphLive.tasks.length,
+       withId.length + ' of ' + graphLive.tasks.length);
+    ok('...and every id belongs to a row with the same task name',
+       withId.every(t => String(byId.get(Number(t.spId))).trim() === String(t.t).trim()));
+  }
   ok('ticks landed and match the tenant',
      all.reduce((n, s) => n + s.tasks.filter(t => t.done).length, 0) === liveDone);
 

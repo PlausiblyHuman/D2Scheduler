@@ -1600,19 +1600,35 @@ function importFromD2Payload(d,silent){
         s.spLocked=!!is.locked;      // the raw SharePoint pin, tracked on its own -- see WRITEBACK_FIELDS
         s.locked=!!(is.locked||is.inst);
         if(Array.isArray(is.tasks)&&Array.isArray(s.tasks)){
+          /* Which SharePoint row each checklist line writes to. Matched by the
+             task's NAME first, and only then by position, because position
+             alone writes to the wrong row the moment anyone reorders a
+             checklist on the SharePoint site: ticking "A" would land on "B".
+             A line matched by position only (reworded in SharePoint) still
+             shows SharePoint's state but carries NO row id, so a tick on it is
+             reported rather than written somewhere it may not belong. A line
+             with no row at all (deleted in SharePoint) is treated the same.
+             Ids are cleared first so a re-import never keeps a stale one. */
+          const claimed=new Set(), sameName=(a,b)=>String(a??'').trim()===String(b??'').trim();
+          s.tasks.forEach(t=>{t.spId=null;});
           is.tasks.forEach((it,i)=>{
-            let t=(it.seq!=null&&s.tasks[it.seq-1])?s.tasks[it.seq-1]:s.tasks[i];
-            if(!t&&it.title)t=s.tasks.find(x=>x.t===it.title);
+            let t=s.tasks.find(x=>!claimed.has(x)&&sameName(x.t,it.title)), byName=!!t;
+            if(!t){
+              const p=(it.seq!=null&&s.tasks[it.seq-1])?s.tasks[it.seq-1]:s.tasks[i];
+              if(p&&!claimed.has(p))t=p;
+            }
             // A task cannot be both done and N/A. No live row sets both today, but
             // normalize on the way in rather than trust the source: done wins, same
             // as tick() already clearing na when a task is ticked.
             if(t){
+              claimed.add(t);
               t.done=!!it.done;t.na=t.done?false:!!it.na;
               t.note=t.na?String(it.note||''):'';  // the N/A reason, Tasks.Note
-              t.spId=it.id??null;                 // the Tasks row this tick writes to
+              t.spId=byName?(it.id??null):null;   // the Tasks row this tick writes to
               t.base={done:t.done,na:t.na,note:t.note};  // what SharePoint said, for the diff
             }
           });
+          s.tasks.forEach(t=>{if(!claimed.has(t))t.base={done:!!t.done,na:!!t.na,note:t.note||''};});
         }
         /* Baseline: exactly the fields SharePoint owns, as they arrived. Divergence
            is a diff against this rather than a flag, so the same structure answers
@@ -2098,7 +2114,8 @@ function showPushResult(out,err){
       so.sPlan.errors.map(e=>row(e.jobno+' '+e.num,'sign-off',e.reason)),
       so.tPlan.errors.map(e=>row(e.jobno+' '+e.num,'task: '+(e.task||''),
         ({'na-no-reason':'marked N/A without a reason, so nothing was written',
-          'no-row-id':'not in SharePoint yet','row-missing':'no longer in SharePoint'})[e.reason]||e.reason)),
+          'no-row-id':'could not be matched to its SharePoint row, so nothing was written',
+          'row-missing':'no longer in SharePoint'})[e.reason]||e.reason)),
       so.sRes.failed.map(f=>row(f.jobno+' '+f.num,'sign-off','HTTP '+f.status)),
       so.tRes.failed.map(f=>row(f.jobno+' '+f.num,'task','HTTP '+f.status))):[];
     body.innerHTML=

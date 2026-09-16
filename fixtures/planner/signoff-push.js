@@ -56,12 +56,19 @@ win.alert = () => {}; win.confirm = () => true;
     skip: false, locked: false, inst: i === 1 || i === 3, pm: false,
     tasks: s.tasks.map((t, k) => (i === 0 && k === 5
       ? { id: 5000 + i * 100 + k, seq: k + 1, title: t, done: false, na: true, note: 'Inspection pending' }
+      : i === 4 && k === 0 ? { id: 5000 + i * 100 + k, seq: 2, title: t, done: false, na: false }      // moved to 2nd
+      : i === 4 && k === 1 ? { id: 5000 + i * 100 + k, seq: 1, title: t, done: false, na: false }      // moved to 1st
+      : i === 4 && k === 2 ? { id: 5000 + i * 100 + k, seq: 3, title: t + ' (reworded)', done: false, na: false }
       : { id: 5000 + i * 100 + k, seq: k + 1, title: t, done: false, na: false }))
   }));
   win.importFromD2Payload(payload, true);
   const j = S.jobs.find(x => x.jobno === 'D2-1042');
   const secs = win.allSecs(j);
   const A = secs[0].s, B = secs[1].s, C = secs[2].s, D = secs[3].s;   // D is signed and stays signed
+  const E = secs[4].s;                                                // reordered and reworded in SharePoint
+  ok('a checklist reordered in SharePoint still gives each line the row with its own name',
+     E.tasks[0].spId === 5400 && E.tasks[1].spId === 5401, E.tasks[0].spId + ',' + E.tasks[1].spId);
+  ok('a line reworded in SharePoint gets NO row id, so it cannot write to the wrong row', E.tasks[2].spId === null);
   const nA = A.tasks.length, nC = C.tasks.length;
   ok('scenario has room for the checks (C needs four tasks)', nC >= 4, 'A=' + nA + ' C=' + nC);
   ok('an N/A reason is imported from SharePoint', A.tasks[5].na === true && A.tasks[5].note === 'Inspection pending',
@@ -73,13 +80,13 @@ win.alert = () => {}; win.confirm = () => true;
     InstallerSignOff: false, PMSignOff: false }, extra);
   const live = {
     asg: [asgRow(A), asgRow(B, { InstallerSignOff: true, InstallerSignOffByLookupId: '15', SignOffNotes: 'earlier' }), asgRow(C),
-          asgRow(D, { InstallerSignOff: true, InstallerSignOffByLookupId: '15' })],
+          asgRow(D, { InstallerSignOff: true, InstallerSignOffByLookupId: '15' }), asgRow(E)],
     tasks: [], uil: [
       { id: '14', Title: 'Cody Campbell', Name: 'i:0#.f|membership|cody@d2pools.com' },
       { id: '15', Title: 'Emon Alexander', Name: 'i:0#.f|membership|emon@d2pools.com' },
       { id: '3', Title: 'D2 Build Scheduler Owners' }]
   };
-  [A, B, C, D].forEach(s => s.tasks.forEach((t, k) => live.tasks.push({ id: String(t.spId), AssignmentLookupId: String(s.base.id),
+  [A, B, C, D, E].forEach(s => s.tasks.forEach((t, k) => live.tasks.push({ id: String(t.spId), AssignmentLookupId: String(s.base.id),
     Complete: false, NotApplicable: false })));
   const liveTask = (s, k) => live.tasks.find(r => r.id === String(s.tasks[k].spId));
   liveTask(A, 5).NotApplicable = true; liveTask(A, 5).Note = 'Inspection pending';
@@ -118,6 +125,8 @@ win.alert = () => {}; win.confirm = () => true;
   ok('...and its handlers refuse too', D.tasks.every(t => !t.done));
   // ...and if a change reaches the change set anyway, the save refuses it.
   D.tasks[0].done = true;
+  // E: tick the first line (matched by name) and the reworded third (no row id).
+  E.tasks[0].done = true; E.tasks[2].done = true;
 
   win.sign(j.id, 0, 0, 'inst', true);                         // sign A
   win.sign(j.id, secs[1].gi, secs[1].si, 'inst', false);       // reopen B
@@ -149,7 +158,7 @@ win.alert = () => {}; win.confirm = () => true;
   // ---- preview label ----
   win.openSavePreview();
   const label = win.document.querySelector('#dFoot button.p').textContent.trim();
-  ok('the Save button counts sign-off and checklist changes', /Save 9 sign-off and checklist changes to SharePoint/.test(label), label);
+  ok('the Save button counts sign-off and checklist changes', /Save 11 sign-off and checklist changes to SharePoint/.test(label), label);
   ok('...and never says "0 edits"', !/\b0 edits?\b/.test(label), label);
 
   await win.confirmSaveByPush();
@@ -178,6 +187,9 @@ win.alert = () => {}; win.confirm = () => true;
   }
 
   ok('a task change under a standing sign-off is never written', !taskP.some(p => p.id === String(D.tasks[0].spId)));
+  ok('a tick on a reordered line is written to the row with its name',
+     taskP.some(p => p.id === '5400' && p.body.Complete === true) && !taskP.some(p => p.id === '5401'));
+  ok('a tick on a reworded line is not written anywhere', taskP.filter(p => p.id === '5402').length === 0);
 
   // B: reopen matches D2 - Reopen Sign-off field for field.
   const notes = body(B).SignOffNotes || '';
@@ -203,6 +215,7 @@ win.alert = () => {}; win.confirm = () => true;
   ok('the results name what was saved', /Sign-off and checklist saved/i.test(out));
   ok('the results name what was NOT saved', /NOT saved/.test(out));
   ok('...and say a signed checklist needs reopening', /signed off, so reopen it/.test(out));
+  ok('...and say an unmatched line was not written', /could not be matched to its SharePoint row/.test(out));
   ok('the results use words, not column names', !/InstallerSignOffByLookupId|TasksComplete|SignOffNotes/.test(out)
      && /installer sign-off/.test(out) && /reopen noted/.test(out), out.replace(/\s+/g, ' ').slice(0, 300));
   ok('the results never say "Nothing needed saving." over saved sign-offs', !/Nothing needed saving/.test(out));
