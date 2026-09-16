@@ -76,6 +76,12 @@ const ok=(label,cond,detail='')=>{console.log((cond?'PASS':'FAIL')+' · '+label+
  await ev(`document.querySelector('[data-t="board"]').click();'ok'`);await sleep(600);
  const dt=await ev("[...document.querySelectorAll('#main tbody .dt')].filter(x=>x.textContent.includes('/')).length");
  ok('every board row shows its dates', dt>130, dt+' rows');
+ ok('the board opens on TODAY, not the earliest pool date', await ev(`(()=>{
+   const tl=document.querySelector('#main .tl'), t=tl.querySelector('th.today');
+   if(!t)return false;
+   const tlR=tl.getBoundingClientRect(), tR=t.getBoundingClientRect();
+   const nmW=tl.querySelector('thead .nm').getBoundingClientRect().width;
+   return tl.scrollLeft>0 && tR.left>tlR.left+nmW-1 && tR.right<tlR.right+1;})()`));
  ok('the dates column is aligned across row types', await ev(
    "new Set([...document.querySelectorAll('#main tbody .dt')].slice(0,40).map(x=>Math.round(x.getBoundingClientRect().right))).size===1"));
  await ev("[...document.querySelectorAll('#main tbody .t.sec.click')][4].click();'ok'");await sleep(450);

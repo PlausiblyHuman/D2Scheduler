@@ -30,10 +30,11 @@
  * TWO THINGS THAT ARE EASY TO GET WRONG:
  *   * /json/new must be called with PUT. A GET returns a deprecation notice as
  *     plain text, which then fails to parse as JSON with a misleading error.
- *   * The Job Board's timeline starts at the earliest date across ALL pools, so
- *     an unscrolled capture shows empty grid with every bar off to the right.
- *     The board entry below scrolls the .tl container first. If the demo pools
- *     are ever restaged, that scroll offset needs re-picking by eye once.
+ *   * The Job Board used to need a hard scroll offset here, because its timeline
+ *     starts at the earliest date across ALL pools and an unscrolled capture was
+ *     empty grid with every bar off to the right. The board now lands on today by
+ *     itself (see positionTimeline), so the offset is 0 and the figure shows
+ *     whatever is current.
  */
 const fs = require('fs');
 const path = require('path');
@@ -44,7 +45,7 @@ const OUT = process.argv[2] || '.';
 
 /* tab, which .card on that tab, output name, timeline scroll, max height */
 const FIGURES = [
-  ['board',     1, 'board',     2050, 900],
+  ['board',     1, 'board',        0, 900],   // the board now lands on today by itself
   ['board',     0, 'check',        0, 760],
   ['crewboard', 0, 'crewboard',    0, 720],
   ['dispatch',  0, 'dispatch',     0, 900],

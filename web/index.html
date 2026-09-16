@@ -291,7 +291,7 @@ const dow=s=>['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][parseD(s).getDay()];
 /* ============================== state ============================== */
 const KEY='poolsched.v6';
 const sizeTxt=c=>c.size==null?'?':c.size;
-let S, UI={collapsed:{}};
+let S, UI={collapsed:{},tlScroll:{}};
 
 function mkTemplate(){
   return SEED_TEMPLATE.map((p,i)=>({
@@ -819,7 +819,35 @@ function render(){
   document.getElementById('main').innerHTML=
     ({board:vBoard,crewboard:vCrewBoard,dispatch:vDispatch,signoff:vSignoff,jobs:vJobs,crews:vCrews,phases:vPhases})[TAB]();
   document.querySelectorAll('input[data-ind]').forEach(el=>el.indeterminate=true);
+  positionTimeline();
   save();
+}
+
+/* The timeline spans the earliest work across ALL pools to the latest, so on real
+   data it opens months behind today -- the board showed June while the office was
+   working in September, and the first thing anyone did was scroll. Land it on
+   today instead.
+
+   ONCE PER TAB, THEN LEAVE IT ALONE. render() runs on every task tick, every
+   drawer save and every sign-off, so re-centring on each one would yank the view
+   out from under someone mid-edit, which is worse than the problem it fixes. The
+   position is remembered per tab and restored; only a tab never visited, or a
+   fresh Refresh (which replaces the schedule anyway), starts at today. */
+function positionTimeline(){
+  const tl=document.querySelector('#main .tl');
+  if(!tl)return;
+  tl.addEventListener('scroll',()=>{UI.tlScroll[TAB]=tl.scrollLeft;},{passive:true});
+  const keep=UI.tlScroll[TAB];
+  if(keep!=null){tl.scrollLeft=keep;return;}
+  const t=tl.querySelector('th.today');
+  if(!t)return;                      // today is outside this schedule: leave it at the start
+  // The name column is sticky and overlays the left of the scroll area, so today
+  // has to clear it, plus a few days of run-up for context.
+  const nm=tl.querySelector('thead .nm');
+  const nmW=nm?nm.getBoundingClientRect().width:0;
+  const day=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--day'))||26;
+  tl.scrollLeft=Math.max(0,t.offsetLeft-nmW-day*3);
+  UI.tlScroll[TAB]=tl.scrollLeft;
 }
 function flagsCard(){
   const c=conflicts(),e=c.filter(x=>x.lvl==='err'),w=c.filter(x=>x.lvl==='warn');
@@ -1447,6 +1475,7 @@ function importFromD2Payload(d,silent){
     S.settings=S.settings||{};
     S.settings.exportedOn=d.exported||null;
     S.settings.loadedAt=new Date().toISOString();
+    UI.tlScroll={};   // a new schedule re-centres on today
 
     plan.forEach(({inj,existing})=>{
       let j=existing;
@@ -1516,7 +1545,7 @@ function importFromD2Payload(d,silent){
       S.pendingCreates=S.pendingCreates.filter(c=>!arrived.has(String(c.jobno)));
     }
 
-    save(); UI={collapsed:{}}; render();
+    save(); UI={collapsed:{},tlScroll:{}}; render();
     /* The routine summary is skipped on a silent re-read -- that runs straight
        after a Save, and a "Schedule loaded" modal stacked on top of the save
        results is noise the PM did not ask for.

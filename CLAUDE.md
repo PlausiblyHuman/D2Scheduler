@@ -2949,6 +2949,32 @@ verification, not on reading the hosted page. Someone signing in confirms it in 
 
 ---
 
+## THE TIMELINE OPENS ON TODAY — 2026-09-16
+
+The axis spans the earliest work across **all** pools to the latest, so on live data the board opened
+months behind: it showed **June** while the office was working in September, and the first thing anyone
+did was scroll. `positionTimeline()` now lands it on the current week.
+
+**The hard part is not scrolling to today, it is not fighting the user.** `render()` runs on every task
+tick, every drawer save and every sign-off. Re-centring on each one would yank the view out from under
+someone mid-edit, which is worse than the problem it fixes. So the scroll position is **remembered per
+tab** and restored on re-render; only a tab never visited, or a fresh Refresh (which replaces the
+schedule anyway), starts at today. `UI.tlScroll` holds it, updated by a passive `scroll` listener.
+
+It anchors on the `th.today` cell the header already rendered, not on an arithmetic guess, and subtracts
+the sticky name column's width plus three days of run-up, because the sticky column overlays the left of
+the scroll area and today would otherwise sit underneath it. If today falls outside the schedule the
+function returns and leaves the board at the start.
+
+**`tools/capture-planner-screens.js` no longer needs its hard-coded board scroll offset** (it was 2050px,
+picked by eye) and now captures whatever is current.
+
+Pinned by a shakedown assertion that checks today is both scrolled-to and actually visible clear of the
+sticky column, plus five more in the browser: a re-render keeps the user's scroll, switching tabs and
+back keeps it, and a fresh load re-centres.
+
+---
+
 ## THE JOB BOARD GREW A DATES COLUMN AND CLICKABLE NAMES, AND AUTO-SCHEDULE EXPLAINS ITSELF — 2026-09-16
 
 **Only the gantt bar opened a sub-phase.** So a row with no dates had no bar and therefore no way in at
