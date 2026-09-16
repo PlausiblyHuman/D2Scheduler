@@ -1,0 +1,166 @@
+/* The sign-off Save, end to end in the real page, against a stubbed Graph.
+ *
+ * WHY THIS EXISTS: the sign-off write path shipped on 2026-09-16 with fifteen
+ * browser assertions that lived in a scratchpad and were never committed, so
+ * the PATCH bodies pushSignoffs actually sends were pinned by nothing in the
+ * repo. The first live run then found three things those assertions had not
+ * looked for:
+ *
+ *  1. Counters were taken from the planner's own count, so a refused or failed
+ *     tick left TasksComplete disagreeing with the rows until the nightly sweep.
+ *  2. A Reopen wrote a UTC stamp with no zone on it, kept InstallerSignOffOn,
+ *     and did not say who had signed -- three ways it differed from
+ *     D2 - Reopen Sign-off writing the same record from the field app.
+ *  3. The Save button read "Save 0 edits to SharePoint" over eight sign-off
+ *     changes, and the results said "Nothing needed saving." under five saved
+ *     ones.
+ *
+ * Only fetch is stubbed. The planner, writeback-core.js and graph-writeback.js
+ * all run for real, inlined because jsdom does not fetch <script src>.
+ */
+const fs = require('fs');
+const path = require('path');
+const { JSDOM, VirtualConsole } = require('jsdom');
+
+const WEB = path.resolve(__dirname, '../../web');
+let fail = 0;
+const ok = (l, c, d = '') => { console.log((c ? 'PASS' : 'FAIL') + ' · ' + l + (d ? '  [' + d + ']' : '')); if (!c) fail = 1; };
+
+const inline = f => '<script>' + fs.readFileSync(path.join(WEB, f), 'utf8') + '</script>';
+const html = fs.readFileSync(path.join(WEB, 'index.html'), 'utf8')
+  .replace('<script src="writeback-core.js"></script>', inline('writeback-core.js'))
+  .replace('<script src="graph-writeback.js"></script>', inline('graph-writeback.js'))
+  .replace('</body>', `<script>window.__x=()=>{window.S=S;window.allSecs=allSecs;window.D2_GRAPH=D2_GRAPH;
+     window.importFromD2Payload=importFromD2Payload;window.sign=sign;window.openSavePreview=openSavePreview;
+     window.confirmSaveByPush=confirmSaveByPush;};</script><script>__x();</script></body>`);
+const vc = new VirtualConsole(); vc.on('jsdomError', e => console.log('[jsdom]', e.message));
+const dom = new JSDOM(html, { runScripts: 'dangerously', pretendToBeVisual: true, url: 'http://localhost/', virtualConsole: vc });
+const win = dom.window;
+win.alert = () => {}; win.confirm = () => true;
+
+(async () => {
+  await new Promise(r => setTimeout(r, 600));
+  const S = win.S, L = win.D2_GRAPH.lists;
+  ok('the inlined write scripts loaded', !!win.D2WritebackCore && !!win.D2GraphWriteback);
+
+  // ---- three sub-phases on one pool, as SharePoint holds them at load ----
+  const payload = {
+    app: 'D2 Pool Build Scheduler', kind: 'd2-sharepoint-export', exported: '2026-09-16', site: 'x', nonWork: [],
+    jobs: [{ id: 19, jobno: 'D2-1042', name: 'Reyes Residence', addr: '', city: '', start: '2026-09-08', status: 'Active', pm: '',
+      sections: [] }]
+  };
+  const T = win.eval('SEED_TEMPLATE');
+  const defs = T.flatMap(g => g.sections.map(s => ({ num: s.num, name: s.name, tasks: s.tasks })));
+  payload.jobs[0].sections = defs.map((s, i) => ({
+    id: 1000 + i, num: s.num, name: s.name, crewId: 'devon', start: '2026-09-08', finish: '2026-09-09', days: 2,
+    skip: false, locked: false, inst: i === 1, pm: false,
+    tasks: s.tasks.map((t, k) => ({ id: 5000 + i * 100 + k, seq: k + 1, title: t, done: false, na: false }))
+  }));
+  win.importFromD2Payload(payload, true);
+  const j = S.jobs.find(x => x.jobno === 'D2-1042');
+  const secs = win.allSecs(j);
+  const A = secs[0].s, B = secs[1].s, C = secs[2].s;
+  const nA = A.tasks.length, nC = C.tasks.length;
+  ok('scenario has room for the checks (C needs four tasks)', nC >= 4, 'A=' + nA + ' C=' + nC);
+
+  // ---- what is live at Save time ----
+  const asgRow = (s, extra) => Object.assign({ id: String(s.base.id), Title: 'D2-1042 · ' + s.num + ' ' + s.name,
+    Crew: 'devon', ScheduledStart: '2026-09-08T05:00:00Z', DurationDays: 2, Locked: false, NotApplicable: false,
+    InstallerSignOff: false, PMSignOff: false }, extra);
+  const live = {
+    asg: [asgRow(A), asgRow(B, { InstallerSignOff: true, InstallerSignOffByLookupId: '15', SignOffNotes: 'earlier' }), asgRow(C)],
+    tasks: [], uil: [
+      { id: '14', Title: 'Cody Campbell', Name: 'i:0#.f|membership|cody@d2pools.com' },
+      { id: '15', Title: 'Emon Alexander', Name: 'i:0#.f|membership|emon@d2pools.com' },
+      { id: '3', Title: 'D2 Build Scheduler Owners' }]
+  };
+  [A, B, C].forEach(s => s.tasks.forEach((t, k) => live.tasks.push({ id: String(t.spId), AssignmentLookupId: String(s.base.id),
+    Complete: false, NotApplicable: false })));
+  const liveTask = (s, k) => live.tasks.find(r => r.id === String(s.tasks[k].spId));
+  // Since load, somebody marked C's task 2 N/A and ticked C's tasks 3 and 4.
+  liveTask(C, 1).NotApplicable = true;
+  liveTask(C, 2).Complete = true;
+  liveTask(C, 3).Complete = true;
+
+  // ---- the planner's edits ----
+  A.tasks[0].done = true; A.tasks[1].done = true;            // two ticks on A, the second will FAIL at Graph
+  C.tasks[0].done = true; C.tasks[1].done = true;            // two ticks on C, the second will be REFUSED
+  win.sign(j.id, 0, 0, 'inst', true);                         // sign A
+  win.sign(j.id, secs[1].gi, secs[1].si, 'inst', false);       // reopen B
+  win.sign(j.id, secs[2].gi, secs[2].si, 'inst', true);        // sign C
+
+  // ---- the stubbed Graph ----
+  const patches = [];
+  const failTaskId = String(A.tasks[1].spId);
+  win.graphModeAvailable = () => true;
+  win.graphToken = async () => 'TOK';
+  win.graphPca = () => ({ getActiveAccount: () => ({ username: 'cody@d2pools.com', name: 'Cody Campbell' }), getAllAccounts: () => [] });
+  win.loadFromD2ViaGraph = async () => {};
+  const res = (status, body) => ({ ok: status < 300, status, json: async () => body });
+  win.fetch = async (url, init) => {
+    init = init || {};
+    if (init.method === 'PATCH') {
+      const m = url.match(/lists\/([^/]+)\/items\/([^/]+)\/fields/);
+      patches.push({ list: m[1], id: m[2], body: JSON.parse(init.body) });
+      return m[1] === L.tasks && m[2] === failTaskId ? res(500, { error: 'boom' }) : res(200, {});
+    }
+    if (/\/sites\/[^/]+:\/sites/.test(url)) return res(200, { id: 'SITE' });
+    const wrap = rows => res(200, { value: rows.map(f => ({ id: f.id, fields: f })) });
+    if (url.includes('User Information List')) return wrap(live.uil);
+    if (url.includes('/lists/' + L.asg + '/')) return wrap(live.asg);
+    if (url.includes('/lists/' + L.tasks + '/')) return wrap(live.tasks);
+    return res(404, {});
+  };
+
+  // ---- preview label ----
+  win.openSavePreview();
+  const label = win.document.querySelector('#dFoot button.p').textContent.trim();
+  ok('the Save button counts sign-off and checklist changes', /Save 7 sign-off and checklist changes to SharePoint/.test(label), label);
+  ok('...and never says "0 edits"', !/\b0 edits?\b/.test(label), label);
+
+  await win.confirmSaveByPush();
+  await new Promise(r => setTimeout(r, 50));
+
+  const asgP = patches.filter(p => p.list === L.asg), taskP = patches.filter(p => p.list === L.tasks);
+  const body = s => (asgP.find(p => p.id === String(s.base.id)) || {}).body || {};
+
+  ok('every task write happens BEFORE any assignment write',
+     patches.length > 0 && patches.findIndex(p => p.list === L.asg) > patches.map(p => p.list).lastIndexOf(L.tasks),
+     patches.map(p => (p.list === L.asg ? 'A' : 'T') + p.id).join(' '));
+
+  // A: two ticks attempted, one failed at Graph -> counter reflects the one that landed.
+  ok('A is signed with the person and the time', body(A).InstallerSignOff === true
+     && body(A).InstallerSignOffByLookupId === '14' && /^\d{4}-\d\d-\d\dT/.test(body(A).InstallerSignOffOn), JSON.stringify(body(A)));
+  ok('A counts only the tick that LANDED, not the one that failed', body(A).TasksComplete === 1 && body(A).TasksTotal === nA,
+     body(A).TasksComplete + '/' + body(A).TasksTotal);
+  ok('assignment writes carry the suppression stamp', !!body(A).SuppressReconcileUntil);
+  ok('task writes never do (the Tasks list has no such column)', taskP.every(p => !('SuppressReconcileUntil' in p.body)));
+
+  // B: reopen matches D2 - Reopen Sign-off field for field.
+  const notes = body(B).SignOffNotes || '';
+  ok('a Reopen clears the flag, the person AND the timestamp', body(B).InstallerSignOff === false
+     && body(B).InstallerSignOffByLookupId === null && body(B).InstallerSignOffOn === null, JSON.stringify(body(B)));
+  ok('the Reopen note keeps what was there, joined the way the flow joins it',
+     notes.startsWith('earlier  |  REOPENED '), notes);
+  ok('the Reopen note says who reopened AND who had signed',
+     / by Cody Campbell \(was signed by Emon Alexander\) \(from the planner\)$/.test(notes), notes);
+  {
+    const stamp = (notes.match(/REOPENED (\d{4}-\d\d-\d\d \d\d:\d\d)/) || [])[1];
+    const central = win.D2WritebackCore.centralStamp(new Date().toISOString());
+    const utc = new Date().toISOString().slice(0, 16).replace('T', ' ');
+    ok('the Reopen stamp is Central time, not UTC', stamp === central && stamp !== utc, stamp + ' vs utc ' + utc);
+  }
+
+  // C: one tick landed, one refused, two ticked by somebody else since load.
+  ok("C's refused tick is not written", !taskP.some(p => p.id === String(C.tasks[1].spId)));
+  ok('C counts the rows as they now are: its own landed tick plus the two made elsewhere',
+     body(C).TasksComplete === 3 && body(C).TasksTotal === nC, body(C).TasksComplete + '/' + body(C).TasksTotal);
+
+  const out = win.document.getElementById('dBody').innerText || win.document.getElementById('dBody').textContent;
+  ok('the results name what was saved', /Sign-off and checklist saved/i.test(out));
+  ok('the results name what was NOT saved', /NOT saved/.test(out));
+  ok('the results never say "Nothing needed saving." over saved sign-offs', !/Nothing needed saving/.test(out));
+
+  console.log(fail ? '\nFAILED' : '\nall passed');
+  process.exit(fail);
+})().catch(e => { console.error('ERR', e && e.stack || e); process.exit(1); });

@@ -86,3 +86,6 @@ canvas-app/msapp/
 canvas-app/solution-export/
 canvas-app/solution/
 *.msapp
+
+# Playwright MCP page snapshots and console logs. They capture live tenant data.
+.playwright-mcp/

@@ -1775,18 +1775,40 @@ async function pushSignoffs(siteId,tok,liveById,pools){
   const who=G.resolveSiteUserId(uil.map(r=>r.fields),acct&&acct.username);
   const userName=(acct&&(acct.name||acct.username))||'the planner';
 
-  const wantTaskIds=new Set();
-  pools.forEach(p=>p.sections.forEach(s=>s.tasks.forEach(t=>{if(t.id!=null)wantTaskIds.add(String(t.id));})));
+  /* Display names by site-user id, so a Reopen can say who HAD signed, the
+     same as D2 - Reopen Sign-off does from the field app. */
+  const userNamesById={};
+  uil.forEach(r=>{if(r.fields&&r.fields.Title)userNamesById[String(r.fields.id)]=r.fields.Title;});
 
-  let liveTaskById={};
+  const wantTaskIds=new Set(), sectionsById={};
+  pools.forEach(p=>p.sections.forEach(s=>{
+    sectionsById[String(s.id)]=s;
+    s.tasks.forEach(t=>{if(t.id!=null)wantTaskIds.add(String(t.id));});
+  }));
+
+  /* Every live task row of every sub-phase in play, not just the changed ones:
+     the counters are recounted from these after the ticks land. */
+  let liveTaskById={}; const liveRowsByAsg={};
   if(wantTaskIds.size){
     const trows=await graphPageAll(U.items(D2_GRAPH.lists.tasks)+'?$expand=fields&$top=999',tok);
-    trows.forEach(r=>{const id=String(r.fields.id); if(wantTaskIds.has(id))liveTaskById[id]=r.fields;});
+    trows.forEach(r=>{
+      const id=String(r.fields.id), asg=String(r.fields.AssignmentLookupId);
+      if(wantTaskIds.has(id))liveTaskById[id]=r.fields;
+      if(sectionsById[asg])(liveRowsByAsg[asg]=liveRowsByAsg[asg]||[]).push(r.fields);
+    });
   }
 
-  const opts={userLookupId:who.id||null,userName,nowIso:new Date().toISOString()};
+  const opts={userLookupId:who.id||null,userName,userNamesById,nowIso:new Date().toISOString()};
   const sPlan=C.planSignoffs(pools,liveById,opts);
   const tPlan=C.planTaskTicks(pools,liveTaskById,opts);
+
+  /* Ticks FIRST, then the assignment row. TasksComplete has to describe the
+     rows as they are after this save, so it is recounted from the live rows
+     with only the ticks that actually landed. Taken from this screen's own
+     count instead, one refused tick left the counter disagreeing with the
+     rows until the nightly sweep repaired it. */
+  const tRes=await G.applyWrites({token:tok,siteId,listId:D2_GRAPH.lists.tasks},tPlan.writes);
+  C.settleCounters(sPlan.writes,sectionsById,liveRowsByAsg,tRes.written.map(w=>w.id));
 
   /* Assignments writes carry the suppression stamp; Tasks writes must not --
      that column does not exist on the Tasks list. */
@@ -1794,7 +1816,6 @@ async function pushSignoffs(siteId,tok,liveById,pools){
   sPlan.writes.forEach(w=>{w.suppressUntil=stamp;});
 
   const sRes=await G.applyWrites({token:tok,siteId,listId:D2_GRAPH.lists.asg},sPlan.writes);
-  const tRes=await G.applyWrites({token:tok,siteId,listId:D2_GRAPH.lists.tasks},tPlan.writes);
   return {sPlan,tPlan,sRes,tRes};
 }
 
@@ -1910,14 +1931,24 @@ function openSavePreview(){
              <td class="small muted">→</td>
              <td class="small"><b>${esc(wbFmt(col,sec.fields[col].to))}</b></td></tr>`).join('')).join('')}
       </tbody></table></div>`).join('');
+  /* The label counts what will actually be written. It counted scheduling edits
+     only, so a save carrying nothing but sign-offs read "Save 0 edits to
+     SharePoint" -- a button that says it will do nothing, pressed to do
+     something. */
+  const plural=(n,w)=>`${n} ${w}${n===1?'':'s'}`;
+  const pushParts=[];
+  if(totalSecs)pushParts.push(plural(totalSecs,'schedule edit'));
+  if(soCount)pushParts.push(plural(soCount,'sign-off and checklist change'));
+  const pushLabel=pushParts.length
+    ? `Save ${pushParts.join(' and ')} to SharePoint`+(creates.length?` and request ${plural(creates.length,'new pool')}`:'')
+    : `Request ${plural(creates.length,'new pool')}`;
   document.getElementById('dFoot').innerHTML=
     `<button class="btn p" onclick="confirmSaveChangeSet()">`
       +(canPush
-        ? `Save ${totalSecs} edit${totalSecs===1?'':'s'} to SharePoint`
-        : `Download change-set (${totalSecs} edit${totalSecs===1?'':'s'}`)
-      +`${creates.length?(canPush?` and request ${creates.length} new pool${creates.length===1?'':'s'}`
-                                 :', '+creates.length+' new pool'+(creates.length===1?'':'s')):''}`
-      +(canPush?'':')')+`</button>
+        ? pushLabel
+        : `Download change-set (${plural(totalSecs,'edit')}`
+          +(creates.length?', '+plural(creates.length,'new pool'):'')+')')
+      +`</button>
      <button class="btn" onclick="closeDrawer()">Cancel</button>`;
   PENDING_CHANGESET=pools;
   PENDING_CREATES=creates;
@@ -2057,6 +2088,7 @@ function showPushResult(out,err){
      +(out.createError?`<div class="hint" style="color:#a84a18;padding:8px 0 0">
           No pool was requested. ${esc(out.createError.message)}</div>`:'')
      +(!res.written.length&&!plan.refusals.length&&!plan.errors.length&&!res.failed.length&&!out.creates
+       &&!soRows.length&&!soBad.length&&!out.soError
         ? '<div class="hint">Nothing needed saving.</div>':'');
   }
   document.getElementById('dFoot').innerHTML='<button class="btn p" onclick="closeDrawer()">Close</button>';

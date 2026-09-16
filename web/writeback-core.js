@@ -275,12 +275,20 @@
             fields.InstallerSignOffOn = nowIso;
             kinds.push('signed');
           } else {
-            /* Reopen. Clear the flag and the attribution, and append a line
-               saying who undid it, so a correction is deliberate and traceable
-               rather than a silent edit under a completed sign-off. */
+            /* Reopen. Clear the flag, the attribution AND the timestamp, and
+               append a line saying who undid it and who had signed, so a
+               correction is deliberate and traceable rather than a silent edit
+               under a completed sign-off. This matches D2 - Reopen Sign-off,
+               the field app's route to the same record, field for field: two
+               surfaces writing one audit trail must not write it two ways. */
+            var names = opts.userNamesById || {};
+            var signerId = live.InstallerSignOffByLookupId;
+            var wasSignedBy = signerId == null ? null
+              : (names[String(signerId)] || 'unknown');
             fields.InstallerSignOff = false;
             fields.InstallerSignOffByLookupId = null;
-            fields.SignOffNotes = appendReopen(live.SignOffNotes, userName, nowIso);
+            fields.InstallerSignOffOn = null;
+            fields.SignOffNotes = appendReopen(live.SignOffNotes, userName, nowIso, wasSignedBy);
             kinds.push('reopened');
           }
         }
@@ -317,11 +325,68 @@
     return { writes: writes, refusals: refusals, errors: errors };
   }
 
-  function appendReopen(existing, who, nowIso) {
-    var line = 'REOPENED ' + String(nowIso).slice(0, 16).replace('T', ' ')
-      + ' by ' + who + ' (from the planner)';
+  /* Same shape as D2 - Reopen Sign-off writes:
+       <previous notes>  |  REOPENED yyyy-MM-dd HH:mm by <who> (was signed by <name>)
+     in CENTRAL time, which is what the flow's convertTimeZone produces and what
+     everyone reading the notes is on. A bare UTC stamp reads five or six hours
+     wrong to a PM in the office, with nothing on the line to say so. */
+  function centralStamp(iso) {
+    var d = new Date(iso);
+    try {
+      var parts = {};
+      new Intl.DateTimeFormat('en-US', {
+        timeZone: 'America/Chicago', year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', hourCycle: 'h23'
+      }).formatToParts(d).forEach(function (p) { parts[p.type] = p.value; });
+      return parts.year + '-' + parts.month + '-' + parts.day + ' ' + parts.hour + ':' + parts.minute;
+    } catch (e) {
+      // No time zone data: say it is UTC rather than pass it off as local.
+      return d.toISOString().slice(0, 16).replace('T', ' ') + ' UTC';
+    }
+  }
+
+  function appendReopen(existing, who, nowIso, wasSignedBy) {
+    var line = 'REOPENED ' + centralStamp(nowIso) + ' by ' + who
+      + (wasSignedBy ? ' (was signed by ' + wasSignedBy + ')' : '')
+      + ' (from the planner)';
     var prev = existing == null ? '' : String(existing);
-    return prev ? prev + '\n' + line : line;
+    return prev ? prev + '  |  ' + line : line;
+  }
+
+  /* Task counters must describe the rows as they ARE after the save, not as
+     this screen believed they would be. planSignoffs takes the counters from
+     the planner's own count, which is wrong the moment any tick on that
+     sub-phase is refused or fails, or somebody else ticked a different task
+     since the last Refresh. So once the task writes have been applied, recount
+     from the live rows with only the writes that actually LANDED laid on top.
+
+       writes        -- planSignoffs writes (mutated in place and returned)
+       sectionsById  -- the sign-off set's sections, keyed by assignment id
+       liveRowsByAsg -- every live Tasks row for that assignment
+       landedIds     -- ids of task writes that returned OK
+
+     With no live rows for an assignment the planner's count is left alone:
+     guessing zero would be worse than a number the nightly sweep repairs. */
+  function settleCounters(writes, sectionsById, liveRowsByAsg, landedIds) {
+    var landed = {};
+    (landedIds || []).forEach(function (id) { landed[String(id)] = true; });
+    (writes || []).forEach(function (w) {
+      if (!('TasksComplete' in w.fields)) return;
+      var rows = (liveRowsByAsg || {})[String(w.id)] || [];
+      if (!rows.length) return;
+      var sec = (sectionsById || {})[String(w.id)] || {};
+      var to = {};
+      (sec.tasks || []).forEach(function (t) {
+        if (t.id != null && landed[String(t.id)]) to[String(t.id)] = !!t.to.done;
+      });
+      var done = rows.filter(function (r) {
+        var id = String(r.id);
+        return Object.prototype.hasOwnProperty.call(to, id) ? to[id] : !!r.Complete;
+      }).length;
+      w.fields.TasksComplete = done;
+      w.fields.TasksTotal = rows.length;
+    });
+    return writes;
   }
 
   /* One write per task row whose state actually changed. Compare-before-write
@@ -387,6 +452,6 @@
     jobKey: jobKey, suppressUntil: suppressUntil, planEdits: planEdits,
     planCreates: planCreates, day: day,
     planSignoffs: planSignoffs, planTaskTicks: planTaskTicks,
-    appendReopen: appendReopen
+    appendReopen: appendReopen, centralStamp: centralStamp, settleCounters: settleCounters
   };
 });
