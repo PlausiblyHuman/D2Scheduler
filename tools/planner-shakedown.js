@@ -82,6 +82,17 @@ const ok=(label,cond,detail='')=>{console.log((cond?'PASS':'FAIL')+' · '+label+
    const tlR=tl.getBoundingClientRect(), tR=t.getBoundingClientRect();
    const nmW=tl.querySelector('thead .nm').getBoundingClientRect().width;
    return tl.scrollLeft>0 && tR.left>tlR.left+nmW-1 && tR.right<tlR.right+1;})()`));
+ // Every sign-off box, sub-phase and phase level, on both tabs that carry them:
+ // each must say what Save does with it. A missed copy is how a stale tooltip
+ // survived on the phase rows after the sub-phase rows had been corrected.
+ for(const tab of ['board','signoff']){
+   await ev(`document.querySelector('[data-t="${tab}"]').click();'ok'`);await sleep(500);
+   const tips=await ev("[...document.querySelectorAll('#main .sg label')].map(l=>l.title)");
+   const wrong=tips.filter(x=>!/Press Save to record it in SharePoint/.test(x)||/field app/i.test(x));
+   ok(`${tab}: every sign-off box says Save records it (hosted wording)`, tips.length>0&&wrong.length===0,
+      `${tips.length} boxes, ${wrong.length} wrong${wrong.length?': '+wrong[0]:''}`);
+ }
+ await ev(`document.querySelector('[data-t="board"]').click();'ok'`);await sleep(500);
  ok('the dates column is aligned across row types', await ev(
    "new Set([...document.querySelectorAll('#main tbody .dt')].slice(0,40).map(x=>Math.round(x.getBoundingClientRect().right))).size===1"));
  await ev("[...document.querySelectorAll('#main tbody .t.sec.click')][4].click();'ok'");await sleep(450);

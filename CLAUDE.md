@@ -3013,35 +3013,55 @@ reach **every pool on screen**, not just the template:
 | Action | Did | Now |
 |---|---|---|
 | `delSec` | deleted a template sub-phase with **no confirmation at all** | asks, and says existing pools keep it |
-| `setAllDays` | prompt said "set every sub-phase duration", never said it overwrites **every live pool** and reschedules | names the pool count and says real durations are lost |
-| `applyTemplate` | named the consequences but not where they land | names the pool count and that a later Save carries the cleared crews to SharePoint |
+| `setAllDays` | prompt said "set every sub-phase duration", never said it overwrites **every live pool** and reschedules | names the pool count, says real durations are lost, **and that a later Save sends them** (added 2026-09-16b; the morning pass claimed this and had not done it) |
+| `applyTemplate` | named the consequences but not where they land | names the pool count, and says the rebuilt pools **are no longer linked to SharePoint, so Save sends nothing for them** |
 
-**Why this matters beyond tidiness: `crewId` and `days` are both on the write-back allowlist.** Clearing
-crews or resetting durations is local until Save, but a Save afterwards pushes them. The escape is
-Refresh, and all three confirmations now say so rather than leaving a PM to work it out.
+**The two actions reach SharePoint in OPPOSITE ways, and the first version of this entry had
+`applyTemplate` backwards.** `setAllDays` edits sections in place, so they keep their baseline and a
+Save afterwards pushes durations, crews and dates for every pool. `applyTemplate` replaces each pool's
+groups with `mkJobGroups(S.template)`, which carries **no `base`**, so `poolHasBaseline` goes false and
+the pool is treated as a local sketch: `buildChangeSet` and `buildSignoffSet` both skip it, and nothing
+is sent. That is the SAFE outcome (a Save cannot reopen every sign-off in the tenant) but the dialog
+promised the opposite. Refresh re-links the pools and restores their sign-offs. Proven, not read off
+the code: `fixtures/planner/honest-copy.js` pairs each dialog's claim with the behaviour it describes,
+and a mutation that keeps the baseline through a rebuild goes red.
+
+**Why this matters beyond tidiness: `crewId` and `days` are both on the write-back allowlist.** The
+escape from either action is Refresh, and both confirmations now say so.
 
 `delSec` was the only delete on that tab without a confirmation; `delGrp` and `delCrew` both had one.
 
 ---
 
-## SIGN-OFF AND TASK TICKS ARE VISIBLE AND EDITABLE IN THE PLANNER, AND ARE NEVER SAVED
+## SUPERSEDED THE SAME DAY: "sign-off ticks in the planner are never saved"
 
-`WRITEBACK_FIELDS` is `crewId, start, days, locked, skip`. Sign-off and task ticks are deliberately
-absent, and the code says why: the planner has no attribution model for who signed or when, and must
-never be the authority on either.
+**Written at 09:12 on 2026-09-16 and false by 10:02**, when the planner started recording sign-off
+through Save (see "THE PLANNER NOW RECORDS SIGN-OFF AND TASK TICKS" above). The open question it
+raised, whether the planner should record sign-off at all, was answered yes by Shane. Kept as a short
+record because its tooltip, *"Ticking here is not saved back; the record is the field app"*, then sat
+on the hosted planner for the rest of the morning telling PMs the opposite of what Save does.
 
-**But the INST and PM boxes on the board are still tickable, and so is the checklist inside a
-sub-phase.** A tick writes to local state, never reaches SharePoint, and is replaced by the next
-Refresh. Nothing warns anyone. A PM could reasonably tick INST, believe they recorded a sign-off, and
-be wrong; demonstrating sign-off that way in front of a client would be showing something that did not
-happen.
+**What replaced it, 2026-09-16b.** `sgNote(k, jobId)` in `web/index.html` picks the tooltip from
+what will actually happen:
 
-**Hardened with a tooltip, not by disabling the controls, deliberately.** Both boxes now read
-"shown from SharePoint. Ticking here is not saved back; the record is the field app." Making them
-read-only is a product decision about whether the planner should record sign-off at all, and the
-design intent already says no, so the honest fix is probably to disable them. That was **not** done
-unattended the night before a demo, because it changes visible behaviour on a core screen. **Open
-question for Shane.** Documented prominently in the PM guide and listed as a demo trap meanwhile.
+| Situation | INST / PM tooltip says |
+|---|---|
+| hosted, pool linked to SharePoint | Press Save to record it (INST adds "under your name", and that un-ticking reopens) |
+| hosted, pool not in SharePoint (a sketch, or after Rebuild from template) | not in SharePoint yet, so a tick is not saved |
+| opened as a downloaded file | this copy cannot save sign-off; lost on the next Refresh |
+
+PM never promises a name, because there is no `PMSignOffBy` column.
+
+**The first fix covered the sub-phase boxes and missed the PHASE-level ones**, which are built inline
+on the Job Board and the Sign-off tab rather than through `sgHTML`. `tools/planner-shakedown.js`
+caught it by reading the rendered tooltip. It now checks **every** `.sg label` on both tabs (324 each
+on the demo data) rather than the first one, because a first-match check is what would have let the
+phase rows through.
+
+**The browser assertions for the sign-off WRITE path were never committed.** The 10:02 commit cites
+"15 browser assertions against a stubbed Graph", but they lived in a scratchpad. What IS in the repo is
+the pure planning layer (`fixtures/planner/writeback-core.js`). The PATCH bodies `pushSignoffs`
+actually sends are pinned by nothing committed.
 
 ---
 

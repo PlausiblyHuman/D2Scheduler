@@ -613,8 +613,10 @@ function touch(j){ if(j) j.touchedAt=new Date().toISOString(); }
    for the write-back allowlist -- divergedSecs, the Save preview and the
    change-set file (buildChangeSet, further below) are all built
    from it, so a field cannot slip into a push without an entry here. Sign-off
-   and task ticks are deliberately never in this list -- see the note on `base`
-   in importFromD2 for why. fixtures/planner/writeback.js pins this from both
+   and task ticks are deliberately never in this list: they are written, but by
+   their own path (buildSignoffSet / pushSignoffs), because a sign-off writes a
+   Person column and a timestamp and clearing one is a Reopen that must leave a
+   trace, none of which a plain field compare can express. fixtures/planner/writeback.js pins this from both
    ends: the change-set this produces, and the fields sharepoint/apply-planner-
    changes.js will actually send.
 
@@ -638,9 +640,9 @@ const WRITEBACK_FIELDS=[
   {key:'skip',  col:'NotApplicable', bool:true}
 ];
 /* Which owned fields of this sub-phase no longer match what SharePoint sent,
-   and what changed on each. Sign-off and task ticks are never compared here --
-   the planner has no attribution model for them and must never be the
-   authority on either. */
+   and what changed on each. Sign-off and task ticks are never compared here;
+   buildSignoffSet diffs them separately, for the reason given on
+   WRITEBACK_FIELDS. */
 function secFieldDiffs(s){
   const b=s.base; if(!b)return [];
   const out=[];
@@ -652,9 +654,8 @@ function secFieldDiffs(s){
   return out;
 }
 /* Which sub-phases of this pool no longer match what SharePoint sent. Compares
-   only the fields SharePoint owns; sign-off and task ticks are deliberately not
-   in the baseline, because the planner has no attribution model for them and must
-   never be the authority on either. */
+   only the scheduling fields in WRITEBACK_FIELDS; sign-off and task ticks are
+   diffed by buildSignoffSet instead. */
 function divergedSecs(j){
   const out=[];
   allSecs(j).forEach(({s})=>{ if(s.base && secFieldDiffs(s).length) out.push(s); });
@@ -688,19 +689,31 @@ function sign(jobId,gi,si,k,val){
   touch(j);
   save();render();
 }
-/* These boxes SHOW sign-off; they do not record it. Sign-off and task ticks are
-   deliberately absent from WRITEBACK_FIELDS -- the planner has no attribution
-   model for who signed or when, and must never be the authority on either. So a
-   tick here is a local view that the next Refresh overwrites. The tooltip says
-   so, because a checkbox that silently forgets is worse than one that explains
-   itself. The real record is the field app, or SharePoint. */
-const SG_NOTE=' — shown from SharePoint. Ticking here is not saved back; the record is the field app.';
+/* Hosted, these boxes RECORD sign-off: Save writes it through pushSignoffs with
+   the signed-in user and the time, and un-ticking a recorded installer sign-off
+   is a Reopen that appends a line to SignOffNotes. Opened as a downloaded file
+   there is no way to write them, so there a tick is a local view the next
+   Refresh overwrites. The tooltip says which, because a checkbox that silently
+   forgets is worse than one that explains itself.
+
+   Only INST carries a name. There is no PMSignOffBy column on Assignments, so
+   PM writes the flag alone, and the tooltip does not promise otherwise. */
+function sgNote(k,jobId){
+  if(!graphModeAvailable())
+    return '. Shown from SharePoint. This downloaded copy cannot save sign-off, so a tick here is lost on the next Refresh.';
+  const j=S.jobs.find(x=>x.id===jobId);
+  if(j&&!poolHasBaseline(j))
+    return '. This pool is not in SharePoint yet, so a tick here is not saved.';
+  return k==='inst'
+    ? '. Press Save to record it in SharePoint under your name. Un-ticking a recorded sign-off reopens it, and the reopen is noted.'
+    : '. Press Save to record it in SharePoint.';
+}
 function sgHTML(jobId,gi,si,o){
   const i=`sign('${jobId}',${gi},${si===null?'null':si},'inst',this.checked)`;
   const p=`sign('${jobId}',${gi},${si===null?'null':si},'pm',this.checked)`;
   return `<span class="sg">
-    <label class="${o.inst?'on':''}" title="Installer sign-off${SG_NOTE}"><input type="checkbox" ${o.inst?'checked':''} onchange="${i}">INST</label>
-    <label class="${o.pm?'on':''}" title="Project Manager sign-off${SG_NOTE}"><input type="checkbox" ${o.pm?'checked':''} onchange="${p}">PM</label></span>`;
+    <label class="${o.inst?'on':''}" title="Installer sign-off${sgNote('inst',jobId)}"><input type="checkbox" ${o.inst?'checked':''} onchange="${i}">INST</label>
+    <label class="${o.pm?'on':''}" title="Project Manager sign-off${sgNote('pm',jobId)}"><input type="checkbox" ${o.pm?'checked':''} onchange="${p}">PM</label></span>`;
 }
 
 /* ============================== conflicts ==============================
@@ -923,8 +936,8 @@ function vBoard(){
         : emptyRow(ax);
       const gi_=grpSign(g,'inst'),gp_=grpSign(g,'pm');
       const gsg=`<span class="sg">
-        <label class="${gi_==='all'?'on':''}" title="Installer sign-off — all sub-phases"><input type="checkbox" ${gi_==='all'?'checked':''} ${gi_==='some'?'data-ind="1"':''} onchange="sign('${j.id}',${gi},null,'inst',this.checked)">INST</label>
-        <label class="${gp_==='all'?'on':''}" title="PM sign-off — all sub-phases"><input type="checkbox" ${gp_==='all'?'checked':''} ${gp_==='some'?'data-ind="1"':''} onchange="sign('${j.id}',${gi},null,'pm',this.checked)">PM</label></span>`;
+        <label class="${gi_==='all'?'on':''}" title="Installer sign-off for every sub-phase in this phase${sgNote('inst',j.id)}"><input type="checkbox" ${gi_==='all'?'checked':''} ${gi_==='some'?'data-ind="1"':''} onchange="sign('${j.id}',${gi},null,'inst',this.checked)">INST</label>
+        <label class="${gp_==='all'?'on':''}" title="Project Manager sign-off for every sub-phase in this phase${sgNote('pm',j.id)}"><input type="checkbox" ${gp_==='all'?'checked':''} ${gp_==='some'?'data-ind="1"':''} onchange="sign('${j.id}',${gi},null,'pm',this.checked)">PM</label></span>`;
       html+=`<tr class="phrow"><td class="nm"><div class="nmflex">
         <button class="btn sm" onclick="UI.collapsed['${ck}']=!UI.collapsed['${ck}'];render()" style="padding:0 5px">${col?'▸':'▾'}</button>
         <span class="t"><b>${g.num}.0</b> ${g.name}</span>
@@ -1041,8 +1054,8 @@ function vSignoff(){
         const gi_=grpSign(g,'inst'),gp_=grpSign(g,'pm');
         return `<tr class="phrow"><td><b>${g.num}.0</b></td><td colspan="4"><b>${g.name}</b></td>
           <td><span class="sg">
-            <label class="${gi_==='all'?'on':''}"><input type="checkbox" ${gi_==='all'?'checked':''} ${gi_==='some'?'data-ind="1"':''} onchange="sign('${j.id}',${gi},null,'inst',this.checked)">INST</label>
-            <label class="${gp_==='all'?'on':''}"><input type="checkbox" ${gp_==='all'?'checked':''} ${gp_==='some'?'data-ind="1"':''} onchange="sign('${j.id}',${gi},null,'pm',this.checked)">PM</label></span></td></tr>`+
+            <label class="${gi_==='all'?'on':''}" title="Installer sign-off for every sub-phase in this phase${sgNote('inst',j.id)}"><input type="checkbox" ${gi_==='all'?'checked':''} ${gi_==='some'?'data-ind="1"':''} onchange="sign('${j.id}',${gi},null,'inst',this.checked)">INST</label>
+            <label class="${gp_==='all'?'on':''}" title="Project Manager sign-off for every sub-phase in this phase${sgNote('pm',j.id)}"><input type="checkbox" ${gp_==='all'?'checked':''} ${gp_==='some'?'data-ind="1"':''} onchange="sign('${j.id}',${gi},null,'pm',this.checked)">PM</label></span></td></tr>`+
         g.sections.map((s,si)=>{
           const c=s.crewId?crew(s.crewId):null,pct=Math.round(secDone(s)*100);
           const e=s.start?workSpan(s.start,s.days).pop():null;
@@ -1450,7 +1463,8 @@ function setAllDays(){
   const v=prompt('Set every sub-phase duration to how many work days?'+String.fromCharCode(10,10)
     +'This overwrites the duration on EVERY sub-phase of '+pools+' pool'+(pools===1?'':'s')
     +' on this screen, not just the template, and then reschedules them. Any real durations you have '
-    +'entered are lost. Cancel unless you are setting up from scratch.','2');
+    +'entered are lost, and pressing Save afterwards sends the new durations and dates to SharePoint. '
+    +'Press Refresh to get the live schedule back. Cancel unless you are setting up from scratch.','2');
   if(v===null)return;const n=Math.max(1,+v||1);
   S.template.forEach(g=>g.sections.forEach(s=>s.days=n));
   S.jobs.forEach(j=>allSecs(j).forEach(({s})=>s.days=n));autoSchedule();render();}
@@ -1458,9 +1472,9 @@ function applyTemplate(){
   const pools=S.jobs.length;
   if(!confirm('Rebuild all '+pools+' pool'+(pools===1?'':'s')+' from the template?'+String.fromCharCode(10,10)
     +'Every crew assignment, sign-off and checklist tick on this screen is cleared and the pools are '
-    +'rescheduled from scratch. Nothing reaches SharePoint until you press Save, but if you do save '
-    +'afterwards the cleared crews go with it.'+String.fromCharCode(10,10)
-    +'Press Refresh instead if you want the live schedule back.'))return;
+    +'rescheduled from scratch. The rebuilt pools are no longer linked to SharePoint, so Save sends '
+    +'nothing for them and nothing there changes.'+String.fromCharCode(10,10)
+    +'Press Refresh to bring back the live schedule and link the pools again.'))return;
   S.jobs.forEach(j=>j.groups=mkJobGroups(S.template));autoSchedule();render();}
 
 /* ===================== import from the SharePoint site =====================
@@ -1580,13 +1594,10 @@ function importFromD2Payload(d,silent){
         /* Baseline: exactly the fields SharePoint owns, as they arrived. Divergence
            is a diff against this rather than a flag, so the same structure answers
            "has this pool been edited here" and "what would a write-back send".
-           Sign-off (inst/pm) and task ticks are deliberately NEVER in this object --
-           see divergedSecs above. The planner has no attribution model for a
-           sign-off, while SharePoint holds InstallerSignOffBy/On and SignOffNotes,
-           so a future write-back diffing against a baseline that included inst/pm
-           could overwrite an attested sign-off with a bare flag. fixtures/planner/
-           freshness.js pins the exact key set of this object for exactly this
-           reason; extend that assertion if a key is ever deliberately added here.
+           fixtures/planner/freshness.js pins the exact key set of this object;
+           extend that assertion if a key is ever deliberately added here. inst
+           and pm are in it (see the note beside them below), but only
+           buildSignoffSet reads them -- the scheduling diff never does.
            `locked` stays the DERIVED lock (SharePoint's Locked OR sign-off) that
            divergedSecs and Auto-Schedule both already key off; `spLocked` is the
            raw SharePoint Locked value on its own, kept alongside so a later
