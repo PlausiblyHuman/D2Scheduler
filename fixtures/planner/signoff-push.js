@@ -32,7 +32,7 @@ const html = fs.readFileSync(path.join(WEB, 'index.html'), 'utf8')
   .replace('<script src="graph-writeback.js"></script>', inline('graph-writeback.js'))
   .replace('</body>', `<script>window.__x=()=>{window.S=S;window.allSecs=allSecs;window.D2_GRAPH=D2_GRAPH;
      window.importFromD2Payload=importFromD2Payload;window.sign=sign;window.openSavePreview=openSavePreview;
-     window.confirmSaveByPush=confirmSaveByPush;};</script><script>__x();</script></body>`);
+     window.confirmSaveByPush=confirmSaveByPush;window.editSec=editSec;window.toggleNA=toggleNA;};</script><script>__x();</script></body>`);
 const vc = new VirtualConsole(); vc.on('jsdomError', e => console.log('[jsdom]', e.message));
 const dom = new JSDOM(html, { runScripts: 'dangerously', pretendToBeVisual: true, url: 'http://localhost/', virtualConsole: vc });
 const win = dom.window;
@@ -54,7 +54,9 @@ win.alert = () => {}; win.confirm = () => true;
   payload.jobs[0].sections = defs.map((s, i) => ({
     id: 1000 + i, num: s.num, name: s.name, crewId: 'devon', start: '2026-09-08', finish: '2026-09-09', days: 2,
     skip: false, locked: false, inst: i === 1, pm: false,
-    tasks: s.tasks.map((t, k) => ({ id: 5000 + i * 100 + k, seq: k + 1, title: t, done: false, na: false }))
+    tasks: s.tasks.map((t, k) => (i === 0 && k === 5
+      ? { id: 5000 + i * 100 + k, seq: k + 1, title: t, done: false, na: true, note: 'Inspection pending' }
+      : { id: 5000 + i * 100 + k, seq: k + 1, title: t, done: false, na: false }))
   }));
   win.importFromD2Payload(payload, true);
   const j = S.jobs.find(x => x.jobno === 'D2-1042');
@@ -62,6 +64,8 @@ win.alert = () => {}; win.confirm = () => true;
   const A = secs[0].s, B = secs[1].s, C = secs[2].s;
   const nA = A.tasks.length, nC = C.tasks.length;
   ok('scenario has room for the checks (C needs four tasks)', nC >= 4, 'A=' + nA + ' C=' + nC);
+  ok('an N/A reason is imported from SharePoint', A.tasks[5].na === true && A.tasks[5].note === 'Inspection pending',
+     JSON.stringify(A.tasks[5]));
 
   // ---- what is live at Save time ----
   const asgRow = (s, extra) => Object.assign({ id: String(s.base.id), Title: 'D2-1042 · ' + s.num + ' ' + s.name,
@@ -77,6 +81,7 @@ win.alert = () => {}; win.confirm = () => true;
   [A, B, C].forEach(s => s.tasks.forEach((t, k) => live.tasks.push({ id: String(t.spId), AssignmentLookupId: String(s.base.id),
     Complete: false, NotApplicable: false })));
   const liveTask = (s, k) => live.tasks.find(r => r.id === String(s.tasks[k].spId));
+  liveTask(A, 5).NotApplicable = true; liveTask(A, 5).Note = 'Inspection pending';
   // Since load, somebody marked C's task 2 N/A and ticked C's tasks 3 and 4.
   liveTask(C, 1).NotApplicable = true;
   liveTask(C, 2).Complete = true;
@@ -85,6 +90,23 @@ win.alert = () => {}; win.confirm = () => true;
   // ---- the planner's edits ----
   A.tasks[0].done = true; A.tasks[1].done = true;            // two ticks on A, the second will FAIL at Graph
   C.tasks[0].done = true; C.tasks[1].done = true;            // two ticks on C, the second will be REFUSED
+  // N/A through the real drawer control. A blank reason changes nothing; a real one sticks.
+  win.editSec(j.id, 0, 0);
+  const naLink = k => win.document.querySelectorAll('#tasks .tk')[k].querySelector('a.natog');
+  ok('the imported reason is shown on the task', /Inspection pending/.test(naLink(5).getAttribute('title'))
+     && /Inspection pending/.test(win.document.querySelectorAll('#tasks .tk')[5].textContent), naLink(5).getAttribute('title'));
+  let alerted = '';
+  win.alert = m => { alerted = m; };
+  win.prompt = () => '   ';
+  win.toggleNA(3);
+  ok('N/A with a blank reason is refused in the UI and changes nothing', A.tasks[3].na === false && /reason/.test(alerted), alerted);
+  win.prompt = () => null;
+  win.toggleNA(3);
+  ok('cancelling the reason prompt changes nothing', A.tasks[3].na === false);
+  win.prompt = () => '  Owner supplying this  ';
+  win.toggleNA(2);
+  ok('N/A with a reason is recorded, trimmed', A.tasks[2].na === true && A.tasks[2].note === 'Owner supplying this', JSON.stringify(A.tasks[2]));
+  win.alert = () => {};
   win.sign(j.id, 0, 0, 'inst', true);                         // sign A
   win.sign(j.id, secs[1].gi, secs[1].si, 'inst', false);       // reopen B
   win.sign(j.id, secs[2].gi, secs[2].si, 'inst', true);        // sign C
@@ -115,7 +137,7 @@ win.alert = () => {}; win.confirm = () => true;
   // ---- preview label ----
   win.openSavePreview();
   const label = win.document.querySelector('#dFoot button.p').textContent.trim();
-  ok('the Save button counts sign-off and checklist changes', /Save 7 sign-off and checklist changes to SharePoint/.test(label), label);
+  ok('the Save button counts sign-off and checklist changes', /Save 8 sign-off and checklist changes to SharePoint/.test(label), label);
   ok('...and never says "0 edits"', !/\b0 edits?\b/.test(label), label);
 
   await win.confirmSaveByPush();
@@ -135,6 +157,13 @@ win.alert = () => {}; win.confirm = () => true;
      body(A).TasksComplete + '/' + body(A).TasksTotal);
   ok('assignment writes carry the suppression stamp', !!body(A).SuppressReconcileUntil);
   ok('task writes never do (the Tasks list has no such column)', taskP.every(p => !('SuppressReconcileUntil' in p.body)));
+
+  {
+    const na = taskP.find(p => p.id === String(A.tasks[2].spId));
+    ok('the N/A is written with its reason in Note', !!na && na.body.NotApplicable === true
+       && na.body.Note === 'Owner supplying this' && na.body.Complete === false, JSON.stringify(na && na.body));
+    ok('the untouched imported N/A is not rewritten', !taskP.some(p => p.id === String(A.tasks[5].spId)));
+  }
 
   // B: reopen matches D2 - Reopen Sign-off field for field.
   const notes = body(B).SignOffNotes || '';

@@ -60,6 +60,15 @@ const totalNa = p => p.jobs.reduce((n, j) => n + j.sections.reduce((m, s) => m +
 
   ok('REST payload produced', !!restPayload && restPayload.kind === 'd2-sharepoint-export');
   ok('Graph payload produced', !!graphPayload && graphPayload.kind === 'd2-sharepoint-export');
+  {
+    // The N/A reason lives in Tasks.Note. Graph omits an empty column, so only
+    // the rows that carry one are checked, against the capture itself.
+    const withNote = graphLive.tasks.filter(r => r.fields.Note);
+    const mapped = graphPayload.jobs.flatMap(j => j.sections.flatMap(s => s.tasks)).filter(t => t.note);
+    ok('N/A reasons come through from Graph', withNote.length > 0 && mapped.length === withNote.length
+       && withNote.every(r => mapped.some(t => t.id === Number(r.fields.id) && t.note === r.fields.Note && t.na)),
+       withNote.length + ' in capture, ' + mapped.length + ' mapped');
+  }
   ok('Graph payload uses the SAME shape the importer expects (no second payload kind)',
      graphPayload.kind === restPayload.kind && Array.isArray(graphPayload.jobs));
 

@@ -1208,8 +1208,8 @@ function editSec(jobId,gi,si){
       <a href="#" class="small" style="text-transform:none" onclick="allTasks(true);return false">all</a> /
       <a href="#" class="small" style="text-transform:none" onclick="allTasks(false);return false">none</a></label>
       <div id="tasks">${s.tasks.map((t,ti)=>`<div class="tk${t.done?' done':''}${t.na&&!t.done?' na':''}">
-        <input type="checkbox" ${t.done?'checked':''} onchange="tick(${ti},this.checked)"><span>${esc(t.t)}</span>
-        <a href="#" class="small natog" title="Not applicable on this pool"
+        <input type="checkbox" ${t.done?'checked':''} onchange="tick(${ti},this.checked)"><span>${esc(t.t)}${t.na&&t.note?` <span class="muted small">(${esc(t.note)})</span>`:''}</span>
+        <a href="#" class="small natog" title="${t.na?'Not applicable'+(t.note?': '+esc(t.note):', no reason recorded')+'. Click to undo.':'Not applicable on this pool. You will be asked why.'}"
            onclick="toggleNA(${ti});return false">${t.na?'N/A ✕':'N/A'}</a></div>`).join('')||'<span class="muted small">No tasks.</span>'}</div></div>`;
   document.getElementById('dFoot').innerHTML=`<button class="btn p" onclick="saveSec()">Save</button>`
     +`<button class="btn" onclick="saveSec(true)" title="Saves this sub-phase, then moves every later sub-phase in this pool to follow on. Locked and signed-off work is never moved.">Save + reflow</button>`
@@ -1219,8 +1219,23 @@ function editSec(jobId,gi,si){
   showAvail();
 }
 function cur(){const j=S.jobs.find(x=>x.id===CUR.jobId);return j.groups[CUR.gi].sections[CUR.si];}
-function tick(ti,v){const t=cur().tasks[ti];t.done=v;if(v)t.na=false;touch(S.jobs.find(x=>x.id===CUR.jobId));save();}
-function toggleNA(ti){const t=cur().tasks[ti];t.na=!t.na;if(t.na)t.done=false;touch(S.jobs.find(x=>x.id===CUR.jobId));save();editSec(CUR.jobId,CUR.gi,CUR.si);}
+function tick(ti,v){const t=cur().tasks[ti];t.done=v;if(v){t.na=false;t.note='';}touch(S.jobs.find(x=>x.id===CUR.jobId));save();}
+/* N/A asks why, and a blank answer changes nothing. The reason is Don's rule and
+   the field app's: N/A is the honest alternative to a false tick only while it
+   has to say why, or marking everything N/A becomes a way round the sign-off. */
+function toggleNA(ti){
+  const t=cur().tasks[ti];
+  if(!t.na){
+    const why=prompt('Why is "'+t.t+'" not applicable on this pool?'+String.fromCharCode(10,10)
+      +'A reason is required. It is saved with the task.','');
+    if(why===null)return;
+    if(!why.trim()){alert('Nothing was changed. A task can only be marked N/A with a reason.');return;}
+    t.na=true;t.done=false;t.note=why.trim();
+  }else{
+    t.na=false;t.note='';
+  }
+  touch(S.jobs.find(x=>x.id===CUR.jobId));save();editSec(CUR.jobId,CUR.gi,CUR.si);
+}
 function allTasks(v){cur().tasks.forEach(t=>{if(!t.na)t.done=v;});touch(S.jobs.find(x=>x.id===CUR.jobId));save();editSec(CUR.jobId,CUR.gi,CUR.si);}
 function showAvail(){
   const s=cur(),start=document.getElementById('fStart').value,days=+document.getElementById('fDays').value||1;
@@ -1586,8 +1601,9 @@ function importFromD2Payload(d,silent){
             // as tick() already clearing na when a task is ticked.
             if(t){
               t.done=!!it.done;t.na=t.done?false:!!it.na;
+              t.note=t.na?String(it.note||''):'';  // the N/A reason, Tasks.Note
               t.spId=it.id??null;                 // the Tasks row this tick writes to
-              t.base={done:t.done,na:t.na};       // what SharePoint said, for the diff
+              t.base={done:t.done,na:t.na,note:t.note};  // what SharePoint said, for the diff
             }
           });
         }
@@ -1740,8 +1756,8 @@ function buildSignoffSet(){
       const tasks=(s.tasks||[])
         .filter(t=>t.base && (!!t.done!==!!t.base.done || !!t.na!==!!t.base.na))
         .map(t=>({id:t.spId==null?null:t.spId, title:t.t,
-                  from:{done:!!t.base.done,na:!!t.base.na},
-                  to:{done:!!t.done,na:!!t.na}}));
+                  from:{done:!!t.base.done,na:!!t.base.na,note:t.base.note||''},
+                  to:{done:!!t.done,na:!!t.na,note:t.note||''}}));
       if(!instChanged && !pmChanged && !tasks.length)return;
       const c=secCounts(s);
       sections.push({
@@ -2064,7 +2080,9 @@ function showPushResult(out,err){
         :`loaded ${r.loaded}, now ${r.nowLive}`)),
       so.tPlan.refusals.map(r=>row(r.jobno+' '+r.num,'task: '+(r.task||''),'changed in SharePoint since you loaded')),
       so.sPlan.errors.map(e=>row(e.jobno+' '+e.num,'sign-off',e.reason)),
-      so.tPlan.errors.map(e=>row(e.jobno+' '+e.num,'task: '+(e.task||''),e.reason)),
+      so.tPlan.errors.map(e=>row(e.jobno+' '+e.num,'task: '+(e.task||''),
+        ({'na-no-reason':'marked N/A without a reason, so nothing was written',
+          'no-row-id':'not in SharePoint yet','row-missing':'no longer in SharePoint'})[e.reason]||e.reason)),
       so.sRes.failed.map(f=>row(f.jobno+' '+f.num,'sign-off','HTTP '+f.status)),
       so.tRes.failed.map(f=>row(f.jobno+' '+f.num,'task','HTTP '+f.status))):[];
     body.innerHTML=

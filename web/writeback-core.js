@@ -418,6 +418,16 @@
           var naChanged = !!t.from.na !== !!t.to.na;
           if (!doneChanged && !naChanged) return;
 
+          /* An N/A must carry its reason (Tasks.Note), the same rule the field
+             app enforces. Without one, "mark it all N/A and sign off" is a
+             second rubber-stamp route and the sign-off gate means nothing.
+             Refused before the compare, so it can never be written. */
+          var reason = String(t.to.note == null ? '' : t.to.note).trim();
+          if (t.to.na && naChanged && !reason) {
+            errors.push(Object.assign({}, where, { reason: 'na-no-reason' }));
+            return;
+          }
+
           if (!!live.Complete !== !!t.from.done || !!live.NotApplicable !== !!t.from.na) {
             refusals.push(Object.assign({}, where, {
               col: 'Complete', reason: 'diverged',
@@ -429,6 +439,9 @@
           }
 
           var fields = { Complete: !!t.to.done, NotApplicable: !!t.to.na };
+          // Setting N/A writes the reason; clearing it clears the reason, as the
+          // field app does. A done tick on a task that was never N/A leaves Note alone.
+          if (naChanged) fields.Note = t.to.na ? reason : '';
           if (t.to.done) {
             fields.CompletedOn = nowIso;
             /* CompletedBy is free to populate and the timestamps are what expose

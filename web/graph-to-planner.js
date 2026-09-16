@@ -157,7 +157,10 @@
                     seq: t.fields.Sequence,
                     title: t.fields.Title,
                     done: !!t.fields.Complete,
-                    na: !!t.fields.NotApplicable
+                    na: !!t.fields.NotApplicable,
+                    // The N/A reason. Graph omits an empty column entirely, so
+                    // absent means no reason, never an error.
+                    note: t.fields.Note == null ? '' : String(t.fields.Note)
                   }))
               };
             })

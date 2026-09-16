@@ -228,12 +228,34 @@ ok('titleMatches rejects the same sub-phase number on a different job',
      && t.writes[0].fields.CompletedByLookupId === '14',
      JSON.stringify(t.writes[0].fields));
 
-  t = C.planTaskTicks(tpool([{ id: 901, title: 'B', from: { done: false, na: false }, to: { done: false, na: true } }]),
+  t = C.planTaskTicks(tpool([{ id: 901, title: 'B', from: { done: false, na: false }, to: { done: false, na: true, note: '  Materials did not arrive  ' } }]),
                       liveTasks, WHO);
   ok('marking a task N/A clears Complete and its timestamp',
      t.writes[0].fields.NotApplicable === true && t.writes[0].fields.Complete === false
      && t.writes[0].fields.CompletedOn === null,
      JSON.stringify(t.writes[0].fields));
+  ok('...and writes its reason to Note, trimmed',
+     t.writes[0].fields.Note === 'Materials did not arrive', JSON.stringify(t.writes[0].fields));
+
+  // Don's rule, and the field app's: N/A is only honest while it has to say why.
+  for (const blank of [undefined, '', '   ']) {
+    t = C.planTaskTicks(tpool([{ id: 901, title: 'B', from: { done: false, na: false }, to: { done: false, na: true, note: blank } }]),
+                        liveTasks, WHO);
+    ok('an N/A with no reason (' + JSON.stringify(blank) + ') is an ERROR and writes nothing',
+       t.writes.length === 0 && t.errors.length === 1 && t.errors[0].reason === 'na-no-reason',
+       JSON.stringify(t));
+  }
+
+  t = C.planTaskTicks(tpool([{ id: 901, title: 'B', from: { done: false, na: true, note: 'x' }, to: { done: false, na: false, note: '' } }]),
+                      { '901': { Complete: false, NotApplicable: true } }, WHO);
+  ok('clearing N/A clears the reason too, as the field app does',
+     t.writes.length === 1 && t.writes[0].fields.NotApplicable === false && t.writes[0].fields.Note === '',
+     JSON.stringify(t.writes[0] && t.writes[0].fields));
+
+  t = C.planTaskTicks(tpool([{ id: 900, title: 'A', from: { done: false, na: false }, to: { done: true, na: false } }]),
+                      liveTasks, WHO);
+  ok('a plain tick on a task that was never N/A leaves Note alone',
+     !('Note' in t.writes[0].fields), JSON.stringify(t.writes[0].fields));
 
   t = C.planTaskTicks(tpool([{ id: 900, title: 'A', from: { done: false, na: false }, to: { done: true, na: false } }]),
                       { '900': { Complete: true, NotApplicable: false } }, WHO);

@@ -72,7 +72,7 @@
       + "ScheduledFinish,DurationDays,Locked,NotApplicable,InstallerSignOff,PMSignOff"
       + "&$top=2000&$orderby=Id"),
     all("/_api/web/lists/GetByTitle('Tasks')/items"
-      + "?$select=Id,AssignmentId,Sequence,Title,Complete,NotApplicable&$top=5000&$orderby=Id"),
+      + "?$select=Id,AssignmentId,Sequence,Title,Complete,NotApplicable,Note&$top=5000&$orderby=Id"),
     all("/_api/web/lists/GetByTitle('Work Calendar')/items"
       + "?$select=Id,Title,Date&$top=1000&$orderby=Id")
   ]);
@@ -137,7 +137,7 @@
             // by position on the way in, which is fine for display and useless
             // for writing back.
             .map(t => ({ id: t.Id, seq: t.Sequence, title: t.Title, done: !!t.Complete,
-                         na: !!t.NotApplicable }))
+                         na: !!t.NotApplicable, note: t.Note == null ? '' : String(t.Note) }))
         }))
     }))
   };
