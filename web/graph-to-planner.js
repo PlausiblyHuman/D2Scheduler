@@ -150,6 +150,10 @@
                   .slice()
                   .sort((x, y) => (x.fields.Sequence || 0) - (y.fields.Sequence || 0))
                   .map(t => ({
+                    // Graph returns every id as a STRING; the REST export gives a
+                    // number. Normalised here so the planner and the write layer
+                    // never have to care which surface the payload came from.
+                    id: t.fields.id != null ? Number(t.fields.id) : (t.id != null ? Number(t.id) : null),
                     seq: t.fields.Sequence,
                     title: t.fields.Title,
                     done: !!t.fields.Complete,

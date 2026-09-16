@@ -85,8 +85,29 @@ win.confirm = () => true; win.alert = () => {};
   // row by sub-phase. It is never diffed and never written -- see
   // fixtures/planner/writeback.js, which pins that a change-set never carries
   // it as a writable field.
-  const EXPECTED_BASE_KEYS = 'crewId,days,id,locked,seq,skip,spLocked,start';
-  ok('the baseline holds ONLY the fields SharePoint owns -- never sign-off or ticks',
+  // REVERSED, DELIBERATELY, 2026-09-16 (Shane): `inst` and `pm` are now in the
+  // baseline. The fence above is doing its job and this is the "updated
+  // deliberately" case it describes, not a breach of it.
+  //
+  // Read the objection above closely: it is not that sign-off must never be
+  // written, it is that the planner held sign-off as a BARE BOOLEAN -- no
+  // attribution, no timestamp, no notes -- so a write-back would replace an
+  // ATTESTED sign-off with a flag. That precondition is now gone. The planner
+  // signs the user in through MSAL and web/graph-writeback.js resolves them to a
+  // site-user id, so it writes InstallerSignOffById and InstallerSignOffOn
+  // alongside the flag. The precondition is satisfied rather than overridden.
+  //
+  // What changed outside the code: the pilot runs on the planner alone, with no
+  // field crews on the canvas app, so sign-off has to be recordable here or it
+  // is recordable nowhere.
+  //
+  // NOTE the scheduling write path is deliberately untouched: WRITEBACK_FIELDS
+  // still holds only crew, start, days, locked, skip, so secFieldDiffs and
+  // divergedSecs behave exactly as before. Sign-off is carried in the baseline
+  // for a SEPARATE diff with its own write shape (Person column, timestamp,
+  // reopen note), because it cannot share the plain-field PATCH path.
+  const EXPECTED_BASE_KEYS = 'crewId,days,id,inst,locked,pm,seq,skip,spLocked,start';
+  ok('the baseline holds exactly the fields the planner may write -- no more',
      win.allSecs(j2).every(({ s }) => Object.keys(s.base).sort().join(',') === EXPECTED_BASE_KEYS),
      Object.keys(win.allSecs(j2)[0].s.base).sort().join(','));
 

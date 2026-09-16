@@ -212,9 +212,181 @@
     return { creates: out, refusals: refusals };
   }
 
+
+  /* ==================== sign-off and task ticks ==============================
+     A SEPARATE path from planEdits, deliberately.
+
+     planEdits handles plain fields: read the live value, compare, PATCH. Sign-off
+     is not a plain field. Setting it writes a Person column and a timestamp;
+     CLEARING it is a Reopen, which this project requires to leave a trace of who
+     reopened and when. Routing either through FIELD_DEFS would have meant losing
+     the attribution or bending the plain-field path into something it is not.
+
+     WHY THIS EXISTS AT ALL, since the repo said for months that it must not:
+     the objection was never sign-off, it was that the planner held sign-off as a
+     bare boolean with no attribution, so writing it back would replace an
+     attested sign-off with a flag. The planner now signs the user in and can
+     resolve them to a site-user id, so it writes WHO and WHEN. Decided by Shane
+     2026-09-16, when the pilot became planner-only with no field crews on the
+     canvas app: sign-off has to be recordable here or it is recordable nowhere.
+
+     PM sign-off carries NO attribution column. There is no PMSignOffBy on this
+     list -- only InstallerSignOff has By/On. That is the existing schema, read
+     off a live payload, not an omission here. */
+
+  function planSignoffs(pools, liveById, opts) {
+    opts = opts || {};
+    var userId = opts.userLookupId == null ? null : String(opts.userLookupId);
+    var userName = opts.userName || 'the planner';
+    var nowIso = opts.nowIso
+      || new Date(opts.nowMs == null ? Date.now() : opts.nowMs).toISOString();
+    var writes = [], refusals = [], errors = [];
+
+    (pools || []).forEach(function (p) {
+      (p.sections || []).forEach(function (sec) {
+        var id = String(sec.id);
+        var where = { id: id, jobno: p.jobno, num: sec.num };
+        var live = liveById && liveById[id];
+        if (!live) { errors.push(Object.assign({}, where, { reason: 'row-missing' })); return; }
+        if (!titleMatches(live.Title, p.jobno, sec.num)) {
+          errors.push(Object.assign({}, where,
+            { reason: 'identity-mismatch', liveTitle: live.Title }));
+          return;
+        }
+
+        var fields = {}, kinds = [];
+
+        if (sec.inst && !!sec.inst.from !== !!sec.inst.to) {
+          if (!!live.InstallerSignOff !== !!sec.inst.from) {
+            refusals.push(Object.assign({}, where, {
+              col: 'InstallerSignOff', reason: 'diverged',
+              loaded: !!sec.inst.from, nowLive: !!live.InstallerSignOff, wanted: !!sec.inst.to
+            }));
+          } else if (sec.inst.to && !userId) {
+            /* Refuse rather than write an unattributed sign-off. A flag with no
+               name on it is the exact thing this path exists to avoid. */
+            refusals.push(Object.assign({}, where, {
+              col: 'InstallerSignOff', reason: 'no-user',
+              loaded: false, nowLive: !!live.InstallerSignOff, wanted: true
+            }));
+          } else if (sec.inst.to) {
+            fields.InstallerSignOff = true;
+            fields.InstallerSignOffByLookupId = userId;
+            fields.InstallerSignOffOn = nowIso;
+            kinds.push('signed');
+          } else {
+            /* Reopen. Clear the flag and the attribution, and append a line
+               saying who undid it, so a correction is deliberate and traceable
+               rather than a silent edit under a completed sign-off. */
+            fields.InstallerSignOff = false;
+            fields.InstallerSignOffByLookupId = null;
+            fields.SignOffNotes = appendReopen(live.SignOffNotes, userName, nowIso);
+            kinds.push('reopened');
+          }
+        }
+
+        if (sec.pm && !!sec.pm.from !== !!sec.pm.to) {
+          if (!!live.PMSignOff !== !!sec.pm.from) {
+            refusals.push(Object.assign({}, where, {
+              col: 'PMSignOff', reason: 'diverged',
+              loaded: !!sec.pm.from, nowLive: !!live.PMSignOff, wanted: !!sec.pm.to
+            }));
+          } else {
+            fields.PMSignOff = !!sec.pm.to;
+            kinds.push(sec.pm.to ? 'pm-signed' : 'pm-cleared');
+          }
+        }
+
+        /* Counters ride along on the same row when tasks changed, so Don's
+           morning compliance figures are right without waiting for the nightly
+           Counter Reconciliation sweep to repair them. */
+        if (sec.counters && (sec.counters.done != null)) {
+          fields.TasksComplete = sec.counters.done;
+          if (sec.counters.total != null) fields.TasksTotal = sec.counters.total;
+          if (!kinds.length) kinds.push('counters');
+        }
+
+        if (Object.keys(fields).length) {
+          writes.push({
+            id: id, jobno: p.jobno, num: sec.num, title: live.Title,
+            fields: fields, kinds: kinds
+          });
+        }
+      });
+    });
+    return { writes: writes, refusals: refusals, errors: errors };
+  }
+
+  function appendReopen(existing, who, nowIso) {
+    var line = 'REOPENED ' + String(nowIso).slice(0, 16).replace('T', ' ')
+      + ' by ' + who + ' (from the planner)';
+    var prev = existing == null ? '' : String(existing);
+    return prev ? prev + '\n' + line : line;
+  }
+
+  /* One write per task row whose state actually changed. Compare-before-write
+     per task, same as every other path here: a tick somebody else made after
+     this planner loaded is refused, not overwritten. */
+  function planTaskTicks(pools, liveTaskById, opts) {
+    opts = opts || {};
+    var userId = opts.userLookupId == null ? null : String(opts.userLookupId);
+    var nowIso = opts.nowIso
+      || new Date(opts.nowMs == null ? Date.now() : opts.nowMs).toISOString();
+    var writes = [], refusals = [], errors = [];
+
+    (pools || []).forEach(function (p) {
+      (p.sections || []).forEach(function (sec) {
+        (sec.tasks || []).forEach(function (t) {
+          var where = { id: t.id == null ? null : String(t.id),
+                        jobno: p.jobno, num: sec.num, task: t.title };
+          if (t.id == null) {
+            /* No row id means this task was never matched to SharePoint, which
+               happens for a pool that only exists in this browser. Reported so
+               it cannot be mistaken for a successful write. */
+            errors.push(Object.assign({}, where, { reason: 'no-row-id' }));
+            return;
+          }
+          var live = liveTaskById && liveTaskById[String(t.id)];
+          if (!live) { errors.push(Object.assign({}, where, { reason: 'row-missing' })); return; }
+
+          var doneChanged = !!t.from.done !== !!t.to.done;
+          var naChanged = !!t.from.na !== !!t.to.na;
+          if (!doneChanged && !naChanged) return;
+
+          if (!!live.Complete !== !!t.from.done || !!live.NotApplicable !== !!t.from.na) {
+            refusals.push(Object.assign({}, where, {
+              col: 'Complete', reason: 'diverged',
+              loaded: { done: !!t.from.done, na: !!t.from.na },
+              nowLive: { done: !!live.Complete, na: !!live.NotApplicable },
+              wanted: { done: !!t.to.done, na: !!t.to.na }
+            }));
+            return;
+          }
+
+          var fields = { Complete: !!t.to.done, NotApplicable: !!t.to.na };
+          if (t.to.done) {
+            fields.CompletedOn = nowIso;
+            /* CompletedBy is free to populate and the timestamps are what expose
+               rubber-stamping, so it is written when known. It is not required:
+               the attestation that matters is the sub-phase sign-off. */
+            if (userId) fields.CompletedByLookupId = userId;
+          } else {
+            fields.CompletedOn = null;
+            fields.CompletedByLookupId = null;
+          }
+          writes.push({ id: String(t.id), jobno: p.jobno, num: sec.num,
+                        task: t.title, fields: fields });
+        });
+      });
+    });
+    return { writes: writes, refusals: refusals, errors: errors };
+  }
+
   return {
     ALLOWLIST: ALLOWLIST, FIELD_DEFS: FIELD_DEFS, titleMatches: titleMatches,
     jobKey: jobKey, suppressUntil: suppressUntil, planEdits: planEdits,
-    planCreates: planCreates, day: day
+    planCreates: planCreates, day: day,
+    planSignoffs: planSignoffs, planTaskTicks: planTaskTicks,
+    appendReopen: appendReopen
   };
 });

@@ -132,7 +132,11 @@
           pm: !!a.PMSignOff,
           tasks: (tasksByAsg.get(a.Id) || [])
             .sort((x, y) => (x.Sequence || 0) - (y.Sequence || 0))
-            .map(t => ({ seq: t.Sequence, title: t.Title, done: !!t.Complete,
+            // `id` is the SharePoint Tasks row id. Carried since 2026-09-16 so a
+            // tick made in the planner has a row to land on: tasks were matched
+            // by position on the way in, which is fine for display and useless
+            // for writing back.
+            .map(t => ({ id: t.Id, seq: t.Sequence, title: t.Title, done: !!t.Complete,
                          na: !!t.NotApplicable }))
         }))
     }))

@@ -158,6 +158,106 @@ ok('titleMatches rejects the same sub-phase number on a different job',
      r.creates[0].assignDefaultCrews === false, JSON.stringify(r.creates[0]));
 }
 
+
+// ---------- sign-off and task ticks (added 2026-09-16) ----------
+// These write ATTESTED data, so every assertion here is about refusing to write
+// something dishonest as much as about writing the right thing.
+{
+  const TITLE = 'D2-1042 · 2.1 Engineering Review by PM';
+  const liveOpen = { '10': { Title: TITLE, InstallerSignOff: false, PMSignOff: false, SignOffNotes: 'earlier note' } };
+  const liveSigned = { '10': { Title: TITLE, InstallerSignOff: true, PMSignOff: false, SignOffNotes: 'earlier note' } };
+  const sec = (extra) => Object.assign({ id: '10', num: '2.1' }, extra);
+  const pool = (extra) => [{ jobno: 'D2-1042', sections: [sec(extra)] }];
+  const WHO = { userLookupId: 14, userName: 'Cody Campbell', nowIso: '2026-09-16T10:00:00Z' };
+
+  let r = C.planSignoffs(pool({ inst: { from: false, to: true } }), liveOpen, WHO);
+  ok('a sign-off writes the flag, the person AND the timestamp',
+     r.writes.length === 1
+     && r.writes[0].fields.InstallerSignOff === true
+     && r.writes[0].fields.InstallerSignOffByLookupId === '14'
+     && r.writes[0].fields.InstallerSignOffOn === '2026-09-16T10:00:00Z',
+     JSON.stringify(r.writes[0] && r.writes[0].fields));
+
+  // The whole reason this path was forbidden for months.
+  r = C.planSignoffs(pool({ inst: { from: false, to: true } }), liveOpen,
+                     { userName: 'x', nowIso: WHO.nowIso });
+  ok('an UNATTRIBUTED sign-off is refused, never written as a bare flag',
+     r.refusals.length === 1 && r.refusals[0].reason === 'no-user'
+     && !r.writes.some(w => 'InstallerSignOff' in w.fields),
+     JSON.stringify(r.refusals[0]));
+
+  r = C.planSignoffs(pool({ inst: { from: true, to: false } }), liveSigned, WHO);
+  ok('clearing a sign-off is a Reopen that records who and when',
+     r.writes[0].fields.InstallerSignOff === false
+     && r.writes[0].fields.InstallerSignOffByLookupId === null
+     && /REOPENED .* by Cody Campbell/.test(r.writes[0].fields.SignOffNotes),
+     r.writes[0].fields.SignOffNotes);
+
+  ok('a Reopen keeps the notes that were already there',
+     /earlier note/.test(r.writes[0].fields.SignOffNotes));
+
+  // Somebody else signed it while this planner was open.
+  r = C.planSignoffs(pool({ inst: { from: false, to: true } }), liveSigned, WHO);
+  ok('a sign-off somebody else made first is refused, not overwritten',
+     r.writes.length === 0 && r.refusals[0].reason === 'diverged'
+     && r.refusals[0].nowLive === true, JSON.stringify(r.refusals[0]));
+
+  // PM sign-off has no attribution column on this list, by schema.
+  r = C.planSignoffs(pool({ pm: { from: false, to: true } }), liveOpen, WHO);
+  ok('PM sign-off writes the flag only, since the list has no PMSignOffBy',
+     JSON.stringify(r.writes[0].fields) === '{"PMSignOff":true}',
+     JSON.stringify(r.writes[0].fields));
+
+  // Identity is checked before anything is written, same as planEdits.
+  r = C.planSignoffs([{ jobno: 'D2-1042', sections: [sec({ num: '2.10', inst: { from: false, to: true } })] }],
+                     liveOpen, WHO);
+  ok('a sub-phase number that does not match the live row is refused',
+     r.writes.length === 0 && r.errors[0].reason === 'identity-mismatch',
+     JSON.stringify(r.errors[0]));
+
+  // ---- task ticks ----
+  const liveTasks = { '900': { Complete: false, NotApplicable: false },
+                      '901': { Complete: false, NotApplicable: false } };
+  const tpool = (tasks) => [{ jobno: 'D2-1042', sections: [{ num: '2.1', tasks: tasks }] }];
+
+  let t = C.planTaskTicks(tpool([{ id: 900, title: 'A', from: { done: false, na: false }, to: { done: true, na: false } }]),
+                          liveTasks, WHO);
+  ok('ticking a task writes Complete, the timestamp and who did it',
+     t.writes[0].fields.Complete === true
+     && t.writes[0].fields.CompletedOn === WHO.nowIso
+     && t.writes[0].fields.CompletedByLookupId === '14',
+     JSON.stringify(t.writes[0].fields));
+
+  t = C.planTaskTicks(tpool([{ id: 901, title: 'B', from: { done: false, na: false }, to: { done: false, na: true } }]),
+                      liveTasks, WHO);
+  ok('marking a task N/A clears Complete and its timestamp',
+     t.writes[0].fields.NotApplicable === true && t.writes[0].fields.Complete === false
+     && t.writes[0].fields.CompletedOn === null,
+     JSON.stringify(t.writes[0].fields));
+
+  t = C.planTaskTicks(tpool([{ id: 900, title: 'A', from: { done: false, na: false }, to: { done: true, na: false } }]),
+                      { '900': { Complete: true, NotApplicable: false } }, WHO);
+  ok('a task somebody else ticked first is refused',
+     t.writes.length === 0 && t.refusals[0].reason === 'diverged', JSON.stringify(t.refusals[0]));
+
+  t = C.planTaskTicks(tpool([{ id: null, title: 'local only', from: { done: false, na: false }, to: { done: true, na: false } }]),
+                      liveTasks, WHO);
+  ok('a task with no SharePoint row is an ERROR, never a silent skip',
+     t.writes.length === 0 && t.errors[0].reason === 'no-row-id', JSON.stringify(t.errors[0]));
+
+  t = C.planTaskTicks(tpool([{ id: 900, title: 'A', from: { done: true, na: false }, to: { done: true, na: false } }]),
+                      { '900': { Complete: true, NotApplicable: false } }, WHO);
+  ok('a task that did not change produces no write at all',
+     t.writes.length === 0 && t.refusals.length === 0 && t.errors.length === 0);
+
+  // Counters ride with the row so the morning compliance figures are right.
+  r = C.planSignoffs(pool({ counters: { done: 5, total: 6 } }), liveOpen, WHO);
+  ok('task counters are written alongside, without inventing a sign-off',
+     r.writes[0].fields.TasksComplete === 5 && r.writes[0].fields.TasksTotal === 6
+     && !('InstallerSignOff' in r.writes[0].fields),
+     JSON.stringify(r.writes[0].fields));
+}
+
 console.log(fail ? '\nFAILED' : '\nWrite-back decision core: allowlist, per-field compare, row identity, '
-  + 'suppression and create refusal all hold.');
+  + 'suppression, create refusal, attributed sign-off and task ticks all hold.');
 process.exit(fail);

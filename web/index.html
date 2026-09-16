@@ -1563,7 +1563,11 @@ function importFromD2Payload(d,silent){
             // A task cannot be both done and N/A. No live row sets both today, but
             // normalize on the way in rather than trust the source: done wins, same
             // as tick() already clearing na when a task is ticked.
-            if(t){t.done=!!it.done;t.na=t.done?false:!!it.na;}
+            if(t){
+              t.done=!!it.done;t.na=t.done?false:!!it.na;
+              t.spId=it.id??null;                 // the Tasks row this tick writes to
+              t.base={done:t.done,na:t.na};       // what SharePoint said, for the diff
+            }
           });
         }
         /* Baseline: exactly the fields SharePoint owns, as they arrived. Divergence
@@ -1587,7 +1591,15 @@ function importFromD2Payload(d,silent){
            against the row the way a PM does, by sub-phase. */
         s.base={id:is.id??null,seq:is.seq??null,crewId:s.crewId??null,start:s.start??null,
                 days:s.days??null,locked:!!s.locked,skip:!!s.skip,
-                spLocked:!!is.locked};
+                spLocked:!!is.locked,
+                /* inst/pm added 2026-09-16. freshness.js fences this key set
+                   deliberately, and the fence's reasoning was that the planner
+                   held sign-off as a BARE BOOLEAN -- no attribution, no
+                   timestamp -- so writing it back would replace an attested
+                   sign-off with a flag. The planner now has a signed-in user and
+                   resolveSiteUserId, so it writes who and when. The precondition
+                   the fence protected is satisfied rather than overridden. */
+                inst:!!s.inst, pm:!!s.pm};
       });
     });
     plan.forEach(({inj})=>{const j=S.jobs.find(x=>String(x.jobno)===String(inj.jobno));if(j)delete j.touchedAt;});
