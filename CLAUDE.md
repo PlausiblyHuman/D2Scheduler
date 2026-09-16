@@ -3091,8 +3091,10 @@ and to ask for permanent changes.
 screen, the pools stay linked, and the next Save sends `Crew` empty for all of it. The confirmation now
 says so and counts the sub-phases (`ec3c095`).
 
-**Open product question for Shane:** whether PMs should be able to edit either tab at all. Both are
-easy to change, neither change goes where a PM would expect, and one of them is destructive on Save.
+**DECIDED 2026-09-16b by Shane: PMs keep edit access to both tabs.** Do not lock them down or hide
+them. What protects PMs is honest copy, not removed controls: the dialogs say what reaches SharePoint on
+the next Save (`honest-copy.js` pins that), and the guide says both tabs are per-browser and to ask for
+permanent template or crew-trade changes. Keep both true when either tab changes.
 
 ## THE CLIENT GUIDE MERGE IS STAGED, NOT PUBLISHED — 2026-09-16b
 

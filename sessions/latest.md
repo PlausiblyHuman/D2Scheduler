@@ -61,8 +61,8 @@ rows, 0 `Delete Pool Requests` rows.
 ## Open
 
 - **The client guide `a84a2e1a`**: merged content staged (see below); publish and pin move pending.
-- **Should PMs be able to edit the Crews and Phase Template tabs at all?** Both are local copies, and
-  deleting a crew is destructive on Save.
+- ~~Should PMs be able to edit the Crews and Phase Template tabs?~~ **Decided: yes, they keep edit
+  access.** The dialogs and the guide say what each change does instead.
 - **Don:** trade mapping, the 11 field-supervision sub-phases, `@sub`, subcontractor emails and
   capacities.
 - **Crew-lead accounts and Business Basic seats** unbought.
