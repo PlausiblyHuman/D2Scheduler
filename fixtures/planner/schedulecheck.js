@@ -63,8 +63,10 @@ win.confirm = () => true; win.alert = () => {};
   // Installer sign-off is real and must still be checked.
   win.allSecs(j).forEach(({ s }) => { s.inst = false; });
   const msgs2 = win.conflicts().map(c => c.msg);
-  ok('installer sign-off is still checked', msgs2.some(m => /Installer sign-off/i.test(m)),
-     msgs2.filter(m => /Installer sign-off/i.test(m)).length + ' found');
+  // Wording changed 2026-09-16 when the finding gained a "Push from here" action:
+  // "still missing Installer sign-off" became "due to finish X and not signed off".
+  ok('installer sign-off is still checked', msgs2.some(m => /not signed off/i.test(m)),
+     msgs2.filter(m => /not signed off/i.test(m)).length + ' found');
 
   process.exit(fail);
 })();

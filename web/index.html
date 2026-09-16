@@ -471,6 +471,23 @@ function undoAutoSchedule(){
   save(); closeDrawer(); render();
 }
 
+/* The action behind a late-sub-phase warning: push it to today and carry the
+   rest of the pool with it. Deliberately a confirm rather than a silent move,
+   and deliberately per-pool rather than a sweep, because "this one slipped" is
+   a judgement a PM makes about one job. */
+function slipFromToday(jobId,gi,si){
+  const j=S.jobs.find(x=>x.id===jobId); if(!j)return;
+  const list=allSecs(j); const at=list.findIndex(x=>x.gi===gi&&x.si===si);
+  if(at<0)return;
+  const s=list[at].s, from=nextWork(todayStr()), nl=String.fromCharCode(10,10);
+  if(!confirm('Move '+s.num+' '+s.name+' to start '+pretty(from)
+    +', and push the rest of '+j.name+' along behind it?'+nl
+    +'Locked and signed-off work is never moved. Nothing reaches SharePoint until you press Save.'))return;
+  const r=reflowFrom(jobId,gi,si,from);
+  render();
+  if(r&&!r.moved)alert('Nothing moved. Everything from here on is locked, signed off, or already scheduled later than this.');
+}
+
 /* The rules, written out. This is the only place in the app that says what
    Auto-Schedule actually does, and people need it: a button that silently moves
    a hundred rows is indistinguishable from one that moves them wrongly. */
@@ -561,13 +578,15 @@ function jobStart(j){
 
    Rows before the starting one are never touched, exactly as FromSequence works
    server-side. Returns what happened so the caller can explain a no-op. */
-function reflowFrom(jobId,gi,si){
+function reflowFrom(jobId,gi,si,fromDate){
   const j=S.jobs.find(x=>x.id===jobId); if(!j)return null;
   const list=allSecs(j);
   const at=list.findIndex(x=>x.gi===gi&&x.si===si);
   if(at<0)return null;
   const adv=(st,days)=>nextWork(addCal(workSpan(st,days).pop(),1));
-  let cursor=list[at].s.start||todayStr();
+  // fromDate lets a slipped sub-phase be pushed to today rather than reflowed
+  // from where it already (wrongly) sits.
+  let cursor=fromDate?nextWork(fromDate):(list[at].s.start||todayStr());
   let moved=0,pinned=0,badDays=0;
   for(let i=at;i<list.length;i++){
     const s=list[i].s;
@@ -717,7 +736,20 @@ function conflicts(){
          warning on it produced one unclearable item per finished sub-phase and
          drowned the checks that are real. The PM checkboxes and counts stay --
          when PM sign-off becomes a workflow, this check comes back with it. */
-      if(end<T&&!s.inst)out.push({jobs:[j.jobno],lvl:'warn',msg:`<b>${ref}</b> — finished ${pretty(end)} but still missing Installer sign-off.`});
+      /* `act` carries enough to reflow straight from the finding. Slippage is
+         detected here and was then propagated by nobody: the plan kept saying
+         downstream work starts on its original dates while the row in front of
+         it visibly had not finished. Still a human decision, but one click from
+         where the problem is already named. */
+      if(end<T&&!s.inst)out.push({jobs:[j.jobno],lvl:'warn',act:{jobId:j.id,gi,si},
+        msg:`<b>${ref}</b> — due to finish ${pretty(end)} and not signed off.`});
+      /* Warn, do not block. Don's rule is that every task is Done or N/A before a
+         sign-off; enforcing that in the planner during the pilot would block PMs
+         constantly, because task ticking is only just becoming possible here. So
+         it is surfaced rather than prevented, and the count says how many. */
+      if(s.inst){const tc=secCounts(s);const open=tc.n-(tc.done+tc.na);
+        if(open>0)out.push({jobs:[j.jobno],lvl:'warn',
+          msg:`<b>${ref}</b> — signed off with ${open} task${open===1?'':'s'} still unresolved.`});}
       const cc=s.crewId?crew(s.crewId):null;
       if(cc&&!cc.unlimited)workSpan(s.start,s.days).forEach(d=>{byDay[s.crewId]=byDay[s.crewId]||{};(byDay[s.crewId][d]=byDay[s.crewId][d]||[]).push({j,s});});
     });
@@ -862,7 +894,7 @@ function flagsCard(){
   return `<div class="card"><h2>Schedule Check<span class="sp"></span>
     <span class="${e.length?'err-txt':'ok-txt'}">${e.length} error${e.length===1?'':'s'}</span>
     <span class="muted small">· ${w.length} warning${w.length===1?'':'s'}</span></h2>
-    ${show.length?show.map(x=>`<span class="flag ${x.lvl}">${x.msg}</span>`).join(''):
+    ${show.length?show.map(x=>`<span class="flag ${x.lvl}">${x.msg}${x.act?` <a href="#" onclick="slipFromToday('${x.act.jobId}',${x.act.gi},${x.act.si});return false">Push from here →</a>`:''}</span>`).join(''):
       `<span class="flag ok">Every sub-phase has a qualified crew, no crew is double-booked, and all sub-phases run in order.</span>`}
     ${c.length>40?`<span class="flag muted">…and ${c.length-40} more.</span>`:''}</div>`;
 }
