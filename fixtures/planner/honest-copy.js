@@ -116,6 +116,18 @@ const titles = markup => {
      cs.length === 1 && cs[0].sections.some(s => s.fields.DurationDays && s.fields.DurationDays.to === 5),
      cs.length + ' pool(s)');
 
+  // ------------------------------- delete a crew (stays linked, sends) -------
+  j = await load();
+  let crewAsk = '';
+  win.confirm = m => { crewAsk = m; return true; };
+  win.eval("delCrew('devon')");
+  ok('delete-crew: the dialog says Save sends the cleared crews', /pressing Save afterwards sends that to SharePoint/.test(crewAsk),
+     crewAsk.replace(/\s+/g, ' ').slice(0, 200));
+  ok('delete-crew: the dialog counts the sub-phases it clears', /taken off \d+ sub-phases/.test(crewAsk));
+  const csCrew = win.buildChangeSet();
+  ok('delete-crew claim holds: Save would send Crew for the cleared rows',
+     csCrew.length === 1 && csCrew[0].sections.some(s => s.fields.Crew && s.fields.Crew.from === 'devon'), csCrew.length + ' pool(s)');
+
   win.graphModeAvailable = realMode;
   console.log(fail ? '\nFAILED' : '\nall passed');
   process.exit(fail);

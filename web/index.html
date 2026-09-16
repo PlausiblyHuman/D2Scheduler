@@ -1459,7 +1459,12 @@ function setCrew(id,k,v){const c=crew(id);
   else if(k==='size')c.size=(v===''||v==null)?null:Math.max(1,+v||1);else c[k]=v;save();render();}
 function toggleSkill(id,sk){const c=crew(id);c.skills=c.skills.includes(sk)?c.skills.filter(x=>x!==sk):[...c.skills,sk];save();render();}
 function addCrew(){S.crews.push({id:'c'+Math.random().toString(36).slice(2,7),name:'New Crew',members:[],size:1,skills:[]});render();}
-function delCrew(id){if(!confirm('Delete this crew? Its assignments clear.'))return;
+function delCrew(id){
+  const n=S.jobs.reduce((k,j)=>k+allSecs(j).filter(({s})=>s.crewId===id).length,0);
+  if(!confirm('Delete this crew from the planner?'+String.fromCharCode(10,10)
+    +'It is taken off '+n+' sub-phase'+(n===1?'':'s')+' across every pool on this screen, and pressing Save '
+    +'afterwards sends that to SharePoint, leaving that work with no crew. The crew list itself is kept in '
+    +'this browser only. Press Refresh to get the live schedule back.'))return;
   S.crews=S.crews.filter(c=>c.id!==id);
   S.jobs.forEach(j=>{
     let hit=false;
