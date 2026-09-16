@@ -2949,6 +2949,61 @@ verification, not on reading the hosted page. Someone signing in confirms it in 
 
 ---
 
+## THE PLANNER NOW RECORDS SIGN-OFF AND TASK TICKS — built and deployed 2026-09-16
+
+**This reverses a rule this file stated for months.** Shane's call: the pilot runs on the planner
+alone, with no field crews on the canvas app, so sign-off has to be recordable here or it is
+recordable nowhere.
+
+**Read the old objection precisely, because it was never "sign-off must not be written".** It was that
+the planner held sign-off as a **bare boolean with no attribution**, while SharePoint holds
+`InstallerSignOffBy`/`On` and `SignOffNotes`, so writing it back would replace an attested sign-off
+with a flag. The planner now signs the user in through MSAL and `resolveSiteUserId` maps them to a
+site-user id, so it writes **who and when**. The precondition the rule protected is satisfied, not
+overridden. `fixtures/planner/freshness.js` carries that reasoning at the scope fence it fired on.
+
+**Two paths, deliberately, and the scheduling one is untouched.** `WRITEBACK_FIELDS` still holds only
+crew, start, days, locked, skip, so `planEdits`, `secFieldDiffs` and `divergedSecs` behave exactly as
+before and `planEdits` still refuses a sign-off field in a hostile change-set. Sign-off gets
+`planSignoffs` / `planTaskTicks` because its write shape is different: a Person column, a timestamp,
+and a Reopen that has to leave a trace.
+
+**What lands where, read off the captured Graph payload rather than guessed:**
+
+| Change | Writes |
+|---|---|
+| Tick INST | `InstallerSignOff`, `InstallerSignOffByLookupId`, `InstallerSignOffOn` |
+| Un-tick INST | flag and person cleared, plus a `REOPENED … by <name>` line appended to `SignOffNotes` |
+| Tick PM | `PMSignOff` only. **There is no `PMSignOffBy` on this list** — schema, not omission |
+| Tick a task | `Complete`, `CompletedOn`, `CompletedByLookupId` |
+| Mark N/A | `NotApplicable` true, `Complete` false, `CompletedOn` cleared |
+| Any tick | `TasksComplete`/`TasksTotal` ride the assignment row, so Don's morning figures are right without waiting for the nightly sweep |
+
+**`patchBody` now adds `SuppressReconcileUntil` only when present.** Assignments writes want it;
+**the Tasks list has no such column and sending it fails the PATCH outright.**
+
+**An unattributed sign-off is REFUSED, never written.** If `resolveSiteUserId` cannot match exactly
+one user the sign-off is refused and reported, while counters still write. A flag with no name on it
+is the exact thing this path exists to avoid.
+
+**Task rows carry their SharePoint id now.** They were matched by **position** on the way in, which is
+fine for display and useless for writing. Both payload producers emit `id`; verified the two surfaces
+agree on 885 ids, no nulls, same numeric type, identical sets.
+
+**Signing off with unresolved tasks is WARNED, not blocked** (Shane, 2026-09-16). Don's rule is that
+every task is Done or N/A first; enforcing that in the planner during the pilot would block PMs
+constantly. Schedule Check names it and counts the open tasks.
+
+**VERIFICATION, and its one honest limit.** 15 browser assertions against a stubbed Graph prove the
+exact PATCH bodies, plus 14 pure-function assertions with four watched failing under mutation. **The
+sign-off write has never touched the tenant**, because a live Graph write needs an interactive MSAL
+sign-in that cannot be done unattended. What supports it instead: the field names come from a real
+Graph capture of these rows, and the `...LookupId` Person pattern is already proven in production by
+`+ Job`'s `ProjectManagerLookupId`. **A failed PATCH is reported in the Save results, not swallowed.**
+Do the first real sign-off on a demo pool and read the row back.
+
+---
+
 ## THE PHASE TEMPLATE TAB IS THE MOST DANGEROUS SURFACE IN THE PLANNER — hardened 2026-09-16
 
 Found doing a guide review pass, not by anything going wrong. The tab was described in the PM guide as

@@ -854,7 +854,12 @@ function render(){
   // queued but not yet pushed -- creates and edits are two different reasons
   // Save can be live, not one combined count (see the Save preview, further
   // below, which lists them as separate labelled sections for the same reason).
-  if(saveBtn)saveBtn.disabled=(totalDiverged===0&&queuedCreates===0);
+  /* Sign-off and ticks are their own kind of change: a PM can spend a morning
+     ticking checklists without moving a single date, and Save has to be live
+     for that. Only counted in hosted mode, since there is no way to write them
+     from a downloaded copy. */
+  const pendingSignoffs=graphModeAvailable()?signoffChangeCount(buildSignoffSet()):0;
+  if(saveBtn)saveBtn.disabled=(totalDiverged===0&&queuedCreates===0&&pendingSignoffs===0);
   document.getElementById('main').innerHTML=
     ({board:vBoard,crewboard:vCrewBoard,dispatch:vDispatch,signoff:vSignoff,jobs:vJobs,crews:vCrews,phases:vPhases})[TAB]();
   document.querySelectorAll('input[data-ind]').forEach(el=>el.indeterminate=true);
@@ -1702,6 +1707,84 @@ function saveStaleness(nowMs){
 /* Push the confirmed change-set. Returns everything the results dialog needs,
    including siteId and the token so the create path can reuse them rather than
    resolving the site a second time. */
+
+/* ============ sign-off and task ticks: what changed since the last Refresh ====
+   Separate from buildChangeSet, which carries scheduling fields only. Sign-off
+   cannot ride the plain-field path: setting it writes a Person column and a
+   timestamp, and clearing it is a Reopen that has to leave a trace.
+
+   One structure feeds both planners -- planSignoffs reads inst/pm/counters,
+   planTaskTicks reads tasks -- so a sub-phase is described once. */
+function buildSignoffSet(){
+  const pools=[];
+  S.jobs.forEach(j=>{
+    if(!poolHasBaseline(j))return;          // a local sketch has nothing to diff against
+    const sections=[];
+    allSecs(j).forEach(({s})=>{
+      if(!s.base||s.base.id==null)return;
+      const instChanged = !!s.inst !== !!s.base.inst;
+      const pmChanged   = !!s.pm   !== !!s.base.pm;
+      const tasks=(s.tasks||[])
+        .filter(t=>t.base && (!!t.done!==!!t.base.done || !!t.na!==!!t.base.na))
+        .map(t=>({id:t.spId==null?null:t.spId, title:t.t,
+                  from:{done:!!t.base.done,na:!!t.base.na},
+                  to:{done:!!t.done,na:!!t.na}}));
+      if(!instChanged && !pmChanged && !tasks.length)return;
+      const c=secCounts(s);
+      sections.push({
+        id:s.base.id, num:s.num, name:s.name,
+        inst: instChanged?{from:!!s.base.inst,to:!!s.inst}:null,
+        pm:   pmChanged  ?{from:!!s.base.pm,  to:!!s.pm  }:null,
+        /* Counters only when ticks moved. Writing them on a bare sign-off would
+           overwrite whatever the nightly sweep last computed with a number this
+           screen happens to hold. */
+        counters: tasks.length?{done:c.done,total:c.n}:null,
+        tasks
+      });
+    });
+    if(sections.length)pools.push({jobno:j.jobno,name:j.name,sections});
+  });
+  return pools;
+}
+const signoffChangeCount=pools=>pools.reduce((n,p)=>n+p.sections.reduce(
+  (m,s)=>m+(s.inst?1:0)+(s.pm?1:0)+s.tasks.length,0),0);
+
+/* Writes sign-off and ticks. Takes the site id, token and the Assignments rows
+   pushChangeSet already read, so the compare-before-write here is against the
+   same fresh read rather than a second one that could disagree with it. */
+async function pushSignoffs(siteId,tok,liveById,pools){
+  const G=window.D2GraphWriteback, C=window.D2WritebackCore, U=G.urls(siteId);
+
+  /* Who is signing. Exactly one match or refuse -- an unattributed sign-off is
+     the precise thing this whole path exists to avoid writing. */
+  const acct=graphPca().getActiveAccount()||graphPca().getAllAccounts()[0];
+  const uil=await graphPageAll(U.userInfo,tok);
+  const who=G.resolveSiteUserId(uil.map(r=>r.fields),acct&&acct.username);
+  const userName=(acct&&(acct.name||acct.username))||'the planner';
+
+  const wantTaskIds=new Set();
+  pools.forEach(p=>p.sections.forEach(s=>s.tasks.forEach(t=>{if(t.id!=null)wantTaskIds.add(String(t.id));})));
+
+  let liveTaskById={};
+  if(wantTaskIds.size){
+    const trows=await graphPageAll(U.items(D2_GRAPH.lists.tasks)+'?$expand=fields&$top=999',tok);
+    trows.forEach(r=>{const id=String(r.fields.id); if(wantTaskIds.has(id))liveTaskById[id]=r.fields;});
+  }
+
+  const opts={userLookupId:who.id||null,userName,nowIso:new Date().toISOString()};
+  const sPlan=C.planSignoffs(pools,liveById,opts);
+  const tPlan=C.planTaskTicks(pools,liveTaskById,opts);
+
+  /* Assignments writes carry the suppression stamp; Tasks writes must not --
+     that column does not exist on the Tasks list. */
+  const stamp=C.suppressUntil(Date.now(),10);
+  sPlan.writes.forEach(w=>{w.suppressUntil=stamp;});
+
+  const sRes=await G.applyWrites({token:tok,siteId,listId:D2_GRAPH.lists.asg},sPlan.writes);
+  const tRes=await G.applyWrites({token:tok,siteId,listId:D2_GRAPH.lists.tasks},tPlan.writes);
+  return {sPlan,tPlan,sRes,tRes};
+}
+
 async function pushChangeSet(pools){
   const tok=await graphToken();
   const G=window.D2GraphWriteback, C=window.D2WritebackCore;
@@ -1718,7 +1801,7 @@ async function pushChangeSet(pools){
 
   const plan=C.planEdits(pools,liveById,{nowMs:Date.now(),suppressMinutes:10});
   const res=await G.applyWrites({token:tok,siteId,listId:D2_GRAPH.lists.asg},plan.writes);
-  return {plan,res,siteId,tok};
+  return {plan,res,siteId,tok,liveById};
 }
 
 function downloadChangeSet(pools,creates){
@@ -1739,7 +1822,7 @@ function wbFmt(col,v){
   if(col==='Locked'||col==='NotApplicable')return v?'Yes':'No';
   return String(v);
 }
-let PENDING_CHANGESET=null, PENDING_CREATES=null;
+let PENDING_CHANGESET=null, PENDING_CREATES=null, PENDING_SIGNOFFS=null;
 /* The preview a PM must confirm before anything downloads. Grouped by pool,
    one line per changed field, naming the field and the loaded value next to
    the new one -- a count is not enough to see "this is about to move 46
@@ -1751,8 +1834,10 @@ let PENDING_CHANGESET=null, PENDING_CREATES=null;
 function openSavePreview(){
   const pools=buildChangeSet();
   const creates=buildPendingCreates();
+  const sops=graphModeAvailable()?buildSignoffSet():[];   // file:// has no way to write these
+  const soCount=signoffChangeCount(sops);
   const totalSecs=pools.reduce((n,p)=>n+p.sections.length,0);
-  if(!totalSecs&&!creates.length){alert('Nothing to push -- no pool has changed here since the last Refresh, and no new pool is queued.');return;}
+  if(!totalSecs&&!creates.length&&!soCount){alert('Nothing to push -- no pool has changed here since the last Refresh, and no new pool is queued.');return;}
   const skipped=S.jobs.filter(j=>!poolHasBaseline(j));
   const canPush=graphModeAvailable();
   const st=saveStaleness(Date.now());
@@ -1775,6 +1860,22 @@ function openSavePreview(){
         +`${skipped.length===1?'is':'are'} excluded from the edits above — use the +Job form to request a new pool instead: `
         +skipped.map(j=>esc(j.jobno||j.name)).join(', ')+'.':''}
     </div>`+
+    (soCount?`<div class="fld"><label>Sign-off and checklist (${soCount})</label>
+      <div class="hint" style="padding:0 0 6px">
+        A sign-off is written with <b>your name and the time</b>, not as a bare flag.
+        Clearing one is recorded as a reopen against the sub-phase.
+      </div>
+      <table><tbody>${sops.map(p=>p.sections.map(sec=>{
+        const rows=[];
+        const ref=`<b>${esc(p.jobno)} ${esc(sec.num)}</b> ${esc(sec.name||'')}`;
+        if(sec.inst)rows.push(`<tr><td class="small">${ref}</td><td class="small">Installer sign-off</td>
+          <td class="small"><span class="muted">${sec.inst.from?'signed':'not signed'}</span> &rarr; <b>${sec.inst.to?'signed':'reopened'}</b></td></tr>`);
+        if(sec.pm)rows.push(`<tr><td class="small">${ref}</td><td class="small">PM sign-off</td>
+          <td class="small"><span class="muted">${sec.pm.from?'signed':'not signed'}</span> &rarr; <b>${sec.pm.to?'signed':'cleared'}</b></td></tr>`);
+        if(sec.tasks.length)rows.push(`<tr><td class="small">${ref}</td><td class="small">Checklist</td>
+          <td class="small"><b>${sec.tasks.length}</b> task${sec.tasks.length===1?'':'s'} changed</td></tr>`);
+        return rows.join('');
+      }).join('')).join('')}</tbody></table></div>`:'')+
     (creates.length?`<div class="fld"><label>New pools to request (${creates.length})</label>
       <div class="hint" style="padding:0 0 6px">
         Each raises a row in SharePoint's New Pool Requests list. D2 - New Pool takes about
@@ -1807,6 +1908,7 @@ function openSavePreview(){
      <button class="btn" onclick="closeDrawer()">Cancel</button>`;
   PENDING_CHANGESET=pools;
   PENDING_CREATES=creates;
+  PENDING_SIGNOFFS=sops;
   document.getElementById('drawer').classList.add('open');
 }
 /* Save's two endings. Graph mode writes; otherwise the change-set downloads
@@ -1860,6 +1962,12 @@ async function confirmSaveByPush(){
   let out=null,err=null;
   try{
     out=await pushChangeSet(pools);
+    /* Same Save, same fresh read. A separate pass rather than a separate button:
+       a PM who ticks a checklist and moves a date has done one piece of work. */
+    if(PENDING_SIGNOFFS&&PENDING_SIGNOFFS.length){
+      try{ out.so=await pushSignoffs(out.siteId,out.tok,out.liveById,PENDING_SIGNOFFS); }
+      catch(e){ out.soError=e; }
+    }
     if(creates.length){
       try{ out.creates=await pushCreates(out.siteId,out.tok,creates); }
       catch(e){ out.createError=e; }
@@ -1880,7 +1988,9 @@ async function confirmSaveByPush(){
   /* Re-read after a successful write: it resets every baseline, picks up what
      the flows did in the meantime, and means the next Save diffs against
      something current rather than against what we just moved away from. */
-  if(out&&out.res.written.length){ try{ await loadFromD2ViaGraph(true); }catch(e){} }
+  const anyWrite = out && (out.res.written.length
+    || (out.so && (out.so.sRes.written.length || out.so.tRes.written.length)));
+  if(anyWrite){ try{ await loadFromD2ViaGraph(true); }catch(e){} }
 }
 
 /* A refusal nobody sees is silent data loss, so every one is named with both
@@ -1896,8 +2006,29 @@ function showPushResult(out,err){
     const sec=(label,rows,colour)=>rows.length
       ? `<div class="fld"><label${colour?` style="color:${colour}"`:''}>${esc(label)} (${rows.length})</label>
          <table><tbody>${rows.join('')}</tbody></table></div>` : '';
+    /* Sign-off outcomes are reported beside the scheduling ones. A refusal
+       nobody sees is silent data loss, and that is worse here than anywhere
+       else on this screen: a PM who thinks they signed something off and did
+       not has a gap in the record with their name missing from it. */
+    const so=out.so;
+    const soRows=so?[].concat(
+      so.sRes.written.map(w=>row(w.jobno+' '+w.num,'sign-off',w.fields.join(', '))),
+      so.tRes.written.map(w=>row(w.jobno+' '+w.num,'checklist','task updated'))):[];
+    const soBad=so?[].concat(
+      so.sPlan.refusals.map(r=>row(r.jobno+' '+r.num,r.col,
+        r.reason==='no-user'?'could not identify your SharePoint account, so nothing was signed'
+        :`loaded ${r.loaded}, now ${r.nowLive}`)),
+      so.tPlan.refusals.map(r=>row(r.jobno+' '+r.num,'task: '+(r.task||''),'changed in SharePoint since you loaded')),
+      so.sPlan.errors.map(e=>row(e.jobno+' '+e.num,'sign-off',e.reason)),
+      so.tPlan.errors.map(e=>row(e.jobno+' '+e.num,'task: '+(e.task||''),e.reason)),
+      so.sRes.failed.map(f=>row(f.jobno+' '+f.num,'sign-off','HTTP '+f.status)),
+      so.tRes.failed.map(f=>row(f.jobno+' '+f.num,'task','HTTP '+f.status))):[];
     body.innerHTML=
-      sec('Saved',res.written.map(w=>row(w.jobno+' '+w.num,w.fields.join(', '),'')))
+      (out.soError?`<div class="hint" style="color:#a84a18">Scheduling changes were saved, but
+        sign-off and checklist changes were not: ${esc(out.soError.message||'unknown error')}</div>`:'')
+     +sec('Sign-off and checklist saved',soRows,'')
+     +sec('Sign-off and checklist NOT saved',soBad,'#a84a18')
+     +sec('Saved',res.written.map(w=>row(w.jobno+' '+w.num,w.fields.join(', '),'')))
      +sec('Refused — changed in SharePoint since you loaded',
           plan.refusals.map(r=>row(r.jobno+' '+r.num,r.col,
             r.reason==='diverged'?`loaded ${r.loaded}, now ${r.nowLive}, wanted ${r.wanted}`:r.reason)),'#a84a18')
@@ -1929,7 +2060,7 @@ function confirmSaveByDownload(){
     const pc=(S.pendingCreates||[]).find(x=>x.jobno===c.jobno&&!x.requestedAt);
     if(pc)pc.requestedAt=now;
   });
-  PENDING_CHANGESET=null; PENDING_CREATES=null;
+  PENDING_CHANGESET=null; PENDING_CREATES=null; PENDING_SIGNOFFS=null;
   save();
   closeDrawer();render();
 }

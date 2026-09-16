@@ -90,10 +90,14 @@
   /* The suppression stamp rides in the SAME body as the data, exactly as
      D2 - Reschedule Pool does it. A second write to set it would re-trigger
      the very flow it exists to suppress. */
+  /* Conditional, because this now serves two lists. An Assignments write wants
+     the suppression stamp so a 46-row batch does not burn an Event-Driven
+     Reconciliation run per row. The Tasks list has no such column, and sending
+     it there fails the PATCH outright. */
   function patchBody(write) {
     var b = {};
     Object.keys(write.fields).forEach(function (k) { b[k] = write.fields[k]; });
-    b.SuppressReconcileUntil = write.suppressUntil;
+    if (write.suppressUntil) b.SuppressReconcileUntil = write.suppressUntil;
     return b;
   }
 
