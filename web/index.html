@@ -1374,6 +1374,8 @@ function activatePool(jobId){
        This moves <strong>${esc(j.jobno)} ${esc(j.name)}</strong> from Planned to Active.
        From then on it appears in the daily dispatch and the summary emails, its sub-phases
        are written to the shared calendar, and conflict alerts for it go to its project manager.
+       <br><br><strong>This one writes straight away.</strong> Everything else you change on this
+       screen waits for Save; activating a pool takes effect when you confirm it here.
      </div>`
     +(mine.length
       ? `<div class="fld"><label style="color:#a84a18">${mine.length} scheduling problem${mine.length===1?'':'s'} on this pool</label>
