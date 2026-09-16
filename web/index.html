@@ -669,12 +669,19 @@ function sign(jobId,gi,si,k,val){
   touch(j);
   save();render();
 }
+/* These boxes SHOW sign-off; they do not record it. Sign-off and task ticks are
+   deliberately absent from WRITEBACK_FIELDS -- the planner has no attribution
+   model for who signed or when, and must never be the authority on either. So a
+   tick here is a local view that the next Refresh overwrites. The tooltip says
+   so, because a checkbox that silently forgets is worse than one that explains
+   itself. The real record is the field app, or SharePoint. */
+const SG_NOTE=' — shown from SharePoint. Ticking here is not saved back; the record is the field app.';
 function sgHTML(jobId,gi,si,o){
   const i=`sign('${jobId}',${gi},${si===null?'null':si},'inst',this.checked)`;
   const p=`sign('${jobId}',${gi},${si===null?'null':si},'pm',this.checked)`;
   return `<span class="sg">
-    <label class="${o.inst?'on':''}" title="Installer sign-off"><input type="checkbox" ${o.inst?'checked':''} onchange="${i}">INST</label>
-    <label class="${o.pm?'on':''}" title="Project Manager sign-off"><input type="checkbox" ${o.pm?'checked':''} onchange="${p}">PM</label></span>`;
+    <label class="${o.inst?'on':''}" title="Installer sign-off${SG_NOTE}"><input type="checkbox" ${o.inst?'checked':''} onchange="${i}">INST</label>
+    <label class="${o.pm?'on':''}" title="Project Manager sign-off${SG_NOTE}"><input type="checkbox" ${o.pm?'checked':''} onchange="${p}">PM</label></span>`;
 }
 
 /* ============================== conflicts ==============================
@@ -1389,16 +1396,32 @@ function delCrew(id){if(!confirm('Delete this crew? Its assignments clear.'))ret
 function setGrp(gi,k,v){S.template[gi][k]=v;save();}
 function setSec(gi,si,k,v){S.template[gi].sections[si][k]= k==='days'?Math.max(1,+v||1):(k==='skill'?(v||null):v);save();}
 function moveSec(gi,si,d){const a=S.template[gi].sections,n=si+d;if(n<0||n>=a.length)return;a.splice(n,0,a.splice(si,1)[0]);render();}
-function delSec(gi,si){S.template[gi].sections.splice(si,1);render();}
+function delSec(gi,si){
+  const s=S.template[gi].sections[si];
+  if(!confirm('Remove '+s.num+' '+s.name+' from the template?'+String.fromCharCode(10,10)
+    +'This changes the template new pools are built from. Pools that already exist keep it.'))return;
+  S.template[gi].sections.splice(si,1);render();
+}
 function delGrp(gi){if(!confirm('Delete this phase and all its sub-phases from the template?'))return;S.template.splice(gi,1);render();}
 function addSection(gi){const g=S.template[gi];
   g.sections.push({id:'s'+Math.random().toString(36).slice(2,7),num:g.num+'.'+(g.sections.length+1),name:'New Sub-Phase',skill:null,days:2,tasks:[]});render();}
 function addPhase(){S.template.push({id:'g'+Math.random().toString(36).slice(2,7),num:String(S.template.length),name:'New Phase',sections:[]});render();}
-function setAllDays(){const v=prompt('Set every sub-phase duration to how many work days?','2');
+function setAllDays(){
+  const pools=S.jobs.length;
+  const v=prompt('Set every sub-phase duration to how many work days?'+String.fromCharCode(10,10)
+    +'This overwrites the duration on EVERY sub-phase of '+pools+' pool'+(pools===1?'':'s')
+    +' on this screen, not just the template, and then reschedules them. Any real durations you have '
+    +'entered are lost. Cancel unless you are setting up from scratch.','2');
   if(v===null)return;const n=Math.max(1,+v||1);
   S.template.forEach(g=>g.sections.forEach(s=>s.days=n));
   S.jobs.forEach(j=>allSecs(j).forEach(({s})=>s.days=n));autoSchedule();render();}
-function applyTemplate(){if(!confirm('Rebuild every job from the template? Crew assignments, sign-offs, and checklist ticks are cleared.'))return;
+function applyTemplate(){
+  const pools=S.jobs.length;
+  if(!confirm('Rebuild all '+pools+' pool'+(pools===1?'':'s')+' from the template?'+String.fromCharCode(10,10)
+    +'Every crew assignment, sign-off and checklist tick on this screen is cleared and the pools are '
+    +'rescheduled from scratch. Nothing reaches SharePoint until you press Save, but if you do save '
+    +'afterwards the cleared crews go with it.'+String.fromCharCode(10,10)
+    +'Press Refresh instead if you want the live schedule back.'))return;
   S.jobs.forEach(j=>j.groups=mkJobGroups(S.template));autoSchedule();render();}
 
 /* ===================== import from the SharePoint site =====================

@@ -2949,6 +2949,59 @@ verification, not on reading the hosted page. Someone signing in confirms it in 
 
 ---
 
+## THE PHASE TEMPLATE TAB IS THE MOST DANGEROUS SURFACE IN THE PLANNER — hardened 2026-09-16
+
+Found doing a guide review pass, not by anything going wrong. The tab was described in the PM guide as
+"the 46 sub-phases every new pool is built from" and nothing else, while carrying three actions that
+reach **every pool on screen**, not just the template:
+
+| Action | Did | Now |
+|---|---|---|
+| `delSec` | deleted a template sub-phase with **no confirmation at all** | asks, and says existing pools keep it |
+| `setAllDays` | prompt said "set every sub-phase duration", never said it overwrites **every live pool** and reschedules | names the pool count and says real durations are lost |
+| `applyTemplate` | named the consequences but not where they land | names the pool count and that a later Save carries the cleared crews to SharePoint |
+
+**Why this matters beyond tidiness: `crewId` and `days` are both on the write-back allowlist.** Clearing
+crews or resetting durations is local until Save, but a Save afterwards pushes them. The escape is
+Refresh, and all three confirmations now say so rather than leaving a PM to work it out.
+
+`delSec` was the only delete on that tab without a confirmation; `delGrp` and `delCrew` both had one.
+
+---
+
+## SIGN-OFF AND TASK TICKS ARE VISIBLE AND EDITABLE IN THE PLANNER, AND ARE NEVER SAVED
+
+`WRITEBACK_FIELDS` is `crewId, start, days, locked, skip`. Sign-off and task ticks are deliberately
+absent, and the code says why: the planner has no attribution model for who signed or when, and must
+never be the authority on either.
+
+**But the INST and PM boxes on the board are still tickable, and so is the checklist inside a
+sub-phase.** A tick writes to local state, never reaches SharePoint, and is replaced by the next
+Refresh. Nothing warns anyone. A PM could reasonably tick INST, believe they recorded a sign-off, and
+be wrong; demonstrating sign-off that way in front of a client would be showing something that did not
+happen.
+
+**Hardened with a tooltip, not by disabling the controls, deliberately.** Both boxes now read
+"shown from SharePoint. Ticking here is not saved back; the record is the field app." Making them
+read-only is a product decision about whether the planner should record sign-off at all, and the
+design intent already says no, so the honest fix is probably to disable them. That was **not** done
+unattended the night before a demo, because it changes visible behaviour on a core screen. **Open
+question for Shane.** Documented prominently in the PM guide and listed as a demo trap meanwhile.
+
+---
+
+## THE PLANNER PRINTS, AND NOBODY KNEW — verified 2026-09-16
+
+`@media print` hides the header, nav, buttons and drawer, and sets the timeline to
+`overflow:visible; max-height:none`, so **the whole Gantt prints rather than the visible slice**.
+Verified by emulating print media and generating a real PDF (771 KB, landscape), not by reading the
+CSS: computed `overflow` was `visible`, `max-height` `none`, and header/nav/buttons all `display:none`.
+
+Worth knowing for a site meeting or an in-person demo where something on the table beats a projector.
+Now in the PM guide's troubleshooting table and the run sheet's in-person prep.
+
+---
+
 ## THE TIMELINE OPENS ON TODAY — 2026-09-16
 
 The axis spans the earliest work across **all** pools to the latest, so on live data the board opened
