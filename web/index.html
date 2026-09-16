@@ -14,7 +14,7 @@
   --navy:#082544; --green:#0B594B; --cream:#F6F3ED;
   --bg:var(--cream); --panel:#fff; --ink:#111827; --muted:#6b7280; --line:#e3ded4;
   --accent:var(--green); --danger:#b91c1c; --warn:#a84a18; --ok:#0B594B;
-  --day:26px; --nmw:400px;
+  --day:26px; --nmw:516px;
 }
 *{box-sizing:border-box}
 body{margin:0;font:14px/1.45 "Source Sans 3","Source Sans Pro",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink)}
@@ -64,7 +64,15 @@ thead .nm{background:#fbf9f5;z-index:30}
 .tl thead th{position:sticky;top:0;background:#fbf9f5;z-index:25;border-bottom:1px solid var(--line)}
 .nmflex{display:flex;align-items:center;gap:6px}
 .nmflex .t{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.sg{display:flex;gap:9px;align-items:center;flex:0 0 auto}
+/* Dates sit in their own fixed-width cell so they line up down the board
+   rather than trailing each name at a different x. Tabular figures keep the
+   slashes aligned. */
+.dt{flex:0 0 104px;text-align:right;font-size:11px;color:var(--muted);
+    font-variant-numeric:tabular-nums;white-space:nowrap}
+tr.jobrow .dt,tr.phrow .dt{color:#475569}
+.nmflex .t.click{cursor:pointer;border-radius:4px}
+.nmflex .t.click:hover{background:#eef2f6;box-shadow:0 0 0 3px #eef2f6}
+.sg{display:flex;gap:9px;align-items:center;flex:0 0 auto;min-width:94px;justify-content:flex-end}
 .sg label{font-size:9.5px;text-transform:uppercase;letter-spacing:.3px;color:var(--muted);display:flex;align-items:center;gap:2px;font-weight:650;cursor:pointer}
 .sg label.on{color:var(--ok)}
 .wk{font-size:10px;color:var(--muted);text-align:center;border-left:1px solid var(--line);font-weight:600;white-space:nowrap;padding:3px 0!important}
@@ -419,6 +427,108 @@ function autoSchedule(){
   });
   save();
 }
+
+/* ---- Auto-Schedule, with a preview of what it did and a way back ------------
+   Auto-Schedule can rewrite crew and dates on every unpinned sub-phase in every
+   pool. Pressing it used to do exactly that with no account of itself: the board
+   redrew and you were left to spot the difference. That is a lot of trust to ask
+   for one button, and it is the reason people stop pressing it.
+
+   It runs for real and then reports, rather than simulating first. autoSchedule
+   writes only `s.crewId` and `s.start` (plus `j.touchedAt`), so a snapshot of
+   those three is a complete and exact undo. Simulating instead would mean a
+   second implementation of the scheduler that could drift from the real one,
+   which is the failure this repo keeps recording. */
+let AUTO_SNAP=null;
+
+function autoScheduleRun(){
+  AUTO_SNAP=S.jobs.map(j=>({job:j, touchedAt:j.touchedAt,
+    secs:allSecs(j).map(({s})=>({s, crewId:s.crewId, start:s.start}))}));
+
+  autoSchedule();
+
+  const moves=[]; let pinned=0, settled=0, skipped=0;
+  AUTO_SNAP.forEach(js=>js.secs.forEach(r=>{
+    const s=r.s;
+    if(s.skip){skipped++;return;}
+    if(s.locked||s.inst){pinned++;return;}
+    if(s.crewId!==r.crewId||s.start!==r.start){
+      moves.push({jobno:js.job.jobno, pool:js.job.name, num:s.num, name:s.name,
+                  fromCrew:r.crewId, toCrew:s.crewId, fromStart:r.start, toStart:s.start});
+    } else settled++;
+  }));
+  render();
+  openAutoPreview(moves, pinned, settled, skipped);
+}
+
+function undoAutoSchedule(){
+  if(!AUTO_SNAP)return;
+  AUTO_SNAP.forEach(js=>{
+    js.job.touchedAt=js.touchedAt;
+    js.secs.forEach(r=>{r.s.crewId=r.crewId; r.s.start=r.start;});
+  });
+  AUTO_SNAP=null;
+  save(); closeDrawer(); render();
+}
+
+/* The rules, written out. This is the only place in the app that says what
+   Auto-Schedule actually does, and people need it: a button that silently moves
+   a hundred rows is indistinguishable from one that moves them wrongly. */
+const AUTO_RULES=[
+  'Pools are laid out in order of their earliest real work, not their job number.',
+  'Inside a pool, sub-phases run in order. Each one starts on the first working day after the one before it finishes.',
+  'Anything <b>locked</b> or already <b>signed off</b> is never moved. The schedule flows around it.',
+  'Anything marked <b>not applicable</b> is skipped entirely.',
+  'For every other sub-phase it looks at the crews that hold the required trade, and gives it to the <b>least loaded</b> one that is free for the whole span.',
+  'If no qualified crew is free, it tries the next working day, and keeps going until one is.',
+  'Subcontractors and the office buckets are capacity-exempt: they are never counted as busy and never block a date.',
+  'A sub-phase with no trade set goes to Unassigned rather than guessing.',
+  'Sundays and the holidays on the D2 work calendar are never work days.'
+];
+
+function openAutoPreview(moves,pinned,settled,skipped){
+  const byPool={};
+  moves.forEach(m=>{(byPool[m.jobno]=byPool[m.jobno]||{pool:m.pool,rows:[]}).rows.push(m);});
+  const cname=id=>{const c=id?crew(id):null;return c?c.name:(id?id:'Unassigned');};
+  const CAP=40; let shown=0;
+
+  const table=Object.keys(byPool).map(k=>{
+    const g=byPool[k]; if(shown>=CAP)return '';
+    const rows=g.rows.slice(0,Math.max(0,CAP-shown)); shown+=rows.length;
+    return `<div class="fld"><label>${esc(g.pool)} <span class="muted">${esc(k||'')}</span> — ${g.rows.length} change${g.rows.length===1?'':'s'}</label>
+      <table><tbody>${rows.map(m=>{
+        const dc=m.fromCrew!==m.toCrew, dd=m.fromStart!==m.toStart;
+        const bits=[];
+        if(dc)bits.push(`<span class="muted">${esc(cname(m.fromCrew))}</span> → <b>${esc(cname(m.toCrew))}</b>`);
+        if(dd)bits.push(`<span class="muted">${m.fromStart?pretty(m.fromStart):'unscheduled'}</span> → <b>${pretty(m.toStart)}</b>`);
+        return `<tr><td class="small" style="white-space:nowrap"><b>${esc(m.num)}</b> ${esc(m.name)}</td>
+                    <td class="small">${bits.join('<br>')}</td></tr>`;}).join('')}
+      </tbody></table></div>`;
+  }).join('');
+
+  document.getElementById('dTitle').textContent='Auto-Schedule';
+  document.getElementById('dBody').innerHTML=
+    (moves.length
+      ? `<div class="hint" style="padding:0 0 11px"><b>${moves.length} sub-phase${moves.length===1?'':'s'} moved.</b>
+           ${pinned} left alone because ${pinned===1?'it is':'they are'} locked or signed off,
+           ${settled} already where ${settled===1?'it belongs':'they belong'}${skipped?`, ${skipped} not applicable`:''}.
+           Nothing has been written to SharePoint yet: press Save when you are happy with it.</div>`
+      : `<div class="hint" style="padding:0 0 11px"><b>Nothing moved.</b>
+           Every sub-phase that Auto-Schedule is allowed to move was already where it belongs.
+           ${pinned} ${pinned===1?'is':'are'} locked or signed off and are never moved${skipped?`, ${skipped} not applicable`:''}.</div>`)
+    +table
+    +(moves.length>CAP?`<div class="hint" style="padding:0 0 11px">and ${moves.length-CAP} more not listed.</div>`:'')
+    +`<div class="fld"><label>How Auto-Schedule decides</label>
+        <ol class="small" style="margin:0;padding-left:18px;line-height:1.55">
+          ${AUTO_RULES.map(r=>`<li style="margin-bottom:3px">${r}</li>`).join('')}
+        </ol></div>`;
+  document.getElementById('dFoot').innerHTML=
+    (moves.length
+      ? `<button class="btn p" onclick="closeDrawer()">Keep it</button>
+         <button class="btn d" onclick="undoAutoSchedule()">Undo</button>`
+      : `<button class="btn p" onclick="closeDrawer()">Close</button>`);
+  document.getElementById('drawer').classList.add('open');
+}
 function spanOf(list){
   let a=null,b=null;
   list.forEach(s=>{if(s.skip||!s.start)return;const e=workSpan(s.start,s.days).pop();
@@ -732,7 +842,7 @@ function vBoard(){
       ? bandRow(ax,ax.idx[js],Math.max(1,(ax.idx[je]??ax.idx[js])-ax.idx[js]+1),`<div class="jobbar" style="background:#94a3b8"></div>`)
       : emptyRow(ax);
     let html=`<tr class="jobrow"><td class="nm"><div class="nmflex"><span class="t">${esc(j.name)} <span class="muted small mono">${esc(j.jobno||'')}</span>${jobBadge(j)}</span>
-      <span class="muted small">${pretty(js)} → ${pretty(je)}</span></div></td>${jbar}</tr>`;
+      <span class="dt">${js?pretty(js)+' → '+pretty(je):''}</span><span class="sg"></span></div></td>${jbar}</tr>`;
     j.groups.forEach((g,gi)=>{
       const ck=`${j.id}/${gi}`, col=UI.collapsed[ck];
       const [gs,ge]=spanOf(g.sections);
@@ -745,14 +855,22 @@ function vBoard(){
         <label class="${gp_==='all'?'on':''}" title="PM sign-off — all sub-phases"><input type="checkbox" ${gp_==='all'?'checked':''} ${gp_==='some'?'data-ind="1"':''} onchange="sign('${j.id}',${gi},null,'pm',this.checked)">PM</label></span>`;
       html+=`<tr class="phrow"><td class="nm"><div class="nmflex">
         <button class="btn sm" onclick="UI.collapsed['${ck}']=!UI.collapsed['${ck}'];render()" style="padding:0 5px">${col?'▸':'▾'}</button>
-        <span class="t"><b>${g.num}.0</b> ${g.name}</span>${gsg}</div></td>${gbar}</tr>`;
+        <span class="t"><b>${g.num}.0</b> ${g.name}</span>
+        <span class="dt">${gs?pretty(gs)+' → '+pretty(ge):''}</span>${gsg}</div></td>${gbar}</tr>`;
       if(col)return;
       g.sections.forEach((s,si)=>{
         const pct=Math.round(secDone(s)*100);
+        /* The NAME opens the editor, not the whole cell: the sign-off boxes sit
+           in the same flex row and clicking INST must tick it, not open a drawer
+           over the top. Before this, only the gantt bar was clickable, so a
+           sub-phase with no dates yet had no way in at all. */
+        const fin=(!s.skip&&s.start&&s.days>0)?workSpan(s.start,s.days).pop():null;
         const nm=`<td class="nm"><div class="nmflex">
-          <span class="t sec${s.skip?' skip':''}" title="${esc(s.num+' '+s.name)}"><b>${s.num}</b> ${s.name}
+          <span class="t sec click${s.skip?' skip':''}" title="${esc(s.num+' '+s.name)} — click to edit"
+                onclick="editSec('${j.id}',${gi},${si})"><b>${s.num}</b> ${s.name}
             <span class="muted small">· ${s.skill?skillLabel(s.skill):'—'}</span>
             <span class="tw" title="${pct}% of checklist"><i style="width:${pct}%"></i></span></span>
+          <span class="dt">${s.skip?'<span class="muted">not applicable</span>':(s.start?pretty(s.start)+' → '+pretty(fin):'<span class="muted">not scheduled</span>')}</span>
           ${sgHTML(j.id,gi,si,s)}</div></td>`;
         if(s.skip||!s.start||ax.idx[s.start]==null){html+=`<tr>${nm}${emptyRow(ax)}</tr>`;return;}
         const c=s.crewId?crew(s.crewId):null;
@@ -767,7 +885,7 @@ function vBoard(){
   return flagsCard()+`<div class="card"><h2>Job Board<span class="sp"></span>
     <button class="btn sm" onclick="collapseAll(true)">Collapse all</button>
     <button class="btn sm" onclick="collapseAll(false)">Expand all</button>
-    <span class="muted small" style="text-transform:none">Click a bar to reassign, move, lock, or open its checklist</span></h2>
+    <span class="muted small" style="text-transform:none">Click a sub-phase name or its bar to reassign, move, lock, or open its checklist</span></h2>
     ${legend()}<div class="tl"><table><thead>${headHTML(ax)}</thead><tbody>${rows||'<tr><td class="pad muted">No jobs.</td></tr>'}</tbody></table></div></div>`;
 }
 function collapseAll(v){S.jobs.forEach(j=>j.groups.forEach((g,gi)=>UI.collapsed[`${j.id}/${gi}`]=v));render();}
@@ -1726,7 +1844,7 @@ document.getElementById('tabs').addEventListener('click',e=>{
   document.querySelectorAll('#tabs button').forEach(x=>x.classList.toggle('on',x===b));
   TAB=b.dataset.t;render();
 });
-document.getElementById('autoBtn').onclick=()=>{autoSchedule();render();};
+document.getElementById('autoBtn').onclick=autoScheduleRun;
 document.getElementById('addJobBtn').onclick=addJob;
 document.getElementById('saveBtn').onclick=openSavePreview;
 

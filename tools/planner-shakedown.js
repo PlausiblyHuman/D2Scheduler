@@ -72,9 +72,23 @@ const ok=(label,cond,detail='')=>{console.log((cond?'PASS':'FAIL')+' · '+label+
  console.log('     schedule check on demo data:', JSON.stringify(chk));
  ok('demo data has zero hard errors', chk.err===0, 'errors='+chk.err);
 
- // Auto-Schedule must not move signed-off work and must leave no rule-3 violation.
+ // The board's left column: dates on every row, and the name opens the editor.
+ await ev(`document.querySelector('[data-t="board"]').click();'ok'`);await sleep(600);
+ const dt=await ev("[...document.querySelectorAll('#main tbody .dt')].filter(x=>x.textContent.includes('/')).length");
+ ok('every board row shows its dates', dt>130, dt+' rows');
+ ok('the dates column is aligned across row types', await ev(
+   "new Set([...document.querySelectorAll('#main tbody .dt')].slice(0,40).map(x=>Math.round(x.getBoundingClientRect().right))).size===1"));
+ await ev("[...document.querySelectorAll('#main tbody .t.sec.click')][4].click();'ok'");await sleep(450);
+ ok('clicking a sub-phase NAME opens the editor',
+    await ev("document.getElementById('drawer').classList.contains('open')")===true);
+ await ev("closeDrawer();'ok'");await sleep(250);
+
+ // Auto-Schedule must summarise, not move signed-off work, and leave no rule-3 violation.
  const signedBefore=await ev(`S.jobs.flatMap(j=>allSecs(j)).filter(x=>x.s.inst).map(x=>x.s.start).join(',')`);
- await ev("autoSchedule();render();'ok'");await sleep(700);
+ await ev("autoScheduleRun();'ok'");await sleep(800);
+ ok('Auto-Schedule reports what it did', /how auto-schedule decides/i.test(
+    await ev("document.getElementById('dBody').innerText")));
+ await ev("closeDrawer();'ok'");await sleep(300);
  const signedAfter=await ev(`S.jobs.flatMap(j=>allSecs(j)).filter(x=>x.s.inst).map(x=>x.s.start).join(',')`);
  ok('Auto-Schedule leaves signed-off work alone', signedBefore===signedAfter);
  const after=await ev(`(()=>{const o=conflicts();return o.filter(x=>x.lvl==='err').length;})()`);
