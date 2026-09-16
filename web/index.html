@@ -1205,12 +1205,15 @@ function editSec(jobId,gi,si){
       <label style="text-transform:none;font-size:13px;color:var(--ink)"><input type="checkbox" id="fPM" ${s.pm?'checked':''}> Project Manager</label></div>
     <div class="fld"><label>Crew availability on these dates</label><div id="avail" class="small"></div></div>
     <div class="fld"><label>Checklist — ${c.done}/${c.n}${c.na?` · ${c.na} N/A`:''}
-      <a href="#" class="small" style="text-transform:none" onclick="allTasks(true);return false">all</a> /
-      <a href="#" class="small" style="text-transform:none" onclick="allTasks(false);return false">none</a></label>
+      ${s.inst?'':`<a href="#" class="small" style="text-transform:none" onclick="allTasks(true);return false">all</a> /
+      <a href="#" class="small" style="text-transform:none" onclick="allTasks(false);return false">none</a>`}</label>
+      ${s.inst?`<div class="hint" id="tasksLocked" style="padding:0 0 6px">Signed off, so the checklist is locked. To change it,
+        untick Installer sign-off and save this panel first. Once saved, that is recorded as a reopen.</div>`:''}
       <div id="tasks">${s.tasks.map((t,ti)=>`<div class="tk${t.done?' done':''}${t.na&&!t.done?' na':''}">
-        <input type="checkbox" ${t.done?'checked':''} onchange="tick(${ti},this.checked)"><span>${esc(t.t)}${t.na&&t.note?` <span class="muted small">(${esc(t.note)})</span>`:''}</span>
-        <a href="#" class="small natog" title="${t.na?'Not applicable'+(t.note?': '+esc(t.note):', no reason recorded')+'. Click to undo.':'Not applicable on this pool. You will be asked why.'}"
-           onclick="toggleNA(${ti});return false">${t.na?'N/A ✕':'N/A'}</a></div>`).join('')||'<span class="muted small">No tasks.</span>'}</div></div>`;
+        <input type="checkbox" ${t.done?'checked':''} ${s.inst?'disabled':''} onchange="tick(${ti},this.checked)"><span>${esc(t.t)}${t.na&&t.note?` <span class="muted small">(${esc(t.note)})</span>`:''}</span>
+        ${s.inst?(t.na?`<span class="small natog" title="Not applicable${t.note?': '+esc(t.note):''}">N/A</span>`:'')
+        :`<a href="#" class="small natog" title="${t.na?'Not applicable'+(t.note?': '+esc(t.note):', no reason recorded')+'. Click to undo.':'Not applicable on this pool. You will be asked why.'}"
+           onclick="toggleNA(${ti});return false">${t.na?'N/A ✕':'N/A'}</a>`}</div>`).join('')||'<span class="muted small">No tasks.</span>'}</div></div>`;
   document.getElementById('dFoot').innerHTML=`<button class="btn p" onclick="saveSec()">Save</button>`
     +`<button class="btn" onclick="saveSec(true)" title="Saves this sub-phase, then moves every later sub-phase in this pool to follow on. Locked and signed-off work is never moved.">Save + reflow</button>`
     +`<button class="btn" onclick="closeDrawer()">Cancel</button>`;
@@ -1219,11 +1222,15 @@ function editSec(jobId,gi,si){
   showAvail();
 }
 function cur(){const j=S.jobs.find(x=>x.id===CUR.jobId);return j.groups[CUR.gi].sections[CUR.si];}
-function tick(ti,v){const t=cur().tasks[ti];t.done=v;if(v){t.na=false;t.note='';}touch(S.jobs.find(x=>x.id===CUR.jobId));save();}
+/* Sign-off locks the checklist. The controls render disabled; these guards
+   stop anything that reaches the handlers anyway. */
+function checklistLocked(){ if(cur().inst){ editSec(CUR.jobId,CUR.gi,CUR.si); return true; } return false; }
+function tick(ti,v){if(checklistLocked())return;const t=cur().tasks[ti];t.done=v;if(v){t.na=false;t.note='';}touch(S.jobs.find(x=>x.id===CUR.jobId));save();}
 /* N/A asks why, and a blank answer changes nothing. The reason is Don's rule and
    the field app's: N/A is the honest alternative to a false tick only while it
    has to say why, or marking everything N/A becomes a way round the sign-off. */
 function toggleNA(ti){
+  if(checklistLocked())return;
   const t=cur().tasks[ti];
   if(!t.na){
     const why=prompt('Why is "'+t.t+'" not applicable on this pool?'+String.fromCharCode(10,10)
@@ -1236,7 +1243,7 @@ function toggleNA(ti){
   }
   touch(S.jobs.find(x=>x.id===CUR.jobId));save();editSec(CUR.jobId,CUR.gi,CUR.si);
 }
-function allTasks(v){cur().tasks.forEach(t=>{if(!t.na)t.done=v;});touch(S.jobs.find(x=>x.id===CUR.jobId));save();editSec(CUR.jobId,CUR.gi,CUR.si);}
+function allTasks(v){if(checklistLocked())return;cur().tasks.forEach(t=>{if(!t.na)t.done=v;});touch(S.jobs.find(x=>x.id===CUR.jobId));save();editSec(CUR.jobId,CUR.gi,CUR.si);}
 function showAvail(){
   const s=cur(),start=document.getElementById('fStart').value,days=+document.getElementById('fDays').value||1;
   const el=document.getElementById('avail');
@@ -1816,7 +1823,7 @@ async function pushSignoffs(siteId,tok,liveById,pools){
 
   const opts={userLookupId:who.id||null,userName,userNamesById,nowIso:new Date().toISOString()};
   const sPlan=C.planSignoffs(pools,liveById,opts);
-  const tPlan=C.planTaskTicks(pools,liveTaskById,opts);
+  const tPlan=C.planTaskTicks(pools,liveTaskById,Object.assign({liveAsgById:liveById},opts));
 
   /* Ticks FIRST, then the assignment row. TasksComplete has to describe the
      rows as they are after this save, so it is recounted from the live rows
@@ -2072,13 +2079,22 @@ function showPushResult(out,err){
        not has a gap in the record with their name missing from it. */
     const so=out.so;
     const soRows=so?[].concat(
-      so.sRes.written.map(w=>row(w.jobno+' '+w.num,'sign-off',w.fields.join(', '))),
+      /* Say what changed in words a PM uses. A counters-only write is not a
+         sign-off, and InstallerSignOffByLookupId means nothing to anyone. */
+      so.sRes.written.map(w=>{
+        const said=[...new Set(w.fields.map(f=>({InstallerSignOff:'installer sign-off',PMSignOff:'PM sign-off',
+          SignOffNotes:'reopen noted',TasksComplete:'task counts',TasksTotal:'task counts'})[f]).filter(Boolean))];
+        const isSign=w.fields.includes('InstallerSignOff')||w.fields.includes('PMSignOff');
+        return row(w.jobno+' '+w.num,isSign?'sign-off':'checklist',said.join(', '));
+      }),
       so.tRes.written.map(w=>row(w.jobno+' '+w.num,'checklist','task updated'))):[];
     const soBad=so?[].concat(
       so.sPlan.refusals.map(r=>row(r.jobno+' '+r.num,r.col,
         r.reason==='no-user'?'could not identify your SharePoint account, so nothing was signed'
         :`loaded ${r.loaded}, now ${r.nowLive}`)),
-      so.tPlan.refusals.map(r=>row(r.jobno+' '+r.num,'task: '+(r.task||''),'changed in SharePoint since you loaded')),
+      so.tPlan.refusals.map(r=>row(r.jobno+' '+r.num,'task: '+(r.task||''),
+        r.reason==='signed-off'?'signed off, so reopen it before changing the checklist'
+        :'changed in SharePoint since you loaded')),
       so.sPlan.errors.map(e=>row(e.jobno+' '+e.num,'sign-off',e.reason)),
       so.tPlan.errors.map(e=>row(e.jobno+' '+e.num,'task: '+(e.task||''),
         ({'na-no-reason':'marked N/A without a reason, so nothing was written',

@@ -254,6 +254,20 @@ ok('titleMatches rejects the same sub-phase number on a different job',
 
   t = C.planTaskTicks(tpool([{ id: 900, title: 'A', from: { done: false, na: false }, to: { done: true, na: false } }]),
                       liveTasks, WHO);
+  // Sign-off locks the checklist (decided 2026-09-06).
+  {
+    const tick = [{ id: 900, title: 'A', from: { done: false, na: false }, to: { done: true, na: false } }];
+    const sp = (inst) => [{ jobno: 'D2-1042', sections: [{ id: '10', num: '2.1', inst, tasks: tick }] }];
+    const signed = { '10': { InstallerSignOff: true } }, open = { '10': { InstallerSignOff: false } };
+    let r = C.planTaskTicks(sp(null), liveTasks, Object.assign({ liveAsgById: signed }, WHO));
+    ok('a task change under a standing sign-off is REFUSED',
+       r.writes.length === 0 && r.refusals.length === 1 && r.refusals[0].reason === 'signed-off', JSON.stringify(r));
+    r = C.planTaskTicks(sp({ from: true, to: false }), liveTasks, Object.assign({ liveAsgById: signed }, WHO));
+    ok('...but allowed when the same save reopens it', r.writes.length === 1 && r.refusals.length === 0, JSON.stringify(r));
+    r = C.planTaskTicks(sp({ from: false, to: true }), liveTasks, Object.assign({ liveAsgById: open }, WHO));
+    ok('...and allowed on the normal path: tick the tasks, then sign, in one save',
+       r.writes.length === 1 && r.refusals.length === 0, JSON.stringify(r));
+  }
   ok('a plain tick on a task that was never N/A leaves Note alone',
      !('Note' in t.writes[0].fields), JSON.stringify(t.writes[0].fields));
 

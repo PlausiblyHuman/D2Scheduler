@@ -399,8 +399,18 @@
       || new Date(opts.nowMs == null ? Date.now() : opts.nowMs).toISOString();
     var writes = [], refusals = [], errors = [];
 
+    /* Sign-off locks the checklist (decided 2026-09-06). A task change on a
+       sub-phase SharePoint holds as signed is refused unless this same save
+       reopens it -- otherwise the attestation says "signed, 5 of 6" while the
+       rows underneath say something else. Only enforced when the caller passes
+       the live assignment rows. */
+    var liveAsg = opts.liveAsgById || null;
+
     (pools || []).forEach(function (p) {
       (p.sections || []).forEach(function (sec) {
+        var liveRow = liveAsg && sec.id != null ? liveAsg[String(sec.id)] : null;
+        var lockedBySignoff = !!(liveRow && liveRow.InstallerSignOff)
+          && !(sec.inst && sec.inst.to === false);
         (sec.tasks || []).forEach(function (t) {
           var where = { id: t.id == null ? null : String(t.id),
                         jobno: p.jobno, num: sec.num, task: t.title };
@@ -417,6 +427,11 @@
           var doneChanged = !!t.from.done !== !!t.to.done;
           var naChanged = !!t.from.na !== !!t.to.na;
           if (!doneChanged && !naChanged) return;
+
+          if (lockedBySignoff) {
+            refusals.push(Object.assign({}, where, { col: 'Complete', reason: 'signed-off' }));
+            return;
+          }
 
           /* An N/A must carry its reason (Tasks.Note), the same rule the field
              app enforces. Without one, "mark it all N/A and sign off" is a

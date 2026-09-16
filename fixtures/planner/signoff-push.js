@@ -53,7 +53,7 @@ win.alert = () => {}; win.confirm = () => true;
   const defs = T.flatMap(g => g.sections.map(s => ({ num: s.num, name: s.name, tasks: s.tasks })));
   payload.jobs[0].sections = defs.map((s, i) => ({
     id: 1000 + i, num: s.num, name: s.name, crewId: 'devon', start: '2026-09-08', finish: '2026-09-09', days: 2,
-    skip: false, locked: false, inst: i === 1, pm: false,
+    skip: false, locked: false, inst: i === 1 || i === 3, pm: false,
     tasks: s.tasks.map((t, k) => (i === 0 && k === 5
       ? { id: 5000 + i * 100 + k, seq: k + 1, title: t, done: false, na: true, note: 'Inspection pending' }
       : { id: 5000 + i * 100 + k, seq: k + 1, title: t, done: false, na: false }))
@@ -61,7 +61,7 @@ win.alert = () => {}; win.confirm = () => true;
   win.importFromD2Payload(payload, true);
   const j = S.jobs.find(x => x.jobno === 'D2-1042');
   const secs = win.allSecs(j);
-  const A = secs[0].s, B = secs[1].s, C = secs[2].s;
+  const A = secs[0].s, B = secs[1].s, C = secs[2].s, D = secs[3].s;   // D is signed and stays signed
   const nA = A.tasks.length, nC = C.tasks.length;
   ok('scenario has room for the checks (C needs four tasks)', nC >= 4, 'A=' + nA + ' C=' + nC);
   ok('an N/A reason is imported from SharePoint', A.tasks[5].na === true && A.tasks[5].note === 'Inspection pending',
@@ -72,13 +72,14 @@ win.alert = () => {}; win.confirm = () => true;
     Crew: 'devon', ScheduledStart: '2026-09-08T05:00:00Z', DurationDays: 2, Locked: false, NotApplicable: false,
     InstallerSignOff: false, PMSignOff: false }, extra);
   const live = {
-    asg: [asgRow(A), asgRow(B, { InstallerSignOff: true, InstallerSignOffByLookupId: '15', SignOffNotes: 'earlier' }), asgRow(C)],
+    asg: [asgRow(A), asgRow(B, { InstallerSignOff: true, InstallerSignOffByLookupId: '15', SignOffNotes: 'earlier' }), asgRow(C),
+          asgRow(D, { InstallerSignOff: true, InstallerSignOffByLookupId: '15' })],
     tasks: [], uil: [
       { id: '14', Title: 'Cody Campbell', Name: 'i:0#.f|membership|cody@d2pools.com' },
       { id: '15', Title: 'Emon Alexander', Name: 'i:0#.f|membership|emon@d2pools.com' },
       { id: '3', Title: 'D2 Build Scheduler Owners' }]
   };
-  [A, B, C].forEach(s => s.tasks.forEach((t, k) => live.tasks.push({ id: String(t.spId), AssignmentLookupId: String(s.base.id),
+  [A, B, C, D].forEach(s => s.tasks.forEach((t, k) => live.tasks.push({ id: String(t.spId), AssignmentLookupId: String(s.base.id),
     Complete: false, NotApplicable: false })));
   const liveTask = (s, k) => live.tasks.find(r => r.id === String(s.tasks[k].spId));
   liveTask(A, 5).NotApplicable = true; liveTask(A, 5).Note = 'Inspection pending';
@@ -107,6 +108,17 @@ win.alert = () => {}; win.confirm = () => true;
   win.toggleNA(2);
   ok('N/A with a reason is recorded, trimmed', A.tasks[2].na === true && A.tasks[2].note === 'Owner supplying this', JSON.stringify(A.tasks[2]));
   win.alert = () => {};
+
+  // D is signed: its checklist is locked in the UI...
+  win.editSec(j.id, secs[3].gi, secs[3].si);
+  const dBoxes = [...win.document.querySelectorAll('#tasks .tk input[type=checkbox]')];
+  ok('a signed-off checklist renders locked', dBoxes.length > 0 && dBoxes.every(b => b.disabled)
+     && !win.document.querySelector('#tasks a.natog') && !!win.document.getElementById('tasksLocked'));
+  win.eval('tick(0,true)'); win.eval('allTasks(true)');
+  ok('...and its handlers refuse too', D.tasks.every(t => !t.done));
+  // ...and if a change reaches the change set anyway, the save refuses it.
+  D.tasks[0].done = true;
+
   win.sign(j.id, 0, 0, 'inst', true);                         // sign A
   win.sign(j.id, secs[1].gi, secs[1].si, 'inst', false);       // reopen B
   win.sign(j.id, secs[2].gi, secs[2].si, 'inst', true);        // sign C
@@ -137,7 +149,7 @@ win.alert = () => {}; win.confirm = () => true;
   // ---- preview label ----
   win.openSavePreview();
   const label = win.document.querySelector('#dFoot button.p').textContent.trim();
-  ok('the Save button counts sign-off and checklist changes', /Save 8 sign-off and checklist changes to SharePoint/.test(label), label);
+  ok('the Save button counts sign-off and checklist changes', /Save 9 sign-off and checklist changes to SharePoint/.test(label), label);
   ok('...and never says "0 edits"', !/\b0 edits?\b/.test(label), label);
 
   await win.confirmSaveByPush();
@@ -165,6 +177,8 @@ win.alert = () => {}; win.confirm = () => true;
     ok('the untouched imported N/A is not rewritten', !taskP.some(p => p.id === String(A.tasks[5].spId)));
   }
 
+  ok('a task change under a standing sign-off is never written', !taskP.some(p => p.id === String(D.tasks[0].spId)));
+
   // B: reopen matches D2 - Reopen Sign-off field for field.
   const notes = body(B).SignOffNotes || '';
   ok('a Reopen clears the flag, the person AND the timestamp', body(B).InstallerSignOff === false
@@ -188,6 +202,9 @@ win.alert = () => {}; win.confirm = () => true;
   const out = win.document.getElementById('dBody').innerText || win.document.getElementById('dBody').textContent;
   ok('the results name what was saved', /Sign-off and checklist saved/i.test(out));
   ok('the results name what was NOT saved', /NOT saved/.test(out));
+  ok('...and say a signed checklist needs reopening', /signed off, so reopen it/.test(out));
+  ok('the results use words, not column names', !/InstallerSignOffByLookupId|TasksComplete|SignOffNotes/.test(out)
+     && /installer sign-off/.test(out) && /reopen noted/.test(out), out.replace(/\s+/g, ' ').slice(0, 300));
   ok('the results never say "Nothing needed saving." over saved sign-offs', !/Nothing needed saving/.test(out));
 
   console.log(fail ? '\nFAILED' : '\nall passed');
