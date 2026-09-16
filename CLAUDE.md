@@ -2949,6 +2949,55 @@ verification, not on reading the hosted page. Someone signing in confirms it in 
 
 ---
 
+## THE JOB BOARD GREW A DATES COLUMN AND CLICKABLE NAMES, AND AUTO-SCHEDULE EXPLAINS ITSELF — 2026-09-16
+
+**Only the gantt bar opened a sub-phase.** So a row with no dates had no bar and therefore no way in at
+all, and on a wide board a bar can sit far to the right of the name it belongs to. The **name** is now
+the control as well. It is the name and **not the whole cell**, deliberately: the sign-off boxes sit in
+the same flex row, and clicking INST has to tick INST rather than open a drawer over the top. Pinned by
+a shakedown assertion in both directions.
+
+**Every row now carries its own start and finish** in a fixed-width `.dt` cell, so the dates line up
+down the board instead of trailing each name at a different x. Job and phase rows use the same column.
+
+**That alignment needed two things that are easy to miss.** `.sg` got a `min-width` so the sign-off
+block is the same width on every row, and the **job row got an empty `.sg` as a spacer**, because it
+carries no sign-offs and without one its dates sat **93px right** of every other row. `--nmw` went
+400px to 516px to make room. Measured, not eyeballed: the assertion compares the right edge of the
+first forty `.dt` cells and requires exactly one distinct value.
+
+**AUTO-SCHEDULE NOW REPORTS WHAT IT DID AND OFFERS UNDO.** It rewrites crew and dates on every unpinned
+sub-phase in every pool, and it used to do that silently: the board redrew and you were left to spot the
+difference. That is a lot of trust for one button and it is why people stop pressing it. It now shows
+how many moved, how many were left alone and why, every change grouped by pool with old beside new, and
+**the nine rules it decides by** (`AUTO_RULES`, the only place in the app that says what it actually
+does).
+
+**It runs for real and then reports, rather than simulating first, and that choice is load-bearing.**
+`autoSchedule()` writes only `s.crewId` and `s.start`, plus `j.touchedAt`, so a snapshot of those three
+is a complete and exact undo. Simulating instead would mean a **second implementation of the scheduler**
+that could drift from the real one, which is the failure this repo keeps recording. `undoAutoSchedule()`
+restores from the snapshot; an assertion proves every start date comes back byte-identical.
+
+**The rules, written down here too, because they are what a PM is really asking about:** pools in order
+of earliest real work (not job number); sub-phases in order, each starting the first working day after
+the previous finishes; locked and signed-off rows never moved; not-applicable skipped; otherwise the
+**least loaded qualified crew free for the whole span**, trying successive working days until one is;
+`Unlimited` crews never counted busy and never blocking; no trade means Unassigned rather than a guess;
+Sundays and Work Calendar holidays never work days.
+
+**The distinction PMs get wrong, now stated in both artifacts:** `Save + reflow` moves dates on **one**
+pool and never touches a crew. `Auto-Schedule` can move work to a **different crew across every pool**.
+A lock is the only thing that guarantees a deliberate crew choice survives it.
+
+**A screenshot of a drawer needs the drawer unclipped first.** `#dBody` is `overflow:auto`, so on the
+Auto-Schedule summary the content past ~807px of a 1120px body never painted, and a taller clip just
+added blank space. `capture-planner-drawers.js` now temporarily sets `overflow:visible` and
+`height:auto` for the capture and restores it after. The first two attempts looked like they had worked,
+because the output was a valid image of the right thing.
+
+---
+
 ## THERE IS A DEMO RUN SHEET, SEPARATE FROM THE PM GUIDE — 2026-09-15b
 
 **Run sheet:** https://claude.ai/artifact/1nHTtPXXdJhHzKyoTdqKfP (private)
