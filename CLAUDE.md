@@ -3057,6 +3057,60 @@ rows afterwards; those lists are the client's operational log.
 
 ---
 
+## TASK ROWS ARE MATCHED BY NAME, THEN BY POSITION ONLY WHEN THE LEFTOVERS LINE UP — 2026-09-16b
+
+`importFromD2Payload` decides which SharePoint Tasks row each checklist line writes to. It used
+`Sequence` position alone, so **a checklist reordered on the SharePoint site would have sent a tick on
+"A" to the row for "B"**, a wrong-row write on attested data. The old client guide told PMs how to
+reorder tasks on the site. It never happened (295 of 295 matched on the live check).
+
+Now two passes (`e8cc61b`, `6715c6c`): match by **name**; then leftovers match by position and keep a
+row id **only when they line up exactly** (same count each side, distinct positions, each landing on a
+line still unmatched). That is a rename on one side, including a rename in this browser's own Phase
+Template, and position is then the same task. A reorder plus a rename, or a task added or deleted in
+SharePoint, keeps no id for any leftover; a tick on those is reported as "could not be matched to its
+SharePoint row" instead of written. Verified on the hosted build: 1180 of 1180 live rows matched, each
+to a row of the same name. `signoff-push.js` carries a reorder, a rename in place, a move-and-rename
+and a mixed layout; two of four mutations survived until the mixed layout was added.
+
+**Still true and worth knowing:** a task *added* on the SharePoint site never appears in the planner,
+because a pool's lines come from the template. Per-pool checklist edits have no supported path from the
+planner; the guide now says to ask for them.
+
+## THE CREWS AND PHASE TEMPLATE TABS ARE PER-BROWSER COPIES, and the guide had them backwards
+
+The PM guide said editing the Phase Template "changes what future pools are built from". **It does
+not.** `+ Job` raises a `New Pool Requests` row and `D2 - New Pool` builds from the **SharePoint**
+`Sub-phase Template` and `Task Template` lists. The planner's `S.template` and `S.crews` live in that
+browser's `localStorage`; the template only shapes how imported pools display there, and crew trades
+only steer that browser's Qualified list and Auto-Schedule, while the nightly `D2 - Crew Trade Check`
+reads `Crew-Trades` in SharePoint. Two PMs can hold different copies. The guide now says both are local
+and to ask for permanent changes.
+
+**Deleting a crew does reach SharePoint**: it clears the crew from every sub-phase on every pool on
+screen, the pools stay linked, and the next Save sends `Crew` empty for all of it. The confirmation now
+says so and counts the sub-phases (`ec3c095`).
+
+**Open product question for Shane:** whether PMs should be able to edit either tab at all. Both are
+easy to change, neither change goes where a PM would expect, and one of them is destructive on Save.
+
+## THE CLIENT GUIDE MERGE IS STAGED, NOT PUBLISHED — 2026-09-16b
+
+Shane asked for the client guide (`a84a2e1a-6395-4f3a-b050-8cf53cefa2b5`, shared by link, viewers on a
+pinned earlier version) to be updated. The merged page is the planner guide plus the client guide's
+calendar section, its email section with both rendered examples (the `<script type="text/html">`
+sources and the iframe script travel with it), a new "Changing a checklist" section, and the Phase
+Template and Crews corrections above.
+
+**Publishing to `a84a2e1a` was refused by the Claude Code permission classifier** ("Live-Shared
+Artifact Sensitive Delta"). It was not worked around. The identical content, differing only in
+`<title>`, is **Version 10 of the private guide `UoeNwV4i4EQQaQgSuJCqiJ`**, so it can be reviewed there
+and republished to `a84a2e1a` by reading that version and swapping the title back to
+`D2 Build Scheduler Guide`. Publishing a new version does not by itself change what the four client
+users see: their share link is pinned, so the pin has to be moved as well.
+
+---
+
 ## EDITING `web/index.html` FROM A SCRIPT: two traps, both cost a cycle on 2026-09-16b
 
 - **The `Edit` tool rewrites the whole working-copy file as CRLF.** `core.autocrlf=true` normalises it

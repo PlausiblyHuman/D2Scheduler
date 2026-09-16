@@ -60,12 +60,31 @@ rows, 0 `Delete Pool Requests` rows.
 
 ## Open
 
-- **The client guide `a84a2e1a`** still describes the SharePoint surface and serves a pinned version.
-  Reissuing it is Shane's call.
+- **The client guide `a84a2e1a`**: merged content staged (see below); publish and pin move pending.
+- **Should PMs be able to edit the Crews and Phase Template tabs at all?** Both are local copies, and
+  deleting a crew is destructive on Save.
 - **Don:** trade mapping, the 11 field-supervision sub-phases, `@sub`, subcontractor emails and
   capacities.
 - **Crew-lead accounts and Business Basic seats** unbought.
 
+## Later the same session: the client guide
+
+Shane asked for the client guide to be updated. Merging it with the planner guide surfaced three more
+things, all fixed and deployed before any guide text was written about them:
+
+| Commit | Change |
+|---|---|
+| `e8cc61b`, `6715c6c` | Task rows matched by name, then by position only when the leftovers line up. A SharePoint-side reorder would have sent a tick to the wrong row |
+| `ec3c095` | Deleting a crew says the next Save sends the cleared crews to SharePoint |
+
+And one wording correction the guide needed: the Crews and Phase Template tabs are per-browser copies,
+and new pools are built from the SharePoint template, not the planner's.
+
+**The merged guide is staged, not published.** Publishing to the shared client guide `a84a2e1a` was
+refused by the permission classifier as a live shared artifact, and was not worked around. The same
+content is Version 10 of the private guide `UoeNwV4i4EQQaQgSuJCqiJ`.
+
 ## Next action
 
-Read the updated PM guide, then decide whether it replaces the client guide before the pilot.
+Review Version 10 of the private guide, then either allow the publish to `a84a2e1a` or publish it
+yourself, and move the share link's pin so the four client users see it.
