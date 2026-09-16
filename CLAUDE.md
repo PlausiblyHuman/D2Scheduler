@@ -3096,20 +3096,42 @@ them. What protects PMs is honest copy, not removed controls: the dialogs say wh
 the next Save (`honest-copy.js` pins that), and the guide says both tabs are per-browser and to ask for
 permanent template or crew-trade changes. Keep both true when either tab changes.
 
-## THE CLIENT GUIDE MERGE IS STAGED, NOT PUBLISHED — 2026-09-16b
+## THE CLIENT GUIDE IS PLANNER-FIRST, PUBLISHED 2026-09-16b (was staged, then approved)
 
-Shane asked for the client guide (`a84a2e1a-6395-4f3a-b050-8cf53cefa2b5`, shared by link, viewers on a
-pinned earlier version) to be updated. The merged page is the planner guide plus the client guide's
-calendar section, its email section with both rendered examples (the `<script type="text/html">`
-sources and the iframe script travel with it), a new "Changing a checklist" section, and the Phase
-Template and Crews corrections above.
+**Published by Shane's go-ahead** to `a84a2e1a-6395-4f3a-b050-8cf53cefa2b5`, whose gallery URL is
+`https://claude.ai/artifact/MnJkMLwg3LHXpv9g74SiV2` (Version 7). The first attempt was refused by the
+Claude Code permission classifier as a live shared artifact and was not worked around; it went through
+once Shane approved it explicitly. **The share link is pinned to an earlier version**, so the four client
+users see the new guide only after the pin is moved.
 
-**Publishing to `a84a2e1a` was refused by the Claude Code permission classifier** ("Live-Shared
-Artifact Sensitive Delta"). It was not worked around. The identical content, differing only in
-`<title>`, is **Version 10 of the private guide `UoeNwV4i4EQQaQgSuJCqiJ`**, so it can be reviewed there
-and republished to `a84a2e1a` by reading that version and swapping the title back to
-`D2 Build Scheduler Guide`. Publishing a new version does not by itself change what the four client
-users see: their share link is pinned, so the pin has to be moved as well.
+Content: the planner guide, plus the client guide's calendar section, its email section with both
+rendered examples (the `<script type="text/html">` sources and the iframe script travel with it), a
+"Changing a checklist" section, the Crews and Phase Template corrections above, and the delete steps now
+naming the required **Reason** box and **Override Signed Off**. The private copy
+`UoeNwV4i4EQQaQgSuJCqiJ` carries identical content under its own title.
+
+**`D2 - Delete Pool`'s override checks `InstallerSignOff` only.** A pool with PM sign-offs but no
+installer sign-off deletes without it.
+
+## THE DEMO RUN SHEET IS NOW A TRAINING RUN SHEET — 2026-09-16b
+
+`https://claude.ai/artifact/1nHTtPXXdJhHzKyoTdqKfP` (Version 8), for Shane to lead a hands-on session
+with the PMs on 2026-09-17. The old demo script is superseded; its versions remain in the artifact
+history.
+
+**The design rule it rests on, and it applies to any future training: trainees change only a practice
+pool of their own; the four example pools are for looking.** The example pools are Active, so a saved
+change reaches the calendar, can email a conflict alert to that pool's PM, and lands in the 04:30
+summary. Practice pools are `TRAIN-01`, `-02`, `-03`, raised through `+ Job` with a start of
+2026-08-31 (so part of the work is already late) and default crews ticked (so they arrive with real
+double-bookings to fix). They stay `Planned` and are deleted through `Delete Pool Requests` at the end.
+
+Three hazards the sheet guards against explicitly:
+- **Saving after Auto-Schedule** writes to every pool, the example pools included. It is always undone.
+- **Activating a practice pool** puts it on the calendar and into the next morning's summary. Recovery is
+  setting Status back to Planned the same day and deleting the pool only after the 04:30 full calendar
+  sweep, because deleting an Active pool strands its calendar events (the known `D2 - Delete Pool` gap).
+- **A refusal** is taught deliberately, by two trainees saving the same field on one practice pool.
 
 ---
 

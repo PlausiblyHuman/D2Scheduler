@@ -60,7 +60,7 @@ rows, 0 `Delete Pool Requests` rows.
 
 ## Open
 
-- **The client guide `a84a2e1a`**: merged content staged (see below); publish and pin move pending.
+- **The client guide `a84a2e1a`**: published; the share link's pin still has to be moved.
 - ~~Should PMs be able to edit the Crews and Phase Template tabs?~~ **Decided: yes, they keep edit
   access.** The dialogs and the guide say what each change does instead.
 - **Don:** trade mapping, the 11 field-supervision sub-phases, `@sub`, subcontractor emails and
@@ -84,7 +84,13 @@ and new pools are built from the SharePoint template, not the planner's.
 refused by the permission classifier as a live shared artifact, and was not worked around. The same
 content is Version 10 of the private guide `UoeNwV4i4EQQaQgSuJCqiJ`.
 
+**Then published, on Shane's go-ahead:** the client guide is Version 7 at
+`https://claude.ai/artifact/MnJkMLwg3LHXpv9g74SiV2`, now also naming the Reason box and Override Signed
+Off in its delete steps. The demo run sheet became a **training run sheet** (Version 8 of
+`https://claude.ai/artifact/1nHTtPXXdJhHzKyoTdqKfP`) for a hands-on session with the PMs on 2026-09-17,
+built around each trainee practising on their own TRAIN pool.
+
 ## Next action
 
-Review Version 10 of the private guide, then either allow the publish to `a84a2e1a` or publish it
-yourself, and move the share link's pin so the four client users see it.
+Move the client guide share link's pin to the new version, then run the training session on
+2026-09-17 and check afterwards that every TRAIN pool was deleted and none was activated.
