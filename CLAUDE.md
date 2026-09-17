@@ -3135,6 +3135,23 @@ Three hazards the sheet guards against explicitly:
 
 ---
 
+## THE PLAYWRIGHT MCP WINDOW IS NOT A BROWSER A HUMAN CAN USE — found 2026-09-17
+
+Shane reported "Push from here" doing nothing. The planner was fine. He was clicking in the headed
+Chrome window the Playwright MCP had launched, which looks like ordinary Chrome apart from an "unsupported
+command-line flag" banner. **Native `confirm` / `prompt` / `alert` in that window are answered by whatever
+`page.on('dialog')` handler the automation last registered, invisibly.** A read-only check had registered
+a dismiss handler, so every confirm returned false and `slipFromToday` stopped before doing anything.
+Reproduced both ways: accept handler, the push works; dismiss handler, exactly the reported no-op.
+
+The planner leans on native dialogs for every consequential action (Push from here, Activate, N/A
+reasons, delete crew, Rebuild, Set all durations), so an accept handler left behind is worse than a
+dismiss one: it would confirm an Activate nobody saw. **After driving the planner with Playwright, close
+the browser**, and if a human reports a dead control, check which Chrome they are in (`Get-CimInstance
+Win32_Process` shows Playwright's `--disable-field-trial-config` flag set) before reading any code.
+
+---
+
 ## EDITING `web/index.html` FROM A SCRIPT: two traps, both cost a cycle on 2026-09-16b
 
 - **The `Edit` tool rewrites the whole working-copy file as CRLF.** `core.autocrlf=true` normalises it
