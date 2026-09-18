@@ -1652,7 +1652,9 @@ duplicates.
   (`don@`, `david@`, `emon@`, `cody@` and `stratirus@`), owners still **D2 Bot alone**. Group
   membership is also what grants site access, via the `D2 Build Scheduler Members` SharePoint group
   backed by the `federateddirectoryclaimprovider` claim, so the four have site Edit rights too. The
-  long-standing "client-gated, blocking everything" item is closed.
+  long-standing "client-gated, blocking everything" item is closed. **Amy Stevens and Carolyn Morris
+  added 2026-09-18** (`amy@d2pools.com`, `carolyn@d2pools.com`), seven members now; welcome mail
+  re-read as off from Exchange first.
 
   **ADDING A MEMBER SENDS A WELCOME EMAIL, AND GRAPH WILL TELL YOU IT DOES NOT.** This was live on
   this group and was caught only because Shane required no notifications. Three surfaces, only one
@@ -2586,10 +2588,12 @@ That client id is **Static Web Apps' own shared platform app**, not ours, and `/
 Microsoft account can pass the wall. Our single-tenant app id only ever appears in the *in-page*
 MSAL sign-in that guards the data.
 
-**Four SPA redirect URIs are now registered** on `D2 Build Scheduler (planner)`: both localhost
-forms plus the hosted origin with and without a trailing slash. The planner sets
-`redirectUri: location.origin + location.pathname`, so the trailing-slash form is the one it
-actually requests at the root.
+**SIX SPA redirect URIs are registered** on `D2 Build Scheduler (planner)` as of 2026-09-18: both
+localhost forms, the hosted origin with and without a trailing slash, and
+**`/auth-redirect.html` on both origins**, which is the only one the current planner requests
+(`redirectUri: location.origin + D2_GRAPH.redirectPath`). The four root forms are kept so a tab
+opened before the 2026-09-18 deploy still signs in until it is reloaded. See "REFRESH FAILED FOR
+FOUR OF SIX" below for why the popup no longer lands on the planner itself.
 
 **VERIFIED SIGNED IN, 2026-09-14, against live tenant data.** Both libraries load over HTTPS,
 `graphModeAvailable()` is **true** (so the planner is in live-Graph mode, not the file-picker
@@ -2598,9 +2602,12 @@ fallback), the console is clean at every level, and **Refresh pulled 3 pools / 1
 Work Calendar imports as a **210-entry Set** and Thanksgiving, Christmas, Labor Day and Sundays
 all evaluate non-work, so divergence D7 holds on the hosted build.
 
-**THE SECOND SIGN-IN IS SILENT, as hoped but not previously provable.** The SWA wall establishes
-an Entra session, and MSAL's `loginPopup` then completes with no popup and no second prompt. Users
-sign in once.
+**THE SECOND SIGN-IN IS SILENT ONLY WHEN THERE IS NOTHING TO CLICK. Corrected 2026-09-18.** This
+was verified on one browser profile holding one D2 session, and read as "users sign in once". For
+anyone whose browser holds a second Microsoft account, or who meets "Stay signed in?" or MFA, the
+popup shows Microsoft's page and needs a click, and until 2026-09-18 that click broke the sign-in
+outright. The popup now also carries a `login_hint` of the wall's account, which skips the account
+picker in the common case.
 
 **THE TWO CONSENT PROMPTS ARE A ONE-TIME ADMIN EVENT, NOT A PER-USER TAX.** Signing in the first
 time raised consent for **Azure Static Web Apps** (`openid profile email`) and for the planner
@@ -2628,6 +2635,82 @@ The shared-member check only fires for crews sharing a working day, and the harn
 no two crews on the same date, so it asserted over an empty set. It now builds the overlap and
 carries a second assertion confirming the scenario is reached. **A new assertion has to be watched
 fail before it is worth anything** -- the fourth time this file has recorded that lesson.
+
+## REFRESH FAILED FOR FOUR OF SIX AT THE 2026-09-17 TRAINING, fixed and verified live 2026-09-18
+
+Don, Emon, Amy and Carolyn pressed Refresh and got an error, a file picker, and an empty planner.
+Shane and Cody were fine. **It was not consent and not rights, and an admin "re-authorize" step
+would have changed nothing.**
+
+**The evidence is Entra's own sign-in log**, readable with the `az` token because Business Premium
+carries Entra ID P1:
+
+```
+az rest --method get --url "https://graph.microsoft.com/v1.0/auditLogs/signIns?\$filter=createdDateTime ge <iso> and appId eq '1aa00e61-e5e7-42bd-95b4-fd58863e5b54'"
+```
+
+Every planner sign-in that day was `errorCode 0`; all four were issued tokens, Don seven times. The
+tell was the pairing: each failing user's planner sign-in was followed one to five seconds later by
+a fresh sign-in to the **Azure Static Web Apps** app (`d414ee2d-…`), and Shane's and Cody's were
+not. **Use this log first next time a sign-in "does nothing"**; it names the failure per person.
+
+**Root cause: the wall's `StaticWebAppsAuthCookie` is `SameSite=Strict`.** MSAL's popup returned
+to the planner page itself, which is behind the wall. If the user clicked anything on Microsoft's
+page (account picker, "Stay signed in?", MFA), the navigation back was initiated by
+`login.microsoftonline.com`, so Chrome and Edge withheld the Strict cookie; the wall 302'd the popup
+into its own `/.auth/login/aad` round trip, which ends in a form POST, and the `#code=` fragment
+was lost. The popup then showed a second copy of the planner (the popup people called "weird"),
+MSAL gave up after 60s with `monitor_window_timeout`, and the page alerted the raw code and opened
+the file picker. A sign-in with nothing to click is a pure redirect chain started by the planner,
+so the cookie is sent, which is why it worked for some people and never in testing.
+
+**Reproduced both ways in a real browser before anything was changed**, one variable apart:
+`loginPopup` with `prompt: 'select_account'` plus one click failed exactly as above; the same call
+without the picker succeeded in 2s.
+
+**The fix (commit on 2026-09-18), pinned by `fixtures/planner/signin.js`, 35 assertions, every new
+one watched red under `mutate.py` (14 of 14):**
+
+1. **The popup lands on `web/auth-redirect.html`**, a blank page with no script that
+   `staticwebapp.config.json` makes `anonymous` in a route placed before `/*`. The cookie no longer
+   matters. That route overrides the global headers with `frame-ancestors 'self'` and
+   `X-Frame-Options: SAMEORIGIN`, so MSAL's hidden-iframe renewal can read its result instead of
+   hitting DENY and timing out, which would otherwise cost the follow-up popup its user gesture.
+2. **A failed hosted Refresh opens the drawer with a sentence and Try again**, never an alert and
+   never the file picker (kept for `file://` only). `explainGraphError` covers `user_cancelled`,
+   popup blocked, `monitor_window_timeout`, `interaction_in_progress`, and a 401/403 from Graph,
+   which names the signed-in account. Save and Activate use the same explainer. Try again goes
+   straight to `loginPopup` without awaiting a silent token first.
+3. **`login_hint` is the wall's account**, fetched from `/.auth/me` once at page load, never inside
+   the click, so nothing is awaited before `loginPopup`. SWA's `/.auth/me` returns
+   `clientPrincipal.userDetails` as the UPN for the `aad` provider (read live).
+
+**Verified live after deploy, not only in jsdom:** the forced-picker sign-in that timed out now
+completes in 2.5s with the popup closing itself, while `wallCookieSent` was still false on the
+return, i.e. the cookie is still withheld and no longer matters; the authorize request carries
+`login_hint=stratirus@d2pools.com` and `redirect_uri=…/auth-redirect.html`; closing the popup
+showed the drawer; Try again then completed a full live load. The anonymous wall checks still hold:
+every path 302 except `/auth-redirect.html` (200, committed bytes, its own framing headers,
+`noindex` still applied) and `/.auth/login/github` (404).
+
+**`/auth-redirect.html` is deliberately public.** It holds one sentence and no script, so it
+exposes nothing; the wall still covers the shell and the data gate is unchanged.
+
+**Console noise that is NOT a defect:** MSAL logs `Cross-Origin-Opener-Policy policy would block
+the window.closed call` while the popup sits on Microsoft's page. It appeared identically on the old
+build and sign-in completes regardless.
+
+**Also found in the log:** Amy and Carolyn were not group members, so they would have got a 403
+even with a working sign-in. **Added 2026-09-18** (`amy@d2pools.com`, `carolyn@d2pools.com`, not
+Amy's `amy_d2install.com#EXT#` guest duplicate), after re-reading `WelcomeMessageEnabled = False`
+from Exchange. **David never signed in at all on 2026-09-17**; if he tried, it was with an account
+outside D2's tenant.
+
+**Refresh reads New Pool Requests on every load** because `loadFromD2ViaGraph` iterates every key in
+`D2_GRAPH.lists`, and `graph-to-planner.js` never uses it. Harmless, and the comment beside `req`
+says the opposite. Left alone.
+
+---
 
 ## THE PLANNER WRITES DIRECTLY TO SHAREPOINT — Route B built and verified live 2026-09-15
 

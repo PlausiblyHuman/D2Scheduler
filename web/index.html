@@ -1432,10 +1432,7 @@ async function doActivatePool(jobId){
   document.getElementById('dFoot').innerHTML='<span class="hint">Activating…</span>';
   try{
     const tok=await graphToken(), G=window.D2GraphWriteback;
-    const siteResp=await fetch('https://graph.microsoft.com/v1.0/sites/'
-      +D2_GRAPH.siteHost+':'+D2_GRAPH.sitePath,{headers:{Authorization:'Bearer '+tok}});
-    if(!siteResp.ok) throw new Error('Could not reach the SharePoint site ('+siteResp.status+').');
-    const siteId=(await siteResp.json()).id, U=G.urls(siteId);
+    const siteId=(await graphSite(tok)).id, U=G.urls(siteId);
     const rows=await graphPageAll(U.items(D2_GRAPH.lists.jobs)+'?$expand=fields&$top=500',tok);
     const row=rows.find(r=>String(r.fields.JobNumber)===String(j.jobno));
     if(!row) throw new Error('That pool is not in SharePoint yet. Refresh and try again.');
@@ -1450,7 +1447,7 @@ async function doActivatePool(jobId){
     closeDrawer();
     await loadFromD2ViaGraph(true);
   }catch(e){
-    document.getElementById('dBody').innerHTML=`<div class="hint" style="color:#a84a18">${esc(e.message)}</div>`;
+    document.getElementById('dBody').innerHTML=graphErrorHTML(e,'');
     document.getElementById('dFoot').innerHTML='<button class="btn" onclick="closeDrawer()">Close</button>';
   }
 }
@@ -1879,10 +1876,7 @@ async function pushSignoffs(siteId,tok,liveById,pools){
 async function pushChangeSet(pools){
   const tok=await graphToken();
   const G=window.D2GraphWriteback, C=window.D2WritebackCore;
-  const siteResp=await fetch('https://graph.microsoft.com/v1.0/sites/'
-    +D2_GRAPH.siteHost+':'+D2_GRAPH.sitePath,{headers:{Authorization:'Bearer '+tok}});
-  if(!siteResp.ok) throw new Error('Could not reach the SharePoint site ('+siteResp.status+'). Nothing was written.');
-  const siteId=(await siteResp.json()).id;
+  const siteId=(await graphSite(tok)).id;
 
   /* Re-read the rows immediately before writing. Compare-before-write is only
      as good as the freshness of THIS read, not of the last Refresh. */
@@ -2100,7 +2094,7 @@ function showPushResult(out,err){
   const body=document.getElementById('dBody');
   document.getElementById('dTitle').textContent='Save results';
   if(err||!out){
-    body.innerHTML=`<div class="hint" style="color:#a84a18">Nothing was written. ${esc(err&&err.message||'Unknown error.')}</div>`;
+    body.innerHTML=graphErrorHTML(err,'Nothing was written.');
   }else{
     const {plan,res}=out;
     const row=(a,b,c)=>`<tr><td class="small">${esc(a)}</td><td class="small">${esc(b)}</td><td class="small muted">${esc(c)}</td></tr>`;
@@ -2212,10 +2206,24 @@ document.getElementById('saveBtn').onclick=openSavePreview;
    Popup, not redirect, for the sign-in: a redirect would navigate this page
    away and back, and unlike fixtures/planner/capture-graph.html (a one-shot
    capture tool with no state to lose) this planner has in-memory schedule
-   state a PM may not have saved yet. */
+   state a PM may not have saved yet.
+
+   THE POPUP LANDS ON /auth-redirect.html, NOT ON THIS PAGE, and that is what
+   broke Refresh for four of six people at the 2026-09-17 training session.
+   The Static Web Apps wall's session cookie is SameSite=Strict. When the user
+   clicks anything on Microsoft's sign-in page (account picker, "Stay signed
+   in?", MFA), the popup's trip back here counts as cross-site and the cookie
+   is withheld, so the wall ran its own login inside the popup and the sign-in
+   code in the URL was lost on the way. Entra had issued every one of them a
+   token. auth-redirect.html is a blank page that staticwebapp.config.json
+   leaves outside the wall, so the cookie no longer matters; MSAL reads the
+   code off it from this window and closes it. See fixtures/planner/signin.js. */
 const D2_GRAPH={
   clientId:'1aa00e61-e5e7-42bd-95b4-fd58863e5b54',
   authority:'https://login.microsoftonline.com/f24d9b39-6a71-4f4e-a376-03b6f61c97e4',
+  // Must also be a SPA redirect URI on the app registration, for every origin
+  // this is served from (the hosted site and localhost:8787).
+  redirectPath:'/auth-redirect.html',
   scopes:['https://graph.microsoft.com/Sites.ReadWrite.All'],
   siteHost:'netorgft15040037.sharepoint.com',
   sitePath:'/sites/D2BuildScheduler',
@@ -2242,23 +2250,103 @@ let D2_PCA=null;
 function graphPca(){
   if(!D2_PCA)D2_PCA=new window.msal.PublicClientApplication({
     auth:{clientId:D2_GRAPH.clientId,authority:D2_GRAPH.authority,
-          redirectUri:location.origin+location.pathname},
+          redirectUri:location.origin+D2_GRAPH.redirectPath},
     cache:{cacheLocation:'sessionStorage'}
   });
   return D2_PCA;
 }
-async function graphToken(){
+/* Who the Static Web Apps wall already signed in, passed to Microsoft as a
+   login hint so a browser holding several Microsoft accounts (a personal one,
+   or a second D2 account) goes straight to the right one instead of showing a
+   picker. Fetched once at page load, NOT inside the Refresh click: anything
+   awaited before loginPopup risks the browser blocking the popup. Null when
+   there is no wall (local dev), and then no hint is sent at all. */
+let D2_LOGIN_HINT=null;
+function fetchLoginHint(){
+  if(!graphModeAvailable())return;
+  fetch('/.auth/me').then(r=>r.ok?r.json():null).then(d=>{
+    const u=d&&d.clientPrincipal&&d.clientPrincipal.userDetails;
+    if(typeof u==='string'&&u.includes('@'))D2_LOGIN_HINT=u;
+  }).catch(()=>{});
+}
+/* opts.interactive goes straight to the popup. Try again uses it: if a silent
+   token just failed, awaiting it a second time before loginPopup can cost the
+   popup its user gesture, and a blocked popup is the one failure Try again
+   exists to get past. */
+async function graphToken(opts){
   const pca=graphPca();
   const account=pca.getActiveAccount()||pca.getAllAccounts()[0];
-  if(account){
+  if(account&&!(opts&&opts.interactive)){
     try{
       const r=await pca.acquireTokenSilent({scopes:D2_GRAPH.scopes,account});
       return r.accessToken;
     }catch(e){/* falls through to an interactive sign-in below */}
   }
-  const r=await pca.loginPopup({scopes:D2_GRAPH.scopes});
+  const req={scopes:D2_GRAPH.scopes};
+  if(D2_LOGIN_HINT)req.loginHint=D2_LOGIN_HINT;
+  const r=await pca.loginPopup(req);
   pca.setActiveAccount(r.account);
   return r.accessToken;
+}
+function graphHttpError(msg,status){const e=new Error(msg);e.status=status;return e;}
+/* The one site lookup, shared by Refresh, Save and Activate. The status rides
+   on the error so explainGraphError can tell "this account has no access"
+   apart from everything else. */
+async function graphSite(tok){
+  const r=await fetch('https://graph.microsoft.com/v1.0/sites/'+D2_GRAPH.siteHost+':'+D2_GRAPH.sitePath,
+    {headers:{Authorization:'Bearer '+tok}});
+  if(!r.ok)throw graphHttpError('Could not reach the SharePoint site (HTTP '+r.status+').',r.status);
+  return r.json();
+}
+/* A sign-in or Graph failure as a sentence a PM can act on. Refresh, Save and
+   Activate all use it, so an MSAL code is never the headline anywhere; it is
+   still shown, small, for whoever gets asked to look. */
+function explainGraphError(e){
+  const code=(e&&e.errorCode)||'';
+  const popups='Your browser blocked the Microsoft sign-in window. Allow pop-ups for this site '
+    +'(look for the blocked pop-up icon at the right of the address bar), then press Try again.';
+  const byCode={
+    user_cancelled:'The Microsoft sign-in window was closed before it finished. Press Try again, '
+      +'and if Microsoft asks which account to use, pick your D2 account.',
+    popup_window_error:popups,
+    empty_window_error:popups,
+    monitor_window_timeout:'The Microsoft sign-in did not finish. Press Try again. If it happens again, '
+      +'reload this page and press Refresh. Your edits are kept.',
+    interaction_in_progress:'A Microsoft sign-in window is already open. Finish signing in there, '
+      +'or close it and press Try again.'
+  };
+  if(byCode[code])return {text:byCode[code],code};
+  if(e&&(e.status===401||e.status===403)){
+    const acct=D2_PCA&&D2_PCA.getActiveAccount();
+    const who=(acct&&acct.username)||D2_LOGIN_HINT;
+    return {code:'HTTP '+e.status,
+      text:(who?'You are signed in as '+who+', but SharePoint did not let that account open ':
+                'SharePoint did not let your account open ')
+        +'the D2 Build Scheduler site. If you were only just given access, it can take a while to '
+        +'reach SharePoint; try again later. Otherwise ask for access to the D2 Build Scheduler site.'};
+  }
+  return {text:(e&&e.message)||'Unknown error.',code};
+}
+function graphErrorHTML(e,lead){
+  const x=explainGraphError(e);
+  return `<div class="hint" style="color:#a84a18;padding:0 0 8px">${lead?esc(lead)+' ':''}${esc(x.text)}</div>`
+    +(x.code?`<div class="small muted">Details for support: ${esc(x.code)}</div>`:'');
+}
+/* A Refresh that fails says why and offers Try again. It used to alert a raw
+   MSAL error and then open the file picker, which on the hosted site asks for a
+   .json nobody has -- the "broken state" every failed PM was left in on
+   2026-09-17. The file picker is for a downloaded copy only. */
+function showLoadProblem(e){
+  document.getElementById('dTitle').textContent='Could not load the schedule';
+  document.getElementById('dBody').innerHTML=graphErrorHTML(e,'');
+  document.getElementById('dFoot').innerHTML=
+    `<button class="btn p" onclick="refreshLive(true)">Try again</button>
+     <button class="btn" onclick="closeDrawer()">Close</button>`;
+  document.getElementById('drawer').classList.add('open');
+}
+function refreshLive(interactive){
+  closeDrawer();
+  return loadFromD2ViaGraph(false,{interactive:!!interactive}).catch(showLoadProblem);
 }
 // Page through a Graph collection. Tasks is 885 rows today and grows by 295
 // per pool, so following @odata.nextLink is never optional -- see
@@ -2267,20 +2355,16 @@ async function graphPageAll(url,tok){
   let out=[];
   while(url){
     const r=await fetch(url,{headers:{Authorization:'Bearer '+tok}});
-    if(!r.ok)throw new Error('Graph '+r.status+' on '+url.slice(0,120));
+    if(!r.ok)throw graphHttpError('Graph '+r.status+' on '+url.slice(0,120),r.status);
     const d=await r.json();
     out=out.concat(d.value||[]);
     url=d['@odata.nextLink']||null;
   }
   return out;
 }
-async function loadFromD2ViaGraph(silent){
-  const tok=await graphToken();
-  const siteResp=await fetch(
-    'https://graph.microsoft.com/v1.0/sites/'+D2_GRAPH.siteHost+':'+D2_GRAPH.sitePath,
-    {headers:{Authorization:'Bearer '+tok}});
-  if(!siteResp.ok)throw new Error('Site lookup failed: '+siteResp.status);
-  const site=await siteResp.json();
+async function loadFromD2ViaGraph(silent,opts){
+  const tok=await graphToken(opts);
+  const site=await graphSite(tok);
   const base='https://graph.microsoft.com/v1.0/sites/'+site.id+'/lists/';
   const keys=Object.keys(D2_GRAPH.lists);
   const rows=await Promise.all(keys.map(k=>
@@ -2308,18 +2392,12 @@ function updateButtonTooltips(){
   }
 }
 document.getElementById('d2Btn').onclick=()=>{
-  if(graphModeAvailable()){
-    loadFromD2ViaGraph().catch(e=>{
-      alert('Could not load the live schedule: '+e.message+
-        '\n\nFalling back to the file picker -- choose the exported .json from the site instead.');
-      document.getElementById('d2File').click();
-    });
-  }else{
-    document.getElementById('d2File').click();
-  }
+  if(graphModeAvailable())refreshLive(false);
+  else document.getElementById('d2File').click();
 };
 document.getElementById('d2File').onchange=e=>{const f=e.target.files[0];if(f)importFromD2(f);e.target.value='';};
 updateButtonTooltips();
+fetchLoginHint();
 load();render();
 </script>
 </body>

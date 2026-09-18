@@ -5,6 +5,16 @@
       "statusCode": 404
     },
     {
+      "route": "/auth-redirect.html",
+      "allowedRoles": [
+        "anonymous"
+      ],
+      "headers": {
+        "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'self'; base-uri 'none'; form-action 'none'",
+        "X-Frame-Options": "SAMEORIGIN"
+      }
+    },
+    {
       "route": "/*",
       "allowedRoles": [
         "authenticated"
