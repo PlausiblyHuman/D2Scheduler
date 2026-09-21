@@ -3208,14 +3208,16 @@ and to ask for permanent changes.
 screen, the pools stay linked, and the next Save sends `Crew` empty for all of it. The confirmation now
 says so and counts the sub-phases (`ec3c095`).
 
-**DECIDED 2026-09-21 by Shane: ONLY DON MAKES TEMPLATE CHANGES.** This supersedes the 2026-09-16b
+**DECIDED 2026-09-21 by Shane: ONLY DON AND DAVID MAKE TEMPLATE CHANGES.** This supersedes the 2026-09-16b
 decision below for the Phase Template tab. Don asked for it at the 2026-09-17 session ("once we build our
-template out and we're solid, I want to deactivate all the adjustments"). Don is `don@d2pools.com`, site
-user 16; never match `contact@d2pools.com`, his enabled duplicate. The Crews tab is NOT covered by this
-decision and keeps the 2026-09-16b rule until Shane says otherwise.
+template out and we're solid, I want to deactivate all the adjustments"); Shane added David the same day,
+"parity to Don's access", which also applies to controlling the qualifier list (priorities item 2). Don is
+`don@d2pools.com`, site user 16; never match `contact@d2pools.com`, his enabled duplicate. David is
+`david@d2pools.com`, site user 13; never match `david_d2install.com#EXT#`, his guest duplicate. The Crews
+tab is NOT covered by this decision and keeps the 2026-09-16b rule until Shane says otherwise.
 
 How it should be enforced, per the priorities page item 7: **SharePoint permissions on the `Sub-phase
-Template` and `Task Template` lists are the gate** (Don Edit, Members Read, Owners keep Full Control so
+Template` and `Task Template` lists are the gate** (Don and David Edit, Members Read, Owners keep Full Control so
 Stratirus can maintain it and `D2 - New Pool`, running as D2 Bot, still reads it). The planner then shows
 the tab read-only to anyone else, which is presentation only. A client-side check alone would be
 bypassable, and the rejected alternative (Static Web Apps Standard roles, $9/month) gates the shell, not
@@ -3223,7 +3225,7 @@ the data.
 
 **One hazard exists TODAY, before item 7 is built:** the Phase Template tab's "Set all durations" edits
 every pool on screen in place, and a Save afterwards pushes those durations to SharePoint (see "THE PHASE
-TEMPLATE TAB IS THE MOST DANGEROUS SURFACE"). So a non-Don PM can already change live durations from the
+TEMPLATE TAB IS THE MOST DANGEROUS SURFACE"). So anyone other than Don and David can already change live durations from the
 template tab, whatever the template lists' permissions say.
 
 ~~**DECIDED 2026-09-16b by Shane: PMs keep edit access to both tabs.**~~ Superseded for the Phase Template
