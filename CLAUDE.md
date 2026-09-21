@@ -2430,7 +2430,7 @@ The first pool ever created the way a PM is meant to create one: `+ Job` in the 
 | Job | **23**, `D2-1045`, Navarro Residence, 1580 Lindero Canyon Road, Westlake Village |
 | Span | 2026-07-20 to 2026-11-05 |
 | Staged at | **23 of 46 finished, 21 signed, 174/295 tasks** — deliberately between Salcedo (11) and Whitfield (35) |
-| PM | **David Taylor** (site user 13), which gives all four people with access a pool of their own |
+| PM | ~~David Taylor (site user 13)~~ **CORRECTED 2026-09-21: the live Jobs row says D2 Bot (site user 7).** Read off `ProjectManagerLookupId` when the Jobs tab first showed PMs. It was created through `+ Job` while signed in as D2 Bot, when the PM was always whoever created the job, and was evidently never re-pointed. David has no pool of his own. Not changed; a live data write |
 | Sign-offs | attributed to David, timestamped to each sub-phase's own finish date |
 | Left unsigned | **2.1** (finished 08-08) and **3.2** (finished 08-25), so `Sign-off Overdue` has genuinely overdue content |
 | In progress today | 4.3 Shotcrete Placement, tasks half ticked |
@@ -2635,6 +2635,40 @@ The shared-member check only fires for crews sharing a working day, and the harn
 no two crews on the same date, so it asserted over an empty set. It now builds the overlap and
 carries a second assertion confirming the scenario is reached. **A new assertion has to be watched
 fail before it is worth anything** -- the fourth time this file has recorded that lesson.
+
+## PM ON EVERY JOB, A SIGN-OFFS JOB PICKER, CREWS ON THE FOLDED BOARD — shipped and verified live 2026-09-21
+
+Items 3, 11 and 13 of the post-session priorities page
+(https://claude.ai/artifact/7zqKjJ29r1s5xLfenwq6rQ, private until Shane shares it). Commit `4c482dd`.
+
+- **PM on every job.** Refresh now also reads the User Information List (one extra Graph call, failure
+  costs only the names). `graph-to-planner.js` turns `ProjectManagerLookupId` into a name and emits a
+  `people` list. The Jobs tab shows and filters by PM, **by name** because the REST export carries no id;
+  the filter survives a Refresh. `+ Job` has a PM picker defaulting to the signed-in person (hosted only:
+  the file:// change-set is applied by a console script that sets the PM to whoever runs it).
+  **`planCreates` REBUILDS each create from named fields and silently dropped `pmId` until it was named
+  there** — the same class as the Choice/lookup shape traps: nothing errors, the request just goes out
+  under the wrong person.
+- **People are real sign-ins only.** The User Information List also holds SharePoint groups, the M365
+  group claim and system principals. Only a `i:0#.f|membership|` claim is a person, and `#ext#` guests are
+  dropped because this tenant carries guest duplicates of real staff. **Verified against the live list**:
+  six people (Carolyn, Cody, D2 Bot, David, Don, Emon), no groups. Carolyn appearing proves she has visited
+  the site since being added on 2026-09-18; Amy had not yet.
+- **Sign-Offs job picker** (`#soJob`); a picked job that vanishes falls back to all.
+- **Folded board** names a phase's crews only when folded (`phaseCrews`); the name column clips with an
+  ellipsis, so the full list is the tooltip.
+
+**Two test lessons worth keeping.** A job number in the Jobs table lives in an `<input>`, so it is never in
+`textContent`: assert on input values or the check can never pass or fail honestly. And **an injection probe
+inside a `<select>` must start with `</option></select>`**: the parser drops a bare `<svg>` in select
+context, so the first probe passed with three names unescaped. A mixed batch (one picked PM, one blank)
+is the only case that resolves the signed-in fallback, so it is the one that proves the picked PM wins.
+`fixtures/planner/office-views.js`, 20 of 20 mutations red.
+
+**Not done, for Shane:** the client guide does not mention these yet, and the Jobs tab hint now says new
+jobs are built from the SharePoint template (it said the Phase Template tab, which was wrong).
+
+---
 
 ## REFRESH FAILED FOR FOUR OF SIX AT THE 2026-09-17 TRAINING, fixed and verified live 2026-09-18
 
