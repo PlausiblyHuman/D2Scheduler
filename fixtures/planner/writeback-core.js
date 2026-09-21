@@ -157,6 +157,16 @@ ok('titleMatches rejects the same sub-phase number on a different job',
   ok('assignDefaultCrews is a real boolean even when the caller omitted it',
      r.creates[0].assignDefaultCrews === false, JSON.stringify(r.creates[0]));
 }
+{
+  // planCreates REBUILDS each create from named fields, so a PM picked on + Job
+  // is dropped here unless it is named too, and the request quietly goes out
+  // under whoever pressed Save.
+  const r = C.planCreates([{ jobno: 'D2-1099', name: 'X', start: '2026-10-01', pmId: 15 }], [], []);
+  ok('a PM picked on + Job survives planning, as a string id', r.creates[0].pmId === '15', JSON.stringify(r.creates[0]));
+  const r2 = C.planCreates([{ jobno: 'D2-1098', name: 'Y', start: '2026-10-01', pmId: '' }], [], []);
+  ok('no PM picked stays null, so Save falls back to the signed-in person', r2.creates[0].pmId === null,
+     JSON.stringify(r2.creates[0]));
+}
 
 
 // ---------- sign-off and task ticks (added 2026-09-16) ----------

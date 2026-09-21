@@ -206,7 +206,10 @@
       out.push({
         jobno: String(c.jobno).trim(), name: c.name, addr: c.addr || '',
         city: c.city || '', start: day(c.start),
-        assignDefaultCrews: !!c.assignDefaultCrews
+        assignDefaultCrews: !!c.assignDefaultCrews,
+        // The PM picked on + Job, as a site-user id. Null means "whoever is
+        // signed in when Save runs", resolved by the caller.
+        pmId: c.pmId == null || c.pmId === '' ? null : String(c.pmId)
       });
     });
     return { creates: out, refusals: refusals };

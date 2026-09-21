@@ -1,0 +1,77 @@
+[
+ {
+  "label": "PM filter ignored",
+  "find": "const shown=pmOn?S.jobs.filter(j=>j.pm===pmOn):S.jobs;",
+  "replace": "const shown=S.jobs;"
+ },
+ {
+  "label": "filters wiped by Refresh",
+  "find": "UI={collapsed:{},tlScroll:{},pmFilter:UI.pmFilter,signoffJob:UI.signoffJob}",
+  "replace": "UI={collapsed:{},tlScroll:{}}"
+ },
+ {
+  "label": "Sign-Offs picker ignored",
+  "find": "const list=pick?S.jobs.filter(j=>j.id===pick):S.jobs;",
+  "replace": "const list=S.jobs;"
+ },
+ {
+  "label": "a vanished picked job not guarded",
+  "find": "const pick=UI.signoffJob&&S.jobs.some(j=>j.id===UI.signoffJob)?UI.signoffJob:'';",
+  "replace": "const pick=UI.signoffJob||'';"
+ },
+ {
+  "label": "collapsed phase row loses its crews",
+  "find": "${col?phaseCrews(g):''}",
+  "replace": ""
+ },
+ {
+  "label": "crew summary repeated on expanded rows",
+  "find": "${col?phaseCrews(g):''}",
+  "replace": "${phaseCrews(g)}"
+ },
+ {
+  "label": "PM name not stored on import",
+  "find": "if(inj.pm!=null)j.pm=inj.pm;",
+  "replace": "/* mutated */"
+ },
+ {
+  "label": "people list not stored",
+  "find": "if(Array.isArray(d.people)&&d.people.length)S.people=d.people;",
+  "replace": "/* mutated */"
+ },
+ {
+  "label": "user list never read on Refresh",
+  "find": "graphPayload.users=GW?await graphPageAll(GW.urls(site.id).userInfo,tok).catch(()=>[]):[];",
+  "replace": "graphPayload.users=[];"
+ },
+ {
+  "label": "picker ignores who is signed in",
+  "find": "${p.id===meId?' selected':''}",
+  "replace": ""
+ },
+ {
+  "label": "Save ignores the picked PM",
+  "find": "G.createBody(c,c.pmId||whoId)",
+  "replace": "G.createBody(c,whoId||c.pmId)"
+ },
+ {
+  "label": "picked PM dropped when queued",
+  "find": "const pmId=pmSel&&pmSel.value?pmSel.value:null;",
+  "replace": "const pmId=null;"
+ },
+ {
+  "label": "Sign-Offs option name unescaped",
+  "find": "${esc(j.jobno||'')} \u00b7 ${esc(j.name)}</option>",
+  "replace": "${esc(j.jobno||'')} \u00b7 ${j.name}</option>"
+ },
+ {
+  "label": "PM column name unescaped",
+  "find": "title=\"Show only ${esc(j.pm)}'s jobs\">${esc(j.pm)}</button>",
+  "replace": "title=\"Show only ${esc(j.pm)}'s jobs\">${j.pm}</button>"
+ },
+ {
+  "label": "picker person name unescaped",
+  "find": "${esc(p.name)} (${esc(p.upn)})</option>",
+  "replace": "${p.name} (${esc(p.upn)})</option>"
+ }
+]

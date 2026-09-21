@@ -1,0 +1,22 @@
+[
+ {
+  "label": "groups and system principals offered as people",
+  "find": "if (claim.indexOf(MEMBER) !== 0 || claim.indexOf('#ext#') !== -1) return;",
+  "replace": "if (claim.indexOf('#ext#') !== -1) return;"
+ },
+ {
+  "label": "guest duplicates offered as people",
+  "find": "if (claim.indexOf(MEMBER) !== 0 || claim.indexOf('#ext#') !== -1) return;",
+  "replace": "if (claim.indexOf(MEMBER) !== 0) return;"
+ },
+ {
+  "label": "PM name never looked up",
+  "find": "pm: nameById.get(key(jf.ProjectManagerLookupId)) || '',",
+  "replace": "pm: '',"
+ },
+ {
+  "label": "people not sorted by name",
+  "find": "people.sort((a, b) => a.name.localeCompare(b.name));",
+  "replace": "/* mutated */"
+ }
+]

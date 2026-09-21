@@ -89,3 +89,8 @@ canvas-app/solution/
 
 # Playwright MCP page snapshots and console logs. They capture live tenant data.
 .playwright-mcp/
+
+# Meeting recordings and their transcripts: client conversations, never commit.
+*.m4a
+fixtures/Sep 17 at 9-57 AM/
+fixtures/Sep 17 at 9-57 AM.zip

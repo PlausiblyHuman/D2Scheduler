@@ -121,6 +121,9 @@ tr.phrow .nm{background:#f8fafc;font-weight:650}
 .bars i{display:block;height:100%}
 .hint{font-size:11.5px;color:var(--muted);padding:0 13px 11px}
 .ok-txt{color:var(--ok);font-weight:600}.err-txt{color:var(--danger);font-weight:600}
+.pmlink{background:none;border:0;padding:0;font:inherit;color:var(--accent);cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px}
+.pmlink:hover,.pmlink:focus-visible{text-decoration-style:solid}
+.phcrews{font-weight:400;font-size:11.5px;color:var(--muted);margin-left:6px}
 .tw2{height:8px;background:#e5e7eb;border-radius:4px;overflow:hidden}
 .tw2 i{display:block;height:100%;background:var(--accent)}
 @media print{header,nav,.btn,.drawer{display:none!important}.tl{max-height:none;overflow:visible}}
@@ -940,7 +943,7 @@ function vBoard(){
         <label class="${gp_==='all'?'on':''}" title="Project Manager sign-off for every sub-phase in this phase${sgNote('pm',j.id)}"><input type="checkbox" ${gp_==='all'?'checked':''} ${gp_==='some'?'data-ind="1"':''} onchange="sign('${j.id}',${gi},null,'pm',this.checked)">PM</label></span>`;
       html+=`<tr class="phrow"><td class="nm"><div class="nmflex">
         <button class="btn sm" onclick="UI.collapsed['${ck}']=!UI.collapsed['${ck}'];render()" style="padding:0 5px">${col?'▸':'▾'}</button>
-        <span class="t"><b>${g.num}.0</b> ${g.name}</span>
+        <span class="t"><b>${g.num}.0</b> ${g.name}${col?phaseCrews(g):''}</span>
         <span class="dt">${gs?pretty(gs)+' → '+pretty(ge):''}</span>${gsg}</div></td>${gbar}</tr>`;
       if(col)return;
       g.sections.forEach((s,si)=>{
@@ -972,6 +975,18 @@ function vBoard(){
     <button class="btn sm" onclick="collapseAll(false)">Expand all</button>
     <span class="muted small" style="text-transform:none">Click a sub-phase name or its bar to reassign, move, lock, or open its checklist</span></h2>
     ${legend()}<div class="tl"><table><thead>${headHTML(ax)}</thead><tbody>${rows||'<tr><td class="pad muted">No jobs.</td></tr>'}</tbody></table></div></div>`;
+}
+/* The crews on a phase, for its FOLDED line only. "Collapse all" is how a PM
+   gets one line per phase, and it used to hide who is on the work, which was
+   the point of looking ("I don't see the crews assigned"). Expanded rows show
+   each sub-phase's crew already, so the summary would only repeat them. The
+   name column clips with an ellipsis, so the full list is also the tooltip. */
+function phaseCrews(g){
+  const names=[...new Set(g.sections.filter(s=>!s.skip&&s.crewId)
+    .map(s=>{const c=crew(s.crewId);return c?c.name:s.crewId;}))];
+  if(!names.length)return '';
+  const list=names.map(esc).join(', ');
+  return `<span class="phcrews" title="${list}">· ${list}</span>`;
 }
 function collapseAll(v){S.jobs.forEach(j=>j.groups.forEach((g,gi)=>UI.collapsed[`${j.id}/${gi}`]=v));render();}
 
@@ -1039,7 +1054,19 @@ function vDispatch(){
 function shiftDay(n){let d=DDATE;do{d=addCal(d,n);}while(!isWork(parseD(d)));DDATE=d;render();}
 
 function vSignoff(){
-  return S.jobs.map(j=>{
+  /* One job at a time, asked for at the 2026-09-17 session: with every pool on
+     one page a PM scrolls past everyone else's to reach theirs. A picked job
+     that is no longer here (removed, or gone after a Refresh) shows all. */
+  const pick=UI.signoffJob&&S.jobs.some(j=>j.id===UI.signoffJob)?UI.signoffJob:'';
+  const list=pick?S.jobs.filter(j=>j.id===pick):S.jobs;
+  const byNo=(a,b)=>String(a.jobno||'').localeCompare(String(b.jobno||''));
+  const bar=S.jobs.length>1?`<div class="card"><div class="pad" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <label for="soJob" class="small"><b>Show</b></label>
+      <select id="soJob" onchange="UI.signoffJob=this.value;render()">
+        <option value="">All jobs (${S.jobs.length})</option>
+        ${S.jobs.slice().sort(byNo).map(j=>`<option value="${esc(j.id)}"${j.id===pick?' selected':''}>${esc(j.jobno||'')} · ${esc(j.name)}</option>`).join('')}
+      </select></div></div>`:'';
+  return bar+list.map(j=>{
     const secs=allSecs(j).filter(x=>!x.s.skip);
     const i=secs.filter(x=>x.s.inst).length,p=secs.filter(x=>x.s.pm).length;
     const tot=secs.reduce((a,x)=>a+x.s.tasks.length,0),
@@ -1080,11 +1107,12 @@ function vJobs(){
   const pend=S.pendingCreates||[];
   const pendingCard=pend.length?`<div class="card"><h2>Pending Pool Requests<span class="sp"></span>
       <span class="muted small" style="text-transform:none">Queued here — pushed to SharePoint by Save</span></h2>
-    <table><thead><tr><th style="width:92px">Job ID</th><th>Name</th><th>Address</th><th style="width:100px">Start</th>
+    <table><thead><tr><th style="width:92px">Job ID</th><th>Name</th><th style="width:140px">Project manager</th><th>Address</th><th style="width:100px">Start</th>
       <th style="width:100px">Crews</th><th style="width:230px">Status</th><th></th></tr></thead><tbody>
     ${pend.map(c=>`<tr>
       <td class="mono small">${esc(c.jobno)}</td>
       <td>${esc(c.name)}</td>
+      <td class="small">${c.pmName?esc(c.pmName):'<span class="muted">You</span>'}</td>
       <td class="small muted">${esc([c.addr,c.city].filter(Boolean).join(', '))}</td>
       <td class="small muted">${pretty(c.start)}</td>
       <td class="small muted">${c.assignDefaultCrews?'Assign':'Unassigned'}</td>
@@ -1094,13 +1122,28 @@ function vJobs(){
       <td style="text-align:right">${c.requestedAt?'':`<button class="btn sm d" onclick="cancelPendingCreate('${c.id}')">Remove</button>`}</td>
       </tr>`).join('')}
     </tbody></table></div>`:'';
-  return pendingCard+`<div class="card"><h2>Jobs<span class="sp"></span><button class="btn sm p" onclick="addJob()">+ New Job</button></h2>
-  <table><thead><tr><th style="width:92px">Job ID</th><th>Job Name</th><th>Street Address</th>
+  /* Filter by project manager, by NAME: the REST export carries the name and no
+     id, so the name is the one key both import paths share. A filter naming a
+     PM who no longer has a job here is ignored rather than showing nothing. */
+  const pms=[...new Set(S.jobs.map(j=>j.pm).filter(Boolean))].sort();
+  const pmOn=UI.pmFilter&&pms.includes(UI.pmFilter)?UI.pmFilter:'';
+  const shown=pmOn?S.jobs.filter(j=>j.pm===pmOn):S.jobs;
+  return pendingCard+`<div class="card"><h2>Jobs<span class="sp"></span>
+    ${pms.length?`<select id="pmFilter" onchange="setPmFilter(this.value)" style="text-transform:none;font-weight:400">
+      <option value="">All project managers</option>
+      ${pms.map(n=>`<option value="${esc(n)}"${n===pmOn?' selected':''}>${esc(n)}</option>`).join('')}</select>`:''}
+    <button class="btn sm p" onclick="addJob()">+ New Job</button></h2>
+  ${pmOn?`<div class="hint" style="padding-top:8px">Showing ${shown.length} job${shown.length===1?'':'s'} for
+    <b>${esc(pmOn)}</b> · <button class="pmlink" onclick="setPmFilter('')">Show all</button></div>`:''}
+  <table><thead><tr><th style="width:92px">Job ID</th><th>Job Name</th><th style="width:150px">Project manager</th><th>Street Address</th>
     <th style="width:120px">City</th><th style="width:56px">State</th><th style="width:82px">ZIP</th>
     <th style="width:104px">Starts</th><th style="width:104px">Ends</th><th>Sub-phases</th><th style="width:92px">Status</th><th></th></tr></thead><tbody>
-  ${S.jobs.map(j=>{const [a,b]=jobSpan(j);return `<tr>
+  ${shown.map(j=>{const [a,b]=jobSpan(j);return `<tr>
     <td><input value="${esc(j.jobno||'')}" onchange="setJob('${j.id}','jobno',this.value)" style="width:82px;font-family:ui-monospace,Menlo,monospace"></td>
     <td><input value="${esc(j.name)}" onchange="setJob('${j.id}','name',this.value)" style="width:160px"></td>
+    <td class="small">${j.pm
+      ? `<button class="pmlink" data-pm="${esc(j.pm)}" onclick="setPmFilter(this.dataset.pm)" title="Show only ${esc(j.pm)}'s jobs">${esc(j.pm)}</button>`
+      : '<span class="muted">—</span>'}</td>
     <td><input value="${esc(j.addr)}" onchange="setJob('${j.id}','addr',this.value)" style="width:170px" placeholder="Street"></td>
     <td><input value="${esc(j.city)}" onchange="setJob('${j.id}','city',this.value)" style="width:110px" placeholder="City"></td>
     <td><input value="${esc(j.state)}" onchange="setJob('${j.id}','state',this.value)" style="width:46px" maxlength="2" placeholder="CA"></td>
@@ -1117,8 +1160,9 @@ function vJobs(){
       ? `<button class="btn sm" onclick="delJob('${j.id}')" title="Removes this pool from this screen only. It stays in SharePoint and comes back on the next Refresh.">Remove</button>`
       : `<button class="btn sm d" onclick="delJob('${j.id}')" title="This pool has never been saved to SharePoint. Deleting it here cannot be undone.">Delete</button>`}</td></tr>`;}).join('')}
   </tbody></table>
-  <div class="hint">New jobs are built from the Phase Template. Mark a sub-phase "not applicable" in its editor to skip it on one pool.</div></div>`;
+  <div class="hint">New jobs are built from the template stored in SharePoint. Mark a sub-phase "not applicable" in its editor to skip it on one pool.</div></div>`;
 }
+function setPmFilter(name){UI.pmFilter=name||'';render();}
 
 function vCrews(){
   return `<div class="card"><h2>Crews & Skills<span class="sp"></span><button class="btn sm p" onclick="addCrew()">+ Crew</button></h2>
@@ -1312,6 +1356,7 @@ function addJob(){
     </div>
     <div class="fld"><label>Job number</label><input id="ncJobNo" value="${esc(nextJobNo())}"></div>
     <div class="fld"><label>Pool / job name</label><input id="ncName" placeholder="e.g. Reyes Residence"></div>
+    ${newJobPmField()}
     <div class="fld"><label>Street address</label><input id="ncAddr" placeholder="Street"></div>
     <div class="row">
       <div class="fld"><label>City</label><input id="ncCity" placeholder="City"></div>
@@ -1333,6 +1378,25 @@ function addJob(){
    planner-changes.js, which ALSO re-checks the job number against live Jobs
    before creating anything -- the check here is a local sanity check only,
    never the uniqueness authority. */
+/* The PM picker on + Job. The office sets jobs up for a PM, so "whoever is
+   signed in" was the wrong default for exactly the people raising them. People
+   come from the User Information List on the last Refresh, filtered to real
+   sign-ins in graph-to-planner.js (never a SharePoint group). Hosted only: a
+   downloaded copy's change-set is applied by a console script that sets the
+   PM to whoever runs it, so a picker there would promise something it cannot do. */
+function newJobPmField(){
+  if(!graphModeAvailable())return '';
+  const people=S.people||[];
+  if(!people.length)return `<div class="fld"><label for="ncPm">Project manager</label>
+      <select id="ncPm"><option value="">You (the signed-in account)</option></select>
+      <div class="hint" style="padding:4px 0 0">Press Refresh to load the list of people. Until then the job is assigned to you.</div></div>`;
+  const acct=graphPca().getActiveAccount()||graphPca().getAllAccounts()[0];
+  const me=String((acct&&acct.username)||D2_LOGIN_HINT||'').toLowerCase();
+  const meId=(people.find(p=>p.upn===me)||{}).id;
+  return `<div class="fld"><label for="ncPm">Project manager</label><select id="ncPm">
+      ${people.map(p=>`<option value="${esc(p.id)}"${p.id===meId?' selected':''}>${esc(p.name)} (${esc(p.upn)})</option>`).join('')}
+    </select></div>`;
+}
 function confirmNewPoolRequest(){
   const jobno=document.getElementById('ncJobNo').value.trim();
   const name=document.getElementById('ncName').value.trim();
@@ -1340,12 +1404,16 @@ function confirmNewPoolRequest(){
   const city=document.getElementById('ncCity').value.trim();
   const start=document.getElementById('ncStart').value;
   const assignDefaultCrews=document.getElementById('ncAssignCrews').checked;
+  // Blank means "whoever is signed in when Save runs", resolved in pushCreates.
+  const pmSel=document.getElementById('ncPm');
+  const pmId=pmSel&&pmSel.value?pmSel.value:null;
+  const pmName=pmId?(((S.people||[]).find(p=>p.id===pmId))||{}).name||'':'';
   if(!jobno||!name||!start){alert('Job number, pool name and start date are all required.');return;}
   S.pendingCreates=S.pendingCreates||[];
   if(S.jobs.some(j=>String(j.jobno)===jobno)||S.pendingCreates.some(c=>c.jobno===jobno)){
     alert(jobno+' is already in use here — pick a different job number.');return;}
   S.pendingCreates.push({id:'pc'+Math.random().toString(36).slice(2,8),
-    jobno,name,addr,city,start,assignDefaultCrews,queuedAt:new Date().toISOString(),requestedAt:null});
+    jobno,name,addr,city,start,assignDefaultCrews,pmId,pmName,queuedAt:new Date().toISOString(),requestedAt:null});
   closeDrawer();
   TAB='jobs';
   document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.t==='jobs'));
@@ -1589,6 +1657,10 @@ function importFromD2Payload(d,silent){
         if(inj.start)j.start=inj.start;
         if(inj.status)j.status=inj.status;
       }
+      // PM name for the Jobs tab. The id rides along for the Graph path only;
+      // the REST export carries the name without it.
+      if(inj.pm!=null)j.pm=inj.pm;
+      if(inj.pmId!=null)j.pmId=String(inj.pmId);
       const map=bySec(j);
       (inj.sections||[]).forEach(is=>{
         const s=map[is.num];
@@ -1684,7 +1756,13 @@ function importFromD2Payload(d,silent){
       S.pendingCreates=S.pendingCreates.filter(c=>!arrived.has(String(c.jobno)));
     }
 
-    save(); UI={collapsed:{},tlScroll:{}}; render();
+    // The people a job can be assigned to, for the + Job PM picker. Only the
+    // Graph path supplies it; a file import leaves the last good list alone.
+    if(Array.isArray(d.people)&&d.people.length)S.people=d.people;
+
+    // A Refresh re-centres the timeline and unfolds the board, but a PM who
+    // filtered to their own jobs asked for that view and keeps it.
+    save(); UI={collapsed:{},tlScroll:{},pmFilter:UI.pmFilter,signoffJob:UI.signoffJob}; render();
     /* The routine summary is skipped on a silent re-read -- that runs straight
        after a Save, and a "Schedule loaded" modal stacked on top of the save
        results is noise the PM did not ask for.
@@ -2025,12 +2103,19 @@ async function pushCreates(siteId,tok,creates){
      D2 - New Pool about sixteen minutes later, which reads as the tool hanging.
      The UPN comes from the MSAL account because this token is scoped to
      Sites.ReadWrite.All and cannot call /me. */
-  const acct=graphPca().getActiveAccount()||graphPca().getAllAccounts()[0];
-  const uil=await graphPageAll(U.userInfo,tok);
-  const who=G.resolveSiteUserId(uil.map(r=>r.fields),acct&&acct.username);
-  if(!who.id) throw new Error(who.ambiguous
-    ? 'Your sign-in matches more than one SharePoint account, so the project manager cannot be set safely. No pool was requested.'
-    : 'Could not identify your SharePoint account, so the project manager cannot be set. No pool was requested.');
+  /* A PM picked on + Job is used as-is; the signed-in person is resolved only
+     for a request queued without one (no people loaded yet, or one queued
+     before the picker existed). */
+  let whoId=null;
+  if(creates.some(c=>!c.pmId)){
+    const acct=graphPca().getActiveAccount()||graphPca().getAllAccounts()[0];
+    const uil=await graphPageAll(U.userInfo,tok);
+    const who=G.resolveSiteUserId(uil.map(r=>r.fields),acct&&acct.username);
+    if(!who.id) throw new Error(who.ambiguous
+      ? 'Your sign-in matches more than one SharePoint account, so the project manager cannot be set safely. No pool was requested.'
+      : 'Could not identify your SharePoint account, so the project manager cannot be set. No pool was requested.');
+    whoId=who.id;
+  }
 
   /* Uniqueness spans live Jobs AND requests still Requested or Building. The
      documented wait actively trains a re-run, because a request sits at
@@ -2044,7 +2129,7 @@ async function pushCreates(siteId,tok,creates){
   const created=[],failed=[];
   for(const c of plan.creates){
     const r=await fetch(U.items(D2_GRAPH.lists.req),
-      {method:'POST',headers:G.headers(tok),body:JSON.stringify({fields:G.createBody(c,who.id)})});
+      {method:'POST',headers:G.headers(tok),body:JSON.stringify({fields:G.createBody(c,c.pmId||whoId)})});
     if(r.ok) created.push(c.jobno);
     else failed.push({jobno:c.jobno,status:r.status});
   }
@@ -2371,6 +2456,11 @@ async function loadFromD2ViaGraph(silent,opts){
     graphPageAll(base+D2_GRAPH.lists[k]+'/items?$expand=fields&$top=500',tok)));
   const graphPayload={site:site.webUrl};
   keys.forEach((k,i)=>{graphPayload[k]=rows[i];});
+  /* PM names and the + Job people list come from the User Information List,
+     read once here. A failure costs only the names, never the Refresh: the
+     schedule is what a PM opened the page for. */
+  const GW=window.D2GraphWriteback;
+  graphPayload.users=GW?await graphPageAll(GW.urls(site.id).userInfo,tok).catch(()=>[]):[];
   const payload=window.D2GraphToPlanner.toPlannerPayload(graphPayload);
   importFromD2Payload(payload,silent);
 }

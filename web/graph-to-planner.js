@@ -48,9 +48,18 @@
  *
  * `ProjectManagerLookupId` is an id with no display name -- Graph did not
  * `$expand` the lookup the way the REST export's `$expand=ProjectManager`
- * does. `importFromD2` never reads a job's PM name (only `Sections[].crewId`
- * etc. matter to it), so this maps to an empty string rather than paying for
- * a second Graph call per job to resolve a value nothing downstream uses.
+ * does. The name comes from `graph.users`, the site's User Information List,
+ * read ONCE per Refresh by the caller (not once per job). Since 2026-09-21 the
+ * Jobs tab shows and filters by PM, so the name is no longer unused. With no
+ * `users` it stays '' as before, which is also what the fixtures without a
+ * user list exercise.
+ *
+ * `people` is the same list reduced to real sign-ins, for the + Job PM
+ * picker. That list ALSO holds SharePoint groups, the M365 group claim and
+ * system principals; an earlier resolver matched the "Owners" group on an
+ * empty field and looked confident. Only a `i:0#.f|membership|` claim is a
+ * person, and a `#ext#` guest is left out because this tenant carries guest
+ * duplicates of real staff.
  *
  * Read-only. This module never calls fetch, never writes anything -- it only
  * transforms arrays already read by the caller (the planner's own MSAL/Graph
@@ -107,6 +116,18 @@
       if (orphanTask) console.warn('graph-to-planner: ' + orphanTask + ' task(s) joined to no assignment');
     }
 
+    const MEMBER = 'i:0#.f|membership|';
+    const people = [];
+    const nameById = new Map();
+    (graph.users || []).forEach(u => {
+      const f = u.fields || u;
+      nameById.set(key(f.id), f.Title || '');
+      const claim = String(f.Name || '').toLowerCase();
+      if (claim.indexOf(MEMBER) !== 0 || claim.indexOf('#ext#') !== -1) return;
+      people.push({ id: key(f.id), name: f.Title || '', upn: claim.slice(MEMBER.length) });
+    });
+    people.sort((a, b) => a.name.localeCompare(b.name));
+
     const payload = {
       app: 'D2 Pool Build Scheduler',
       kind: 'd2-sharepoint-export',
@@ -124,9 +145,10 @@
           city: jf.City || '',
           start: day(jf.StartDate),
           status: jf.Status || '',
-          // See the file header: Graph returns only ProjectManagerLookupId,
-          // no display name, and nothing downstream reads it.
-          pm: '',
+          // See the file header: Graph returns only ProjectManagerLookupId;
+          // the name comes from graph.users when the caller read it.
+          pm: nameById.get(key(jf.ProjectManagerLookupId)) || '',
+          pmId: jf.ProjectManagerLookupId == null ? null : key(jf.ProjectManagerLookupId),
           sections: (asgByJob.get(jobId) || [])
             .slice()
             .sort((a, b) => (a.fields.Sequence || 0) - (b.fields.Sequence || 0))
@@ -167,6 +189,7 @@
         };
       })
     };
+    if (people.length) payload.people = people;
 
     return payload;
   }
