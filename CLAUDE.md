@@ -3208,7 +3208,26 @@ and to ask for permanent changes.
 screen, the pools stay linked, and the next Save sends `Crew` empty for all of it. The confirmation now
 says so and counts the sub-phases (`ec3c095`).
 
-**DECIDED 2026-09-16b by Shane: PMs keep edit access to both tabs.** Do not lock them down or hide
+**DECIDED 2026-09-21 by Shane: ONLY DON MAKES TEMPLATE CHANGES.** This supersedes the 2026-09-16b
+decision below for the Phase Template tab. Don asked for it at the 2026-09-17 session ("once we build our
+template out and we're solid, I want to deactivate all the adjustments"). Don is `don@d2pools.com`, site
+user 16; never match `contact@d2pools.com`, his enabled duplicate. The Crews tab is NOT covered by this
+decision and keeps the 2026-09-16b rule until Shane says otherwise.
+
+How it should be enforced, per the priorities page item 7: **SharePoint permissions on the `Sub-phase
+Template` and `Task Template` lists are the gate** (Don Edit, Members Read, Owners keep Full Control so
+Stratirus can maintain it and `D2 - New Pool`, running as D2 Bot, still reads it). The planner then shows
+the tab read-only to anyone else, which is presentation only. A client-side check alone would be
+bypassable, and the rejected alternative (Static Web Apps Standard roles, $9/month) gates the shell, not
+the data.
+
+**One hazard exists TODAY, before item 7 is built:** the Phase Template tab's "Set all durations" edits
+every pool on screen in place, and a Save afterwards pushes those durations to SharePoint (see "THE PHASE
+TEMPLATE TAB IS THE MOST DANGEROUS SURFACE"). So a non-Don PM can already change live durations from the
+template tab, whatever the template lists' permissions say.
+
+~~**DECIDED 2026-09-16b by Shane: PMs keep edit access to both tabs.**~~ Superseded for the Phase Template
+tab on 2026-09-21, above; still stands for the Crews tab. Do not lock them down or hide
 them. What protects PMs is honest copy, not removed controls: the dialogs say what reaches SharePoint on
 the next Save (`honest-copy.js` pins that), and the guide says both tabs are per-browser and to ask for
 permanent template or crew-trade changes. Keep both true when either tab changes.
