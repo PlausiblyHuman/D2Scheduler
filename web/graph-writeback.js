@@ -101,6 +101,18 @@
     return b;
   }
 
+  /* The comments list carries no SuppressReconcileUntil column. Sending a
+     column a list does not have fails the write outright, which is how the
+     Tasks list taught this. Four fields, nothing else. */
+  function commentBody(post) {
+    return { fields: {
+      Title: post.Title,
+      AssignmentLookupId: String(post.AssignmentLookupId),
+      Kind: post.Kind,
+      Body: post.Body == null ? '' : post.Body
+    } };
+  }
+
   function createBody(create, projectManagerLookupId) {
     if (!projectManagerLookupId) {
       throw new Error('Refusing to create a pool request with no project manager. '
@@ -152,9 +164,53 @@
     return { written: written, failed: failed };
   }
 
+  /* PATCH the assignment, then POST the comment, and POST only if the PATCH
+     succeeded. A comment row saying "rejected, because X" beside an
+     assignment that was never reopened is a record of something that did not
+     happen -- worse than no record at all. If the PATCH lands and the POST
+     then fails, the failure is reported at the 'post' stage with
+     `patched: true`, so the caller can say plainly that the row WAS changed
+     even though the comment was not recorded.
+
+     One op failing must not stop the next: each op is independent, and a
+     batch of a few rejections and comments should land as many as it can.
+     Sequential on purpose -- these are few, and PATCH-before-POST ordering
+     is the point, not throughput. */
+  async function applyRejectionOps(ctx, ops) {
+    var f = ctx.fetchImpl || (typeof fetch !== 'undefined' ? fetch : null);
+    if (!f) throw new Error('No fetch implementation available.');
+    var U = urls(ctx.siteId);
+    var done = [], failed = [];
+    for (var i = 0; i < (ops || []).length; i++) {
+      var op = ops[i];
+      if (op.patch) {
+        var pr = await f(U.fields(ctx.asgListId, op.patch.id), {
+          method: 'PATCH', headers: headers(ctx.token), body: JSON.stringify(patchBody(op.patch))
+        });
+        if (!pr.ok) {
+          failed.push({ localId: op.localId, kind: op.kind, id: op.id, stage: 'patch',
+                        status: pr.status, message: await pr.text() });
+          continue;
+        }
+      }
+      var cr = await f(U.items(ctx.commentsListId), {
+        method: 'POST', headers: headers(ctx.token), body: JSON.stringify(commentBody(op.post))
+      });
+      if (!cr.ok) {
+        failed.push({ localId: op.localId, kind: op.kind, id: op.id, stage: 'post',
+                      status: cr.status, message: await cr.text(), patched: !!op.patch });
+        continue;
+      }
+      var row = await cr.json();
+      done.push({ localId: op.localId, kind: op.kind, id: op.id,
+                  commentId: row && row.id == null ? null : String(row.id) });
+    }
+    return { done: done, failed: failed };
+  }
+
   return {
     urls: urls, headers: headers, resolveSiteUserId: resolveSiteUserId,
     patchBody: patchBody, createBody: createBody, statusBody: statusBody,
-    applyWrites: applyWrites
+    applyWrites: applyWrites, commentBody: commentBody, applyRejectionOps: applyRejectionOps
   };
 });

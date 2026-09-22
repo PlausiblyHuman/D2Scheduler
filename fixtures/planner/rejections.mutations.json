@@ -44,5 +44,16 @@
     {"label": "a rejection does not unlock the checklist",
      "find": "          && !sec.rejecting;",
      "replace": "          ;"}
+  ],
+  "web/graph-writeback.js": [
+    {"label": "POST fires even when the PATCH failed",
+     "find": "          failed.push({ localId: op.localId, kind: op.kind, id: op.id, stage: 'patch',\n                        status: pr.status, message: await pr.text() });\n          continue;\n        }\n      }\n      var cr = await f(U.items(ctx.commentsListId), {",
+     "replace": "        }\n      }\n      var cr = await f(U.items(ctx.commentsListId), {"},
+    {"label": "the lookup id is not stringified",
+     "find": "      AssignmentLookupId: String(post.AssignmentLookupId),",
+     "replace": "      AssignmentLookupId: post.AssignmentLookupId,"},
+    {"label": "a suppression column is sent to the comments list",
+     "find": "      Body: post.Body == null ? '' : post.Body\n    } };",
+     "replace": "      Body: post.Body == null ? '' : post.Body,\n      SuppressReconcileUntil: new Date().toISOString()\n    } };"}
   ]
 }

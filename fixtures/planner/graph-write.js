@@ -162,7 +162,111 @@ ok('activating a pool writes only Status',
   ok('a written row reports which fields landed',
      r.written[0].fields.join(',') === 'Crew', JSON.stringify(r.written[0]));
 
+  // ---------- commentBody ----------
+  /* The comments list has no SuppressReconcileUntil column. That column
+     does not exist on this list and sending it fails the PATCH outright on
+     Tasks; do not invent it here either. */
+  const cb = G.commentBody({ Title: 'D2-1042 5.3', AssignmentLookupId: '10',
+                              Kind: 'Rejected', Body: 'tile line short' });
+  ok('the body nests under fields',
+     !!cb.fields && cb.fields.Kind === 'Rejected', JSON.stringify(cb));
+  ok('the lookup is sent as AssignmentLookupId',
+     cb.fields.AssignmentLookupId === '10', JSON.stringify(cb.fields));
+  ok('no suppression column on the comments list',
+     !('SuppressReconcileUntil' in cb.fields), Object.keys(cb.fields).join(','));
+  ok('exactly four fields',
+     Object.keys(cb.fields).sort().join(',') === 'AssignmentLookupId,Body,Kind,Title',
+     Object.keys(cb.fields).sort().join(','));
+  /* Graph returns lookup ids as strings, and this project's most repeated
+     defect is an unnormalised join. Pass a NUMBER in so a dropped String()
+     is actually caught -- a string-in-string-out input can't tell the two
+     apart. */
+  const cbNum = G.commentBody({ Title: 'x', AssignmentLookupId: 10, Kind: 'Comment', Body: 'x' });
+  ok('the lookup id is stringified even when given as a number',
+     cbNum.fields.AssignmentLookupId === '10' && typeof cbNum.fields.AssignmentLookupId === 'string',
+     JSON.stringify(cbNum.fields.AssignmentLookupId) + ' (' + typeof cbNum.fields.AssignmentLookupId + ')');
+
+  // ---------- applyRejectionOps: PATCH the assignment, POST the comment ----------
+  /* Follows the file's own fetchImpl convention (see applyWrites above)
+     rather than reassigning global.fetch, so both stubs coexist cleanly. */
+  const posted = [], patched = [];
+  let failNextPatch = false, failNextPost = false;
+  const rejFetch = async (url, init) => {
+    const body = init.body ? JSON.parse(init.body) : null;
+    if (init.method === 'PATCH') {
+      patched.push({ url, body });
+      if (failNextPatch) return { ok: false, status: 400, text: async () => 'patch blew up' };
+      return { ok: true, status: 200, json: async () => ({ id: '10' }) };
+    }
+    posted.push({ url, body });
+    if (failNextPost) return { ok: false, status: 400, text: async () => 'post blew up' };
+    return { ok: true, status: 201, json: async () => ({ id: '77' }) };
+  };
+  const rctx = { token: 't', siteId: 'site1', asgListId: 'ASG', commentsListId: 'CMT', fetchImpl: rejFetch };
+
+  // A reject: PATCH first, POST second, both to the right lists.
+  patched.length = 0; posted.length = 0;
+  let rres = await G.applyRejectionOps(rctx, [{
+    localId: 'a1', kind: 'reject', id: '10',
+    patch: { id: '10', fields: { Rejected: true }, suppressUntil: '2026-09-22T17:15:00Z' },
+    post: { Title: 'D2-1042 5.3', AssignmentLookupId: '10', Kind: 'Rejected', Body: 'x' }
+  }]);
+  ok('one PATCH and one POST',
+     patched.length === 1 && posted.length === 1,
+     'patched=' + patched.length + ' posted=' + posted.length);
+  ok('the PATCH goes to the Assignments row fields',
+     patched[0].url.indexOf('/lists/ASG/items/10/fields') > -1, patched[0].url);
+  ok('the suppression stamp rides the Assignments PATCH',
+     patched[0].body.SuppressReconcileUntil === '2026-09-22T17:15:00Z', JSON.stringify(patched[0].body));
+  ok('the POST goes to the comments list',
+     posted[0].url.indexOf('/lists/CMT/items') > -1, posted[0].url);
+  ok('the new comment id comes back',
+     rres.done.length === 1 && rres.done[0].commentId === '77', JSON.stringify(rres));
+  ok('nothing failed', rres.failed.length === 0, JSON.stringify(rres.failed));
+
+  // A comment: POST only, no PATCH.
+  patched.length = 0; posted.length = 0;
+  rres = await G.applyRejectionOps(rctx, [{ localId: 'a2', kind: 'comment', id: '11', patch: null,
+    post: { Title: 'D2-1042 5.4', AssignmentLookupId: '11', Kind: 'Comment', Body: 'waiting' } }]);
+  ok('a comment PATCHes nothing',
+     patched.length === 0 && posted.length === 1,
+     'patched=' + patched.length + ' posted=' + posted.length);
+
+  // A failed PATCH must NOT post.
+  patched.length = 0; posted.length = 0; failNextPatch = true;
+  rres = await G.applyRejectionOps(rctx, [{ localId: 'a3', kind: 'reject', id: '10',
+    patch: { id: '10', fields: { Rejected: true }, suppressUntil: 'z' },
+    post: { Title: 'D2-1042 5.3', AssignmentLookupId: '10', Kind: 'Rejected', Body: 'x' } }]);
+  failNextPatch = false;
+  ok('a failed PATCH does not post a comment', posted.length === 0, 'posted=' + posted.length);
+  ok('the failure names the patch stage',
+     rres.failed.length === 1 && rres.failed[0].stage === 'patch', JSON.stringify(rres.failed));
+  ok('nothing is reported done', rres.done.length === 0, JSON.stringify(rres.done));
+
+  // A failed POST after a good PATCH is reported, and says the row did change.
+  patched.length = 0; posted.length = 0; failNextPost = true;
+  rres = await G.applyRejectionOps(rctx, [{ localId: 'a4', kind: 'reject', id: '10',
+    patch: { id: '10', fields: { Rejected: true }, suppressUntil: 'z' },
+    post: { Title: 'D2-1042 5.3', AssignmentLookupId: '10', Kind: 'Rejected', Body: 'x' } }]);
+  failNextPost = false;
+  ok('a failed POST after a good PATCH is reported at the post stage',
+     patched.length === 1 && rres.failed.length === 1 && rres.failed[0].stage === 'post',
+     JSON.stringify(rres.failed));
+  ok('and it records that the row WAS changed',
+     rres.failed[0].patched === true, JSON.stringify(rres.failed[0]));
+
+  // One bad op does not stop the next.
+  patched.length = 0; posted.length = 0;
+  rres = await G.applyRejectionOps(rctx, [
+    { localId: 'b1', kind: 'comment', id: '999', patch: null,
+      post: { Title: 'x', AssignmentLookupId: '999', Kind: 'Comment', Body: 'a' } },
+    { localId: 'b2', kind: 'comment', id: '11', patch: null,
+      post: { Title: 'y', AssignmentLookupId: '11', Kind: 'Comment', Body: 'b' } }
+  ]);
+  ok('both ops are attempted', rres.done.length === 2, 'got ' + rres.done.length);
+
   console.log(fail ? '\nFAILED'
-    : '\nGraph write layer: URLs, bodies, site-user resolution and per-row failure isolation all hold.');
+    : '\nGraph write layer: URLs, bodies, site-user resolution, per-row failure isolation and the '
+      + 'reject/comment PATCH-then-POST walk all hold.');
   process.exit(fail);
 })();
