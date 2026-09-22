@@ -247,6 +247,44 @@
           "query": "<Where><IsNotNull><FieldRef Name=\"TradeMismatch\" /></IsNotNull></Where><GroupBy Collapse=\"FALSE\"><FieldRef Name=\"Crew\" /></GroupBy><OrderBy><FieldRef Name=\"ScheduledStart\" Ascending=\"TRUE\" /></OrderBy>"
       },
       {
+          // ADDED 2026-09-22: a PM's sign-off rejection made visible. `Rejected`,
+          // `RejectedOn` and `RejectedReason` are stamped by the planner's
+          // reject-with-comments write path (see writeback-core.js), which also
+          // logs the reason to the Sign-off Comments list -- this view is the
+          // SharePoint-side counterpart, mirroring Conflicts and Trade Mismatch:
+          // a pure filter on columns something else already wrote, not a query
+          // that detects anything itself.
+          //
+          // Grouped by Job, not Crew. Conflicts and Trade Mismatch group by Crew
+          // because both describe a crew-level problem; a rejected sign-off is
+          // job-level work for the project manager who owns it, which is also how
+          // the planner's own rejection list is scoped. Crew stays as a column.
+          //
+          // Rejected is Boolean, not Note, so unlike Conflicts/Trade Mismatch
+          // there is no NULL-vs-empty-string ambiguity to route around -- a
+          // plain Eq against 1 is correct on its own, and Eq against 0 is a
+          // true inverse (proven when this view was provisioned; see the
+          // session record for the render-based check).
+          //
+          // Expect it to be EMPTY most days, same as Trade Mismatch -- a
+          // rejection is meant to be rare enough that a PM chases every one.
+          "list": "Assignments",
+          "title": "Rejected",
+          "viewFields": [
+              "LinkTitle",
+              "Job",
+              "SubPhaseNumber",
+              "SubPhaseName",
+              "Crew",
+              "ScheduledStart",
+              "RejectedOn",
+              "RejectedReason"
+          ],
+          "rowLimit": 100,
+          "paged": true,
+          "query": "<Where><Eq><FieldRef Name=\"Rejected\" /><Value Type=\"Integer\">1</Value></Eq></Where><GroupBy Collapse=\"FALSE\"><FieldRef Name=\"Job\" /></GroupBy><OrderBy><FieldRef Name=\"ScheduledStart\" Ascending=\"TRUE\" /></OrderBy>"
+      },
+      {
           "list": "Assignments",
           "title": "Today by Crew",
           "viewFields": [
