@@ -45,6 +45,78 @@ for (const f of [REST_FIXTURE, GRAPH_FIXTURE]) {
 const restLive = JSON.parse(fs.readFileSync(REST_FIXTURE, 'utf8'));
 const graphLive = JSON.parse(fs.readFileSync(GRAPH_FIXTURE, 'utf8'));
 
+/* ---- sign-off comments and the three rejection columns (Task 2) ----
+ * Synthetic comment rows, because the captured fixture predates the
+ * `Sign-off Comments` list. Shaped exactly as Graph returns an item:
+ * createdBy/createdDateTime at the ROOT, fields alongside. The REST fixture
+ * carries no comments and no rejection columns at all -- by design, since
+ * that capture predates this feature -- so the REST-vs-Graph equivalence
+ * checks above deliberately never compare thread/rejected/rejectedOn/
+ * rejectedReason; this block is the only coverage for those fields. */
+{
+  const asgId = graphLive.asg[0].fields.id; // a real assignment from the capture
+  const mkComment = (id, kind, body, who, at, lookup) => ({
+    id: String(id),
+    createdBy: { user: { displayName: who, email: 'x@d2pools.com' } },
+    createdDateTime: at,
+    fields: {
+      id: String(id), Kind: kind, Body: body,
+      AssignmentLookupId: lookup == null ? String(asgId) : lookup
+    }
+  });
+
+  const withComments = Object.assign({}, graphLive, {
+    comments: [
+      mkComment(3, 'Comment', 'third', 'Cody Campbell', '2026-09-20T15:00:00Z'),
+      mkComment(1, 'Rejected', 'tile line is short', 'Don Borgeson', '2026-09-18T12:00:00Z'),
+      mkComment(2, 'Resolved', '', 'Don Borgeson', '2026-09-19T09:30:00Z'),
+      // A lookup id as a NUMBER, which is what a hand-built row or a REST
+      // source gives. String(...) on both sides must still match it.
+      mkComment(4, 'Comment', 'numeric lookup', 'Emon Alexander', '2026-09-21T08:00:00Z', Number(asgId)),
+      // An orphan: points at no assignment. Must be dropped, not crash.
+      mkComment(5, 'Comment', 'orphan', 'Nobody', '2026-09-21T09:00:00Z', '99999999')
+    ]
+  });
+
+  const p2 = toPlannerPayload(withComments);
+  const sec = p2.jobs.flatMap(j => j.sections).find(s => String(s.id) === String(asgId));
+  ok('the assignment carrying comments is in the payload', !!sec);
+  ok('four comments land, the orphan is dropped', sec && sec.thread.length === 4,
+     'got ' + (sec && sec.thread.length));
+  ok('thread is oldest first by createdDateTime', sec && sec.thread.map(t => t.id).join(',') === '1,2,3,4',
+     'got ' + (sec && sec.thread.map(t => t.id).join(',')));
+  ok('author from createdBy.user.displayName, not fields.createdBy',
+     sec && sec.thread[0].by === 'Don Borgeson', 'got ' + (sec && sec.thread[0].by));
+  ok('raw UTC timestamp preserved', sec && sec.thread[0].at === '2026-09-18T12:00:00Z');
+  ok('kind carried through', sec && sec.thread[0].kind === 'Rejected');
+  ok('a NUMERIC lookup id still joins', sec && sec.thread[3].body === 'numeric lookup');
+
+  // The three Assignments columns. Absent on every row in the capture, which
+  // is the normal state, so absent must read as not-rejected rather than
+  // undefined.
+  const anySec = p2.jobs[0].sections[0];
+  ok('a row with no Rejected field reads false', anySec.rejected === false, 'got ' + anySec.rejected);
+  ok('absent reason reads null', anySec.rejectedReason === null);
+
+  const rejGraph = JSON.parse(JSON.stringify(graphLive));
+  rejGraph.asg[0].fields.Rejected = true;
+  rejGraph.asg[0].fields.RejectedOn = '2026-09-20T14:05:00Z';
+  rejGraph.asg[0].fields.RejectedReason = 'coping joints uneven';
+  const p3 = toPlannerPayload(rejGraph);
+  const r = p3.jobs.flatMap(j => j.sections).find(s => String(s.id) === String(asgId));
+  ok('Rejected maps true', r && r.rejected === true);
+  ok('reason maps through', r && r.rejectedReason === 'coping joints uneven');
+  ok('RejectedOn maps through', r && r.rejectedOn === '2026-09-20T14:05:00Z');
+
+  // No comments key at all is the state on every load until Task 1 is
+  // deployed, and the state forever if the list read fails. It must not throw.
+  let p4, threw = null;
+  try { p4 = toPlannerPayload(Object.assign({}, graphLive, { comments: undefined })); }
+  catch (e) { threw = e; }
+  ok('a missing comments list does not throw', !threw, threw && threw.message);
+  ok('no comments list yields empty threads, not a crash', !threw && p4.jobs[0].sections[0].thread.length === 0);
+}
+
 const totalTasks = p => p.jobs.reduce((n, j) => n + j.sections.reduce((m, s) => m + s.tasks.length, 0), 0);
 const totalDone = p => p.jobs.reduce((n, j) => n + j.sections.reduce((m, s) => m + s.tasks.filter(t => t.done).length, 0), 0);
 const totalNa = p => p.jobs.reduce((n, j) => n + j.sections.reduce((m, s) => m + s.tasks.filter(t => t.na).length, 0), 0);

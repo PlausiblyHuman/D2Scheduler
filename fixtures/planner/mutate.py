@@ -187,7 +187,16 @@ if __name__ == "__main__":
         sys.exit(2)
     h, s = sys.argv[1], sys.argv[2].replace("\\", "/")
     if "--json" in sys.argv:
-        muts = json.loads(Path(sys.argv[sys.argv.index("--json") + 1]).read_text(encoding="utf-8"))
+        json_path = Path(sys.argv[sys.argv.index("--json") + 1])
+        data = json.loads(json_path.read_text(encoding="utf-8"))
+        # A JSON file can be a flat list (one source, e.g. office-views.mutations.json)
+        # or an object keyed by source path (several sources sharing one file, e.g.
+        # rejections.mutations.json, grown by multiple tasks against multiple
+        # web/*.js files). Select by `s` the same way the MUTATIONS dict below does.
+        muts = data.get(s) if isinstance(data, dict) else data
+        if not muts:
+            print(f"No mutations registered for {s} in {json_path}.")
+            sys.exit(2)
     else:
         muts = MUTATIONS.get(s)
         if not muts:

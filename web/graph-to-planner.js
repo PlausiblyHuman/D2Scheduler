@@ -6,7 +6,11 @@
  * Graph, REST or the connector -- it only knows this shape. Matching it here
  * means the planner needs no change at all to read live from Graph, and every
  * existing merge/lock/local-template test keeps working unaltered. Do not add
- * fields to the output beyond what export-to-planner.js emits.
+ * fields to the output beyond what export-to-planner.js emits -- EXCEPT the
+ * sign-off comment thread and the three rejection columns below, which are
+ * Graph-only by design (per the reject-with-comments spec, 2026-09-21): the
+ * REST export path and the file:// fallback never carry them, and the
+ * importer must cope with their absence rather than require them.
  *
  * WHY THIS FILE IS SEPARATE FROM export-to-planner.js, not a second code path
  * inside it: Graph and REST are read from different runtimes (a hosted app
@@ -61,6 +65,22 @@
  * person, and a `#ext#` guest is left out because this tenant carries guest
  * duplicates of real staff.
  *
+ * Sign-off comments (`graph.comments`, the `Sign-off Comments` list) join to
+ * their assignment by `fields.AssignmentLookupId`, normalised through key()
+ * exactly like every other join in this file -- Graph returns it as a
+ * string, a hand-built or REST-sourced row can hand in a number, and an
+ * unnormalised `===` would match nothing while erroring nowhere. `createdBy`
+ * and `createdDateTime` live on the comment item's ROOT, not under `fields`
+ * -- the one pair in this whole mapping that is NOT read through `.fields`.
+ * A missing or unreadable `comments` array costs only the threads: this
+ * function must never throw over it, since it stays missing until Task 1's
+ * list is deployed and forever if that read fails.
+ *
+ * `Rejected`/`RejectedOn`/`RejectedReason` are three new Assignments
+ * columns, same name and shape on REST and Graph, absent on every row until
+ * a PM rejects one -- absent must read as `rejected: false`, never
+ * `undefined`.
+ *
  * Read-only. This module never calls fetch, never writes anything -- it only
  * transforms arrays already read by the caller (the planner's own MSAL/Graph
  * calls, or a test fixture).
@@ -104,6 +124,28 @@
       if (!asgByJob.has(k)) asgByJob.set(k, []);
       asgByJob.get(k).push(a);
     });
+
+    // Sign-off comments, keyed by assignment. createdBy and createdDateTime
+    // come from the item ROOT, not from fields: every other read in this
+    // file goes through .fields, and f.createdBy is undefined, which renders
+    // a thread with no names and no error. Sorted oldest first so the thread
+    // reads top to bottom.
+    const threads = new Map();
+    (graph.comments || []).forEach(c => {
+      const f = c.fields || {};
+      const k = key(f.AssignmentLookupId);
+      if (k == null) return;
+      const who = (c.createdBy && c.createdBy.user && c.createdBy.user.displayName) || '';
+      if (!threads.has(k)) threads.set(k, []);
+      threads.get(k).push({
+        id: key(f.id),
+        kind: f.Kind || 'Comment',
+        body: f.Body == null ? '' : String(f.Body),
+        by: who,
+        at: c.createdDateTime || null
+      });
+    });
+    threads.forEach(list => list.sort((a, b) => String(a.at || '').localeCompare(String(b.at || ''))));
 
     // Guard the joins against the empty set, per CLAUDE.md: a broken join
     // does not error, it silently yields nothing. Every row on the tenant
@@ -168,6 +210,10 @@
                 locked: !!af.Locked,
                 inst: !!af.InstallerSignOff,
                 pm: !!af.PMSignOff,
+                rejected: !!af.Rejected,
+                rejectedOn: af.RejectedOn == null ? null : String(af.RejectedOn),
+                rejectedReason: af.RejectedReason == null ? null : String(af.RejectedReason),
+                thread: threads.get(asgId) || [],
                 tasks: (tasksByAsg.get(asgId) || [])
                   .slice()
                   .sort((x, y) => (x.fields.Sequence || 0) - (y.fields.Sequence || 0))
