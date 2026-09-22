@@ -130,6 +130,39 @@ r = C.planRejections(pool([{ id: '10', num: '5.3', name: 'Tile Installation', ac
 ok('ops keep the order the PM queued them in',
    r.ops.length === 2 && r.ops[0].localId === 'c1' && r.ops[1].localId === 'c2');
 
+// --- Task ticks on a rejected sub-phase -----------------------------------
+/* A rejection IS a reopen. planTaskTicks refuses a tick on a sub-phase
+   SharePoint holds as signed unless the same save reopens it; a rejection
+   reopens it, so the ticks that fix the problem must land in the same Save. */
+const liveTasks = { '501': { id: '501', Complete: false, NotApplicable: false, AssignmentLookupId: '10' } };
+const tickPool = (extra) => [{ jobno: 'D2-1042', name: 'Reyes Residence', sections: [
+  Object.assign({ id: '10', num: '5.3', name: 'Tile Installation', tasks: [
+    { id: '501', title: 'Waterline tile layout',
+      from: { done: false, na: false, note: '' }, to: { done: true, na: false, note: '' } }
+  ] }, extra)
+] }];
+const tickOpts = { userLookupId: '16', userName: 'Don Borgeson',
+                   nowIso: NOW, liveAsgById: live };
+
+let t = C.planTaskTicks(tickPool({}), liveTasks, tickOpts);
+ok('baseline: a tick on a signed sub-phase is refused',
+   t.writes.length === 0 && t.refusals.length === 1 && t.refusals[0].reason === 'signed-off');
+
+t = C.planTaskTicks(tickPool({ inst: { from: true, to: false } }), liveTasks, tickOpts);
+ok('baseline: an explicit un-tick of INST in the same save allows the tick',
+   t.writes.length === 1);
+
+t = C.planTaskTicks(tickPool({ rejecting: true }), liveTasks, tickOpts);
+ok('a rejection in the same save allows the tick',
+   t.writes.length === 1 && t.refusals.length === 0, 'got ' + t.refusals.length + ' refusals');
+
+/* And it is one reopen, not two: a rejection alongside an explicit INST
+   un-tick must not produce two audit lines. That is asserted on the notes in
+   Task 8, where both sets are built together; here only the tick is checked. */
+t = C.planTaskTicks(tickPool({ rejecting: true, inst: { from: true, to: false } }), liveTasks, tickOpts);
+ok('rejection plus an INST un-tick still allows the tick',
+   t.writes.length === 1);
+
 // ============================================================================
 // SUMMARY -- keep this block last. A later task appends its own section above
 // this line and moves this block back down to the bottom of the file.

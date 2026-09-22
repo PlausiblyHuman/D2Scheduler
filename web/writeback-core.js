@@ -520,8 +520,12 @@
     (pools || []).forEach(function (p) {
       (p.sections || []).forEach(function (sec) {
         var liveRow = liveAsg && sec.id != null ? liveAsg[String(sec.id)] : null;
+        /* A rejection reopens the sub-phase, so it satisfies this the same way
+           an explicit INST un-tick does. Without it a PM who rejects and ticks
+           the fix in one Save has every tick refused. */
         var lockedBySignoff = !!(liveRow && liveRow.InstallerSignOff)
-          && !(sec.inst && sec.inst.to === false);
+          && !(sec.inst && sec.inst.to === false)
+          && !sec.rejecting;
         (sec.tasks || []).forEach(function (t) {
           var where = { id: t.id == null ? null : String(t.id),
                         jobno: p.jobno, num: sec.num, task: t.title };

@@ -40,6 +40,9 @@
      "replace": ""},
     {"label": "identity is not checked",
      "find": "          if (!titleMatches(live.Title, p.jobno, sec.num)) {",
-     "replace": "          if (false) {"}
+     "replace": "          if (false) {"},
+    {"label": "a rejection does not unlock the checklist",
+     "find": "          && !sec.rejecting;",
+     "replace": "          ;"}
   ]
 }
