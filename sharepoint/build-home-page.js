@@ -115,6 +115,7 @@
     late: L('Assignments/LateStarting Jobs.aspx'),
     conflicts: L('Assignments/Conflicts.aspx'),
     tradeMismatch: L('Assignments/Trade Mismatch.aspx'),
+    rejected: L('Assignments/Rejected.aspx'),
     unassigned: L('Assignments/Unassigned.aspx'),
     all: L('Assignments/All Assignments.aspx'),
     tasks: L('Tasks/Incomplete Tasks.aspx'),
@@ -178,6 +179,7 @@
     + '<li>' + a(U.late, 'Late-Starting Jobs') + ' &mdash; should have started and has not been signed off</li>'
     + '<li>' + a(U.conflicts, 'Conflicts') + ' &mdash; same crew, overlapping dates, different pools &mdash; flagged nightly by D2 - Conflict Flag</li>'
     + '<li>' + a(U.tradeMismatch, 'Trade Mismatch') + ' &mdash; a crew scheduled on a sub-phase whose trade it does not hold &mdash; flagged nightly by D2 - Crew Trade Check. Empty is the normal state.</li>'
+    + '<li>' + a(U.rejected, 'Rejected') + ' &mdash; a sign-off a project manager sent back, with the reason &mdash; cleared by marking it resolved. Empty is the normal state.</li>'
     + '<li>' + a(U.unassigned, 'Unassigned Work') + ' &mdash; scheduled with no crew allocated</li>'
     + '</ul><h3>Everything</h3><ul>'
     + '<li>' + a(U.all, 'All Assignments') + ' &mdash; every sub-phase, grouped by job</li>'
