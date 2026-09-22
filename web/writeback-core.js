@@ -328,6 +328,102 @@
     return { writes: writes, refusals: refusals, errors: errors };
   }
 
+  /* Rejections, resolutions and plain comments.
+     A SEPARATE path from planSignoffs and planEdits, for the same reason
+     planSignoffs is separate: the write is not a field diff. A rejection is an
+     action a PM takes once, with a reason attached, and it produces TWO writes
+     on two lists that must land in order. Routing it through FIELD_DEFS would
+     have meant inventing a from/to for something that has neither.
+
+     Compare-before-write is against the live ROW STATE, not against a loaded
+     baseline, so rejection state never enters s.base. */
+  function planRejections(pools, liveById, opts) {
+    opts = opts || {};
+    var userName = opts.userName || 'the planner';
+    var names = opts.userNamesById || {};
+    var nowIso = opts.nowIso
+      || new Date(opts.nowMs == null ? Date.now() : opts.nowMs).toISOString();
+    var stamp = suppressUntil(opts.nowMs == null ? Date.parse(nowIso) : opts.nowMs,
+                              opts.suppressMinutes == null ? 10 : opts.suppressMinutes);
+    var ops = [], refusals = [], errors = [];
+
+    (pools || []).forEach(function (p) {
+      (p.sections || []).forEach(function (sec) {
+        var id = String(sec.id);
+        var live = liveById && liveById[id];
+
+        (sec.actions || []).forEach(function (a) {
+          var where = { localId: a.localId, kind: a.kind, id: id,
+                        jobno: p.jobno, num: sec.num, name: sec.name };
+          if (!live) { errors.push(Object.assign({}, where, { reason: 'row-missing' })); return; }
+          if (!titleMatches(live.Title, p.jobno, sec.num)) {
+            errors.push(Object.assign({}, where,
+              { reason: 'identity-mismatch', liveTitle: live.Title }));
+            return;
+          }
+
+          var body = a.body == null ? '' : String(a.body).trim();
+          var post = { Title: p.jobno + ' ' + sec.num, AssignmentLookupId: id,
+                       Kind: null, Body: body };
+          var fields = null;
+
+          if (a.kind === 'reject') {
+            if (!body) { refusals.push(Object.assign({}, where, { reason: 'reason-required' })); return; }
+            /* Rejected is checked BEFORE InstallerSignOff, deliberately: a
+               reject clears InstallerSignOff as part of the same write, so an
+               already-rejected row always reads not-signed too. Checking
+               sign-off first would make already-rejected unreachable and
+               report the less specific reason for the exact case it exists to
+               name. */
+            if (live.Rejected) {
+              refusals.push(Object.assign({}, where,
+                { reason: 'already-rejected', liveReason: live.RejectedReason || null })); return;
+            }
+            if (!live.InstallerSignOff) {
+              refusals.push(Object.assign({}, where, { reason: 'not-signed' })); return;
+            }
+            var signerId = live.InstallerSignOffByLookupId;
+            var wasSignedBy = signerId == null ? null : (names[String(signerId)] || 'unknown');
+            fields = {
+              InstallerSignOff: false,
+              InstallerSignOffByLookupId: null,
+              InstallerSignOffOn: null,
+              SignOffNotes: appendRejected(live.SignOffNotes, userName, nowIso, wasSignedBy, body),
+              Rejected: true,
+              RejectedOn: nowIso,
+              RejectedReason: body
+            };
+            post.Kind = 'Rejected';
+
+          } else if (a.kind === 'resolve') {
+            if (!live.Rejected) {
+              refusals.push(Object.assign({}, where, { reason: 'not-rejected' })); return;
+            }
+            /* RejectedOn is deliberately left in place. It is when the problem
+               was raised, which stays true after it is fixed. */
+            fields = { Rejected: false, RejectedReason: null };
+            post.Kind = 'Resolved';
+
+          } else if (a.kind === 'comment') {
+            if (!body) { refusals.push(Object.assign({}, where, { reason: 'body-required' })); return; }
+            post.Kind = 'Comment';
+
+          } else {
+            errors.push(Object.assign({}, where, { reason: 'unknown-kind' })); return;
+          }
+
+          ops.push({
+            localId: a.localId, kind: a.kind, id: id, jobno: p.jobno, num: sec.num,
+            name: sec.name, title: live.Title,
+            patch: fields ? { id: id, fields: fields, suppressUntil: stamp } : null,
+            post: post
+          });
+        });
+      });
+    });
+    return { ops: ops, refusals: refusals, errors: errors };
+  }
+
   /* Same shape as D2 - Reopen Sign-off writes:
        <previous notes>  |  REOPENED yyyy-MM-dd HH:mm by <who> (was signed by <name>)
      in CENTRAL time, which is what the flow's convertTimeZone produces and what
@@ -352,6 +448,18 @@
     var line = 'REOPENED ' + centralStamp(nowIso) + ' by ' + who
       + (wasSignedBy ? ' (was signed by ' + wasSignedBy + ')' : '')
       + ' (from the planner)';
+    var prev = existing == null ? '' : String(existing);
+    return prev ? prev + '  |  ' + line : line;
+  }
+
+  /* Same shape and separator as appendReopen, because both land in the same
+     SignOffNotes column and are read by the same person. A rejection IS a
+     reopen with a reason on it, so it says who rejected, who had signed, and
+     why, in Central time. */
+  function appendRejected(existing, who, nowIso, wasSignedBy, reason) {
+    var line = 'REJECTED ' + centralStamp(nowIso) + ' by ' + who
+      + (wasSignedBy ? ' (was signed by ' + wasSignedBy + ')' : '')
+      + ': ' + reason;
     var prev = existing == null ? '' : String(existing);
     return prev ? prev + '  |  ' + line : line;
   }
@@ -483,6 +591,7 @@
     jobKey: jobKey, suppressUntil: suppressUntil, planEdits: planEdits,
     planCreates: planCreates, day: day,
     planSignoffs: planSignoffs, planTaskTicks: planTaskTicks,
-    appendReopen: appendReopen, centralStamp: centralStamp, settleCounters: settleCounters
+    appendReopen: appendReopen, centralStamp: centralStamp, settleCounters: settleCounters,
+    planRejections: planRejections, appendRejected: appendRejected
   };
 });
