@@ -1,59 +1,115 @@
 {
   "web/graph-to-planner.js": [
-    {"label": "lookup join not normalised to string",
-     "find": "const k = key(f.AssignmentLookupId);\n      if (k == null) return;",
-     "replace": "const k = f.AssignmentLookupId;\n      if (k == null) return;"},
-    {"label": "author read from fields instead of the item root",
-     "find": "const who = (c.createdBy && c.createdBy.user && c.createdBy.user.displayName) || '';",
-     "replace": "const who = (f.createdBy && f.createdBy.user && f.createdBy.user.displayName) || '';"},
-    {"label": "thread not sorted oldest first",
-     "find": "threads.forEach(list => list.sort((a, b) => String(a.at || '').localeCompare(String(b.at || ''))));",
-     "replace": ""},
-    {"label": "absent Rejected reads undefined not false",
-     "find": "rejected: !!af.Rejected,",
-     "replace": "rejected: af.Rejected,"}
+    {
+      "label": "lookup join not normalised to string",
+      "find": "const k = key(f.AssignmentLookupId);\n      if (k == null) return;",
+      "replace": "const k = f.AssignmentLookupId;\n      if (k == null) return;"
+    },
+    {
+      "label": "author read from fields instead of the item root",
+      "find": "const who = (c.createdBy && c.createdBy.user && c.createdBy.user.displayName) || '';",
+      "replace": "const who = (f.createdBy && f.createdBy.user && f.createdBy.user.displayName) || '';"
+    },
+    {
+      "label": "thread not sorted oldest first",
+      "find": "threads.forEach(list => list.sort((a, b) => String(a.at || '').localeCompare(String(b.at || ''))));",
+      "replace": ""
+    },
+    {
+      "label": "absent Rejected reads undefined not false",
+      "find": "rejected: !!af.Rejected,",
+      "replace": "rejected: af.Rejected,"
+    }
   ],
   "web/writeback-core.js": [
-    {"label": "reject does not check the sign-off is live",
-     "find": "            if (!live.InstallerSignOff) {\n              refusals.push(Object.assign({}, where, { reason: 'not-signed' })); return;\n            }",
-     "replace": ""},
-    {"label": "reject does not check for an existing rejection",
-     "find": "            if (live.Rejected) {",
-     "replace": "            if (false) {"},
-    {"label": "resolve does not check the row is rejected",
-     "find": "            if (!live.Rejected) {\n              refusals.push(Object.assign({}, where, { reason: 'not-rejected' })); return;\n            }",
-     "replace": ""},
-    {"label": "an empty rejection reason is accepted",
-     "find": "            if (!body) { refusals.push(Object.assign({}, where, { reason: 'reason-required' })); return; }",
-     "replace": ""},
-    {"label": "resolve wipes RejectedOn instead of keeping it",
-     "find": "            fields = { Rejected: false, RejectedReason: null };",
-     "replace": "            fields = { Rejected: false, RejectedReason: null, RejectedOn: null };"},
-    {"label": "a comment writes to the assignment row",
-     "find": "            post.Kind = 'Comment';",
-     "replace": "            post.Kind = 'Comment'; fields = { Rejected: false };"},
-    {"label": "the patch carries no suppression stamp",
-     "find": "patch: fields ? { id: id, fields: fields, suppressUntil: stamp } : null,",
-     "replace": "patch: fields ? { id: id, fields: fields } : null,"},
-    {"label": "the notes line is not appended",
-     "find": "              SignOffNotes: appendRejected(live.SignOffNotes, userName, nowIso, wasSignedBy, body),",
-     "replace": ""},
-    {"label": "identity is not checked",
-     "find": "          if (!titleMatches(live.Title, p.jobno, sec.num)) {",
-     "replace": "          if (false) {"},
-    {"label": "a rejection does not unlock the checklist",
-     "find": "          && !sec.rejecting;",
-     "replace": "          ;"}
+    {
+      "label": "reject does not check the sign-off is live",
+      "find": "            if (!live.InstallerSignOff) {\n              refusals.push(Object.assign({}, where, { reason: 'not-signed' })); return;\n            }",
+      "replace": ""
+    },
+    {
+      "label": "reject does not check for an existing rejection",
+      "find": "            if (live.Rejected) {",
+      "replace": "            if (false) {"
+    },
+    {
+      "label": "resolve does not check the row is rejected",
+      "find": "            if (!live.Rejected) {\n              refusals.push(Object.assign({}, where, { reason: 'not-rejected' })); return;\n            }",
+      "replace": ""
+    },
+    {
+      "label": "an empty rejection reason is accepted",
+      "find": "            if (!body) { refusals.push(Object.assign({}, where, { reason: 'reason-required' })); return; }",
+      "replace": ""
+    },
+    {
+      "label": "resolve wipes RejectedOn instead of keeping it",
+      "find": "            fields = { Rejected: false, RejectedReason: null };",
+      "replace": "            fields = { Rejected: false, RejectedReason: null, RejectedOn: null };"
+    },
+    {
+      "label": "a comment writes to the assignment row",
+      "find": "            post.Kind = 'Comment';",
+      "replace": "            post.Kind = 'Comment'; fields = { Rejected: false };"
+    },
+    {
+      "label": "the patch carries no suppression stamp",
+      "find": "patch: fields ? { id: id, fields: fields, suppressUntil: stamp } : null,",
+      "replace": "patch: fields ? { id: id, fields: fields } : null,"
+    },
+    {
+      "label": "the notes line is not appended",
+      "find": "              SignOffNotes: appendRejected(live.SignOffNotes, userName, nowIso, wasSignedBy, body),",
+      "replace": ""
+    },
+    {
+      "label": "identity is not checked",
+      "find": "          if (!titleMatches(live.Title, p.jobno, sec.num)) {",
+      "replace": "          if (false) {"
+    },
+    {
+      "label": "a rejection does not unlock the checklist",
+      "find": "          && !sec.rejecting;",
+      "replace": "          ;"
+    }
   ],
   "web/graph-writeback.js": [
-    {"label": "POST fires even when the PATCH failed",
-     "find": "          failed.push({ localId: op.localId, kind: op.kind, id: op.id, stage: 'patch',\n                        status: pr.status, message: await pr.text() });\n          continue;\n        }\n      }\n      var cr = await f(U.items(ctx.commentsListId), {",
-     "replace": "        }\n      }\n      var cr = await f(U.items(ctx.commentsListId), {"},
-    {"label": "the lookup id is not stringified",
-     "find": "      AssignmentLookupId: String(post.AssignmentLookupId),",
-     "replace": "      AssignmentLookupId: post.AssignmentLookupId,"},
-    {"label": "a suppression column is sent to the comments list",
-     "find": "      Body: post.Body == null ? '' : post.Body\n    } };",
-     "replace": "      Body: post.Body == null ? '' : post.Body,\n      SuppressReconcileUntil: new Date().toISOString()\n    } };"}
+    {
+      "label": "POST fires even when the PATCH failed",
+      "find": "          failed.push({ localId: op.localId, kind: op.kind, id: op.id, stage: 'patch',\n                        status: pr.status, message: await pr.text() });\n          continue;\n        }\n      }\n      var cr = await f(U.items(ctx.commentsListId), {",
+      "replace": "        }\n      }\n      var cr = await f(U.items(ctx.commentsListId), {"
+    },
+    {
+      "label": "the lookup id is not stringified",
+      "find": "      AssignmentLookupId: String(post.AssignmentLookupId),",
+      "replace": "      AssignmentLookupId: post.AssignmentLookupId,"
+    },
+    {
+      "label": "a suppression column is sent to the comments list",
+      "find": "      Body: post.Body == null ? '' : post.Body\n    } };",
+      "replace": "      Body: post.Body == null ? '' : post.Body,\n      SuppressReconcileUntil: new Date().toISOString()\n    } };"
+    }
+  ],
+  "web/index.html": [
+    {
+      "label": "the thread is merged rather than replaced, so deleted entries linger",
+      "find": "        s.thread=Array.isArray(is.thread)?is.thread:[];",
+      "replace": "        if(Array.isArray(is.thread)&&is.thread.length)s.thread=is.thread; else s.thread=s.thread||[];"
+    },
+    {
+      "label": "the comments read has no catch, so it can fail Refresh",
+      "find": "    ?await graphPageAll(base+D2_GRAPH.commentsList+'/items?$expand=fields&$top=999',tok)\n        .catch(()=>[])",
+      "replace": "    ?await graphPageAll(base+D2_GRAPH.commentsList+'/items?$expand=fields&$top=999',tok)"
+    },
+    {
+      "label": "the comments list is never read",
+      "find": "  graphPayload.comments=D2_GRAPH.commentsList",
+      "replace": "  graphPayload.comments=false"
+    },
+    {
+      "label": "rejected is not cleared when the payload drops it",
+      "find": "        s.rejected=!!is.rejected;",
+      "replace": "        if(is.rejected)s.rejected=true;"
+    }
   ]
 }

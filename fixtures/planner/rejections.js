@@ -164,8 +164,119 @@ ok('rejection plus an INST un-tick still allows the tick',
    t.writes.length === 1);
 
 // ============================================================================
+// PAGE -- the real planner in jsdom, with only fetch stubbed. The write
+// scripts are inlined because jsdom does not fetch <script src>.
+// ============================================================================
+const fs = require('fs');
+const { JSDOM, VirtualConsole } = require('jsdom');
+const WEB = path.resolve(__dirname, '../../web');
+const inline = f => '<script>' + fs.readFileSync(path.join(WEB, f), 'utf8') + '</script>';
+const pageHtml = fs.readFileSync(path.join(WEB, 'index.html'), 'utf8')
+  .replace('<script src="writeback-core.js"></script>', inline('writeback-core.js'))
+  .replace('<script src="graph-writeback.js"></script>', inline('graph-writeback.js'))
+  .replace('<script src="graph-to-planner.js"></script>', inline('graph-to-planner.js'))
+  .replace('</body>', `<script>window.__x=()=>{window.S=S;window.allSecs=allSecs;window.D2_GRAPH=D2_GRAPH;
+     window.importFromD2Payload=importFromD2Payload;window.editSec=editSec;window.render=render;
+     window.UI=UI;};</script><script>__x();</script></body>`);
+const vc = new VirtualConsole(); vc.on('jsdomError', e => console.log('[jsdom]', e.message));
+const dom = new JSDOM(pageHtml, { runScripts: 'dangerously', pretendToBeVisual: true,
+  url: 'http://localhost/', virtualConsole: vc });
+const win = dom.window;
+win.alert = () => {}; win.confirm = () => true;
+
+const secByNum = (jobno, num) => {
+  const j = win.S.jobs.find(x => x.jobno === jobno);
+  const hit = j && win.allSecs(j).find(x => x.s.num === num);
+  return hit ? hit.s : null;
+};
+
+const pageTests = async () => {
+  await new Promise(r => setTimeout(r, 600));
+
+  // ---- Refresh carries rejection state and the thread --------------------
+  /* The comments list must NOT ride the Promise.all over D2_GRAPH.lists: that
+     loop has no per-key catch, so one failing list fails the entire Refresh
+     and a PM loses the schedule over a feature they were not using. */
+  const payload = {
+    app: 'D2 Pool Build Scheduler', kind: 'd2-sharepoint-export', exported: '2026-09-22', site: 'x', nonWork: [],
+    jobs: [{ id: 19, jobno: 'D2-1042', name: 'Reyes Residence', addr: '', city: '', start: '2026-09-08',
+      status: 'Active', pm: '',
+      sections: [{ num: '5.3', id: 10, seq: 30, crewId: 'cirilo', start: '2026-10-05', days: 2,
+        inst: true, pm: false, locked: false, skip: false,
+        rejected: true, rejectedOn: '2026-09-20T14:05:00Z', rejectedReason: 'coping joints uneven',
+        thread: [{ id: '1', kind: 'Rejected', body: 'coping joints uneven',
+                   by: 'Don Borgeson', at: '2026-09-20T14:05:00Z' }],
+        tasks: [] }] }]
+  };
+  win.importFromD2Payload(JSON.parse(JSON.stringify(payload)), true);
+  let s = secByNum('D2-1042', '5.3');
+  ok('the imported sub-phase is found', !!s);
+  ok('rejected lands on the section', s.rejected === true, String(s.rejected));
+  ok('rejectedOn lands on the section', s.rejectedOn === '2026-09-20T14:05:00Z');
+  ok('the reason lands', s.rejectedReason === 'coping joints uneven');
+  ok('the thread lands', Array.isArray(s.thread) && s.thread.length === 1 && s.thread[0].by === 'Don Borgeson');
+  ok('rejection state is NOT in s.base',
+     Object.keys(s.base).sort().join(',') === 'crewId,days,id,inst,locked,pm,seq,skip,spLocked,start',
+     Object.keys(s.base).sort().join(','));
+
+  /* A second Refresh with no thread must clear it rather than keep a stale
+     one: the entries may have been deleted on the site. */
+  const noThread = JSON.parse(JSON.stringify(payload));
+  delete noThread.jobs[0].sections[0].thread;
+  noThread.jobs[0].sections[0].rejected = false;
+  noThread.jobs[0].sections[0].rejectedReason = null;
+  win.importFromD2Payload(noThread, true);
+  s = secByNum('D2-1042', '5.3');
+  ok('a payload with no thread clears it', Array.isArray(s.thread) && s.thread.length === 0,
+     s.thread && String(s.thread.length));
+  ok('rejected clears too', s.rejected === false);
+  ok('the reason clears too', s.rejectedReason === null);
+
+  ok('the comments list GUID is configured',
+     typeof win.D2_GRAPH.commentsList === 'string' && win.D2_GRAPH.commentsList.length > 10);
+  ok('comments is NOT in D2_GRAPH.lists, so it cannot ride the Promise.all',
+     !('comments' in win.D2_GRAPH.lists));
+
+  /* Drive the real loadFromD2ViaGraph with the comments read returning 500.
+     The schedule must still load, and the threads come back empty. */
+  const G = win.D2_GRAPH;
+  const graphItem = (id, fields) => ({ id: String(id), createdDateTime: '2026-09-01T00:00:00Z',
+    createdBy: { user: { displayName: 'D2 Bot' } }, fields: Object.assign({ id: String(id) }, fields) });
+  const rowsFor = {};
+  rowsFor[G.lists.jobs] = [graphItem(19, { Title: 'Reyes Residence', JobNumber: 'D2-1042', Status: 'Active',
+                                           StartDate: '2026-09-08T05:00:00Z' })];
+  rowsFor[G.lists.asg] = [graphItem(10, { Title: 'D2-1042 5.3 Tile Installation', JobLookupId: '19',
+    SubPhaseNumber: '5.3', SubPhaseName: 'Tile Installation', Sequence: 30, Crew: 'cirilo',
+    ScheduledStart: '2026-10-05T05:00:00Z', ScheduledFinish: '2026-10-06T05:00:00Z', DurationDays: 2,
+    InstallerSignOff: true, PMSignOff: false, Locked: false, NotApplicable: false,
+    Rejected: true, RejectedReason: 'still rejected', RejectedOn: '2026-09-21T10:00:00Z' })];
+  let commentsHit = 0;
+  win.graphToken = async () => 'tok';
+  win.graphSite = async () => ({ id: 'site1', webUrl: 'https://example/sites/x' });
+  win.fetch = async (url) => {
+    if (G.commentsList && url.indexOf(G.commentsList) > -1) {
+      commentsHit++;
+      return { ok: false, status: 500, json: async () => ({}), text: async () => 'boom' };
+    }
+    const key = Object.keys(rowsFor).find(k => url.indexOf(k) > -1);
+    return { ok: true, status: 200, json: async () => ({ value: key ? rowsFor[key] : [] }),
+             text: async () => '' };
+  };
+  let threw = null;
+  try { await win.eval('loadFromD2ViaGraph')(true); } catch (e) { threw = e; }
+  ok('a failing comments read does not fail Refresh', threw === null, threw && threw.message);
+  ok('the comments list was actually requested', commentsHit > 0, String(commentsHit));
+  s = secByNum('D2-1042', '5.3');
+  ok('the schedule still loaded after the comments read failed',
+     !!s && s.rejectedReason === 'still rejected', s && String(s.rejectedReason));
+  ok('and the thread is empty rather than missing', !!s && Array.isArray(s.thread) && s.thread.length === 0);
+};
+
+// ============================================================================
 // SUMMARY -- keep this block last. A later task appends its own section above
 // this line and moves this block back down to the bottom of the file.
 // ============================================================================
-console.log(fail ? '\nFAILED' : '\ncore rejection assertions passed.');
-process.exit(fail);
+pageTests().then(() => {
+  console.log(fail ? '\nFAILED' : '\nrejection assertions passed.');
+  process.exit(fail);
+}, e => { console.log('FAIL · page tests threw  [' + e.stack + ']'); process.exit(1); });

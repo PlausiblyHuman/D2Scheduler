@@ -1671,6 +1671,13 @@ function importFromD2Payload(d,silent){
         s.skip=!!is.skip;
         s.inst=!!is.inst;
         s.pm=!!is.pm;
+        /* Rejection state is display state, never diffed, so it stays out of
+           s.base. The thread is replaced, never merged: an entry deleted on the
+           site must disappear here on the next Refresh rather than linger. */
+        s.rejected=!!is.rejected;
+        s.rejectedOn=is.rejectedOn||null;
+        s.rejectedReason=is.rejectedReason||null;
+        s.thread=Array.isArray(is.thread)?is.thread:[];
         s.spLocked=!!is.locked;      // the raw SharePoint pin, tracked on its own -- see WRITEBACK_FIELDS
         s.locked=!!(is.locked||is.inst);
         if(Array.isArray(is.tasks)&&Array.isArray(s.tasks)){
@@ -2312,6 +2319,11 @@ const D2_GRAPH={
   scopes:['https://graph.microsoft.com/Sites.ReadWrite.All'],
   siteHost:'netorgft15040037.sharepoint.com',
   sitePath:'/sites/D2BuildScheduler',
+  // Sign-off Comments. Deliberately NOT in `lists`: loadFromD2ViaGraph
+  // Promise.all's over every key in `lists` with no per-key catch, so a list
+  // that fails there fails the whole Refresh. Comments are read separately,
+  // with their own catch, the same as the user list.
+  commentsList:'e6c97457-017d-4e18-868e-8a73b4fb6821',
   // Same four list GUIDs as fixtures/planner/capture-graph.js -- carried
   // here rather than re-typed as a second source of truth would invite.
   lists:{
@@ -2461,6 +2473,13 @@ async function loadFromD2ViaGraph(silent,opts){
      schedule is what a PM opened the page for. */
   const GW=window.D2GraphWriteback;
   graphPayload.users=GW?await graphPageAll(GW.urls(site.id).userInfo,tok).catch(()=>[]):[];
+  /* Sign-off comments, with their own catch. An unreadable comments list costs
+     the threads and nothing else. $top=999 because a thread grows without
+     bound; graphPageAll follows nextLink regardless. */
+  graphPayload.comments=D2_GRAPH.commentsList
+    ?await graphPageAll(base+D2_GRAPH.commentsList+'/items?$expand=fields&$top=999',tok)
+        .catch(()=>[])
+    :[];
   const payload=window.D2GraphToPlanner.toPlannerPayload(graphPayload);
   importFromD2Payload(payload,silent);
 }
