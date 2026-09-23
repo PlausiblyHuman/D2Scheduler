@@ -881,7 +881,8 @@ function render(){
      for that. Only counted in hosted mode, since there is no way to write them
      from a downloaded copy. */
   const pendingSignoffs=graphModeAvailable()?signoffChangeCount(buildSignoffSet()):0;
-  if(saveBtn)saveBtn.disabled=(totalDiverged===0&&queuedCreates===0&&pendingSignoffs===0);
+  const pendingRejections=graphModeAvailable()?rejectionChangeCount(buildRejectionSet()):0;
+  if(saveBtn)saveBtn.disabled=(totalDiverged===0&&queuedCreates===0&&pendingSignoffs===0&&pendingRejections===0);
   document.getElementById('main').innerHTML=
     ({board:vBoard,crewboard:vCrewBoard,dispatch:vDispatch,signoff:vSignoff,jobs:vJobs,crews:vCrews,phases:vPhases})[TAB]();
   document.querySelectorAll('input[data-ind]').forEach(el=>el.indeterminate=true);
@@ -1336,6 +1337,15 @@ function queueReject(){
 }
 function queueResolve(){ queueEntry('resolve',commentBox()); }
 function unqueueEntry(localId){
+  /* Removing a queued reject puts Installer back as SharePoint holds it.
+     Otherwise the on-screen un-tick left behind would go out at Save as a
+     plain reopen, which is not what anyone asked for. */
+  const gone=(S.pendingComments||[]).find(e=>e.localId===localId);
+  if(gone&&gone.kind==='reject'){
+    const j=S.jobs.find(x=>String(x.jobno)===String(gone.jobno));
+    const hit=j&&allSecs(j).find(({s})=>s.base&&String(s.base.id)===String(gone.secId));
+    if(hit&&hit.s.base.inst)hit.s.inst=true;
+  }
   S.pendingComments=(S.pendingComments||[]).filter(e=>e.localId!==localId);
   save();if(CUR)editSec(CUR.jobId,CUR.gi,CUR.si);render();
 }
@@ -1947,17 +1957,23 @@ function buildSignoffSet(){
     const sections=[];
     allSecs(j).forEach(({s})=>{
       if(!s.base||s.base.id==null)return;
-      const instChanged = !!s.inst !== !!s.base.inst;
+      /* A queued reject carries the sign-off change itself: its PATCH clears
+         the sign-off and writes the one audit line. Sending the on-screen
+         Installer un-tick as well would land first as a plain reopen, and the
+         rejection would then be refused as not-signed. The section still rides
+         along, flagged, so ticks that fix the problem are not refused. */
+      const rejecting=rejectingIds().has(String(s.base.id));
+      const instChanged = !rejecting && !!s.inst !== !!s.base.inst;
       const pmChanged   = !!s.pm   !== !!s.base.pm;
       const tasks=(s.tasks||[])
         .filter(t=>t.base && (!!t.done!==!!t.base.done || !!t.na!==!!t.base.na))
         .map(t=>({id:t.spId==null?null:t.spId, title:t.t,
                   from:{done:!!t.base.done,na:!!t.base.na,note:t.base.note||''},
                   to:{done:!!t.done,na:!!t.na,note:t.note||''}}));
-      if(!instChanged && !pmChanged && !tasks.length)return;
+      if(!instChanged && !pmChanged && !tasks.length && !rejecting)return;
       const c=secCounts(s);
       sections.push({
-        id:s.base.id, num:s.num, name:s.name,
+        id:s.base.id, num:s.num, name:s.name, rejecting,
         inst: instChanged?{from:!!s.base.inst,to:!!s.inst}:null,
         pm:   pmChanged  ?{from:!!s.base.pm,  to:!!s.pm  }:null,
         /* Counters only when ticks moved. Writing them on a bare sign-off would
@@ -1973,6 +1989,71 @@ function buildSignoffSet(){
 }
 const signoffChangeCount=pools=>pools.reduce((n,p)=>n+p.sections.reduce(
   (m,s)=>m+(s.inst?1:0)+(s.pm?1:0)+s.tasks.length,0),0);
+
+/* The queued comment work, grouped the way planRejections wants it. Entries
+   whose pool or sub-phase is no longer here are dropped: a Refresh can remove
+   a pool, and an entry with nowhere to land would otherwise sit in the queue
+   forever being counted. */
+function buildRejectionSet(){
+  const pools=[];
+  (S.pendingComments||[]).forEach(e=>{
+    const j=S.jobs.find(x=>String(x.jobno)===String(e.jobno));
+    if(!j||!poolHasBaseline(j))return;
+    const hit=allSecs(j).find(({s})=>s.base&&String(s.base.id)===String(e.secId));
+    if(!hit)return;
+    let p=pools.find(x=>x.jobno===j.jobno);
+    if(!p){p={jobno:j.jobno,name:j.name,sections:[]};pools.push(p);}
+    let sec=p.sections.find(x=>String(x.id)===String(e.secId));
+    if(!sec){sec={id:String(e.secId),num:hit.s.num,name:hit.s.name,actions:[]};p.sections.push(sec);}
+    sec.actions.push({localId:e.localId,kind:e.kind,body:e.body});
+  });
+  return pools;
+}
+const rejectionChangeCount=pools=>pools.reduce((n,p)=>
+  n+p.sections.reduce((m,s)=>m+s.actions.length,0),0);
+/* Which SharePoint rows this Save rejects, so the sign-off pass leaves their
+   sign-off to the rejection and planTaskTicks treats them as reopened. */
+function rejectingIds(){
+  const out=new Set();
+  (S.pendingComments||[]).forEach(e=>{if(e.kind==='reject')out.add(String(e.secId));});
+  return out;
+}
+const REJ_KIND_WORD={reject:'Reject sign-off',resolve:'Mark resolved',comment:'Comment'};
+const REJ_WHY={
+  'not-signed':'the sub-phase is no longer signed off',
+  'already-rejected':'it is already rejected',
+  'not-rejected':'it is not currently rejected',
+  'reason-required':'a reason is required',
+  'body-required':'a comment cannot be empty',
+  'row-missing':'that sub-phase is no longer in SharePoint',
+  'identity-mismatch':'that row is a different sub-phase now, so nothing was written',
+  'unknown-kind':'this entry could not be read, so nothing was written'
+};
+
+/* Comments, rejections and resolutions. Takes the same fresh Assignments read
+   pushChangeSet already did; that pass writes scheduling columns only, none of
+   which this compares. Runs before the sign-off pass: see confirmSaveByPush. */
+async function pushRejections(siteId,tok,liveById,pools){
+  const G=window.D2GraphWriteback, C=window.D2WritebackCore;
+  const acct=graphPca().getActiveAccount()||graphPca().getAllAccounts()[0];
+  const userName=(acct&&(acct.name||acct.username))||'the planner';
+  const uil=await graphPageAll(G.urls(siteId).userInfo,tok).catch(()=>[]);
+  const userNamesById={};
+  uil.forEach(r=>{if(r.fields&&r.fields.Title)userNamesById[String(r.fields.id)]=r.fields.Title;});
+
+  const rPlan=C.planRejections(pools,liveById,
+    {userName,userNamesById,nowIso:new Date().toISOString(),nowMs:Date.now(),suppressMinutes:10});
+  const rRes=await G.applyRejectionOps(
+    {token:tok,siteId,asgListId:D2_GRAPH.lists.asg,commentsListId:D2_GRAPH.commentsList},
+    rPlan.ops);
+
+  /* Clear only what landed. A refused or failed entry stays queued so the PM
+     can see why and retry, rather than losing what they typed. */
+  const gone=new Set(rRes.done.map(d=>String(d.localId)));
+  S.pendingComments=(S.pendingComments||[]).filter(e=>!gone.has(String(e.localId)));
+  save();
+  return {rPlan,rRes};
+}
 
 /* Writes sign-off and ticks. Takes the site id, token and the Assignments rows
    pushChangeSet already read, so the compare-before-write here is against the
@@ -2065,7 +2146,7 @@ function wbFmt(col,v){
   if(col==='Locked'||col==='NotApplicable')return v?'Yes':'No';
   return String(v);
 }
-let PENDING_CHANGESET=null, PENDING_CREATES=null, PENDING_SIGNOFFS=null;
+let PENDING_CHANGESET=null, PENDING_CREATES=null, PENDING_SIGNOFFS=null, PENDING_REJECTIONS=null;
 /* The preview a PM must confirm before anything downloads. Grouped by pool,
    one line per changed field, naming the field and the loaded value next to
    the new one -- a count is not enough to see "this is about to move 46
@@ -2079,8 +2160,10 @@ function openSavePreview(){
   const creates=buildPendingCreates();
   const sops=graphModeAvailable()?buildSignoffSet():[];   // file:// has no way to write these
   const soCount=signoffChangeCount(sops);
+  const rops=graphModeAvailable()?buildRejectionSet():[];
+  const rCount=rejectionChangeCount(rops);
   const totalSecs=pools.reduce((n,p)=>n+p.sections.length,0);
-  if(!totalSecs&&!creates.length&&!soCount){alert('Nothing to push -- no pool has changed here since the last Refresh, and no new pool is queued.');return;}
+  if(!totalSecs&&!creates.length&&!soCount&&!rCount){alert('Nothing to push -- no pool has changed here since the last Refresh, and no new pool is queued.');return;}
   const skipped=S.jobs.filter(j=>!poolHasBaseline(j));
   const canPush=graphModeAvailable();
   const st=saveStaleness(Date.now());
@@ -2119,6 +2202,16 @@ function openSavePreview(){
           <td class="small"><b>${sec.tasks.length}</b> task${sec.tasks.length===1?'':'s'} changed</td></tr>`);
         return rows.join('');
       }).join('')).join('')}</tbody></table></div>`:'')+
+    (rCount?`<div class="fld"><label>Comments and rejections (${rCount})</label>
+      <div class="hint" style="padding:0 0 6px">
+        Each is saved under your name. Rejecting clears the installer sign-off and records the
+        reason against the sub-phase.
+      </div>
+      <table><tbody>${rops.map(p=>p.sections.map(sec=>sec.actions.map(a=>
+        `<tr><td class="small"><b>${esc(p.jobno)} ${esc(sec.num)}</b> ${esc(sec.name||'')}</td>
+          <td class="small">${esc(REJ_KIND_WORD[a.kind]||a.kind)}</td>
+          <td class="small">${a.body?esc(a.body):'<span class="muted">no note</span>'}</td></tr>`
+      ).join('')).join('')).join('')}</tbody></table></div>`:'')+
     (creates.length?`<div class="fld"><label>New pools to request (${creates.length})</label>
       <div class="hint" style="padding:0 0 6px">
         Each raises a row in SharePoint's New Pool Requests list. D2 - New Pool takes about
@@ -2148,6 +2241,7 @@ function openSavePreview(){
   const pushParts=[];
   if(totalSecs)pushParts.push(plural(totalSecs,'schedule edit'));
   if(soCount)pushParts.push(plural(soCount,'sign-off and checklist change'));
+  if(rCount)pushParts.push(`${rCount} ${rCount===1?'comment or rejection':'comments and rejections'}`);
   const pushLabel=pushParts.length
     ? `Save ${pushParts.join(' and ')} to SharePoint`+(creates.length?` and request ${plural(creates.length,'new pool')}`:'')
     : `Request ${plural(creates.length,'new pool')}`;
@@ -2162,6 +2256,7 @@ function openSavePreview(){
   PENDING_CHANGESET=pools;
   PENDING_CREATES=creates;
   PENDING_SIGNOFFS=sops;
+  PENDING_REJECTIONS=rops;
   document.getElementById('drawer').classList.add('open');
 }
 /* Save's two endings. Graph mode writes; otherwise the change-set downloads
@@ -2222,6 +2317,24 @@ async function confirmSaveByPush(){
   let out=null,err=null;
   try{
     out=await pushChangeSet(pools);
+    /* Rejections go BEFORE sign-off and ticks. A tick on a sub-phase SharePoint
+       holds as signed is allowed only because this Save reopens it; if the
+       rejection does not land, the row is still signed, so its section loses
+       the rejecting flag here and planTaskTicks refuses those ticks rather than
+       writing under a live sign-off. A PATCH that landed counts even when the
+       comment POST after it failed: the sign-off was cleared. */
+    if(PENDING_REJECTIONS&&PENDING_REJECTIONS.length){
+      try{ out.rj=await pushRejections(out.siteId,out.tok,out.liveById,PENDING_REJECTIONS); }
+      catch(e){ out.rjError=e; }
+      const rejectedIds=new Set();
+      if(out.rj){
+        out.rj.rRes.done.forEach(d=>{if(d.kind==='reject')rejectedIds.add(String(d.id));});
+        out.rj.rRes.failed.forEach(f=>{if(f.kind==='reject'&&f.patched)rejectedIds.add(String(f.id));});
+      }
+      (PENDING_SIGNOFFS||[]).forEach(p=>p.sections.forEach(s=>{
+        if(s.rejecting&&!rejectedIds.has(String(s.id)))s.rejecting=false;
+      }));
+    }
     /* Same Save, same fresh read. A separate pass rather than a separate button:
        a PM who ticks a checklist and moves a date has done one piece of work. */
     if(PENDING_SIGNOFFS&&PENDING_SIGNOFFS.length){
@@ -2249,7 +2362,8 @@ async function confirmSaveByPush(){
      the flows did in the meantime, and means the next Save diffs against
      something current rather than against what we just moved away from. */
   const anyWrite = out && (out.res.written.length
-    || (out.so && (out.so.sRes.written.length || out.so.tRes.written.length)));
+    || (out.so && (out.so.sRes.written.length || out.so.tRes.written.length))
+    || (out.rj && out.rj.rRes.done.length));
   if(anyWrite){ try{ await loadFromD2ViaGraph(true); }catch(e){} }
 }
 
@@ -2295,9 +2409,29 @@ function showPushResult(out,err){
           'row-missing':'no longer in SharePoint'})[e.reason]||e.reason)),
       so.sRes.failed.map(f=>row(f.jobno+' '+f.num,'sign-off','HTTP '+f.status)),
       so.tRes.failed.map(f=>row(f.jobno+' '+f.num,'task','HTTP '+f.status))):[];
+    /* Comments and rejections, in words. A PATCH that landed with its comment
+       then failing is named as such: the sign-off WAS cleared and the reason
+       is on the row, only the thread entry is missing. */
+    const rj=out.rj;
+    const rjRef=x=>(x.jobno||'')+' '+(x.num||'');
+    const rjById={}; if(rj)rj.rPlan.ops.forEach(o=>{rjById[String(o.localId)]=o;});
+    const rjRows=rj?rj.rRes.done.map(d=>{const o=rjById[String(d.localId)]||{};
+      return row(rjRef(o),REJ_KIND_WORD[d.kind]||d.kind,'saved');}):[];
+    const rjBad=rj?[].concat(
+      rj.rPlan.refusals.map(r=>row(rjRef(r),REJ_KIND_WORD[r.kind]||r.kind,REJ_WHY[r.reason]||r.reason)),
+      rj.rPlan.errors.map(e=>row(rjRef(e),REJ_KIND_WORD[e.kind]||e.kind,REJ_WHY[e.reason]||e.reason)),
+      rj.rRes.failed.map(f=>{const o=rjById[String(f.localId)]||{};
+        return row(rjRef(o),REJ_KIND_WORD[f.kind]||f.kind,
+          f.stage==='post'&&f.patched
+            ?'sign-off cleared and reason recorded on the sub-phase, but the comment was not added (HTTP '+f.status+')'
+            :'HTTP '+f.status);})):[];
     body.innerHTML=
       (out.soError?`<div class="hint" style="color:#a84a18">Scheduling changes were saved, but
         sign-off and checklist changes were not: ${esc(out.soError.message||'unknown error')}</div>`:'')
+     +(out.rjError?`<div class="hint" style="color:#a84a18">Comments and rejections were not saved:
+        ${esc(out.rjError.message||'unknown error')}. They are still queued.</div>`:'')
+     +sec('Comments and rejections saved',rjRows,'')
+     +sec('Comments and rejections NOT saved (still queued)',rjBad,'#a84a18')
      +sec('Sign-off and checklist saved',soRows,'')
      +sec('Sign-off and checklist NOT saved',soBad,'#a84a18')
      +sec('Saved',res.written.map(w=>row(w.jobno+' '+w.num,w.fields.join(', '),'')))
@@ -2316,7 +2450,7 @@ function showPushResult(out,err){
      +(out.createError?`<div class="hint" style="color:#a84a18;padding:8px 0 0">
           No pool was requested. ${esc(out.createError.message)}</div>`:'')
      +(!res.written.length&&!plan.refusals.length&&!plan.errors.length&&!res.failed.length&&!out.creates
-       &&!soRows.length&&!soBad.length&&!out.soError
+       &&!soRows.length&&!soBad.length&&!out.soError&&!rjRows.length&&!rjBad.length&&!out.rjError
         ? '<div class="hint">Nothing needed saving.</div>':'');
   }
   document.getElementById('dFoot').innerHTML='<button class="btn p" onclick="closeDrawer()">Close</button>';
@@ -2333,7 +2467,7 @@ function confirmSaveByDownload(){
     const pc=(S.pendingCreates||[]).find(x=>x.jobno===c.jobno&&!x.requestedAt);
     if(pc)pc.requestedAt=now;
   });
-  PENDING_CHANGESET=null; PENDING_CREATES=null; PENDING_SIGNOFFS=null;
+  PENDING_CHANGESET=null; PENDING_CREATES=null; PENDING_SIGNOFFS=null; PENDING_REJECTIONS=null;
   save();
   closeDrawer();render();
 }

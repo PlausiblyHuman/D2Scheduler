@@ -383,11 +383,185 @@ const panelTests = async () => {
   win.alert = () => {};
 };
 
+// ---- Save: count, preview, order, send, report --------------------------
+/* The Save button once read "Save 0 edits to SharePoint" over eight sign-off
+   changes. Queued comments must be counted, previewed in words, sent after
+   the sign-off pass on the same fresh read, and reported. */
+const saveTests = async () => {
+  const realMode = win.graphModeAvailable;
+  win.graphModeAvailable = () => true;
+  const job = win.S.jobs.find(x => x.jobno === 'D2-1042');
+  const find = num => win.allSecs(job).find(x => x.s.num === num);
+  const h53 = find('5.3'), s53 = h53.s;
+  // Only 5.3 carries a SharePoint id in this payload; give 5.4 one too.
+  const h54 = find('5.4'), s54 = h54.s;
+  s54.base = { id: 11, seq: 31, crewId: s54.crewId ?? null, start: s54.start ?? null, days: s54.days ?? null,
+               locked: !!s54.locked, skip: !!s54.skip, spLocked: false, inst: false, pm: !!s54.pm };
+  s54.inst = false;
+  // A clean slate: 5.3 signed in SharePoint and on screen, nothing queued.
+  s53.base.inst = true; s53.inst = true; s53.rejected = false; s53.thread = [];
+  win.S.pendingComments = [];
+  win.render();
+  const saveBtn = win.document.getElementById('saveBtn');
+  ok('nothing queued, nothing changed: Save is disabled', saveBtn.disabled === true);
+
+  // Queue a reject on 5.3 through the real control, and a comment on 5.4.
+  win.editSec(job.id, h53.gi, h53.si);
+  win.document.getElementById('fComment').value = 'tile line is short';
+  win.queueReject();
+  win.S.pendingComments.push({ localId: 'q2', jobno: 'D2-1042', num: '5.4', secId: '11',
+    kind: 'comment', body: 'waiting on materials', at: '2026-09-22T10:01:00Z' });
+  win.render();
+  ok('queued comments make Save live', saveBtn.disabled === false);
+
+  const set = win.buildRejectionSet();
+  ok('one pool in the rejection set', set.length === 1);
+  ok('two sections carry actions', set[0] && set[0].sections.length === 2);
+  const r53 = set[0].sections.find(x => x.num === '5.3');
+  ok('the reject is in the set, against the row id as a string',
+     r53 && r53.id === '10' && r53.actions[0].kind === 'reject');
+  ok('the localId travels, so a result can name the entry', r53 && typeof r53.actions[0].localId === 'string');
+
+  /* One reopen, not two. Rejecting un-ticked Installer on screen; if the
+     sign-off set also sent that un-tick, it would land first (reopen note +
+     sign-off cleared) and the rejection would then be refused as not-signed. */
+  const so = win.buildSignoffSet();
+  const so53 = so.length ? so[0].sections.find(x => String(x.id) === '10') : null;
+  ok('the sign-off set still carries the rejecting section, for the ticks', !!so53);
+  ok('and marks it as rejecting', so53 && so53.rejecting === true);
+  ok('but does NOT also send an Installer un-tick', so53 && so53.inst === null,
+     so53 && JSON.stringify(so53.inst));
+
+  // Removing a queued reject puts Installer back, so it cannot become a plain reopen.
+  const rejId = win.S.pendingComments.find(e => e.kind === 'reject').localId;
+  win.unqueueEntry(rejId);
+  ok('removing a queued reject restores Installer on screen', s53.inst === true);
+  ok('and nothing is left to reopen', !win.buildSignoffSet().some(p => p.sections.some(x => String(x.id) === '10')));
+  win.editSec(job.id, h53.gi, h53.si);
+  win.document.getElementById('fComment').value = 'tile line is short';
+  win.queueReject();
+
+  // The preview says what will happen, in words.
+  win.openSavePreview();
+  const pv = win.document.getElementById('dBody').innerHTML;
+  ok('the preview has its own section for these', /Comments and rejections/.test(pv));
+  ok('it names the reject and the sub-phase', /Reject sign-off/.test(pv) && /5\.3/.test(pv));
+  ok('it shows the reason', /tile line is short/.test(pv));
+  ok('it names the comment', /Comment/.test(pv) && /waiting on materials/.test(pv));
+  const foot = win.document.getElementById('dFoot').textContent;
+  ok('the confirm button counts them', /2 comments? (and|or) rejections?/.test(foot), foot.trim());
+  ok('it never says 0 over real queued work', !/Save 0/.test(foot));
+  ok('the reject is not also listed as an Installer reopen', !/reopened/.test(pv));
+
+  // Send it through the real confirmSaveByPush, with only fetch stubbed.
+  const G = win.D2_GRAPH;
+  const asgRow = (id, f) => ({ id: String(id), fields: Object.assign({ id: String(id) }, f) });
+  const liveAsg = [
+    asgRow(10, { Title: 'D2-1042 · 5.3 Tile Installation', InstallerSignOff: true,
+                 InstallerSignOffByLookupId: '14', SignOffNotes: 'signed on site', Rejected: false }),
+    asgRow(11, { Title: 'D2-1042 · 5.4 Coping Installation', InstallerSignOff: false, Rejected: false })
+  ];
+  const sent = [];
+  let postN = 0;
+  win.graphToken = async () => 'tok';
+  win.graphSite = async () => ({ id: 'site1', webUrl: 'x' });
+  win.graphPca = () => ({ getActiveAccount: () => ({ username: 'don@d2pools.com', name: 'Don Borgeson' }),
+                          getAllAccounts: () => [] });
+  win.loadFromD2ViaGraph = async () => {};
+  win.fetch = async (url, init) => {
+    init = init || {};
+    const m = init.method || 'GET';
+    sent.push({ url, method: m, body: init.body ? JSON.parse(init.body) : null });
+    if (m === 'GET') {
+      const v = url.indexOf(G.lists.asg) > -1 ? liveAsg
+        : /User%20Information%20List|userInfo|Information/.test(url)
+          ? [{ id: '14', fields: { id: '14', Title: 'Cody Campbell', Name: 'i:0#.f|membership|cody@d2pools.com' } },
+             { id: '16', fields: { id: '16', Title: 'Don Borgeson', Name: 'i:0#.f|membership|don@d2pools.com' } }]
+          : [];
+      return { ok: true, status: 200, json: async () => ({ value: v }), text: async () => '' };
+    }
+    if (m === 'POST' && url.indexOf(G.commentsList) > -1) {
+      postN++;
+      // The second comment POST fails, so one entry lands and one stays queued.
+      if (postN === 2) return { ok: false, status: 400, json: async () => ({}), text: async () => 'nope' };
+      return { ok: true, status: 201, json: async () => ({ id: String(700 + postN) }), text: async () => '' };
+    }
+    return { ok: true, status: 200, json: async () => ({}), text: async () => '' };
+  };
+  const before = win.S.pendingComments.map(e => e.localId);
+  await win.confirmSaveByPush();
+
+  const patches = sent.filter(x => x.method === 'PATCH' && x.url.indexOf(G.lists.asg) > -1);
+  const rejPatch = patches.find(x => x.body && x.body.Rejected === true);
+  ok('the rejection PATCH went out', !!rejPatch);
+  ok('it cleared the sign-off and carried the reason',
+     rejPatch && rejPatch.body.InstallerSignOff === false && rejPatch.body.RejectedReason === 'tile line is short');
+  ok('exactly one audit line was written for the rejection',
+     patches.filter(x => x.body && typeof x.body.SignOffNotes === 'string').length === 1
+     && /REJECTED/.test(rejPatch.body.SignOffNotes) && !/REOPENED/.test(rejPatch.body.SignOffNotes),
+     patches.map(x => x.body && x.body.SignOffNotes).filter(Boolean).join(' / '));
+  const posts = sent.filter(x => x.method === 'POST' && x.url.indexOf(G.commentsList) > -1);
+  ok('two comment POSTs were attempted', posts.length === 2, String(posts.length));
+  ok('the PATCH went before its POST',
+     sent.indexOf(rejPatch) < sent.indexOf(posts.find(p => p.body.fields.Kind === 'Rejected')));
+  const soAfter = win.eval('PENDING_SIGNOFFS') || [];
+  const soSec = soAfter.length ? soAfter[0].sections.find(x => String(x.id) === '10') : null;
+  ok('a rejection that landed keeps its section reopened for the ticks', soSec && soSec.rejecting === true);
+
+  ok('the entry that landed left the queue, the failed one stayed',
+     win.S.pendingComments.length === 1 && before.indexOf(win.S.pendingComments[0].localId) > -1,
+     String(win.S.pendingComments.length));
+
+  const rs = win.document.getElementById('dBody').innerHTML;
+  ok('the results report the saved rejection in words', /Comments and rejections saved/.test(rs));
+  ok('and the one that did not save', /NOT saved/.test(rs) && /HTTP 400/.test(rs));
+  ok('the results use words, not column names', !/RejectedReason|InstallerSignOffByLookupId/.test(rs));
+  ok('the results do not claim nothing needed saving', !/Nothing needed saving/.test(rs));
+
+  /* A rejection whose PATCH fails leaves the row signed, so ticks under it
+     must be refused, not written under a live sign-off. Rejections therefore
+     go first, and a section whose reject did not land loses the flag. */
+  win.S.pendingComments = [];
+  s53.inst = true;
+  win.editSec(job.id, h53.gi, h53.si);
+  win.document.getElementById('fComment').value = 'second attempt';
+  win.queueReject();
+  const okFetch = win.fetch;
+  win.fetch = async (url, init) => {
+    if (init && init.method === 'PATCH' && url.indexOf(G.lists.asg) > -1 && init.body
+        && JSON.parse(init.body).Rejected === true)
+      return { ok: false, status: 503, json: async () => ({}), text: async () => 'busy' };
+    return okFetch(url, init);
+  };
+  win.openSavePreview();
+  await win.confirmSaveByPush();
+  const soFail = win.eval('PENDING_SIGNOFFS') || [];
+  const soFailSec = soFail.length ? soFail[0].sections.find(x => String(x.id) === '10') : null;
+  ok('a rejection that did not land takes the reopen away, so its ticks are refused',
+     soFailSec && soFailSec.rejecting === false, soFailSec && String(soFailSec.rejecting));
+  ok('and the failed reject stays queued', win.S.pendingComments.some(e => e.kind === 'reject'));
+  win.fetch = okFetch;
+
+  // A refusal is reported in a sentence, and the entry stays queued.
+  win.S.pendingComments = [{ localId: 'z1', jobno: 'D2-1042', num: '5.4', secId: '11',
+                             kind: 'resolve', body: '', at: '2026-09-22T11:00:00Z' }];
+  sent.length = 0;
+  win.openSavePreview();
+  await win.confirmSaveByPush();
+  const rs2 = win.document.getElementById('dBody').innerHTML;
+  ok('a refusal is reported in a sentence', /it is not currently rejected/.test(rs2));
+  ok('a refused entry stays queued so it can be seen and retried', win.S.pendingComments.length === 1);
+
+  win.S.pendingComments = [];
+  s54.base = null;
+  win.graphModeAvailable = realMode;
+};
+
 // ============================================================================
 // SUMMARY -- keep this block last. A later task appends its own section above
 // this line and moves this block back down to the bottom of the file.
 // ============================================================================
-pageTests().then(panelTests).then(() => {
+pageTests().then(panelTests).then(saveTests).then(() => {
   console.log(fail ? '\nFAILED' : '\nrejection assertions passed.');
   process.exit(fail);
 }, e => { console.log('FAIL · page tests threw  [' + e.stack + ']'); process.exit(1); });

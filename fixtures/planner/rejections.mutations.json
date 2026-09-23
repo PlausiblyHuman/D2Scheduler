@@ -165,6 +165,66 @@
       "label": "remove does not remove",
       "find": "  S.pendingComments=(S.pendingComments||[]).filter(e=>e.localId!==localId);",
       "replace": ""
+    },
+    {
+      "label": "failed entries are dropped from the queue, losing what the PM typed",
+      "find": "  S.pendingComments=(S.pendingComments||[]).filter(e=>!gone.has(String(e.localId)));",
+      "replace": "  S.pendingComments=[];"
+    },
+    {
+      "label": "a section with only a queued reject is left out of the sign-off set",
+      "find": "      if(!instChanged && !pmChanged && !tasks.length && !rejecting)return;",
+      "replace": "      if(!instChanged && !pmChanged && !tasks.length)return;"
+    },
+    {
+      "label": "the sign-off set also sends the Installer un-tick for a rejected row",
+      "find": "      const instChanged = !rejecting && !!s.inst !== !!s.base.inst;",
+      "replace": "      const instChanged = !!s.inst !== !!s.base.inst;"
+    },
+    {
+      "label": "queued comments do not make Save live",
+      "find": "&&pendingSignoffs===0&&pendingRejections===0);",
+      "replace": "&&pendingSignoffs===0);"
+    },
+    {
+      "label": "queued comments are not counted on the confirm button",
+      "find": "  if(rCount)pushParts.push(",
+      "replace": "  if(false)pushParts.push("
+    },
+    {
+      "label": "rejections are never sent",
+      "find": "    if(PENDING_REJECTIONS&&PENDING_REJECTIONS.length){",
+      "replace": "    if(false){"
+    },
+    {
+      "label": "refusals are reported with the reason code, not a sentence",
+      "find": "      rj.rPlan.refusals.map(r=>row(rjRef(r),REJ_KIND_WORD[r.kind]||r.kind,REJ_WHY[r.reason]||r.reason)),",
+      "replace": "      rj.rPlan.refusals.map(r=>row(rjRef(r),REJ_KIND_WORD[r.kind]||r.kind,r.reason)),"
+    },
+    {
+      "label": "saved rejections are not reported",
+      "find": "     +sec('Comments and rejections saved',rjRows,'')",
+      "replace": ""
+    },
+    {
+      "label": "the preview leaves out the reason",
+      "find": "          <td class=\"small\">${a.body?esc(a.body):'<span class=\"muted\">no note</span>'}</td></tr>`",
+      "replace": "          <td class=\"small\"></td></tr>`"
+    },
+    {
+      "label": "removing a queued reject leaves Installer un-ticked",
+      "find": "    if(hit&&hit.s.base.inst)hit.s.inst=true;",
+      "replace": ""
+    },
+    {
+      "label": "a reject that did not land still reopens its ticks",
+      "find": "        if(s.rejecting&&!rejectedIds.has(String(s.id)))s.rejecting=false;",
+      "replace": ""
+    },
+    {
+      "label": "a reject whose PATCH landed but POST failed is treated as not landed",
+      "find": "        out.rj.rRes.failed.forEach(f=>{if(f.kind==='reject'&&f.patched)rejectedIds.add(String(f.id));});",
+      "replace": ""
     }
   ]
 }
