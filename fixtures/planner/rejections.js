@@ -272,11 +272,122 @@ const pageTests = async () => {
   ok('and the thread is empty rather than missing', !!s && Array.isArray(s.thread) && s.thread.length === 0);
 };
 
+// ---- The sub-phase panel: thread, three controls, one queue ---------------
+/* Every PM-typed string is escaped. The injection probe starts
+   </option></select> because the parser drops a bare <svg> in select
+   context: an earlier probe passed with three names unescaped for exactly
+   that reason. */
+const PROBE = '</option></select><svg id="xss-probe"></svg>';
+const panelTests = async () => {
+  const realMode = win.graphModeAvailable;
+  win.graphModeAvailable = () => true;
+  const job = win.S.jobs.find(x => x.jobno === 'D2-1042');
+  const hit = win.allSecs(job).find(x => x.s.num === '5.3');
+  const s = hit.s, open = () => win.editSec(job.id, hit.gi, hit.si);
+  const body = () => win.document.getElementById('dBody').innerHTML;
+  win.S.pendingComments = [];
+
+  // A rejected, since-unsigned sub-phase: thread, Add comment, Mark resolved, no Reject.
+  s.inst = false; s.rejected = true; s.rejectedReason = 'coping joints uneven';
+  s.thread = [{ id: '1', kind: 'Rejected', body: 'coping joints uneven',
+                by: 'Don Borgeson', at: '2026-09-20T14:05:00Z' }];
+  open();
+  let h = body();
+  ok('the panel has a Comments section', /Comments/.test(h));
+  ok('the thread shows the author', /Don Borgeson/.test(h));
+  ok('the thread shows the time in Central', /09\/20\/26 09:05/.test(h), (h.match(/\d\d\/\d\d\/\d\d \d\d:\d\d/) || [''])[0]);
+  ok('there is an Add comment control', /Add comment/.test(h));
+  ok('a rejected sub-phase offers Mark resolved', /Mark resolved/.test(h));
+  ok('an unsigned sub-phase does not offer Reject', !/Reject sign-off/.test(h));
+  ok('the panel says the sub-phase is rejected, with the reason', /Rejected/.test(h) && /coping joints uneven/.test(h));
+
+  // Reject is offered only while Installer is ticked.
+  s.inst = true; s.rejected = false; s.rejectedReason = null; s.thread = [];
+  open(); h = body();
+  ok('a signed sub-phase offers Reject sign-off', /Reject sign-off/.test(h));
+  ok('an unrejected sub-phase does not offer Mark resolved', !/Mark resolved/.test(h));
+  ok('an empty thread says so', /No comments yet/.test(h));
+
+  // An empty reason refuses and queues nothing.
+  const alerts = [];
+  win.alert = m => alerts.push(m);
+  win.document.getElementById('fComment').value = '   ';
+  win.queueReject();
+  ok('an empty reason queues nothing', win.S.pendingComments.length === 0);
+  ok('and says a reason is required', alerts.length === 1 && /reason/i.test(alerts[0]), alerts[0]);
+  ok('and leaves the sign-off alone', s.inst === true);
+
+  // An empty comment likewise.
+  win.document.getElementById('fComment').value = '';
+  win.queueComment();
+  ok('an empty comment queues nothing', win.S.pendingComments.length === 0);
+
+  // A real reject queues, un-ticks Installer on screen, and unlocks the checklist.
+  win.document.getElementById('fComment').value = '  tile line is short  ';
+  win.queueReject();
+  const q = win.S.pendingComments;
+  ok('the reject is queued', q.length === 1);
+  ok('queued as a reject', q[0] && q[0].kind === 'reject');
+  ok('the reason is queued, trimmed', q[0] && q[0].body === 'tile line is short');
+  ok('queued against the SharePoint row id, as a string', q[0] && q[0].secId === String(s.base.id));
+  ok('queued with the job number and sub-phase', q[0] && q[0].jobno === 'D2-1042' && q[0].num === '5.3');
+  ok('rejecting un-ticks Installer on screen', s.inst === false);
+  h = body();
+  ok('the checklist is no longer locked', !/tasksLocked/.test(h));
+  ok('the queue persists to localStorage',
+     JSON.parse(win.localStorage.getItem(win.eval('KEY'))).pendingComments.length === 1);
+
+  // Queued entries render as not saved, and are removable.
+  ok('a queued entry says it is not saved yet', /Not saved yet/.test(h));
+  win.unqueueEntry(q[0].localId);
+  ok('a queued entry can be removed before saving', win.S.pendingComments.length === 0);
+
+  // A comment and a resolve queue with the right kinds.
+  s.rejected = true; open();
+  win.document.getElementById('fComment').value = 'waiting on materials';
+  win.queueComment();
+  win.queueResolve();
+  ok('a comment and a resolve queue in order',
+     win.S.pendingComments.map(e => e.kind).join(',') === 'comment,resolve',
+     win.S.pendingComments.map(e => e.kind).join(','));
+  ok('a resolve with an empty box is allowed', win.S.pendingComments[1] && win.S.pendingComments[1].body === '');
+  win.S.pendingComments = [];
+
+  // Escaping, on both the live thread and a queued entry.
+  s.thread = [{ id: '9', kind: 'Comment', body: PROBE, by: PROBE, at: '2026-09-21T10:00:00Z' }];
+  s.rejectedReason = PROBE;
+  win.S.pendingComments = [{ localId: 'q1', jobno: 'D2-1042', num: '5.3', secId: String(s.base.id),
+                             kind: 'comment', body: PROBE, at: '2026-09-22T10:00:00Z' }];
+  open();
+  ok('a comment cannot inject an element, from the thread, the reason or the queue',
+     win.document.getElementById('xss-probe') === null);
+  ok('it is escaped rather than stripped', body().indexOf('&lt;svg') > -1);
+  win.S.pendingComments = [];
+
+  // A pool with no SharePoint baseline cannot comment at all, and says why.
+  const sketch = win.newJob('Local Sketch', '', '', '', '', '2026-10-01');
+  win.S.jobs.push(sketch);
+  win.editSec(sketch.id, 0, 0); h = body();
+  ok('a local-only pool offers no comment control', !/Add comment/.test(h));
+  ok('and says it is not in SharePoint', /not in SharePoint/i.test(h));
+  win.S.jobs = win.S.jobs.filter(x => x !== sketch);
+
+  // A downloaded copy cannot write comments either, and says so.
+  win.graphModeAvailable = () => false;
+  open(); h = body();
+  ok('a downloaded copy offers no comment control', !/Add comment/.test(h));
+  ok('and says to open the planner from the site', /Open the planner from the site/i.test(h));
+
+  win.graphModeAvailable = realMode;
+  s.rejected = false; s.rejectedReason = null; s.thread = []; s.inst = true;
+  win.alert = () => {};
+};
+
 // ============================================================================
 // SUMMARY -- keep this block last. A later task appends its own section above
 // this line and moves this block back down to the bottom of the file.
 // ============================================================================
-pageTests().then(() => {
+pageTests().then(panelTests).then(() => {
   console.log(fail ? '\nFAILED' : '\nrejection assertions passed.');
   process.exit(fail);
 }, e => { console.log('FAIL · page tests threw  [' + e.stack + ']'); process.exit(1); });

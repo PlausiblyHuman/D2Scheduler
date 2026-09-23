@@ -48,6 +48,8 @@ input[type=checkbox]{width:auto;accent-color:var(--accent);cursor:pointer}
 .skill.off{background:#f3f4f6;color:#9ca3af;border-color:#e5e7eb}
 .sub{background:#f1f5f9;color:#475569;border-color:#e2e8f0}
 .chip.jb{margin-left:6px;text-transform:none;letter-spacing:0}
+.chip.rej{background:#fbeee6;color:#a84a18;border-color:#f0c9b0}
+.cmt{padding:6px 0;border-top:1px solid var(--line)} .cmt.pending{opacity:.72}
 .chip.jb.planned{background:#fef3c7;color:#92400e;border-color:#fde68a}
 .chip.jb.hold{background:#e5e7eb;color:#4b5563;border-color:#d1d5db}
 .chip.jb.other{background:#e0e7ff;color:#3730a3;border-color:#c7d2fe}
@@ -343,8 +345,8 @@ function jobBadge(j){
   return `<span class="chip jb ${cls}" title="Jobs.Status in SharePoint">${esc(j.status)}</span>`+edited;
 }
 function load(){
-  try{const raw=localStorage.getItem(KEY);if(raw){S=JSON.parse(raw);S.settings=S.settings||{};S.pendingCreates=S.pendingCreates||[];syncNonWork();return;}}catch(e){}
-  S={crews:JSON.parse(JSON.stringify(SEED_CREWS)),template:mkTemplate(),jobs:[],settings:{},pendingCreates:[]};
+  try{const raw=localStorage.getItem(KEY);if(raw){S=JSON.parse(raw);S.settings=S.settings||{};S.pendingCreates=S.pendingCreates||[];S.pendingComments=S.pendingComments||[];syncNonWork();return;}}catch(e){}
+  S={crews:JSON.parse(JSON.stringify(SEED_CREWS)),template:mkTemplate(),jobs:[],settings:{},pendingCreates:[],pendingComments:[]};
   /* NO DEMO POOLS. Removed 2026-09-11.
      This used to seed Harrison Residence, Vasquez Pool & Spa and Bell Canyon
      Remodel, three fictional California pools invented before this tool was
@@ -671,6 +673,10 @@ function divergedSecs(j){
    heard of. Creating a pool is out of scope for the write-back; that stays
    `New Pool Requests`. */
 function poolHasBaseline(j){ return allSecs(j).some(({s})=>!!s.base); }
+/* Comments need a SharePoint row to hang off and a Graph token to write with.
+   A local sketch has no row; a downloaded copy has no token. Both are told,
+   rather than shown a control that does nothing. */
+function commentsWritable(j){ return graphModeAvailable() && poolHasBaseline(j); }
 
 /* ============================== sign-off + tasks ============================== */
 /* Resolved, not done. Every task is Done, N/A or still to do; N/A is deliberate
@@ -1248,6 +1254,7 @@ function editSec(jobId,gi,si){
       <label style="text-transform:none;font-size:13px;color:var(--ink)"><input type="checkbox" id="fInst" ${s.inst?'checked':''}> Installer</label>
       <label style="text-transform:none;font-size:13px;color:var(--ink)"><input type="checkbox" id="fPM" ${s.pm?'checked':''}> Project Manager</label></div>
     <div class="fld"><label>Crew availability on these dates</label><div id="avail" class="small"></div></div>
+    ${commentsHTML(j,s)}
     <div class="fld"><label>Checklist — ${c.done}/${c.n}${c.na?` · ${c.na} N/A`:''}
       ${s.inst?'':`<a href="#" class="small" style="text-transform:none" onclick="allTasks(true);return false">all</a> /
       <a href="#" class="small" style="text-transform:none" onclick="allTasks(false);return false">none</a>`}</label>
@@ -1266,6 +1273,72 @@ function editSec(jobId,gi,si){
   showAvail();
 }
 function cur(){const j=S.jobs.find(x=>x.id===CUR.jobId);return j.groups[CUR.gi].sections[CUR.si];}
+/* The comment thread and its three controls. Entries come from the Sign-off
+   Comments list on Refresh; queued ones sit in S.pendingComments until Save.
+   Every PM-typed value is escaped here, at construction. */
+const CMT_KIND={Comment:'',Rejected:'Rejected',Resolved:'Resolved',comment:'',reject:'Rejected',resolve:'Resolved'};
+function commentsHTML(j,s){
+  const writable=commentsWritable(j), tid=s.base&&s.base.id!=null?String(s.base.id):null;
+  const q=tid?(S.pendingComments||[]).filter(e=>e.secId===tid):[];
+  const entry=(e,pending)=>{
+    const tag=CMT_KIND[e.kind]||'';
+    return `<div class="cmt${pending?' pending':''}"><div class="small muted">${esc(pending?'You':(e.by||''))} · ${pending?'Not saved yet':esc(cmtWhen(e.at))}
+      ${tag?` <span class="chip rej">${esc(tag)}</span>`:''}
+      ${pending?` <a href="#" class="small" onclick="unqueueEntry('${esc(e.localId)}');return false">remove</a>`:''}</div>
+      <div>${esc(e.body||'')}</div></div>`;
+  };
+  const thread=(s.thread||[]).map(e=>entry(e,false)).join('')+q.map(e=>entry(e,true)).join('');
+  return `<div class="fld"><label>Comments${s.rejected?' <span class="chip rej" style="text-transform:none">Sign-off rejected</span>':''}</label>
+    ${s.rejected&&s.rejectedReason?`<div class="small" style="margin-bottom:4px"><b>Reason:</b> ${esc(s.rejectedReason)}</div>`:''}
+    <div id="thread">${thread||'<span class="muted small">No comments yet.</span>'}</div>
+    ${writable?`<textarea id="fComment" rows="3" style="width:100%;margin-top:6px;font:inherit" placeholder="Add a comment, or say what is missing before rejecting"></textarea>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
+        <button class="btn" onclick="queueComment()">Add comment</button>
+        ${s.inst?`<button class="btn" onclick="queueReject()" title="Clears the installer sign-off and records why. Saved when you press Save at the top.">Reject sign-off</button>`:''}
+        ${s.rejected?`<button class="btn" onclick="queueResolve()" title="Marks the rejection dealt with. Saved when you press Save at the top.">Mark resolved</button>`:''}
+      </div>
+      <div class="small muted" style="margin-top:4px">Comments are saved when you press Save at the top.</div>`
+    :`<div class="small muted">${graphModeAvailable()?'This pool is not in SharePoint yet, so comments cannot be saved.'
+        :'This copy cannot save comments. Open the planner from the site to comment.'}</div>`}
+  </div>`;
+}
+function cmtWhen(iso){
+  if(!iso)return '';
+  try{const p={};new Intl.DateTimeFormat('en-US',{timeZone:'America/Chicago',year:'numeric',
+    month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'})
+    .formatToParts(new Date(iso)).forEach(x=>p[x.type]=x.value);
+    return p.month+'/'+p.day+'/'+String(p.year).slice(2)+' '+p.hour+':'+p.minute;
+  }catch(e){return String(iso).slice(0,16).replace('T',' ')+' UTC';}
+}
+function queueEntry(kind,body){
+  const j=S.jobs.find(x=>x.id===CUR.jobId),s=cur();
+  if(!s.base||s.base.id==null||!commentsWritable(j))return;
+  S.pendingComments=S.pendingComments||[];
+  S.pendingComments.push({localId:'c'+Math.random().toString(36).slice(2,9),
+    jobno:j.jobno,num:s.num,secId:String(s.base.id),kind,body,at:new Date().toISOString()});
+  save();editSec(CUR.jobId,CUR.gi,CUR.si);render();
+}
+function commentBox(){const el=document.getElementById('fComment');return el?String(el.value||'').trim():'';}
+function queueComment(){
+  const b=commentBox();
+  if(!b){alert('Type a comment first.');return;}
+  queueEntry('comment',b);
+}
+function queueReject(){
+  const b=commentBox();
+  if(!b){alert('A reason is required to reject a sign-off. Say what is missing.');return;}
+  /* Un-tick Installer on screen straight away so the checklist unlocks for the
+     fix. Nothing is written until Save, and the queued reject is what carries
+     the sign-off change, not this flag: see buildSignoffSet. */
+  cur().inst=false;
+  touch(S.jobs.find(x=>x.id===CUR.jobId));
+  queueEntry('reject',b);
+}
+function queueResolve(){ queueEntry('resolve',commentBox()); }
+function unqueueEntry(localId){
+  S.pendingComments=(S.pendingComments||[]).filter(e=>e.localId!==localId);
+  save();if(CUR)editSec(CUR.jobId,CUR.gi,CUR.si);render();
+}
 /* Sign-off locks the checklist. The controls render disabled; these guards
    stop anything that reaches the handlers anyway. */
 function checklistLocked(){ if(cur().inst){ editSec(CUR.jobId,CUR.gi,CUR.si); return true; } return false; }

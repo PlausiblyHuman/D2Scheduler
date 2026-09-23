@@ -110,6 +110,61 @@
       "label": "rejected is not cleared when the payload drops it",
       "find": "        s.rejected=!!is.rejected;",
       "replace": "        if(is.rejected)s.rejected=true;"
+    },
+    {
+      "label": "comment bodies are not escaped",
+      "find": "      <div>${esc(e.body||'')}</div></div>`;",
+      "replace": "      <div>${e.body||''}</div></div>`;"
+    },
+    {
+      "label": "the rejection reason is not escaped in the panel",
+      "find": "<b>Reason:</b> ${esc(s.rejectedReason)}",
+      "replace": "<b>Reason:</b> ${s.rejectedReason}"
+    },
+    {
+      "label": "an empty rejection reason is accepted by the UI",
+      "find": "  if(!b){alert('A reason is required to reject a sign-off. Say what is missing.');return;}",
+      "replace": ""
+    },
+    {
+      "label": "an empty comment is accepted by the UI",
+      "find": "  if(!b){alert('Type a comment first.');return;}",
+      "replace": ""
+    },
+    {
+      "label": "rejecting does not un-tick Installer, so the checklist stays locked",
+      "find": "  cur().inst=false;\n",
+      "replace": "\n"
+    },
+    {
+      "label": "Reject is offered on an unsigned sub-phase",
+      "find": "        ${s.inst?`<button class=\"btn\" onclick=\"queueReject()\"",
+      "replace": "        ${true?`<button class=\"btn\" onclick=\"queueReject()\""
+    },
+    {
+      "label": "Mark resolved is offered when nothing is rejected",
+      "find": "        ${s.rejected?`<button class=\"btn\" onclick=\"queueResolve()\"",
+      "replace": "        ${true?`<button class=\"btn\" onclick=\"queueResolve()\""
+    },
+    {
+      "label": "a local sketch is offered the comment controls",
+      "find": "function commentsWritable(j){ return graphModeAvailable() && poolHasBaseline(j); }",
+      "replace": "function commentsWritable(j){ return graphModeAvailable(); }"
+    },
+    {
+      "label": "the row id is queued as a number",
+      "find": "jobno:j.jobno,num:s.num,secId:String(s.base.id),kind",
+      "replace": "jobno:j.jobno,num:s.num,secId:s.base.id,kind"
+    },
+    {
+      "label": "queued entries do not show in the panel",
+      "find": "+q.map(e=>entry(e,true)).join('');",
+      "replace": ";"
+    },
+    {
+      "label": "remove does not remove",
+      "find": "  S.pendingComments=(S.pendingComments||[]).filter(e=>e.localId!==localId);",
+      "replace": ""
     }
   ]
 }
