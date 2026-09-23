@@ -963,6 +963,7 @@ function vBoard(){
         const nm=`<td class="nm"><div class="nmflex">
           <span class="t sec click${s.skip?' skip':''}" title="${esc(s.num+' '+s.name)} — click to edit"
                 onclick="editSec('${j.id}',${gi},${si})"><b>${s.num}</b> ${s.name}
+            ${s.rejected?'<span class="chip rej" title="Sign-off rejected. See the Sign-Offs tab.">Rejected</span>':''}
             <span class="muted small">· ${s.skill?skillLabel(s.skill):'—'}</span>
             <span class="tw" title="${pct}% of checklist"><i style="width:${pct}%"></i></span></span>
           <span class="dt">${s.skip?'<span class="muted">not applicable</span>':(s.start?pretty(s.start)+' → '+pretty(fin):'<span class="muted">not scheduled</span>')}</span>
@@ -1073,7 +1074,26 @@ function vSignoff(){
         <option value="">All jobs (${S.jobs.length})</option>
         ${S.jobs.slice().sort(byNo).map(j=>`<option value="${esc(j.id)}"${j.id===pick?' selected':''}>${esc(j.jobno||'')} · ${esc(j.name)}</option>`).join('')}
       </select></div></div>`:'';
-  return bar+list.map(j=>{
+  /* Every unresolved rejection, so nothing stalls unnoticed. Follows the job
+     picker above. An entry whose installer has signed again is called out,
+     because that is the one a PM can act on now. */
+  const rej=[];
+  list.forEach(j=>allSecs(j).forEach(({s,gi,si})=>{
+    if(!s.rejected)return;
+    const last=(s.thread||[]).filter(e=>e.kind==='Rejected').slice(-1)[0];
+    rej.push({j,gi,si,s,by:last?last.by:'',at:s.rejectedOn||(last?last.at:null)});
+  }));
+  const card=rej.length?`<div class="card"><h2>Open rejections <span class="chip rej">${rej.length}</span></h2>
+    <table><thead><tr><th style="width:90px">Job</th><th style="width:60px">#</th><th>Sub-phase</th>
+      <th style="width:190px">Rejected</th><th>Reason</th><th style="width:190px"></th></tr></thead><tbody>
+    ${rej.map(r=>`<tr><td class="small mono">${esc(r.j.jobno||'')}</td>
+      <td class="small muted">${esc(r.s.num)}</td>
+      <td><a href="#" onclick="editSec('${esc(r.j.id)}',${r.gi},${r.si});return false">${esc(r.s.name)}</a></td>
+      <td class="small muted">${esc(cmtWhen(r.at))}${r.by?' · '+esc(r.by):''}</td>
+      <td class="small">${esc(r.s.rejectedReason||'')}</td>
+      <td class="small">${r.s.inst?'<b>Signed again, ready to review</b>':''}</td></tr>`).join('')}
+    </tbody></table></div>`:'';
+  return bar+card+list.map(j=>{
     const secs=allSecs(j).filter(x=>!x.s.skip);
     const i=secs.filter(x=>x.s.inst).length,p=secs.filter(x=>x.s.pm).length;
     const tot=secs.reduce((a,x)=>a+x.s.tasks.length,0),

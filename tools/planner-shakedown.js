@@ -98,7 +98,28 @@ const ok=(label,cond,detail='')=>{console.log((cond?'PASS':'FAIL')+' · '+label+
  await ev("[...document.querySelectorAll('#main tbody .t.sec.click')][4].click();'ok'");await sleep(450);
  ok('clicking a sub-phase NAME opens the editor',
     await ev("document.getElementById('drawer').classList.contains('open')")===true);
+ ok('the sub-phase panel has a Comments section with an Add comment control',
+    await ev("/Comments/.test(document.getElementById('dBody').innerHTML)&&!!document.getElementById('fComment')")===true);
  await ev("closeDrawer();'ok'");await sleep(250);
+
+ // Reject a signed sub-phase through the real controls, then take it back.
+ // Queue only: nothing here can write, since there is no token.
+ const rj=await ev(`(()=>{for(const j of S.jobs){const h=allSecs(j).find(x=>x.s.inst&&x.s.base&&x.s.base.id!=null);
+   if(h){editSec(j.id,h.gi,h.si);return {job:j.id,gi:h.gi,si:h.si};}}return null;})()`);
+ await sleep(300);
+ if(rj){
+   await ev("document.getElementById('fComment').value='shakedown reason';"
+     +"[...document.querySelectorAll('#dBody button')].find(b=>b.textContent==='Reject sign-off').click();'ok'");
+   await sleep(300);
+   ok('Reject sign-off queues the reason and un-ticks Installer',
+      await ev(`S.pendingComments.length===1&&S.pendingComments[0].kind==='reject'&&!S.jobs.find(j=>j.id===${JSON.stringify(rj.job)}).groups[${rj.gi}].sections[${rj.si}].inst`)===true);
+   ok('the queued reject shows as not saved yet',
+      await ev("/Not saved yet/.test(document.getElementById('dBody').innerHTML)")===true);
+   await ev("[...document.querySelectorAll('#thread a')].find(a=>a.textContent==='remove').click();'ok'");await sleep(300);
+   ok('removing it restores Installer and empties the queue',
+      await ev(`S.pendingComments.length===0&&S.jobs.find(j=>j.id===${JSON.stringify(rj.job)}).groups[${rj.gi}].sections[${rj.si}].inst===true`)===true);
+   await ev("closeDrawer();'ok'");await sleep(250);
+ }else ok('a signed sub-phase exists to reject', false);
 
  // Auto-Schedule must summarise, not move signed-off work, and leave no rule-3 violation.
  const signedBefore=await ev(`S.jobs.flatMap(j=>allSecs(j)).filter(x=>x.s.inst).map(x=>x.s.start).join(',')`);

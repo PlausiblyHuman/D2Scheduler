@@ -225,6 +225,36 @@
       "label": "a reject whose PATCH landed but POST failed is treated as not landed",
       "find": "        out.rj.rRes.failed.forEach(f=>{if(f.kind==='reject'&&f.patched)rejectedIds.add(String(f.id));});",
       "replace": ""
+    },
+    {
+      "label": "the card does not say when the installer signed again",
+      "find": "${r.s.inst?'<b>Signed again, ready to review</b>':''}",
+      "replace": "''"
+    },
+    {
+      "label": "the reason is not escaped on the Open rejections card",
+      "find": "      <td class=\"small\">${esc(r.s.rejectedReason||'')}</td>",
+      "replace": "      <td class=\"small\">${r.s.rejectedReason||''}</td>"
+    },
+    {
+      "label": "the rejecter's name is not escaped on the card",
+      "find": "${r.by?' · '+esc(r.by):''}",
+      "replace": "${r.by?' · '+r.by:''}"
+    },
+    {
+      "label": "the card ignores the job picker",
+      "find": "  list.forEach(j=>allSecs(j).forEach(({s,gi,si})=>{\n    if(!s.rejected)return;",
+      "replace": "  S.jobs.forEach(j=>allSecs(j).forEach(({s,gi,si})=>{\n    if(!s.rejected)return;"
+    },
+    {
+      "label": "the card is never shown",
+      "find": "  return bar+card+list.map(j=>{",
+      "replace": "  return bar+list.map(j=>{"
+    },
+    {
+      "label": "the board does not label a rejected sub-phase",
+      "find": "            ${s.rejected?'<span class=\"chip rej\" title=\"Sign-off rejected. See the Sign-Offs tab.\">Rejected</span>':''}",
+      "replace": ""
     }
   ]
 }

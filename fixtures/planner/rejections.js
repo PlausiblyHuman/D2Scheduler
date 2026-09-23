@@ -176,8 +176,7 @@ const pageHtml = fs.readFileSync(path.join(WEB, 'index.html'), 'utf8')
   .replace('<script src="graph-writeback.js"></script>', inline('graph-writeback.js'))
   .replace('<script src="graph-to-planner.js"></script>', inline('graph-to-planner.js'))
   .replace('</body>', `<script>window.__x=()=>{window.S=S;window.allSecs=allSecs;window.D2_GRAPH=D2_GRAPH;
-     window.importFromD2Payload=importFromD2Payload;window.editSec=editSec;window.render=render;
-     window.UI=UI;};</script><script>__x();</script></body>`);
+     window.importFromD2Payload=importFromD2Payload;window.editSec=editSec;window.render=render;};</script><script>__x();</script></body>`);
 const vc = new VirtualConsole(); vc.on('jsdomError', e => console.log('[jsdom]', e.message));
 const dom = new JSDOM(pageHtml, { runScripts: 'dangerously', pretendToBeVisual: true,
   url: 'http://localhost/', virtualConsole: vc });
@@ -557,11 +556,73 @@ const saveTests = async () => {
   win.graphModeAvailable = realMode;
 };
 
+// ---- The Open rejections card and the board label -------------------------
+/* Every unresolved rejection in one place, following the job picker, and
+   calling out the ones whose installer has signed again: those are the ones a
+   PM can act on now. */
+const cardTests = async () => {
+  const main = () => win.document.getElementById('main').innerHTML;
+  const setTab = t => win.eval('TAB=' + JSON.stringify(t));
+  /* UI is replaced after the page boots, so window.UI is stale: set it in-page. */
+  const pick = id => win.eval('UI.signoffJob=' + JSON.stringify(id));
+  const job = win.S.jobs.find(x => x.jobno === 'D2-1042');
+  const hA = win.allSecs(job).find(x => x.s.num === '5.3'), sA = hA.s;
+  // A second pool, also rejected, to prove the card follows the picker.
+  const other = win.newJob('Other Pool', '', '', '', '', '2026-10-01');
+  other.jobno = 'D2-2000';
+  win.S.jobs.push(other);
+  const sB = win.allSecs(other)[0].s;
+  sB.rejected = true; sB.rejectedReason = 'other pool reason'; sB.rejectedOn = '2026-09-19T14:00:00Z';
+
+  sA.rejected = true; sA.rejectedOn = '2026-09-20T14:05:00Z';
+  sA.rejectedReason = 'coping joints uneven'; sA.inst = false;
+  sA.thread = [{ id: '1', kind: 'Rejected', body: 'coping joints uneven',
+                 by: 'Don Borgeson', at: '2026-09-20T14:05:00Z' }];
+  pick('');
+  setTab('signoff'); win.render();
+  let v = main();
+  ok('the Sign-Offs tab carries an Open rejections card', /Open rejections/.test(v));
+  ok('it counts them', /Open rejections <span[^>]*>2</.test(v), (v.match(/Open rejections[^<]*<span[^>]*>\d+/) || [''])[0]);
+  ok('it shows the reason', /coping joints uneven/.test(v));
+  ok('it names who rejected it and when, in Central', /Don Borgeson/.test(v) && /09\/20\/26 09:05/.test(v));
+  ok('nothing says signed again while it is unsigned', !/Signed again/.test(v));
+
+  sA.inst = true; win.render();
+  ok('once the installer signs again the entry says so', /Signed again, ready to review/.test(main()));
+
+  // It follows the job picker.
+  pick(job.id); win.render(); v = main();
+  ok('with one job picked, that job\'s rejection is listed', /coping joints uneven/.test(v));
+  ok('and the other pool\'s is not', !/other pool reason/.test(v));
+  pick(other.id); win.render(); v = main();
+  ok('picking the other pool swaps them', /other pool reason/.test(v) && !/coping joints uneven/.test(v));
+  pick('');
+
+  // The Job Board labels a rejected sub-phase, and only that one.
+  setTab('board'); win.render(); v = main();
+  ok('the Job Board labels a rejected sub-phase', /chip rej[^>]*>Rejected</.test(v));
+  const labels = (v.match(/chip rej[^>]*>Rejected</g) || []).length;
+  ok('one label per rejected sub-phase', labels === 2, String(labels));
+
+  // Escaping, on this surface too.
+  sA.rejectedReason = PROBE; sA.thread[0].by = PROBE;
+  setTab('signoff'); win.render();
+  ok('the Open rejections card escapes the reason and the name',
+     win.document.getElementById('xss-probe') === null);
+
+  sA.rejected = false; sB.rejected = false; win.render();
+  ok('the card disappears when nothing is rejected', !/Open rejections/.test(main()));
+
+  win.S.jobs = win.S.jobs.filter(x => x !== other);
+  sA.thread = []; sA.rejectedReason = null;
+  setTab('board'); win.render();
+};
+
 // ============================================================================
 // SUMMARY -- keep this block last. A later task appends its own section above
 // this line and moves this block back down to the bottom of the file.
 // ============================================================================
-pageTests().then(panelTests).then(saveTests).then(() => {
+pageTests().then(panelTests).then(saveTests).then(cardTests).then(() => {
   console.log(fail ? '\nFAILED' : '\nrejection assertions passed.');
   process.exit(fail);
 }, e => { console.log('FAIL · page tests threw  [' + e.stack + ']'); process.exit(1); });
