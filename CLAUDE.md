@@ -1515,7 +1515,7 @@ covers two flows, the daily and weekly summaries.):**
 | 2 | Sign-off Intake | Started | DONE, end-to-end verified |
 | 3 | Event-Driven Reconciliation | Started | Trigger condition fixed to version-history comparison 2026-09-07 (see Known bugs); no longer the no-op it was when this table was written. `Get_overlapping` gained the `Get_active_jobs`/`Select_active_job_ids`/`Compose_active_job_clause` idiom 2026-09-09, so a double-book alert can no longer name a `Planned` pool that has not been committed yet (see the `Planned`-suppression entry above). **Stop it before any bulk write to Assignments**, since it still fires on every Crew/date edit. |
 | 4 | Nightly Reconciliation | Started | **DONE — built and both tests passed 2026-09-03.** Created fully headless (no designer). Clean sweep = 0 conflicts, no email; seeded double-book caught and emailed. |
-| 5 | Daily + Weekly Summary | Started | **DONE.** Built 2026-09-03 as two flows, HTML body not PDF. **Content reviewed 2026-09-05 and three defects fixed** — weekly compliance counted unfinished work, neither table was sorted, daily footer off by one. Re-verified by manual run. |
+| 5 | Daily + Weekly Summary | Started | **Daily gained an Open rejections section 2026-09-23, omitted when empty.** **DONE.** Built 2026-09-03 as two flows, HTML body not PDF. **Content reviewed 2026-09-05 and three defects fixed** — weekly compliance counted unfinished work, neither table was sorted, daily footer off by one. Re-verified by manual run. |
 | 6 | Task Tick Batch | Started | **NEW 2026-09-07, verified end to end.** `D2 - Task Tick Batch`, flowId `1a825a83-492a-d47a-0fc0-ec5ef7d43594` (Dataverse workflowid `e8843056-53aa-f111-aaab-6045bd0196b3`). PowerAppV2 trigger `(AssignmentID, TaskUpdates, TasksTotal, TasksComplete, SignedByEmail)`. Resolves the site user once via `ensureuser`, MERGEs each task from a comma-separated `taskId:flag` list, then MERGEs the assignment counters. **This exists because Patch() does not work from the canvas app — see the Patch entry under Known bugs.** |
 | 7 | Counter Reconciliation | Started | **NEW 2026-09-07, verified.** `D2 - Counter Reconciliation`, flowId `e877197e-1ab6-8f74-49f2-9a12532e3b14` (Dataverse workflowid `291fa9d9-caaa-f111-aaac-6045bd0195dd`). Nightly 05:30 Central, an hour ahead of the daily summary so Don's compliance figures are always computed from repaired counters. Recomputes `TasksTotal`/`TasksComplete` from the Tasks list and MERGEs **only rows that drifted**, so a clean night writes nothing. First run repaired 6 rows; the immediate second run repaired 0. |
 | 8 | Reopen Sign-off | Started | **Built 2026-09-07, verified.** `D2 - Reopen Sign-off`, flowId `d7bad02d-cbdf-f8e6-c385-9ff41bac3776` (Dataverse workflowid `0f850a63-beaa-f111-aaac-6045bd0195dd`). PowerAppV2 trigger. Clears `InstallerSignOff` and appends who reopened, when, who had signed, and an optional reason to `SignOffNotes`. Was already live but had never been added to this table. |
@@ -2635,6 +2635,86 @@ The shared-member check only fires for crews sharing a working day, and the harn
 no two crews on the same date, so it asserted over an empty set. It now builds the overlap and
 carries a second assertion confirming the scenario is reached. **A new assertion has to be watched
 fail before it is worth anything** -- the fourth time this file has recorded that lesson.
+
+## REJECT A SIGN-OFF, WITH COMMENTS — shipped, deployed and verified live 2026-09-23
+
+Spec `docs/superpowers/specs/2026-09-21-reject-signoff-with-comments-design.md`, plan
+`docs/superpowers/plans/2026-09-22-reject-signoff-with-comments.md`. A PM can reject an installer
+sign-off with a reason, comment on any sub-phase, and mark a rejection resolved, all from the
+sub-phase panel, sent on Save. Rejections collect in an Open rejections card on the Sign-Offs tab,
+a Rejected label on the board, the `Rejected` view, and a section in the 04:30 Daily Summary.
+
+| Piece | Where |
+|---|---|
+| `Sign-off Comments` list | `e6c97457-017d-4e18-868e-8a73b4fb6821`, `WriteSecurity=2`, columns `Title`, `Assignment` (lookup, copied from `Tasks.Assignment`), `Kind` (Comment/Rejected/Resolved), `Body` (Note, not required) |
+| Assignments columns | `Rejected` (Yes/No), `RejectedOn` (DateTime), `RejectedReason` (Note), none required |
+| `Rejected` view | Assignments, `Rejected = 1`. **Stored grouped by Crew**, not by Job as the spec said. Harmless |
+| Planner | `D2_GRAPH.commentsList`, `commentsHTML`, `queue*`, `buildRejectionSet`, `pushRejections`, the card in `vSignoff` |
+| Harness | `fixtures/planner/rejections.js` + `rejections.mutations.json`: 50 mutations across four files, all red (index.html 33, writeback-core 10, graph-to-planner 4, graph-writeback 3; the last two sweep against `graph-read.js` / `graph-write.js`) |
+
+**Four decisions the plan got wrong and the code does differently. Keep them:**
+
+1. **Rejections go BEFORE the sign-off pass, not after.** In the plan's order, a reject whose PATCH
+   failed left its ticks already written under a still-live sign-off. Now `confirmSaveByPush` sends
+   rejections first, and a section whose reject did not land (PATCH failed) loses its `rejecting`
+   flag, so `planTaskTicks` refuses those ticks. A PATCH that landed with a failed comment POST
+   still counts as landed: the sign-off was cleared.
+2. **A queued reject carries the sign-off change itself.** Rejecting un-ticks Installer on screen;
+   `buildSignoffSet` does NOT also send that as an `inst` change. It would land first as a plain
+   reopen, write a second audit line, and get the rejection refused as `not-signed`.
+3. **Removing a queued reject puts Installer back on screen**, or deleting the reject would quietly
+   become a plain reopen at Save.
+4. **`commentsList` is outside `D2_GRAPH.lists`**, read with its own `.catch`, so an unreadable
+   comments list costs the threads and never the Refresh. Proven by a harness that 500s the read.
+
+**`Rejected` reads NULL, not false, on every row that existed before the column.** The column
+default applies to new rows only. The planner maps it with `!!`; a flow `$filter` must say
+`Rejected eq 1` or `Rejected ne 1`, never `eq 0`.
+
+**Daily Summary gained `Get_open_rejections` + `Select_rejection_rows`**, and the section sits in
+`Compose_body` behind an `if(empty(...),'',...)`, so it is absent entirely when nothing is rejected.
+Reason and pool name are HTML-escaped in the row expression (PM-typed). Verified on a copy mailing
+`stratirus@` only: one temporarily flagged Navarro row rendered with the reason escaped and a
+Central date; with the flag cleared the second body was **byte-identical to the first minus the
+section**. Copy deleted. Export `flows/exports/D2-Daily-Summary-2026-09-23.json`.
+
+**`edit_flow` on the Daily Summary wrote straight to the PUBLISHED row.** The Dataverse row read
+`statecode 1` with the new actions at the edit's own timestamp, and a follow-up `PublishXml` failed
+after two minutes with a generic `0x80040216 An unexpected error occurred`, because there was no
+draft to promote. So the two-row mechanism documented under Known bugs no longer describes every
+flow here. **Verify by reading the Dataverse `workflows(<id>)` row's `clientdata`**, not by whether
+`PublishXml` succeeded.
+
+**Verified live on a throwaway `TEST-9500` pool (built 10m19s), through the real controls, rows read
+back after every step:** sign-off with person and time; reject + two ticks in one Save (sign-off,
+person and time cleared, `Rejected`/`RejectedOn`/`RejectedReason` set, exactly one
+`REJECTED 2026-09-23 09:21 by D2 Bot (was signed by D2 Bot): ...` line in Central, one `Kind=Rejected`
+row on the right assignment, ticks **landed** and counters recounted 2/17, suppression +10 min); a
+comment writes a row and leaves the assignment's `Modified` untouched; **both refusal directions**
+(a reject after the sign-off was cleared in SharePoint, a resolve after `Rejected` was cleared) came
+back as sentences, stayed queued, and wrote nothing; the card read "Signed again, ready to review"
+after a re-sign; resolve cleared the flag and reason and **kept `RejectedOn`**; the view went 0, 1, 0
+with an inverted control returning every other row. Event-Driven Reconciliation fired twice on the
+reject and both stopped at `Skip_non_scheduling_edit` with `Send_email_alert` Skipped: a rejection
+touches no scheduling column, so the suppression stamp is a second line, not the first.
+
+**Test trap:** `.card h2` is `text-transform:uppercase`, and `innerText` returns the transformed
+text, so `/Open rejections/.test(el.innerText)` is false on a card that is there. Use `textContent`.
+
+---
+
+## A POOL RAISED BY DON, 2026-09-22 — OPEN, needs Shane
+
+`26- 2055 Gunite/Trailov`, 1587 Glenellen Way, Brentwood. Raised through New Pool Requests by
+`don@d2pools.com` at 20:05 UTC, set **Active by Don at 20:07, eight minutes before `D2 - New Pool`
+finished building it**. PM Don. Default crews, start 2026-07-20, the same as Navarro, so 43 of 46
+rows share Navarro's crew and start; Conflict Flag marked **18 double-bookings** (17 with Navarro, 1
+with Salcedo), and 27 finished-but-unsigned sub-phases now count against Don's compliance figure.
+The job number carries a space. Nobody knows yet whether it is a real job or Don trying the system
+out. **Left untouched.** If it is real, it is the first real pool, and the caution this file
+relaxed on 2026-09-08b ("not operationally live") no longer holds.
+
+---
 
 ## PM ON EVERY JOB, A SIGN-OFFS JOB PICKER, CREWS ON THE FOLDED BOARD — shipped and verified live 2026-09-21
 
