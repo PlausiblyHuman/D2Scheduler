@@ -1,96 +1,61 @@
-# 2026-09-16b — sign-off verified live, five gaps closed, guide brought into line
+# 2026-09-23a: reject-a-sign-off, built, deployed and verified live
 
-**Session goal:** resume after an unexpected reboot. Planned as three steps: fix a stale sign-off
-tooltip, verify the planner's sign-off write against the real tenant, and write the morning's missing
-log. Ran mostly unattended while Shane was remote. The live verification turned into the session: it
-found four defects, and writing the guide against the fixed planner found a fifth.
+**Session goal:** finish the reject-with-comments plan (Tasks 6 to 11). Done: built, deployed to the hosted planner,
+added to the Daily Summary, walked end to end on a throwaway pool, and written into the client guide.
 
 ## What shipped
 
 | Commit | Change |
 |---|---|
-| `4c9513b` | INST/PM tooltips say what Save does in each mode (they still said "not saved back; the record is the field app"); Rebuild-from-template and Set-all-durations dialogs made truthful; `fixtures/planner/honest-copy.js` |
-| `6c40607` | Counters recounted from what actually landed; planner Reopen now writes the same record as `D2 - Reopen Sign-off`; Save button and results stop saying "0 edits" / "Nothing needed saving" over real saves; `fixtures/planner/signoff-push.js` |
-| `309e5da` | N/A asks for a reason, refuses a blank one, reads and writes `Tasks.Note` |
-| `12ab5d2` | Sign-off locks the checklist (UI and core); results use words, not column names |
+| `cce7b88` | Refresh reads `Sign-off Comments` with its own catch; a failing read costs the threads, never the schedule |
+| `c97fb09` | Sub-phase panel: thread, Add comment, Reject sign-off (reason required), Mark resolved, a removable queue |
+| `c8d9e9e` | Save counts, previews, sends and reports them; rejections go before sign-off |
+| `b17c55c` | Open rejections card on Sign-Offs, Rejected label on the board; the shakedown now drives the panel |
+| `a408f63` | Daily Summary Open rejections section, omitted when empty; export regenerated |
+| `f53ecfa` | CLAUDE.md record |
 
-All four deployed to the hosted planner, with the auth wall re-checked after every deploy.
+Deployed to the Static Web App; the wall was re-checked anonymously (everything 302 except `/auth-redirect.html` 200
+and `/.auth/login/github` 404). Client guide published as **Version 8** of `MnJkMLwg3LHXpv9g74SiV2`.
 
-## Verified live, by reading rows back
+## Decisions made
 
-Two throwaway `Planned` pools owned by D2 Bot, created through `+ Job` over Graph (its first live run)
-and removed through `Delete Pool Requests`:
+- **Four departures from the plan, all kept:** rejections are sent before sign-off, and a reject that did not land
+  takes its reopen away so ticks are refused under a live sign-off; a queued reject carries the sign-off change, so
+  the on-screen Installer un-tick is not also sent as a plain reopen; removing a queued reject restores Installer;
+  the Daily Summary section is an `if()` in `Compose_body` rather than a Condition action.
+- The Daily Summary was tested on a copy mailing `stratirus@` only, against a temporary flag on a Navarro row
+  (PM D2 Bot), then the real flow was edited.
+- The client guide was published to the shared artifact on Shane's explicit instruction, after the classifier refused
+  the first attempt.
 
-- **TEST-9401** (built 8m12s): sign-off with person and time, PM sign-off, ticks with attribution,
-  N/A, two behind-the-back refusals, the open-task warning, Reopen, and 295/295 task ids matching the
-  right SharePoint rows. Then the counter and Reopen fixes re-tested on the new build: `3/10` where the
-  old code wrote `2`, and a Central-time reopen note naming who had signed.
-- **TEST-9402** (built 9m45s): N/A reason refused blank, stored in `Note`, round-tripped on Refresh,
-  cleared on un-N/A.
-- Checklist lock checked read-only on a signed Whitfield sub-phase: 17 of 17 boxes disabled.
+## Verified
 
-Tenant audited back to baseline: 4 jobs, 184 assignments, 1180 tasks, 4 real `New Pool Requests`
-rows, 0 `Delete Pool Requests` rows.
+Live on `TEST-9500` (built 10m19s, removed via Delete Pool Requests), every step read back from SharePoint: sign-off;
+reject plus ticks in one Save (one Central-time audit line, ticks landed, counters 2/17); a comment that leaves the
+assignment untouched; both refusal directions stay queued and write nothing; "Signed again" on the card; resolve
+keeps `RejectedOn`; the view 0 → 1 → 0 with an inverted control. Event-Driven Reconciliation fired twice and sent no
+alert. `npm test` green, 50 of 50 mutations red, shakedown console clean. Tenant audited back to baseline: 5 jobs,
+230 assignments, 1475 tasks, 5 New Pool Requests rows, 0 Delete Pool Requests, 0 comments, 0 rejected.
 
-## Also done
+## Found
 
-- **PM guide** (Version 9): Phase Template buttons, N/A reasons, checklist lock, reopen as a trace not
-  an undo, the counted Save button, a "someone else got there first" trap.
-- **Demo run sheet** (Version 7): un-ticking a saved sign-off is a reopen, not an undo; the sign-off
-  talking point no longer claims open tasks block sign-off.
-- `sessions/2026-09-16a-*` reconstructed from the morning's commits.
-- `.playwright-mcp/` gitignored, since its snapshots capture live tenant data.
+- `edit_flow` on the Daily Summary wrote straight to the published row; `PublishXml` then failed with a generic
+  `0x80040216` because there was no draft. Verify by reading the Dataverse row, not by `PublishXml`'s result.
+- `Rejected` reads null on every pre-existing row; filter with `eq 1` / `ne 1`, never `eq 0`.
+- **A fifth job, `26- 2055 Gunite/Trailov`, raised and activated by Don on 09-22** (see CLAUDE.md). It is complete,
+  but its start date and default crews copy Navarro's schedule: 18 double-bookings, 27 unsigned sub-phases counting
+  against compliance. Activating before the build finished may have sent Don conflict alerts; not checked.
+- Sessions 09-17 to 09-22 had no logs; three were reconstructed from commits.
 
-## Decisions
+## Open questions / blocked on
 
-- **Live sign-off tests run on a throwaway `Planned` pool, never a demo pool.** A reopen leaves a
-  permanent note and version history on a pool a client PM owns.
-- **"The training document" was taken to be the planner-first PM guide** (`UoeNwV4i4EQQaQgSuJCqiJ`),
-  not the older client guide `a84a2e1a`, which stays untouched per CLAUDE.md.
-- **The checklist lock and N/A reason were built rather than documented as gaps**, because both are
-  decided business rules, the guide already promised them, and the pilot runs on the planner.
-
-## Findings worth keeping
-
-- The Playwright MCP profile still held a D2 session, so both sign-ins completed unattended. The
-  morning's "needs an interactive sign-in" limit was not real. Check that profile first.
-- `D2 - New Pool` ran in 8-10 minutes both times today, against 16m33s on 2026-09-14.
-- The `Edit` tool rewrites `web/index.html` as CRLF in the working copy, and a bash heredoc eats
-  backslashes. Both are in CLAUDE.md now.
-
-## Open
-
-- **The client guide `a84a2e1a`**: published; the share link's pin still has to be moved.
-- ~~Should PMs be able to edit the Crews and Phase Template tabs?~~ **Decided: yes, they keep edit
-  access.** The dialogs and the guide say what each change does instead.
-- **Don:** trade mapping, the 11 field-supervision sub-phases, `@sub`, subcontractor emails and
-  capacities.
-- **Crew-lead accounts and Business Basic seats** unbought.
-
-## Later the same session: the client guide
-
-Shane asked for the client guide to be updated. Merging it with the planner guide surfaced three more
-things, all fixed and deployed before any guide text was written about them:
-
-| Commit | Change |
-|---|---|
-| `e8cc61b`, `6715c6c` | Task rows matched by name, then by position only when the leftovers line up. A SharePoint-side reorder would have sent a tick to the wrong row |
-| `ec3c095` | Deleting a crew says the next Save sends the cleared crews to SharePoint |
-
-And one wording correction the guide needed: the Crews and Phase Template tabs are per-browser copies,
-and new pools are built from the SharePoint template, not the planner's.
-
-**The merged guide is staged, not published.** Publishing to the shared client guide `a84a2e1a` was
-refused by the permission classifier as a live shared artifact, and was not worked around. The same
-content is Version 10 of the private guide `UoeNwV4i4EQQaQgSuJCqiJ`.
-
-**Then published, on Shane's go-ahead:** the client guide is Version 7 at
-`https://claude.ai/artifact/MnJkMLwg3LHXpv9g74SiV2`, now also naming the Reason box and Override Signed
-Off in its delete steps. The demo run sheet became a **training run sheet** (Version 8 of
-`https://claude.ai/artifact/1nHTtPXXdJhHzKyoTdqKfP`) for a hands-on session with the PMs on 2026-09-17,
-built around each trainee practising on their own TRAIN pool.
+- **Is `26- 2055` a real job or Don trying the system?** Real: set its real start, reflow, fix the job number.
+  Practice: set it to Planned, delete after the 04:30 sweep.
+- **The client guide's share link is still pinned to an earlier version.** Shane moves it in the Share menu.
+- Did Don get conflict-alert emails from the early activation? Checkable from Flow 3's runs, 20:07–20:15 UTC on 09-22.
+- Carried: Don's trade mapping, the template-permissions gate (item 7), crew-lead accounts and seats.
 
 ## Next action
 
-Move the client guide share link's pin to the new version, then run the training session on
-2026-09-17 and check afterwards that every TRAIN pool was deleted and none was activated.
+Settle `26- 2055` with Don, move the guide's share pin to Version 8, and check the first live Daily Summary with the
+new section on the next rejection.

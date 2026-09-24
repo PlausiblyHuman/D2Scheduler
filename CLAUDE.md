@@ -2698,6 +2698,9 @@ with an inverted control returning every other row. Event-Driven Reconciliation 
 reject and both stopped at `Skip_non_scheduling_edit` with `Send_email_alert` Skipped: a rejection
 touches no scheduling column, so the suppression stamp is a second line, not the first.
 
+**Client guide published as Version 8** of `MnJkMLwg3LHXpv9g74SiV2` with a "Rejecting a sign-off"
+section. The share link is still pinned to an earlier version until Shane moves it.
+
 **Test trap:** `.card h2` is `text-transform:uppercase`, and `innerText` returns the transformed
 text, so `/Open rejections/.test(el.innerText)` is false on a card that is there. Use `textContent`.
 
