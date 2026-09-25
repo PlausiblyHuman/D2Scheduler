@@ -2636,6 +2636,67 @@ no two crews on the same date, so it asserted over an empty set. It now builds t
 carries a second assertion confirming the scenario is reached. **A new assertion has to be watched
 fail before it is worth anything** -- the fourth time this file has recorded that lesson.
 
+## THE 24 SEPTEMBER STATUS MEETING, AND BATCH 1 OF ITS BUILD — shipped 2026-09-25
+
+**Read `docs/superpowers/specs/2026-09-25-scheduler-build-proposal-design.md` first.** It holds every
+scheduler item from the 24 September meeting with Don, Amy and Carolyn, Shane's decisions on each,
+and the eight work packages they became. The review list it was built from is
+`docs/2026-09-24-status-meeting-scheduler-changes.md`. The estimator half of that meeting is not
+this project's.
+
+**Decisions from that meeting that bind this repo:** the word is **project**, not job or pool,
+applied to any area being worked on rather than as a pass (WP7); **STL stays** on the crew list,
+Harrison and Campos still come off; Don wants to **activate at the phase level** (WP5, its own spec
+after Don answers what an unreleased phase should hold back; the draft question is in the
+proposal); **zero-day sub-phases** are approved on the recommendation (allow 0 days where a separate
+sign-off is wanted, fold checklist-only steps into the parent when Don revises the template, WP6);
+**B4 is a filtered Job Board, not a calendar tool**; and Shane asked how to back up projects in
+motion and the solution (WP8). The Dataverse question got a two-part answer in WP8: the solution
+container is free and moves nothing, moving the data is the Rev D either-or migration at about $20
+a user a month, and the system is not outgrowing SharePoint at 5 projects, with three cheaper steps
+named before it could.
+
+**Getting the meeting artifacts headlessly does not work, and the dead ends are recorded** in
+memory (`teams-meeting-artifacts-access`): the Graph transcript API is disabled in the Tennetech
+tenant, the Loop notes file is `application/octet-stream` to the connector and its download needs a
+Files scope the `az` token lacks, and both browsers land on a sign-in wall. The Facilitator's chat
+notes give the outline; Shane pasted the Loop rundown in one message.
+
+**Batch 1 shipped 2026-09-25**, `web/index.html`, `web/graph-to-planner.js`, pinned by
+`fixtures/planner/board-controls.js` (62 assertions; 31 planner and 3 mapper mutations watched
+red) and by the shakedown in a real browser:
+
+| Change | What to know |
+|---|---|
+| Board keeps its vertical scroll across a re-render | `UI.tlScroll[TAB]` is now `{left, top}`. It was `scrollLeft` alone, so every sign-off tick far down the board landed the PM at the top |
+| Crews tab skill labels are chips | `class="chip skill"`; they were `skill` alone and ran into one block |
+| **Building guard** | `graph-to-planner.js` marks `building` on a job whose New Pool Request is still `Requested` or `Building`, matched on `JobNumber` ignoring case and whitespace. The planner badges it, withholds Activate, refuses the drawer, and `divergedSecs` / `buildChangeSet` / the sign-off and rejection sets all skip it. Keyed on the request status, not the row count, because `D2 - New Pool` creates the Job first and the pool is visible half-built for most of the run |
+| **Back to planning** | on the Jobs tab beside Active. `doActivatePool` became `doSetPoolStatus(jobId, from, to)`; the live Status must still read `from` or nothing is written. Calendar entries go on the next 04:30 full sweep, and the dialog says so |
+| Project picker on the Board, Open schedule on each Jobs row | `UI.boardJob`; a picked project no longer here falls back to all; survives a Refresh (the `UI` reset line now carries `boardJob` and `boardStatus`, and `office-views.mutations.json` tracks that string) |
+| Live / Planned / Both | `UI.boardStatus`, on both boards. Schedule Check is deliberately unfiltered |
+| Day / Week / Month zoom | `S.settings.zoom`, `ZOOM_PX = {day:26, week:10, month:4}`, applied as an inline `--day` on `.tl` plus a `zoom-*` class. `setZoom` clears `UI.tlScroll`, because a remembered offset is in pixels at the old cell width |
+| **Reset from a new start** | the Jobs tab Start box is editable on every project; changing it confirms, then `reflowFrom` from the first row. Save writes `Jobs.StartDate` back through `pushJobStarts`, matched by `JobNumber`, compared against `j.baseStart` (recorded at import), **the first Jobs field on the Save path**. No suppression stamp: Jobs has no such column. File mode excludes it, since the console applier cannot write Jobs |
+
+**TWO LAYOUT FACTS ABOUT THE GANTT, both found by the shakedown and invisible in jsdom.** The
+board table is **auto-layout**. So (1) a bar's nowrap crew label sets a minimum width on the
+columns it spans, and the day grid has never been strictly proportional: a two-day bar reading
+"Harrison +2" is wider than two 26px cells. At Week and Month zoom the bar text is `font-size:0`
+(the name is in the bar's `title`) so the cells can shrink. And (2) **hidden header rows must be
+`visibility:collapse`, never `display:none`**: the day header cells are what hold every column open
+to `--day`, and a column whose body cells are all spanning bars has nothing else enforcing its
+width, so `display:none` on the day row let the cells fall to 9.4px and the today anchor overshoot.
+Measured per day after the fix: 10.08px at Week, 4.46px at Month, today in view.
+
+**The today anchor** uses the day cell's own offset when the day row is visible and
+`(idx - 3) * day` from `data-idx` when it is collapsed.
+
+**WP7 opportunity not taken in batch 1:** the Jobs tab headers still say Job ID, Job Name and
++ New Job. `office-views.js` finds that table by the `Job Name` heading, so renaming means moving
+that helper in the same change.
+
+**Client-visible follow-up for Shane:** the guide (Version 8) does not yet mention Back to planning,
+Open schedule, the filters, the zoom or the editable Start.
+
 ## REJECT A SIGN-OFF, WITH COMMENTS — shipped, deployed and verified live 2026-09-23
 
 Spec `docs/superpowers/specs/2026-09-21-reject-signoff-with-comments-design.md`, plan
@@ -2825,7 +2886,8 @@ outside D2's tenant.
 
 **Refresh reads New Pool Requests on every load** because `loadFromD2ViaGraph` iterates every key in
 `D2_GRAPH.lists`, and `graph-to-planner.js` never uses it. Harmless, and the comment beside `req`
-says the opposite. Left alone.
+says the opposite. Left alone. **USED SINCE 2026-09-25:** the mapper now derives `building` from it,
+see the Building guard under batch 1 below.
 
 ---
 
