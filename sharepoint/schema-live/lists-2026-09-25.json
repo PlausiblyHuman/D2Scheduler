@@ -1,0 +1,2421 @@
+{
+ "capturedAt": "2026-09-25",
+ "site": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+ "lists": [
+  {
+   "title": "Assignments",
+   "id": "49ef7006-d3fe-40a7-a52f-c4c18545bd35",
+   "itemCount": 98,
+   "versioning": true,
+   "versionLimit": 50,
+   "fields": [
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "Title",
+     "ReadOnlyField": false,
+     "Required": true,
+     "SchemaXml": "<Field ID=\"{fa564e0f-0c70-4ab9-b863-0177e6ddd247}\" Type=\"Text\" Name=\"Title\" DisplayName=\"Title\" Required=\"TRUE\" SourceID=\"http://schemas.microsoft.com/sharepoint/v3\" StaticName=\"Title\" FromBaseType=\"TRUE\" ColName=\"nvarchar1\" />",
+     "Title": "Title",
+     "TypeAsString": "Text",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "Job",
+     "ReadOnlyField": false,
+     "Required": true,
+     "SchemaXml": "<Field Type=\"Lookup\" Name=\"Job\" DisplayName=\"Job\" List=\"{ee0ecabf-2f11-458d-a9ea-641f76d10cc3}\" ShowField=\"Title\" Required=\"TRUE\" ID=\"{3df34a88-93e7-4935-8331-5a9464f7b61e}\" SourceID=\"{49ef7006-d3fe-40a7-a52f-c4c18545bd35}\" StaticName=\"Job\" ColName=\"int1\" RowOrdinal=\"0\" />",
+     "Title": "Job",
+     "TypeAsString": "Lookup",
+     "ValidationFormula": null,
+     "ValidationMessage": null,
+     "LookupField": "Title",
+     "LookupList": "{ee0ecabf-2f11-458d-a9ea-641f76d10cc3}"
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "SubPhaseNumber",
+     "ReadOnlyField": false,
+     "Required": true,
+     "SchemaXml": "<Field Type=\"Text\" Name=\"SubPhaseNumber\" DisplayName=\"SubPhaseNumber\" Required=\"TRUE\" ID=\"{5ae056e1-9d4f-4d81-ab12-936f431dbae9}\" SourceID=\"{49ef7006-d3fe-40a7-a52f-c4c18545bd35}\" StaticName=\"SubPhaseNumber\" ColName=\"nvarchar7\" RowOrdinal=\"0\" />",
+     "Title": "SubPhaseNumber",
+     "TypeAsString": "Text",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "SubPhaseName",
+     "ReadOnlyField": false,
+     "Required": true,
+     "SchemaXml": "<Field Type=\"Text\" Name=\"SubPhaseName\" DisplayName=\"SubPhaseName\" Required=\"TRUE\" ID=\"{97118778-eee7-433c-9f8a-898de54eb2a4}\" SourceID=\"{49ef7006-d3fe-40a7-a52f-c4c18545bd35}\" StaticName=\"SubPhaseName\" ColName=\"nvarchar8\" RowOrdinal=\"0\" />",
+     "Title": "SubPhaseName",
+     "TypeAsString": "Text",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "Crew",
+     "ReadOnlyField": false,
+     "Required": false,
+     "SchemaXml": "<Field DisplayName=\"Crew\" Type=\"Choice\" Format=\"Dropdown\" FillInChoice=\"FALSE\" Required=\"FALSE\" ID=\"{998134dd-0920-47ff-96a9-e26c13ad2003}\" StaticName=\"Crew\" Name=\"Crew\" Version=\"4\" SourceID=\"{49ef7006-d3fe-40a7-a52f-c4c18545bd35}\" ColName=\"nvarchar9\" RowOrdinal=\"0\"><CHOICES><CHOICE>antonio</CHOICE><CHOICE>armondo</CHOICE><CHOICE>brothers</CHOICE><CHOICE>campos</CHOICE><CHOICE>cirilo</CHOICE><CHOICE>devon</CHOICE><CHOICE>george</CHOICE><CHOICE>guillermo</CHOICE><CHOICE>harrison</CHOICE><CHOICE>office</CHOICE><CHOICE>saul</CHOICE><CHOICE>stl</CHOICE><CHOICE>subcon</CHOICE><CHOICE>unassigned</CHOICE></CHOICES><Validation Message=\"Crew must be one of the codes from the Crews list, lower case, no spaces: antonio, armondo, brothers, campos, cirilo, devon, george, guillermo, harrison, office, saul, stl, subcon, unassigned. Use the short code (devon), never the display name (Devon Crew +3). A code that is not on this list matches nothing: the row would be skipped by dispatch and by conflict detection, silently.\">=OR(ISBLANK(Crew),Crew=\"antonio\",Crew=\"armondo\",Crew=\"brothers\",Crew=\"campos\",Crew=\"cirilo\",Crew=\"devon\",Crew=\"george\",Crew=\"guillermo\",Crew=\"harrison\",Crew=\"office\",Crew=\"saul\",Crew=\"stl\",Crew=\"subcon\",Crew=\"unassigned\")</Validation></Field>",
+     "Title": "Crew",
+     "TypeAsString": "Choice",
+     "ValidationFormula": "=OR(ISBLANK(Crew),Crew=\"antonio\",Crew=\"armondo\",Crew=\"brothers\",Crew=\"campos\",Crew=\"cirilo\",Crew=\"devon\",Crew=\"george\",Crew=\"guillermo\",Crew=\"harrison\",Crew=\"office\",Crew=\"saul\",Crew=\"stl\",Crew=\"subcon\",Crew=\"unassigned\")",
+     "ValidationMessage": "Crew must be one of the codes from the Crews list, lower case, no spaces: antonio, armondo, brothers, campos, cirilo, devon, george, guillermo, harrison, office, saul, stl, subcon, unassigned. Use the short code (devon), never the display name (Devon Crew +3). A code that is not on this list matches nothing: the row would be skipped by dispatch and by conflict detection, silently.",
+     "Choices": [
+      "antonio",
+      "armondo",
+      "brothers",
+      "campos",
+      "cirilo",
+      "devon",
+      "george",
+      "guillermo",
+      "harrison",
+      "office",
+      "saul",
+      "stl",
+      "subcon",
+      "unassigned"
+     ]
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "Sequence",
+     "ReadOnlyField": false,
+     "Required": false,
+     "SchemaXml": "<Field Type=\"Number\" Name=\"Sequence\" DisplayName=\"Sequence\" ID=\"{679c973e-04b1-4c5b-934d-59ce702c214a}\" SourceID=\"{49ef7006-d3fe-40a7-a52f-c4c18545bd35}\" StaticName=\"Sequence\" ColName=\"float1\" RowOrdinal=\"0\" ShowInEditForm=\"FALSE\" Version=\"8\" ShowInNewForm=\"FALSE\" />",
+     "Title": "Sequence",
+     "TypeAsString": "Number",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "ScheduledStart",
+     "ReadOnlyField": false,
+     "Required": false,
+     "SchemaXml": "<Field Type=\"DateTime\" Name=\"ScheduledStart\" DisplayName=\"ScheduledStart\" Format=\"DateOnly\" ID=\"{f1a18e96-7540-4962-8112-849418f1b621}\" SourceID=\"{49ef7006-d3fe-40a7-a52f-c4c18545bd35}\" StaticName=\"ScheduledStart\" ColName=\"datetime1\" RowOrdinal=\"0\" />",
+     "Title": "ScheduledStart",
+     "TypeAsString": "DateTime",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "ScheduledFinish",
+     "ReadOnlyField": false,
+     "Required": false,
+     "SchemaXml": "<Field Type=\"DateTime\" Name=\"ScheduledFinish\" DisplayName=\"ScheduledFinish\" Format=\"DateOnly\" ID=\"{6bbb21ed-a76c-4259-8012-47a95ead50f2}\" SourceID=\"{49ef7006-d3fe-40a7-a52f-c4c18545bd35}\" StaticName=\"ScheduledFinish\" ColName=\"datetime2\" RowOrdinal=\"0\" />",
+     "Title": "ScheduledFinish",
+     "TypeAsString": "DateTime",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "WorkDate",
+     "ReadOnlyField": false,
+     "Required": false,
+     "SchemaXml": "<Field Type=\"DateTime\" Name=\"WorkDate\" DisplayName=\"WorkDate\" Format=\"DateOnly\" ID=\"{a8d477b2-3c13-4e2b-b6cb-cb29b72982e1}\" SourceID=\"{49ef7006-d3fe-40a7-a52f-c4c18545bd35}\" StaticName=\"WorkDate\" ColName=\"datetime3\" RowOrdinal=\"0\" />",
+     "Title": "WorkDate",
+     "TypeAsString": "DateTime",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "InstallerSignOff",
+     "ReadOnlyField": false,
+     "Required": false,
+     "SchemaXml": "<Field Type=\"Boolean\" Name=\"InstallerSignOff\" DisplayName=\"InstallerSignOff\" ID=\"{96a565a7-bd89-4924-8625-f3e674489f0a}\" SourceID=\"{49ef7006-d3fe-40a7-a52f-c4c18545bd35}\" StaticName=\"InstallerSignOff\" ColName=\"bit1\" RowOrdinal=\"0\" ShowInEditForm=\"FALSE\" Version=\"6\" ShowInNewForm=\"FALSE\" />",
+     "Title": "InstallerSignOff",
+     "TypeAsString": "Boolean",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "InstallerSignOffBy",
+     "ReadOnlyField": false,
+     "Required": false,
+     "SchemaXml": "<Field Type=\"User\" Name=\"InstallerSignOffBy\" DisplayName=\"InstallerSignOffBy\" ID=\"{dc8682c7-30b9-4fc7-9dff-69807093ddea}\" SourceID=\"{49ef7006-d3fe-40a7-a52f-c4c18545bd35}\" StaticName=\"InstallerSignOffBy\" ColName=\"int2\" RowOrdinal=\"0\" ShowInEditForm=\"FALSE\" Version=\"6\" ShowInNewForm=\"FALSE\" />",
+     "Title": "InstallerSignOffBy",
+     "TypeAsString": "User",
+     "ValidationFormula": null,
+     "ValidationMessage": null,
+     "LookupField": "",
+     "LookupList": "{0b0d7099-1aea-413b-baf7-2eaae99500a2}"
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "InstallerSignOffOn",
+     "ReadOnlyField": false,
+     "Required": false,
+     "SchemaXml": "<Field Type=\"DateTime\" Name=\"InstallerSignOffOn\" DisplayName=\"InstallerSignOffOn\" ID=\"{b8fa1e39-8912-4bd4-b1b1-f89889c1334d}\" SourceID=\"{49ef7006-d3fe-40a7-a52f-c4c18545bd35}\" StaticName=\"InstallerSignOffOn\" ColName=\"datetime4\" RowOrdinal=\"0\" ShowInEditForm=\"FALSE\" Version=\"6\" ShowInNewForm=\"FALSE\" />",
+     "Title": "InstallerSignOffOn",
+     "TypeAsString": "DateTime",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": "0",
+     "Hidden": false,
+     "InternalName": "Locked",
+     "ReadOnlyField": false,
+     "Required": false,
+     "SchemaXml": "<Field Type=\"Boolean\" Name=\"Locked\" DisplayName=\"Locked\" Required=\"FALSE\" ID=\"{c0ac3d9f-8601-4ccb-8165-bfa9d4e80f33}\" SourceID=\"{49ef7006-d3fe-40a7-a52f-c4c18545bd35}\" StaticName=\"Locked\" ColName=\"bit2\" RowOrdinal=\"0\" Version=\"2\"><Default>0</Default></Field>",
+     "Title": "Locked",
+     "TypeAsString": "Boolean",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": "0",
+     "Hidden": false,
+     "InternalName": "NotApplicable",
+     "ReadOnlyField": false,
+     "Required": false,
+     "SchemaXml": "<Field Type=\"Boolean\" Name=\"NotApplicable\" DisplayName=\"NotApplicable\" Required=\"FALSE\" ID=\"{fea774f9-1e8f-4476-b929-b92ec592204e}\" SourceID=\"{49ef7006-d3fe-40a7-a52f-c4c18545bd35}\" StaticName=\"NotApplicable\" ColName=\"bit3\" RowOrdinal=\"0\" Version=\"2\"><Default>0</Default></Field>",
+     "Title": "NotApplicable",
+     "TypeAsString": "Boolean",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": "0",
+     "Hidden": false,
+     "InternalName": "PMSignOff",
+     "ReadOnlyField": false,
+     "Required": false,
+     "SchemaXml": "<Field Type=\"Boolean\" Name=\"PMSignOff\" DisplayName=\"PMSignOff\" Required=\"FALSE\" ID=\"{799f0cc0-28c2-47e9-876b-5c5dcf3eb0d8}\" SourceID=\"{49ef7006-d3fe-40a7-a52f-c4c18545bd35}\" StaticName=\"PMSignOff\" ColName=\"bit4\" RowOrdinal=\"0\" ShowInEditForm=\"FALSE\" Version=\"8\" ShowInNewForm=\"FALSE\"><Default>0</Default></Field>",
+     "Title": "PMSignOff",
+     "TypeAsString": "Boolean",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "TasksComplete",
+     "ReadOnlyField": false,
+     "Required": false,
+     "SchemaXml": "<Field Type=\"Number\" Name=\"TasksComplete\" DisplayName=\"TasksComplete\" Decimals=\"0\" ID=\"{a93b8737-e391-45ef-bcd5-d6d63380fa61}\" SourceID=\"{49ef7006-d3fe-40a7-a52f-c4c18545bd35}\" StaticName=\"TasksComplete\" ColName=\"float2\" RowOrdinal=\"0\" ShowInEditForm=\"FALSE\" Version=\"9\" ShowInNewForm=\"FALSE\" ShowInDisplayForm=\"TRUE\" />",
+     "Title": "TasksComplete",
+     "TypeAsString": "Number",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "TasksTotal",
+     "ReadOnlyField": false,
+     "Required": false,
+     "SchemaXml": "<Field Type=\"Number\" Name=\"TasksTotal\" DisplayName=\"TasksTotal\" Decimals=\"0\" ID=\"{88e9a8fa-420e-4f53-ae81-ba26ac1be6a3}\" SourceID=\"{49ef7006-d3fe-40a7-a52f-c4c18545bd35}\" StaticName=\"TasksTotal\" ColName=\"float3\" RowOrdinal=\"0\" ShowInEditForm=\"FALSE\" Version=\"6\" ShowInNewForm=\"FALSE\" />",
+     "Title": "TasksTotal",
+     "TypeAsString": "Number",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": "2",
+     "Hidden": false,
+     "InternalName": "DurationDays",
+     "ReadOnlyField": false,
+     "Required": true,
+     "SchemaXml": "<Field Type=\"Number\" Name=\"DurationDays\" DisplayName=\"DurationDays\" Required=\"TRUE\" Decimals=\"0\" ID=\"{eb603b4a-0af0-49db-aee9-71cc215b0470}\" SourceID=\"{49ef7006-d3fe-40a7-a52f-c4c18545bd35}\" StaticName=\"DurationDays\" ColName=\"float4\" RowOrdinal=\"0\"><Default>2</Default></Field>",
+     "Title": "DurationDays",
+     "TypeAsString": "Number",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "PMSignOffBy",
+     "ReadOnlyField": false,
+     "Required": false,
+     "SchemaXml": "<Field Type=\"User\" Name=\"PMSignOffBy\" DisplayName=\"PMSignOffBy\" ID=\"{9ca0e8a1-0a8d-4990-b7cd-3f0fe2a030e2}\" SourceID=\"{49ef7006-d3fe-40a7-a52f-c4c18545bd35}\" StaticName=\"PMSignOffBy\" ColName=\"int3\" RowOrdinal=\"0\" ShowInEditForm=\"FALSE\" Version=\"6\" ShowInNewForm=\"FALSE\" />",
+     "Title": "PMSignOffBy",
+     "TypeAsString": "User",
+     "ValidationFormula": null,
+     "ValidationMessage": null,
+     "LookupField": "",
+     "LookupList": "{0b0d7099-1aea-413b-baf7-2eaae99500a2}"
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "PMSignOffOn",
+     "ReadOnlyField": false,
+     "Required": false,
+     "SchemaXml": "<Field Type=\"DateTime\" Name=\"PMSignOffOn\" DisplayName=\"PMSignOffOn\" ID=\"{0b23e73f-47ad-429b-a08d-b29f6fb4b29f}\" SourceID=\"{49ef7006-d3fe-40a7-a52f-c4c18545bd35}\" StaticName=\"PMSignOffOn\" ColName=\"datetime5\" RowOrdinal=\"0\" ShowInEditForm=\"FALSE\" Version=\"6\" ShowInNewForm=\"FALSE\" />",
+     "Title": "PMSignOffOn",
+     "TypeAsString": "DateTime",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "SignOffNotes",
+     "ReadOnlyField": false,
+     "Required": false,
+     "SchemaXml": "<Field Type=\"Note\" Name=\"SignOffNotes\" DisplayName=\"SignOffNotes\" NumLines=\"4\" RichText=\"FALSE\" ID=\"{d9ec436f-69c5-4363-83f2-0ef7a86c97f3}\" SourceID=\"{49ef7006-d3fe-40a7-a52f-c4c18545bd35}\" StaticName=\"SignOffNotes\" ColName=\"ntext2\" RowOrdinal=\"0\" />",
+     "Title": "SignOffNotes",
+     "TypeAsString": "Note",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "Trade",
+     "ReadOnlyField": false,
+     "Required": false,
+     "SchemaXml": "<Field Type=\"Lookup\" Name=\"Trade\" DisplayName=\"Trade\" List=\"{05038f7f-a6cb-4f57-b1a1-3ff9c7126ba5}\" ShowField=\"Title\" ID=\"{5935184f-fffc-43c0-bbf6-4fed4ed693a4}\" SourceID=\"{49ef7006-d3fe-40a7-a52f-c4c18545bd35}\" StaticName=\"Trade\" ColName=\"int4\" RowOrdinal=\"0\" />",
+     "Title": "Trade",
+     "TypeAsString": "Lookup",
+     "ValidationFormula": null,
+     "ValidationMessage": null,
+     "LookupField": "Title",
+     "LookupList": "{05038f7f-a6cb-4f57-b1a1-3ff9c7126ba5}"
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "SuppressReconcileUntil",
+     "ReadOnlyField": false,
+     "Required": false,
+     "SchemaXml": "<Field Type=\"DateTime\" DisplayName=\"SuppressReconcileUntil\" Name=\"SuppressReconcileUntil\" Format=\"DateTime\" Required=\"FALSE\" Description=\"Set by D2 - Reschedule Pool. While this timestamp is in the future, Event-Driven Reconciliation skips this row. Expires on its own.\" ID=\"{216f0b70-fede-4138-8869-55aab0f6dd15}\" SourceID=\"{49ef7006-d3fe-40a7-a52f-c4c18545bd35}\" StaticName=\"SuppressReconcileUntil\" ColName=\"datetime6\" RowOrdinal=\"0\" ShowInEditForm=\"FALSE\" Version=\"6\" ShowInNewForm=\"FALSE\" />",
+     "Title": "SuppressReconcileUntil",
+     "TypeAsString": "DateTime",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "ConflictWith",
+     "ReadOnlyField": false,
+     "Required": false,
+     "SchemaXml": "<Field Type=\"Note\" DisplayName=\"ConflictWith\" Name=\"ConflictWith\" NumLines=\"3\" RichText=\"FALSE\" Required=\"FALSE\" ID=\"{e6781915-2a25-4166-a72b-6fdf5dfa94ab}\" SourceID=\"{49ef7006-d3fe-40a7-a52f-c4c18545bd35}\" StaticName=\"ConflictWith\" ColName=\"ntext3\" RowOrdinal=\"0\" />",
+     "Title": "ConflictWith",
+     "TypeAsString": "Note",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "CalendarEventId",
+     "ReadOnlyField": false,
+     "Required": false,
+     "SchemaXml": "<Field Type=\"Text\" DisplayName=\"CalendarEventId\" Name=\"CalendarEventId\" StaticName=\"CalendarEventId\" MaxLength=\"255\" Required=\"FALSE\" ShowInNewForm=\"FALSE\" ShowInEditForm=\"FALSE\" Description=\"Group-calendar event id, written by D2 - Calendar Sync. Machine-owned: do not edit by hand.\" ID=\"{132cf2bb-c940-4aff-a4d2-162d5338005e}\" SourceID=\"{49ef7006-d3fe-40a7-a52f-c4c18545bd35}\" ColName=\"nvarchar10\" RowOrdinal=\"0\" />",
+     "Title": "CalendarEventId",
+     "TypeAsString": "Text",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "TradeMismatch",
+     "ReadOnlyField": false,
+     "Required": false,
+     "SchemaXml": "<Field Type=\"Note\" Name=\"TradeMismatch\" DisplayName=\"TradeMismatch\" NumLines=\"3\" RichText=\"FALSE\" AppendOnly=\"FALSE\" Required=\"FALSE\" ShowInNewForm=\"FALSE\" ShowInEditForm=\"FALSE\" Description=\"Written nightly by D2 - Crew Trade Check. Blank means the crew holds the required trade.\" ID=\"{d9456ed5-7cc4-44f2-ab44-c5d88be85466}\" SourceID=\"{49ef7006-d3fe-40a7-a52f-c4c18545bd35}\" StaticName=\"TradeMismatch\" ColName=\"ntext4\" RowOrdinal=\"0\" />",
+     "Title": "TradeMismatch",
+     "TypeAsString": "Note",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": "0",
+     "Hidden": false,
+     "InternalName": "Rejected",
+     "ReadOnlyField": false,
+     "Required": false,
+     "SchemaXml": "<Field Type=\"Boolean\" DisplayName=\"Rejected\" Required=\"FALSE\" StaticName=\"Rejected\" Name=\"Rejected\" ID=\"{e2b697eb-b09b-4698-98b8-d22f42bdd22b}\" SourceID=\"{49ef7006-d3fe-40a7-a52f-c4c18545bd35}\" ColName=\"bit5\" RowOrdinal=\"0\"><Default>0</Default></Field>",
+     "Title": "Rejected",
+     "TypeAsString": "Boolean",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "RejectedOn",
+     "ReadOnlyField": false,
+     "Required": false,
+     "SchemaXml": "<Field Type=\"DateTime\" DisplayName=\"RejectedOn\" Required=\"FALSE\" Format=\"DateTime\" StaticName=\"RejectedOn\" Name=\"RejectedOn\" ID=\"{87e62691-c870-4fa0-afc6-e8d41139e44a}\" SourceID=\"{49ef7006-d3fe-40a7-a52f-c4c18545bd35}\" ColName=\"datetime7\" RowOrdinal=\"0\" />",
+     "Title": "RejectedOn",
+     "TypeAsString": "DateTime",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "RejectedReason",
+     "ReadOnlyField": false,
+     "Required": false,
+     "SchemaXml": "<Field Type=\"Note\" DisplayName=\"RejectedReason\" Required=\"FALSE\" NumLines=\"6\" RichText=\"FALSE\" StaticName=\"RejectedReason\" Name=\"RejectedReason\" ID=\"{23059a1b-5a4a-435b-b682-4965b7fff8ff}\" SourceID=\"{49ef7006-d3fe-40a7-a52f-c4c18545bd35}\" ColName=\"ntext5\" RowOrdinal=\"0\" />",
+     "Title": "RejectedReason",
+     "TypeAsString": "Note",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "ContentType",
+     "ReadOnlyField": false,
+     "Required": false,
+     "SchemaXml": "<Field ID=\"{c042a256-787d-4a6f-8a8a-cf6ab767f12d}\" Type=\"Computed\" DisplayName=\"Content Type\" Name=\"ContentType\" DisplaceOnUpgrade=\"TRUE\" RenderXMLUsingPattern=\"TRUE\" Sortable=\"FALSE\" SourceID=\"http://schemas.microsoft.com/sharepoint/v3\" StaticName=\"ContentType\" Group=\"_Hidden\" PITarget=\"MicrosoftWindowsSharePointServices\" PIAttribute=\"ContentTypeID\" FromBaseType=\"TRUE\"><FieldRefs><FieldRef Name=\"ContentTypeId\" /></FieldRefs><DisplayPattern><MapToContentType><Column Name=\"ContentTypeId\" /></MapToContentType></DisplayPattern></Field>",
+     "Title": "Content Type",
+     "TypeAsString": "Computed",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "Attachments",
+     "ReadOnlyField": false,
+     "Required": false,
+     "SchemaXml": "<Field ID=\"{67df98f4-9dec-48ff-a553-29bece9c5bf4}\" ColName=\"tp_HasAttachment\" RowOrdinal=\"0\" Type=\"Attachments\" Name=\"Attachments\" DisplayName=\"Attachments\" SourceID=\"http://schemas.microsoft.com/sharepoint/v3\" StaticName=\"Attachments\" FromBaseType=\"TRUE\" />",
+     "Title": "Attachments",
+     "TypeAsString": "Attachments",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    }
+   ],
+   "views": [
+    {
+     "ViewFields": {
+      "SchemaXml": "<FieldRef Name=\"LinkTitle\" />",
+      "Items": [
+       "LinkTitle"
+      ]
+     },
+     "CustomFormatter": null,
+     "DefaultView": false,
+     "Id": "7129cd7a-5795-406b-b192-43a4ac2f963e",
+     "Paged": true,
+     "ViewQuery": "<OrderBy><FieldRef Name=\"ID\" /></OrderBy>",
+     "RowLimit": 30,
+     "Title": "All Items",
+     "ViewType2": null
+    },
+    {
+     "ViewFields": {
+      "SchemaXml": "<FieldRef Name=\"LinkTitle\" /><FieldRef Name=\"SubPhaseNumber\" /><FieldRef Name=\"SubPhaseName\" /><FieldRef Name=\"Crew\" /><FieldRef Name=\"ScheduledStart\" /><FieldRef Name=\"ScheduledFinish\" /><FieldRef Name=\"InstallerSignOff\" /><FieldRef Name=\"TasksComplete\" /><FieldRef Name=\"TasksTotal\" />",
+      "Items": [
+       "LinkTitle",
+       "SubPhaseNumber",
+       "SubPhaseName",
+       "Crew",
+       "ScheduledStart",
+       "ScheduledFinish",
+       "InstallerSignOff",
+       "TasksComplete",
+       "TasksTotal"
+      ]
+     },
+     "CustomFormatter": "{\"$schema\":\"https://developer.microsoft.com/json-schemas/sp/v2/row-formatting.schema.json\",\"hideColumnHeader\":true,\"hideSelection\":true,\"rowFormatter\":{\"elmType\":\"div\",\"style\":{\"display\":\"flex\",\"flex-direction\":\"column\",\"gap\":\"4px\",\"width\":\"100%\",\"box-sizing\":\"border-box\",\"align-items\":\"flex-start\",\"text-align\":\"left\",\"padding\":\"10px 14px\",\"margin\":\"4px 0\",\"border-radius\":\"4px\",\"background-color\":\"#ffffff\",\"box-shadow\":\"0 1px 2px rgba(8,37,68,.12)\",\"border-left\":\"4px solid\",\"border-left-color\":\"=if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), '#0b594b', if([$TasksComplete] &gt; 0, '#b45309', '#6b7280'))\"},\"children\":[{\"elmType\":\"div\",\"style\":{\"display\":\"flex\",\"align-items\":\"center\",\"flex-wrap\":\"wrap\"},\"children\":[{\"elmType\":\"span\",\"style\":{\"font-size\":\"15px\",\"font-weight\":\"600\",\"color\":\"#082544\"},\"txtContent\":\"=[$SubPhaseNumber] + '  ' + [$SubPhaseName]\"},{\"elmType\":\"span\",\"style\":{\"display\":\"=if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), 'inline', 'none')\"},\"children\":[{\"elmType\":\"span\",\"style\":{\"padding\":\"2px 8px\",\"border-radius\":\"10px\",\"font-size\":\"11px\",\"font-weight\":\"600\",\"white-space\":\"nowrap\",\"color\":\"#ffffff\",\"background-color\":\"#0b594b\",\"margin-left\":\"8px\"},\"txtContent\":\"SIGNED OFF\"}]},{\"elmType\":\"span\",\"style\":{\"display\":\"=if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), 'none', if([$TasksComplete] &gt; 0, 'inline', 'none'))\"},\"children\":[{\"elmType\":\"span\",\"style\":{\"padding\":\"2px 8px\",\"border-radius\":\"10px\",\"font-size\":\"11px\",\"font-weight\":\"600\",\"white-space\":\"nowrap\",\"color\":\"#ffffff\",\"background-color\":\"#b45309\",\"margin-left\":\"8px\"},\"txtContent\":\"IN PROGRESS\"}]},{\"elmType\":\"span\",\"style\":{\"display\":\"=if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), 'none', if([$TasksComplete] &gt; 0, 'none', 'inline'))\"},\"children\":[{\"elmType\":\"span\",\"style\":{\"padding\":\"2px 8px\",\"border-radius\":\"10px\",\"font-size\":\"11px\",\"font-weight\":\"600\",\"white-space\":\"nowrap\",\"color\":\"#ffffff\",\"background-color\":\"#6b7280\",\"margin-left\":\"8px\"},\"txtContent\":\"NOT STARTED\"}]}]},{\"elmType\":\"div\",\"style\":{\"font-size\":\"12px\",\"color\":\"#4b5563\"},\"txtContent\":\"=[$Title]\"},{\"elmType\":\"div\",\"style\":{\"font-size\":\"12px\",\"color\":\"#6b7280\"},\"txtContent\":\"=[$Crew] + '   ·   ' + [$ScheduledStart.displayValue] + '  to  ' + [$ScheduledFinish.displayValue]\"},{\"elmType\":\"div\",\"style\":{\"display\":\"flex\",\"align-items\":\"center\",\"gap\":\"8px\",\"margin-top\":\"2px\"},\"children\":[{\"elmType\":\"div\",\"style\":{\"width\":\"140px\",\"height\":\"6px\",\"border-radius\":\"3px\",\"background-color\":\"#e5e7eb\",\"overflow\":\"hidden\"},\"children\":[{\"elmType\":\"div\",\"style\":{\"height\":\"6px\",\"border-radius\":\"3px\",\"background-color\":\"=if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), '#0b594b', '#b45309')\",\"width\":\"=if([$TasksTotal] &gt; 0, ((Number([$TasksComplete]) / Number([$TasksTotal])) * 100) + '%', '0%')\"}}]},{\"elmType\":\"span\",\"style\":{\"font-size\":\"11px\",\"color\":\"#6b7280\"},\"txtContent\":\"=[$TasksComplete] + ' / ' + [$TasksTotal] + ' tasks'\"}]},{\"elmType\":\"div\",\"style\":{\"display\":\"flex\",\"width\":\"100%\",\"margin-top\":\"6px\",\"border-radius\":\"2px\",\"overflow\":\"hidden\"},\"children\":[{\"elmType\":\"div\",\"style\":{\"width\":\"3.5714%\",\"height\":\"10px\",\"flex-shrink\":\"0\",\"box-sizing\":\"border-box\",\"background-color\":\"=if(-604800000 &gt;= (Number([$ScheduledStart]) - Number(@now)), if((Number([$ScheduledFinish]) - Number(@now)) &gt; -691200000, if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), '#0b594b', if([$TasksComplete] &gt; 0, '#b45309', '#6b7280')), '#eef1f5'), '#eef1f5')\"}},{\"elmType\":\"div\",\"style\":{\"width\":\"3.5714%\",\"height\":\"10px\",\"flex-shrink\":\"0\",\"box-sizing\":\"border-box\",\"background-color\":\"=if(-518400000 &gt;= (Number([$ScheduledStart]) - Number(@now)), if((Number([$ScheduledFinish]) - Number(@now)) &gt; -604800000, if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), '#0b594b', if([$TasksComplete] &gt; 0, '#b45309', '#6b7280')), '#eef1f5'), '#eef1f5')\"}},{\"elmType\":\"div\",\"style\":{\"width\":\"3.5714%\",\"height\":\"10px\",\"flex-shrink\":\"0\",\"box-sizing\":\"border-box\",\"background-color\":\"=if(-432000000 &gt;= (Number([$ScheduledStart]) - Number(@now)), if((Number([$ScheduledFinish]) - Number(@now)) &gt; -518400000, if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), '#0b594b', if([$TasksComplete] &gt; 0, '#b45309', '#6b7280')), '#eef1f5'), '#eef1f5')\"}},{\"elmType\":\"div\",\"style\":{\"width\":\"3.5714%\",\"height\":\"10px\",\"flex-shrink\":\"0\",\"box-sizing\":\"border-box\",\"background-color\":\"=if(-345600000 &gt;= (Number([$ScheduledStart]) - Number(@now)), if((Number([$ScheduledFinish]) - Number(@now)) &gt; -432000000, if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), '#0b594b', if([$TasksComplete] &gt; 0, '#b45309', '#6b7280')), '#eef1f5'), '#eef1f5')\"}},{\"elmType\":\"div\",\"style\":{\"width\":\"3.5714%\",\"height\":\"10px\",\"flex-shrink\":\"0\",\"box-sizing\":\"border-box\",\"background-color\":\"=if(-259200000 &gt;= (Number([$ScheduledStart]) - Number(@now)), if((Number([$ScheduledFinish]) - Number(@now)) &gt; -345600000, if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), '#0b594b', if([$TasksComplete] &gt; 0, '#b45309', '#6b7280')), '#eef1f5'), '#eef1f5')\"}},{\"elmType\":\"div\",\"style\":{\"width\":\"3.5714%\",\"height\":\"10px\",\"flex-shrink\":\"0\",\"box-sizing\":\"border-box\",\"background-color\":\"=if(-172800000 &gt;= (Number([$ScheduledStart]) - Number(@now)), if((Number([$ScheduledFinish]) - Number(@now)) &gt; -259200000, if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), '#0b594b', if([$TasksComplete] &gt; 0, '#b45309', '#6b7280')), '#eef1f5'), '#eef1f5')\"}},{\"elmType\":\"div\",\"style\":{\"width\":\"3.5714%\",\"height\":\"10px\",\"flex-shrink\":\"0\",\"box-sizing\":\"border-box\",\"background-color\":\"=if(-86400000 &gt;= (Number([$ScheduledStart]) - Number(@now)), if((Number([$ScheduledFinish]) - Number(@now)) &gt; -172800000, if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), '#0b594b', if([$TasksComplete] &gt; 0, '#b45309', '#6b7280')), '#eef1f5'), '#eef1f5')\"}},{\"elmType\":\"div\",\"style\":{\"width\":\"3.5714%\",\"height\":\"10px\",\"flex-shrink\":\"0\",\"box-sizing\":\"border-box\",\"background-color\":\"=if(0 &gt;= (Number([$ScheduledStart]) - Number(@now)), if((Number([$ScheduledFinish]) - Number(@now)) &gt; -86400000, if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), '#0b594b', if([$TasksComplete] &gt; 0, '#b45309', '#6b7280')), '#eef1f5'), '#eef1f5')\",\"border-left\":\"2px solid #082544\"}},{\"elmType\":\"div\",\"style\":{\"width\":\"3.5714%\",\"height\":\"10px\",\"flex-shrink\":\"0\",\"box-sizing\":\"border-box\",\"background-color\":\"=if(86400000 &gt;= (Number([$ScheduledStart]) - Number(@now)), if((Number([$ScheduledFinish]) - Number(@now)) &gt; 0, if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), '#0b594b', if([$TasksComplete] &gt; 0, '#b45309', '#6b7280')), '#eef1f5'), '#eef1f5')\"}},{\"elmType\":\"div\",\"style\":{\"width\":\"3.5714%\",\"height\":\"10px\",\"flex-shrink\":\"0\",\"box-sizing\":\"border-box\",\"background-color\":\"=if(172800000 &gt;= (Number([$ScheduledStart]) - Number(@now)), if((Number([$ScheduledFinish]) - Number(@now)) &gt; 86400000, if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), '#0b594b', if([$TasksComplete] &gt; 0, '#b45309', '#6b7280')), '#eef1f5'), '#eef1f5')\"}},{\"elmType\":\"div\",\"style\":{\"width\":\"3.5714%\",\"height\":\"10px\",\"flex-shrink\":\"0\",\"box-sizing\":\"border-box\",\"background-color\":\"=if(259200000 &gt;= (Number([$ScheduledStart]) - Number(@now)), if((Number([$ScheduledFinish]) - Number(@now)) &gt; 172800000, if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), '#0b594b', if([$TasksComplete] &gt; 0, '#b45309', '#6b7280')), '#eef1f5'), '#eef1f5')\"}},{\"elmType\":\"div\",\"style\":{\"width\":\"3.5714%\",\"height\":\"10px\",\"flex-shrink\":\"0\",\"box-sizing\":\"border-box\",\"background-color\":\"=if(345600000 &gt;= (Number([$ScheduledStart]) - Number(@now)), if((Number([$ScheduledFinish]) - Number(@now)) &gt; 259200000, if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), '#0b594b', if([$TasksComplete] &gt; 0, '#b45309', '#6b7280')), '#eef1f5'), '#eef1f5')\"}},{\"elmType\":\"div\",\"style\":{\"width\":\"3.5714%\",\"height\":\"10px\",\"flex-shrink\":\"0\",\"box-sizing\":\"border-box\",\"background-color\":\"=if(432000000 &gt;= (Number([$ScheduledStart]) - Number(@now)), if((Number([$ScheduledFinish]) - Number(@now)) &gt; 345600000, if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), '#0b594b', if([$TasksComplete] &gt; 0, '#b45309', '#6b7280')), '#eef1f5'), '#eef1f5')\"}},{\"elmType\":\"div\",\"style\":{\"width\":\"3.5714%\",\"height\":\"10px\",\"flex-shrink\":\"0\",\"box-sizing\":\"border-box\",\"background-color\":\"=if(518400000 &gt;= (Number([$ScheduledStart]) - Number(@now)), if((Number([$ScheduledFinish]) - Number(@now)) &gt; 432000000, if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), '#0b594b', if([$TasksComplete] &gt; 0, '#b45309', '#6b7280')), '#eef1f5'), '#eef1f5')\"}},{\"elmType\":\"div\",\"style\":{\"width\":\"3.5714%\",\"height\":\"10px\",\"flex-shrink\":\"0\",\"box-sizing\":\"border-box\",\"background-color\":\"=if(604800000 &gt;= (Number([$ScheduledStart]) - Number(@now)), if((Number([$ScheduledFinish]) - Number(@now)) &gt; 518400000, if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), '#0b594b', if([$TasksComplete] &gt; 0, '#b45309', '#6b7280')), '#eef1f5'), '#eef1f5')\",\"border-left\":\"1px solid #d1d5db\"}},{\"elmType\":\"div\",\"style\":{\"width\":\"3.5714%\",\"height\":\"10px\",\"flex-shrink\":\"0\",\"box-sizing\":\"border-box\",\"background-color\":\"=if(691200000 &gt;= (Number([$ScheduledStart]) - Number(@now)), if((Number([$ScheduledFinish]) - Number(@now)) &gt; 604800000, if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), '#0b594b', if([$TasksComplete] &gt; 0, '#b45309', '#6b7280')), '#eef1f5'), '#eef1f5')\"}},{\"elmType\":\"div\",\"style\":{\"width\":\"3.5714%\",\"height\":\"10px\",\"flex-shrink\":\"0\",\"box-sizing\":\"border-box\",\"background-color\":\"=if(777600000 &gt;= (Number([$ScheduledStart]) - Number(@now)), if((Number([$ScheduledFinish]) - Number(@now)) &gt; 691200000, if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), '#0b594b', if([$TasksComplete] &gt; 0, '#b45309', '#6b7280')), '#eef1f5'), '#eef1f5')\"}},{\"elmType\":\"div\",\"style\":{\"width\":\"3.5714%\",\"height\":\"10px\",\"flex-shrink\":\"0\",\"box-sizing\":\"border-box\",\"background-color\":\"=if(864000000 &gt;= (Number([$ScheduledStart]) - Number(@now)), if((Number([$ScheduledFinish]) - Number(@now)) &gt; 777600000, if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), '#0b594b', if([$TasksComplete] &gt; 0, '#b45309', '#6b7280')), '#eef1f5'), '#eef1f5')\"}},{\"elmType\":\"div\",\"style\":{\"width\":\"3.5714%\",\"height\":\"10px\",\"flex-shrink\":\"0\",\"box-sizing\":\"border-box\",\"background-color\":\"=if(950400000 &gt;= (Number([$ScheduledStart]) - Number(@now)), if((Number([$ScheduledFinish]) - Number(@now)) &gt; 864000000, if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), '#0b594b', if([$TasksComplete] &gt; 0, '#b45309', '#6b7280')), '#eef1f5'), '#eef1f5')\"}},{\"elmType\":\"div\",\"style\":{\"width\":\"3.5714%\",\"height\":\"10px\",\"flex-shrink\":\"0\",\"box-sizing\":\"border-box\",\"background-color\":\"=if(1036800000 &gt;= (Number([$ScheduledStart]) - Number(@now)), if((Number([$ScheduledFinish]) - Number(@now)) &gt; 950400000, if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), '#0b594b', if([$TasksComplete] &gt; 0, '#b45309', '#6b7280')), '#eef1f5'), '#eef1f5')\"}},{\"elmType\":\"div\",\"style\":{\"width\":\"3.5714%\",\"height\":\"10px\",\"flex-shrink\":\"0\",\"box-sizing\":\"border-box\",\"background-color\":\"=if(1123200000 &gt;= (Number([$ScheduledStart]) - Number(@now)), if((Number([$ScheduledFinish]) - Number(@now)) &gt; 1036800000, if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), '#0b594b', if([$TasksComplete] &gt; 0, '#b45309', '#6b7280')), '#eef1f5'), '#eef1f5')\"}},{\"elmType\":\"div\",\"style\":{\"width\":\"3.5714%\",\"height\":\"10px\",\"flex-shrink\":\"0\",\"box-sizing\":\"border-box\",\"background-color\":\"=if(1209600000 &gt;= (Number([$ScheduledStart]) - Number(@now)), if((Number([$ScheduledFinish]) - Number(@now)) &gt; 1123200000, if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), '#0b594b', if([$TasksComplete] &gt; 0, '#b45309', '#6b7280')), '#eef1f5'), '#eef1f5')\",\"border-left\":\"1px solid #d1d5db\"}},{\"elmType\":\"div\",\"style\":{\"width\":\"3.5714%\",\"height\":\"10px\",\"flex-shrink\":\"0\",\"box-sizing\":\"border-box\",\"background-color\":\"=if(1296000000 &gt;= (Number([$ScheduledStart]) - Number(@now)), if((Number([$ScheduledFinish]) - Number(@now)) &gt; 1209600000, if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), '#0b594b', if([$TasksComplete] &gt; 0, '#b45309', '#6b7280')), '#eef1f5'), '#eef1f5')\"}},{\"elmType\":\"div\",\"style\":{\"width\":\"3.5714%\",\"height\":\"10px\",\"flex-shrink\":\"0\",\"box-sizing\":\"border-box\",\"background-color\":\"=if(1382400000 &gt;= (Number([$ScheduledStart]) - Number(@now)), if((Number([$ScheduledFinish]) - Number(@now)) &gt; 1296000000, if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), '#0b594b', if([$TasksComplete] &gt; 0, '#b45309', '#6b7280')), '#eef1f5'), '#eef1f5')\"}},{\"elmType\":\"div\",\"style\":{\"width\":\"3.5714%\",\"height\":\"10px\",\"flex-shrink\":\"0\",\"box-sizing\":\"border-box\",\"background-color\":\"=if(1468800000 &gt;= (Number([$ScheduledStart]) - Number(@now)), if((Number([$ScheduledFinish]) - Number(@now)) &gt; 1382400000, if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), '#0b594b', if([$TasksComplete] &gt; 0, '#b45309', '#6b7280')), '#eef1f5'), '#eef1f5')\"}},{\"elmType\":\"div\",\"style\":{\"width\":\"3.5714%\",\"height\":\"10px\",\"flex-shrink\":\"0\",\"box-sizing\":\"border-box\",\"background-color\":\"=if(1555200000 &gt;= (Number([$ScheduledStart]) - Number(@now)), if((Number([$ScheduledFinish]) - Number(@now)) &gt; 1468800000, if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), '#0b594b', if([$TasksComplete] &gt; 0, '#b45309', '#6b7280')), '#eef1f5'), '#eef1f5')\"}},{\"elmType\":\"div\",\"style\":{\"width\":\"3.5714%\",\"height\":\"10px\",\"flex-shrink\":\"0\",\"box-sizing\":\"border-box\",\"background-color\":\"=if(1641600000 &gt;= (Number([$ScheduledStart]) - Number(@now)), if((Number([$ScheduledFinish]) - Number(@now)) &gt; 1555200000, if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), '#0b594b', if([$TasksComplete] &gt; 0, '#b45309', '#6b7280')), '#eef1f5'), '#eef1f5')\"}},{\"elmType\":\"div\",\"style\":{\"width\":\"3.5714%\",\"height\":\"10px\",\"flex-shrink\":\"0\",\"box-sizing\":\"border-box\",\"background-color\":\"=if(1728000000 &gt;= (Number([$ScheduledStart]) - Number(@now)), if((Number([$ScheduledFinish]) - Number(@now)) &gt; 1641600000, if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), '#0b594b', if([$TasksComplete] &gt; 0, '#b45309', '#6b7280')), '#eef1f5'), '#eef1f5')\"}}]}]}}",
+     "DefaultView": true,
+     "Id": "afbe2279-2786-409a-90d9-47aa9126d543",
+     "Paged": true,
+     "ViewQuery": "<GroupBy Collapse=\"FALSE\"><FieldRef Name=\"Job\" /></GroupBy><OrderBy><FieldRef Name=\"ScheduledStart\" Ascending=\"TRUE\" /></OrderBy>",
+     "RowLimit": 100,
+     "Title": "All Assignments",
+     "ViewType2": null
+    },
+    {
+     "ViewFields": {
+      "SchemaXml": "<FieldRef Name=\"LinkTitle\" /><FieldRef Name=\"SubPhaseNumber\" /><FieldRef Name=\"SubPhaseName\" /><FieldRef Name=\"ScheduledStart\" /><FieldRef Name=\"ScheduledFinish\" /><FieldRef Name=\"InstallerSignOff\" /><FieldRef Name=\"TasksComplete\" /><FieldRef Name=\"TasksTotal\" />",
+      "Items": [
+       "LinkTitle",
+       "SubPhaseNumber",
+       "SubPhaseName",
+       "ScheduledStart",
+       "ScheduledFinish",
+       "InstallerSignOff",
+       "TasksComplete",
+       "TasksTotal"
+      ]
+     },
+     "CustomFormatter": "{\"$schema\":\"https://developer.microsoft.com/json-schemas/sp/v2/row-formatting.schema.json\",\"hideColumnHeader\":true,\"hideSelection\":true,\"rowFormatter\":{\"elmType\":\"div\",\"style\":{\"display\":\"flex\",\"flex-direction\":\"column\",\"gap\":\"4px\",\"width\":\"100%\",\"box-sizing\":\"border-box\",\"align-items\":\"flex-start\",\"text-align\":\"left\",\"padding\":\"10px 14px\",\"margin\":\"4px 0\",\"border-radius\":\"4px\",\"background-color\":\"#ffffff\",\"box-shadow\":\"0 1px 2px rgba(8,37,68,.12)\",\"border-left\":\"4px solid\",\"border-left-color\":\"=if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), '#0b594b', if([$TasksComplete] &gt; 0, '#b45309', '#6b7280'))\"},\"children\":[{\"elmType\":\"div\",\"style\":{\"display\":\"flex\",\"align-items\":\"center\",\"flex-wrap\":\"wrap\"},\"children\":[{\"elmType\":\"span\",\"style\":{\"font-size\":\"15px\",\"font-weight\":\"600\",\"color\":\"#082544\"},\"txtContent\":\"=[$SubPhaseNumber] + '  ' + [$SubPhaseName]\"},{\"elmType\":\"span\",\"style\":{\"display\":\"=if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), 'inline', 'none')\"},\"children\":[{\"elmType\":\"span\",\"style\":{\"padding\":\"2px 8px\",\"border-radius\":\"10px\",\"font-size\":\"11px\",\"font-weight\":\"600\",\"white-space\":\"nowrap\",\"color\":\"#ffffff\",\"background-color\":\"#0b594b\",\"margin-left\":\"8px\"},\"txtContent\":\"SIGNED OFF\"}]},{\"elmType\":\"span\",\"style\":{\"display\":\"=if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), 'none', if([$TasksComplete] &gt; 0, 'inline', 'none'))\"},\"children\":[{\"elmType\":\"span\",\"style\":{\"padding\":\"2px 8px\",\"border-radius\":\"10px\",\"font-size\":\"11px\",\"font-weight\":\"600\",\"white-space\":\"nowrap\",\"color\":\"#ffffff\",\"background-color\":\"#b45309\",\"margin-left\":\"8px\"},\"txtContent\":\"IN PROGRESS\"}]},{\"elmType\":\"span\",\"style\":{\"display\":\"=if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), 'none', if([$TasksComplete] &gt; 0, 'none', 'inline'))\"},\"children\":[{\"elmType\":\"span\",\"style\":{\"padding\":\"2px 8px\",\"border-radius\":\"10px\",\"font-size\":\"11px\",\"font-weight\":\"600\",\"white-space\":\"nowrap\",\"color\":\"#ffffff\",\"background-color\":\"#6b7280\",\"margin-left\":\"8px\"},\"txtContent\":\"NOT STARTED\"}]}]},{\"elmType\":\"div\",\"style\":{\"font-size\":\"12px\",\"color\":\"#4b5563\"},\"txtContent\":\"=[$Title]\"},{\"elmType\":\"div\",\"style\":{\"font-size\":\"12px\",\"color\":\"#6b7280\"},\"txtContent\":\"=[$Crew] + '   ·   ' + [$ScheduledStart.displayValue] + '  to  ' + [$ScheduledFinish.displayValue]\"},{\"elmType\":\"div\",\"style\":{\"display\":\"flex\",\"align-items\":\"center\",\"gap\":\"8px\",\"margin-top\":\"2px\"},\"children\":[{\"elmType\":\"div\",\"style\":{\"width\":\"140px\",\"height\":\"6px\",\"border-radius\":\"3px\",\"background-color\":\"#e5e7eb\",\"overflow\":\"hidden\"},\"children\":[{\"elmType\":\"div\",\"style\":{\"height\":\"6px\",\"border-radius\":\"3px\",\"background-color\":\"=if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), '#0b594b', '#b45309')\",\"width\":\"=if([$TasksTotal] &gt; 0, ((Number([$TasksComplete]) / Number([$TasksTotal])) * 100) + '%', '0%')\"}}]},{\"elmType\":\"span\",\"style\":{\"font-size\":\"11px\",\"color\":\"#6b7280\"},\"txtContent\":\"=[$TasksComplete] + ' / ' + [$TasksTotal] + ' tasks'\"}]}]}}",
+     "DefaultView": false,
+     "Id": "53795b66-317d-4642-ac5d-2da0e4524eb1",
+     "Paged": true,
+     "ViewQuery": "<Where><And><Leq><FieldRef Name=\"WeekMonday\" /><Value Type=\"DateTime\"><Today /></Value></Leq><Geq><FieldRef Name=\"WeekMonday\" /><Value Type=\"DateTime\"><Today OffsetDays=\"-6\" /></Value></Geq></And></Where><GroupBy Collapse=\"FALSE\"><FieldRef Name=\"Crew\" /></GroupBy><OrderBy><FieldRef Name=\"ScheduledStart\" Ascending=\"TRUE\" /></OrderBy>",
+     "RowLimit": 100,
+     "Title": "This Week by Crew",
+     "ViewType2": null
+    },
+    {
+     "ViewFields": {
+      "SchemaXml": "<FieldRef Name=\"LinkTitle\" /><FieldRef Name=\"SubPhaseNumber\" /><FieldRef Name=\"SubPhaseName\" /><FieldRef Name=\"Trade\" /><FieldRef Name=\"ScheduledStart\" /><FieldRef Name=\"ScheduledFinish\" /><FieldRef Name=\"Crew\" />",
+      "Items": [
+       "LinkTitle",
+       "SubPhaseNumber",
+       "SubPhaseName",
+       "Trade",
+       "ScheduledStart",
+       "ScheduledFinish",
+       "Crew"
+      ]
+     },
+     "CustomFormatter": "{\"$schema\":\"https://developer.microsoft.com/json-schemas/sp/v2/row-formatting.schema.json\",\"hideColumnHeader\":true,\"hideSelection\":true,\"rowFormatter\":{\"elmType\":\"div\",\"style\":{\"display\":\"flex\",\"flex-direction\":\"column\",\"gap\":\"4px\",\"width\":\"100%\",\"box-sizing\":\"border-box\",\"align-items\":\"flex-start\",\"text-align\":\"left\",\"padding\":\"10px 14px\",\"margin\":\"4px 0\",\"border-radius\":\"4px\",\"background-color\":\"#ffffff\",\"box-shadow\":\"0 1px 2px rgba(8,37,68,.12)\",\"border-left\":\"4px solid\",\"border-left-color\":\"=if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), '#0b594b', if([$TasksComplete] &gt; 0, '#b45309', '#6b7280'))\"},\"children\":[{\"elmType\":\"div\",\"style\":{\"display\":\"flex\",\"align-items\":\"center\",\"flex-wrap\":\"wrap\"},\"children\":[{\"elmType\":\"span\",\"style\":{\"font-size\":\"15px\",\"font-weight\":\"600\",\"color\":\"#082544\"},\"txtContent\":\"=[$SubPhaseNumber] + '  ' + [$SubPhaseName]\"},{\"elmType\":\"span\",\"style\":{\"display\":\"=if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), 'inline', 'none')\"},\"children\":[{\"elmType\":\"span\",\"style\":{\"padding\":\"2px 8px\",\"border-radius\":\"10px\",\"font-size\":\"11px\",\"font-weight\":\"600\",\"white-space\":\"nowrap\",\"color\":\"#ffffff\",\"background-color\":\"#0b594b\",\"margin-left\":\"8px\"},\"txtContent\":\"SIGNED OFF\"}]},{\"elmType\":\"span\",\"style\":{\"display\":\"=if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), 'none', if([$TasksComplete] &gt; 0, 'inline', 'none'))\"},\"children\":[{\"elmType\":\"span\",\"style\":{\"padding\":\"2px 8px\",\"border-radius\":\"10px\",\"font-size\":\"11px\",\"font-weight\":\"600\",\"white-space\":\"nowrap\",\"color\":\"#ffffff\",\"background-color\":\"#b45309\",\"margin-left\":\"8px\"},\"txtContent\":\"IN PROGRESS\"}]},{\"elmType\":\"span\",\"style\":{\"display\":\"=if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), 'none', if([$TasksComplete] &gt; 0, 'none', 'inline'))\"},\"children\":[{\"elmType\":\"span\",\"style\":{\"padding\":\"2px 8px\",\"border-radius\":\"10px\",\"font-size\":\"11px\",\"font-weight\":\"600\",\"white-space\":\"nowrap\",\"color\":\"#ffffff\",\"background-color\":\"#6b7280\",\"margin-left\":\"8px\"},\"txtContent\":\"NOT STARTED\"}]}]},{\"elmType\":\"div\",\"style\":{\"font-size\":\"12px\",\"color\":\"#4b5563\"},\"txtContent\":\"=[$Title]\"},{\"elmType\":\"div\",\"style\":{\"font-size\":\"12px\",\"color\":\"#6b7280\"},\"txtContent\":\"=[$Crew] + '   ·   ' + [$ScheduledStart.displayValue] + '  to  ' + [$ScheduledFinish.displayValue]\"},{\"elmType\":\"div\",\"style\":{\"display\":\"flex\",\"align-items\":\"center\",\"gap\":\"8px\",\"margin-top\":\"2px\"},\"children\":[{\"elmType\":\"div\",\"style\":{\"width\":\"140px\",\"height\":\"6px\",\"border-radius\":\"3px\",\"background-color\":\"#e5e7eb\",\"overflow\":\"hidden\"},\"children\":[{\"elmType\":\"div\",\"style\":{\"height\":\"6px\",\"border-radius\":\"3px\",\"background-color\":\"=if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), '#0b594b', '#b45309')\",\"width\":\"=if([$TasksTotal] &gt; 0, ((Number([$TasksComplete]) / Number([$TasksTotal])) * 100) + '%', '0%')\"}}]},{\"elmType\":\"span\",\"style\":{\"font-size\":\"11px\",\"color\":\"#6b7280\"},\"txtContent\":\"=[$TasksComplete] + ' / ' + [$TasksTotal] + ' tasks'\"}]}]}}",
+     "DefaultView": false,
+     "Id": "92b8dea2-25aa-4af5-954c-1b262bbcbfdb",
+     "Paged": true,
+     "ViewQuery": "<Where><And><Or><Or><IsNull><FieldRef Name=\"Crew\" /></IsNull><Eq><FieldRef Name=\"Crew\" /><Value Type=\"Text\" /></Eq></Or><Eq><FieldRef Name=\"Crew\" /><Value Type=\"Text\">unassigned</Value></Eq></Or><IsNotNull><FieldRef Name=\"Trade\" /></IsNotNull></And></Where><OrderBy><FieldRef Name=\"ScheduledStart\" Ascending=\"TRUE\" /></OrderBy>",
+     "RowLimit": 100,
+     "Title": "Unassigned",
+     "ViewType2": null
+    },
+    {
+     "ViewFields": {
+      "SchemaXml": "<FieldRef Name=\"LinkTitle\" /><FieldRef Name=\"SubPhaseNumber\" /><FieldRef Name=\"SubPhaseName\" /><FieldRef Name=\"ScheduledFinish\" /><FieldRef Name=\"TasksComplete\" /><FieldRef Name=\"TasksTotal\" /><FieldRef Name=\"InstallerSignOff\" />",
+      "Items": [
+       "LinkTitle",
+       "SubPhaseNumber",
+       "SubPhaseName",
+       "ScheduledFinish",
+       "TasksComplete",
+       "TasksTotal",
+       "InstallerSignOff"
+      ]
+     },
+     "CustomFormatter": "{\"$schema\":\"https://developer.microsoft.com/json-schemas/sp/v2/row-formatting.schema.json\",\"hideColumnHeader\":true,\"hideSelection\":true,\"rowFormatter\":{\"elmType\":\"div\",\"style\":{\"display\":\"flex\",\"flex-direction\":\"column\",\"gap\":\"4px\",\"width\":\"100%\",\"box-sizing\":\"border-box\",\"align-items\":\"flex-start\",\"text-align\":\"left\",\"padding\":\"10px 14px\",\"margin\":\"4px 0\",\"border-radius\":\"4px\",\"background-color\":\"#ffffff\",\"box-shadow\":\"0 1px 2px rgba(8,37,68,.12)\",\"border-left\":\"4px solid\",\"border-left-color\":\"=if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), '#0b594b', if([$TasksComplete] &gt; 0, '#b45309', '#6b7280'))\"},\"children\":[{\"elmType\":\"div\",\"style\":{\"display\":\"flex\",\"align-items\":\"center\",\"flex-wrap\":\"wrap\"},\"children\":[{\"elmType\":\"span\",\"style\":{\"font-size\":\"15px\",\"font-weight\":\"600\",\"color\":\"#082544\"},\"txtContent\":\"=[$SubPhaseNumber] + '  ' + [$SubPhaseName]\"},{\"elmType\":\"span\",\"style\":{\"display\":\"=if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), 'inline', 'none')\"},\"children\":[{\"elmType\":\"span\",\"style\":{\"padding\":\"2px 8px\",\"border-radius\":\"10px\",\"font-size\":\"11px\",\"font-weight\":\"600\",\"white-space\":\"nowrap\",\"color\":\"#ffffff\",\"background-color\":\"#0b594b\",\"margin-left\":\"8px\"},\"txtContent\":\"SIGNED OFF\"}]},{\"elmType\":\"span\",\"style\":{\"display\":\"=if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), 'none', if([$TasksComplete] &gt; 0, 'inline', 'none'))\"},\"children\":[{\"elmType\":\"span\",\"style\":{\"padding\":\"2px 8px\",\"border-radius\":\"10px\",\"font-size\":\"11px\",\"font-weight\":\"600\",\"white-space\":\"nowrap\",\"color\":\"#ffffff\",\"background-color\":\"#b45309\",\"margin-left\":\"8px\"},\"txtContent\":\"IN PROGRESS\"}]},{\"elmType\":\"span\",\"style\":{\"display\":\"=if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), 'none', if([$TasksComplete] &gt; 0, 'none', 'inline'))\"},\"children\":[{\"elmType\":\"span\",\"style\":{\"padding\":\"2px 8px\",\"border-radius\":\"10px\",\"font-size\":\"11px\",\"font-weight\":\"600\",\"white-space\":\"nowrap\",\"color\":\"#ffffff\",\"background-color\":\"#6b7280\",\"margin-left\":\"8px\"},\"txtContent\":\"NOT STARTED\"}]}]},{\"elmType\":\"div\",\"style\":{\"font-size\":\"12px\",\"color\":\"#4b5563\"},\"txtContent\":\"=[$Title]\"},{\"elmType\":\"div\",\"style\":{\"font-size\":\"12px\",\"color\":\"#6b7280\"},\"txtContent\":\"=[$Crew] + '   ·   ' + [$ScheduledStart.displayValue] + '  to  ' + [$ScheduledFinish.displayValue]\"},{\"elmType\":\"div\",\"style\":{\"display\":\"flex\",\"align-items\":\"center\",\"gap\":\"8px\",\"margin-top\":\"2px\"},\"children\":[{\"elmType\":\"div\",\"style\":{\"width\":\"140px\",\"height\":\"6px\",\"border-radius\":\"3px\",\"background-color\":\"#e5e7eb\",\"overflow\":\"hidden\"},\"children\":[{\"elmType\":\"div\",\"style\":{\"height\":\"6px\",\"border-radius\":\"3px\",\"background-color\":\"=if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), '#0b594b', '#b45309')\",\"width\":\"=if([$TasksTotal] &gt; 0, ((Number([$TasksComplete]) / Number([$TasksTotal])) * 100) + '%', '0%')\"}}]},{\"elmType\":\"span\",\"style\":{\"font-size\":\"11px\",\"color\":\"#6b7280\"},\"txtContent\":\"=[$TasksComplete] + ' / ' + [$TasksTotal] + ' tasks'\"}]}]}}",
+     "DefaultView": false,
+     "Id": "5e4f98d7-fdcd-48e3-8742-5fd355c1b61d",
+     "Paged": true,
+     "ViewQuery": "<Where><And><Lt><FieldRef Name=\"ScheduledFinish\" /><Value Type=\"DateTime\"><Today /></Value></Lt><Eq><FieldRef Name=\"InstallerSignOff\" /><Value Type=\"Integer\">0</Value></Eq></And></Where><GroupBy Collapse=\"FALSE\"><FieldRef Name=\"Crew\" /></GroupBy><OrderBy><FieldRef Name=\"ScheduledFinish\" Ascending=\"TRUE\" /></OrderBy>",
+     "RowLimit": 100,
+     "Title": "Sign-off Overdue",
+     "ViewType2": null
+    },
+    {
+     "ViewFields": {
+      "SchemaXml": "<FieldRef Name=\"LinkTitle\" /><FieldRef Name=\"SubPhaseNumber\" /><FieldRef Name=\"SubPhaseName\" /><FieldRef Name=\"Crew\" /><FieldRef Name=\"ScheduledStart\" /><FieldRef Name=\"ScheduledFinish\" /><FieldRef Name=\"InstallerSignOff\" />",
+      "Items": [
+       "LinkTitle",
+       "SubPhaseNumber",
+       "SubPhaseName",
+       "Crew",
+       "ScheduledStart",
+       "ScheduledFinish",
+       "InstallerSignOff"
+      ]
+     },
+     "CustomFormatter": "{\"$schema\":\"https://developer.microsoft.com/json-schemas/sp/v2/row-formatting.schema.json\",\"hideColumnHeader\":true,\"hideSelection\":true,\"rowFormatter\":{\"elmType\":\"div\",\"style\":{\"display\":\"flex\",\"flex-direction\":\"column\",\"gap\":\"4px\",\"width\":\"100%\",\"box-sizing\":\"border-box\",\"align-items\":\"flex-start\",\"text-align\":\"left\",\"padding\":\"10px 14px\",\"margin\":\"4px 0\",\"border-radius\":\"4px\",\"background-color\":\"#ffffff\",\"box-shadow\":\"0 1px 2px rgba(8,37,68,.12)\",\"border-left\":\"4px solid\",\"border-left-color\":\"=if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), '#0b594b', if([$TasksComplete] &gt; 0, '#b45309', '#6b7280'))\"},\"children\":[{\"elmType\":\"div\",\"style\":{\"display\":\"flex\",\"align-items\":\"center\",\"flex-wrap\":\"wrap\"},\"children\":[{\"elmType\":\"span\",\"style\":{\"font-size\":\"15px\",\"font-weight\":\"600\",\"color\":\"#082544\"},\"txtContent\":\"=[$SubPhaseNumber] + '  ' + [$SubPhaseName]\"},{\"elmType\":\"span\",\"style\":{\"display\":\"=if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), 'inline', 'none')\"},\"children\":[{\"elmType\":\"span\",\"style\":{\"padding\":\"2px 8px\",\"border-radius\":\"10px\",\"font-size\":\"11px\",\"font-weight\":\"600\",\"white-space\":\"nowrap\",\"color\":\"#ffffff\",\"background-color\":\"#0b594b\",\"margin-left\":\"8px\"},\"txtContent\":\"SIGNED OFF\"}]},{\"elmType\":\"span\",\"style\":{\"display\":\"=if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), 'none', if([$TasksComplete] &gt; 0, 'inline', 'none'))\"},\"children\":[{\"elmType\":\"span\",\"style\":{\"padding\":\"2px 8px\",\"border-radius\":\"10px\",\"font-size\":\"11px\",\"font-weight\":\"600\",\"white-space\":\"nowrap\",\"color\":\"#ffffff\",\"background-color\":\"#b45309\",\"margin-left\":\"8px\"},\"txtContent\":\"IN PROGRESS\"}]},{\"elmType\":\"span\",\"style\":{\"display\":\"=if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), 'none', if([$TasksComplete] &gt; 0, 'none', 'inline'))\"},\"children\":[{\"elmType\":\"span\",\"style\":{\"padding\":\"2px 8px\",\"border-radius\":\"10px\",\"font-size\":\"11px\",\"font-weight\":\"600\",\"white-space\":\"nowrap\",\"color\":\"#ffffff\",\"background-color\":\"#6b7280\",\"margin-left\":\"8px\"},\"txtContent\":\"NOT STARTED\"}]}]},{\"elmType\":\"div\",\"style\":{\"font-size\":\"12px\",\"color\":\"#4b5563\"},\"txtContent\":\"=[$Title]\"},{\"elmType\":\"div\",\"style\":{\"font-size\":\"12px\",\"color\":\"#6b7280\"},\"txtContent\":\"=[$Crew] + '   ·   ' + [$ScheduledStart.displayValue] + '  to  ' + [$ScheduledFinish.displayValue]\"},{\"elmType\":\"div\",\"style\":{\"display\":\"flex\",\"align-items\":\"center\",\"gap\":\"8px\",\"margin-top\":\"2px\"},\"children\":[{\"elmType\":\"div\",\"style\":{\"width\":\"140px\",\"height\":\"6px\",\"border-radius\":\"3px\",\"background-color\":\"#e5e7eb\",\"overflow\":\"hidden\"},\"children\":[{\"elmType\":\"div\",\"style\":{\"height\":\"6px\",\"border-radius\":\"3px\",\"background-color\":\"=if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), '#0b594b', '#b45309')\",\"width\":\"=if([$TasksTotal] &gt; 0, ((Number([$TasksComplete]) / Number([$TasksTotal])) * 100) + '%', '0%')\"}}]},{\"elmType\":\"span\",\"style\":{\"font-size\":\"11px\",\"color\":\"#6b7280\"},\"txtContent\":\"=[$TasksComplete] + ' / ' + [$TasksTotal] + ' tasks'\"}]},{\"elmType\":\"div\",\"style\":{\"display\":\"flex\",\"width\":\"100%\",\"margin-top\":\"6px\",\"border-radius\":\"2px\",\"overflow\":\"hidden\"},\"children\":[{\"elmType\":\"div\",\"style\":{\"width\":\"3.5714%\",\"height\":\"10px\",\"flex-shrink\":\"0\",\"box-sizing\":\"border-box\",\"background-color\":\"=if(-604800000 &gt;= (Number([$ScheduledStart]) - Number(@now)), if((Number([$ScheduledFinish]) - Number(@now)) &gt; -691200000, if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), '#0b594b', if([$TasksComplete] &gt; 0, '#b45309', '#6b7280')), '#eef1f5'), '#eef1f5')\"}},{\"elmType\":\"div\",\"style\":{\"width\":\"3.5714%\",\"height\":\"10px\",\"flex-shrink\":\"0\",\"box-sizing\":\"border-box\",\"background-color\":\"=if(-518400000 &gt;= (Number([$ScheduledStart]) - Number(@now)), if((Number([$ScheduledFinish]) - Number(@now)) &gt; -604800000, if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), '#0b594b', if([$TasksComplete] &gt; 0, '#b45309', '#6b7280')), '#eef1f5'), '#eef1f5')\"}},{\"elmType\":\"div\",\"style\":{\"width\":\"3.5714%\",\"height\":\"10px\",\"flex-shrink\":\"0\",\"box-sizing\":\"border-box\",\"background-color\":\"=if(-432000000 &gt;= (Number([$ScheduledStart]) - Number(@now)), if((Number([$ScheduledFinish]) - Number(@now)) &gt; -518400000, if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), '#0b594b', if([$TasksComplete] &gt; 0, '#b45309', '#6b7280')), '#eef1f5'), '#eef1f5')\"}},{\"elmType\":\"div\",\"style\":{\"width\":\"3.5714%\",\"height\":\"10px\",\"flex-shrink\":\"0\",\"box-sizing\":\"border-box\",\"background-color\":\"=if(-345600000 &gt;= (Number([$ScheduledStart]) - Number(@now)), if((Number([$ScheduledFinish]) - Number(@now)) &gt; -432000000, if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), '#0b594b', if([$TasksComplete] &gt; 0, '#b45309', '#6b7280')), '#eef1f5'), '#eef1f5')\"}},{\"elmType\":\"div\",\"style\":{\"width\":\"3.5714%\",\"height\":\"10px\",\"flex-shrink\":\"0\",\"box-sizing\":\"border-box\",\"background-color\":\"=if(-259200000 &gt;= (Number([$ScheduledStart]) - Number(@now)), if((Number([$ScheduledFinish]) - Number(@now)) &gt; -345600000, if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), '#0b594b', if([$TasksComplete] &gt; 0, '#b45309', '#6b7280')), '#eef1f5'), '#eef1f5')\"}},{\"elmType\":\"div\",\"style\":{\"width\":\"3.5714%\",\"height\":\"10px\",\"flex-shrink\":\"0\",\"box-sizing\":\"border-box\",\"background-color\":\"=if(-172800000 &gt;= (Number([$ScheduledStart]) - Number(@now)), if((Number([$ScheduledFinish]) - Number(@now)) &gt; -259200000, if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), '#0b594b', if([$TasksComplete] &gt; 0, '#b45309', '#6b7280')), '#eef1f5'), '#eef1f5')\"}},{\"elmType\":\"div\",\"style\":{\"width\":\"3.5714%\",\"height\":\"10px\",\"flex-shrink\":\"0\",\"box-sizing\":\"border-box\",\"background-color\":\"=if(-86400000 &gt;= (Number([$ScheduledStart]) - Number(@now)), if((Number([$ScheduledFinish]) - Number(@now)) &gt; -172800000, if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), '#0b594b', if([$TasksComplete] &gt; 0, '#b45309', '#6b7280')), '#eef1f5'), '#eef1f5')\"}},{\"elmType\":\"div\",\"style\":{\"width\":\"3.5714%\",\"height\":\"10px\",\"flex-shrink\":\"0\",\"box-sizing\":\"border-box\",\"background-color\":\"=if(0 &gt;= (Number([$ScheduledStart]) - Number(@now)), if((Number([$ScheduledFinish]) - Number(@now)) &gt; -86400000, if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), '#0b594b', if([$TasksComplete] &gt; 0, '#b45309', '#6b7280')), '#eef1f5'), '#eef1f5')\",\"border-left\":\"2px solid #082544\"}},{\"elmType\":\"div\",\"style\":{\"width\":\"3.5714%\",\"height\":\"10px\",\"flex-shrink\":\"0\",\"box-sizing\":\"border-box\",\"background-color\":\"=if(86400000 &gt;= (Number([$ScheduledStart]) - Number(@now)), if((Number([$ScheduledFinish]) - Number(@now)) &gt; 0, if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), '#0b594b', if([$TasksComplete] &gt; 0, '#b45309', '#6b7280')), '#eef1f5'), '#eef1f5')\"}},{\"elmType\":\"div\",\"style\":{\"width\":\"3.5714%\",\"height\":\"10px\",\"flex-shrink\":\"0\",\"box-sizing\":\"border-box\",\"background-color\":\"=if(172800000 &gt;= (Number([$ScheduledStart]) - Number(@now)), if((Number([$ScheduledFinish]) - Number(@now)) &gt; 86400000, if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), '#0b594b', if([$TasksComplete] &gt; 0, '#b45309', '#6b7280')), '#eef1f5'), '#eef1f5')\"}},{\"elmType\":\"div\",\"style\":{\"width\":\"3.5714%\",\"height\":\"10px\",\"flex-shrink\":\"0\",\"box-sizing\":\"border-box\",\"background-color\":\"=if(259200000 &gt;= (Number([$ScheduledStart]) - Number(@now)), if((Number([$ScheduledFinish]) - Number(@now)) &gt; 172800000, if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), '#0b594b', if([$TasksComplete] &gt; 0, '#b45309', '#6b7280')), '#eef1f5'), '#eef1f5')\"}},{\"elmType\":\"div\",\"style\":{\"width\":\"3.5714%\",\"height\":\"10px\",\"flex-shrink\":\"0\",\"box-sizing\":\"border-box\",\"background-color\":\"=if(345600000 &gt;= (Number([$ScheduledStart]) - Number(@now)), if((Number([$ScheduledFinish]) - Number(@now)) &gt; 259200000, if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), '#0b594b', if([$TasksComplete] &gt; 0, '#b45309', '#6b7280')), '#eef1f5'), '#eef1f5')\"}},{\"elmType\":\"div\",\"style\":{\"width\":\"3.5714%\",\"height\":\"10px\",\"flex-shrink\":\"0\",\"box-sizing\":\"border-box\",\"background-color\":\"=if(432000000 &gt;= (Number([$ScheduledStart]) - Number(@now)), if((Number([$ScheduledFinish]) - Number(@now)) &gt; 345600000, if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), '#0b594b', if([$TasksComplete] &gt; 0, '#b45309', '#6b7280')), '#eef1f5'), '#eef1f5')\"}},{\"elmType\":\"div\",\"style\":{\"width\":\"3.5714%\",\"height\":\"10px\",\"flex-shrink\":\"0\",\"box-sizing\":\"border-box\",\"background-color\":\"=if(518400000 &gt;= (Number([$ScheduledStart]) - Number(@now)), if((Number([$ScheduledFinish]) - Number(@now)) &gt; 432000000, if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), '#0b594b', if([$TasksComplete] &gt; 0, '#b45309', '#6b7280')), '#eef1f5'), '#eef1f5')\"}},{\"elmType\":\"div\",\"style\":{\"width\":\"3.5714%\",\"height\":\"10px\",\"flex-shrink\":\"0\",\"box-sizing\":\"border-box\",\"background-color\":\"=if(604800000 &gt;= (Number([$ScheduledStart]) - Number(@now)), if((Number([$ScheduledFinish]) - Number(@now)) &gt; 518400000, if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), '#0b594b', if([$TasksComplete] &gt; 0, '#b45309', '#6b7280')), '#eef1f5'), '#eef1f5')\",\"border-left\":\"1px solid #d1d5db\"}},{\"elmType\":\"div\",\"style\":{\"width\":\"3.5714%\",\"height\":\"10px\",\"flex-shrink\":\"0\",\"box-sizing\":\"border-box\",\"background-color\":\"=if(691200000 &gt;= (Number([$ScheduledStart]) - Number(@now)), if((Number([$ScheduledFinish]) - Number(@now)) &gt; 604800000, if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), '#0b594b', if([$TasksComplete] &gt; 0, '#b45309', '#6b7280')), '#eef1f5'), '#eef1f5')\"}},{\"elmType\":\"div\",\"style\":{\"width\":\"3.5714%\",\"height\":\"10px\",\"flex-shrink\":\"0\",\"box-sizing\":\"border-box\",\"background-color\":\"=if(777600000 &gt;= (Number([$ScheduledStart]) - Number(@now)), if((Number([$ScheduledFinish]) - Number(@now)) &gt; 691200000, if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), '#0b594b', if([$TasksComplete] &gt; 0, '#b45309', '#6b7280')), '#eef1f5'), '#eef1f5')\"}},{\"elmType\":\"div\",\"style\":{\"width\":\"3.5714%\",\"height\":\"10px\",\"flex-shrink\":\"0\",\"box-sizing\":\"border-box\",\"background-color\":\"=if(864000000 &gt;= (Number([$ScheduledStart]) - Number(@now)), if((Number([$ScheduledFinish]) - Number(@now)) &gt; 777600000, if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), '#0b594b', if([$TasksComplete] &gt; 0, '#b45309', '#6b7280')), '#eef1f5'), '#eef1f5')\"}},{\"elmType\":\"div\",\"style\":{\"width\":\"3.5714%\",\"height\":\"10px\",\"flex-shrink\":\"0\",\"box-sizing\":\"border-box\",\"background-color\":\"=if(950400000 &gt;= (Number([$ScheduledStart]) - Number(@now)), if((Number([$ScheduledFinish]) - Number(@now)) &gt; 864000000, if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), '#0b594b', if([$TasksComplete] &gt; 0, '#b45309', '#6b7280')), '#eef1f5'), '#eef1f5')\"}},{\"elmType\":\"div\",\"style\":{\"width\":\"3.5714%\",\"height\":\"10px\",\"flex-shrink\":\"0\",\"box-sizing\":\"border-box\",\"background-color\":\"=if(1036800000 &gt;= (Number([$ScheduledStart]) - Number(@now)), if((Number([$ScheduledFinish]) - Number(@now)) &gt; 950400000, if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), '#0b594b', if([$TasksComplete] &gt; 0, '#b45309', '#6b7280')), '#eef1f5'), '#eef1f5')\"}},{\"elmType\":\"div\",\"style\":{\"width\":\"3.5714%\",\"height\":\"10px\",\"flex-shrink\":\"0\",\"box-sizing\":\"border-box\",\"background-color\":\"=if(1123200000 &gt;= (Number([$ScheduledStart]) - Number(@now)), if((Number([$ScheduledFinish]) - Number(@now)) &gt; 1036800000, if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), '#0b594b', if([$TasksComplete] &gt; 0, '#b45309', '#6b7280')), '#eef1f5'), '#eef1f5')\"}},{\"elmType\":\"div\",\"style\":{\"width\":\"3.5714%\",\"height\":\"10px\",\"flex-shrink\":\"0\",\"box-sizing\":\"border-box\",\"background-color\":\"=if(1209600000 &gt;= (Number([$ScheduledStart]) - Number(@now)), if((Number([$ScheduledFinish]) - Number(@now)) &gt; 1123200000, if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), '#0b594b', if([$TasksComplete] &gt; 0, '#b45309', '#6b7280')), '#eef1f5'), '#eef1f5')\",\"border-left\":\"1px solid #d1d5db\"}},{\"elmType\":\"div\",\"style\":{\"width\":\"3.5714%\",\"height\":\"10px\",\"flex-shrink\":\"0\",\"box-sizing\":\"border-box\",\"background-color\":\"=if(1296000000 &gt;= (Number([$ScheduledStart]) - Number(@now)), if((Number([$ScheduledFinish]) - Number(@now)) &gt; 1209600000, if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), '#0b594b', if([$TasksComplete] &gt; 0, '#b45309', '#6b7280')), '#eef1f5'), '#eef1f5')\"}},{\"elmType\":\"div\",\"style\":{\"width\":\"3.5714%\",\"height\":\"10px\",\"flex-shrink\":\"0\",\"box-sizing\":\"border-box\",\"background-color\":\"=if(1382400000 &gt;= (Number([$ScheduledStart]) - Number(@now)), if((Number([$ScheduledFinish]) - Number(@now)) &gt; 1296000000, if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), '#0b594b', if([$TasksComplete] &gt; 0, '#b45309', '#6b7280')), '#eef1f5'), '#eef1f5')\"}},{\"elmType\":\"div\",\"style\":{\"width\":\"3.5714%\",\"height\":\"10px\",\"flex-shrink\":\"0\",\"box-sizing\":\"border-box\",\"background-color\":\"=if(1468800000 &gt;= (Number([$ScheduledStart]) - Number(@now)), if((Number([$ScheduledFinish]) - Number(@now)) &gt; 1382400000, if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), '#0b594b', if([$TasksComplete] &gt; 0, '#b45309', '#6b7280')), '#eef1f5'), '#eef1f5')\"}},{\"elmType\":\"div\",\"style\":{\"width\":\"3.5714%\",\"height\":\"10px\",\"flex-shrink\":\"0\",\"box-sizing\":\"border-box\",\"background-color\":\"=if(1555200000 &gt;= (Number([$ScheduledStart]) - Number(@now)), if((Number([$ScheduledFinish]) - Number(@now)) &gt; 1468800000, if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), '#0b594b', if([$TasksComplete] &gt; 0, '#b45309', '#6b7280')), '#eef1f5'), '#eef1f5')\"}},{\"elmType\":\"div\",\"style\":{\"width\":\"3.5714%\",\"height\":\"10px\",\"flex-shrink\":\"0\",\"box-sizing\":\"border-box\",\"background-color\":\"=if(1641600000 &gt;= (Number([$ScheduledStart]) - Number(@now)), if((Number([$ScheduledFinish]) - Number(@now)) &gt; 1555200000, if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), '#0b594b', if([$TasksComplete] &gt; 0, '#b45309', '#6b7280')), '#eef1f5'), '#eef1f5')\"}},{\"elmType\":\"div\",\"style\":{\"width\":\"3.5714%\",\"height\":\"10px\",\"flex-shrink\":\"0\",\"box-sizing\":\"border-box\",\"background-color\":\"=if(1728000000 &gt;= (Number([$ScheduledStart]) - Number(@now)), if((Number([$ScheduledFinish]) - Number(@now)) &gt; 1641600000, if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), '#0b594b', if([$TasksComplete] &gt; 0, '#b45309', '#6b7280')), '#eef1f5'), '#eef1f5')\"}}]}]}}",
+     "DefaultView": false,
+     "Id": "53577add-47e1-45ed-b306-67cd4d7316cd",
+     "Paged": true,
+     "ViewQuery": "<Where><And><Lt><FieldRef Name=\"ScheduledStart\" /><Value Type=\"DateTime\"><Today /></Value></Lt><Eq><FieldRef Name=\"InstallerSignOff\" /><Value Type=\"Integer\">0</Value></Eq></And></Where><GroupBy Collapse=\"FALSE\"><FieldRef Name=\"Job\" /></GroupBy><OrderBy><FieldRef Name=\"ScheduledStart\" Ascending=\"TRUE\" /></OrderBy>",
+     "RowLimit": 100,
+     "Title": "Late-Starting Jobs",
+     "ViewType2": null
+    },
+    {
+     "ViewFields": {
+      "SchemaXml": "<FieldRef Name=\"LinkTitle\" /><FieldRef Name=\"JobAddress\" /><FieldRef Name=\"JobCity\" /><FieldRef Name=\"ScheduledStart\" /><FieldRef Name=\"ScheduledFinish\" /><FieldRef Name=\"TasksComplete\" /><FieldRef Name=\"TasksTotal\" /><FieldRef Name=\"InstallerSignOff\" />",
+      "Items": [
+       "LinkTitle",
+       "JobAddress",
+       "JobCity",
+       "ScheduledStart",
+       "ScheduledFinish",
+       "TasksComplete",
+       "TasksTotal",
+       "InstallerSignOff"
+      ]
+     },
+     "CustomFormatter": "{\"$schema\":\"https://developer.microsoft.com/json-schemas/sp/v2/row-formatting.schema.json\",\"hideColumnHeader\":true,\"hideSelection\":true,\"rowFormatter\":{\"elmType\":\"div\",\"style\":{\"display\":\"flex\",\"flex-direction\":\"column\",\"gap\":\"4px\",\"width\":\"100%\",\"box-sizing\":\"border-box\",\"align-items\":\"flex-start\",\"text-align\":\"left\",\"padding\":\"10px 14px\",\"margin\":\"4px 0\",\"border-radius\":\"4px\",\"background-color\":\"#ffffff\",\"box-shadow\":\"0 1px 2px rgba(8,37,68,.12)\",\"border-left\":\"4px solid\",\"border-left-color\":\"=if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), '#0b594b', if([$TasksComplete] &gt; 0, '#b45309', '#6b7280'))\"},\"children\":[{\"elmType\":\"div\",\"style\":{\"display\":\"flex\",\"align-items\":\"center\",\"flex-wrap\":\"wrap\"},\"children\":[{\"elmType\":\"span\",\"style\":{\"font-size\":\"15px\",\"font-weight\":\"600\",\"color\":\"#082544\"},\"txtContent\":\"=[$SubPhaseNumber] + '  ' + [$SubPhaseName]\"},{\"elmType\":\"span\",\"style\":{\"display\":\"=if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), 'inline', 'none')\"},\"children\":[{\"elmType\":\"span\",\"style\":{\"padding\":\"2px 8px\",\"border-radius\":\"10px\",\"font-size\":\"11px\",\"font-weight\":\"600\",\"white-space\":\"nowrap\",\"color\":\"#ffffff\",\"background-color\":\"#0b594b\",\"margin-left\":\"8px\"},\"txtContent\":\"SIGNED OFF\"}]},{\"elmType\":\"span\",\"style\":{\"display\":\"=if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), 'none', if([$TasksComplete] &gt; 0, 'inline', 'none'))\"},\"children\":[{\"elmType\":\"span\",\"style\":{\"padding\":\"2px 8px\",\"border-radius\":\"10px\",\"font-size\":\"11px\",\"font-weight\":\"600\",\"white-space\":\"nowrap\",\"color\":\"#ffffff\",\"background-color\":\"#b45309\",\"margin-left\":\"8px\"},\"txtContent\":\"IN PROGRESS\"}]},{\"elmType\":\"span\",\"style\":{\"display\":\"=if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), 'none', if([$TasksComplete] &gt; 0, 'none', 'inline'))\"},\"children\":[{\"elmType\":\"span\",\"style\":{\"padding\":\"2px 8px\",\"border-radius\":\"10px\",\"font-size\":\"11px\",\"font-weight\":\"600\",\"white-space\":\"nowrap\",\"color\":\"#ffffff\",\"background-color\":\"#6b7280\",\"margin-left\":\"8px\"},\"txtContent\":\"NOT STARTED\"}]}]},{\"elmType\":\"div\",\"style\":{\"font-size\":\"12px\",\"color\":\"#4b5563\"},\"txtContent\":\"=[$Title]\"},{\"elmType\":\"div\",\"style\":{\"font-size\":\"12px\",\"color\":\"#6b7280\"},\"txtContent\":\"=[$Crew] + '   ·   ' + [$ScheduledStart.displayValue] + '  to  ' + [$ScheduledFinish.displayValue]\"},{\"elmType\":\"div\",\"style\":{\"display\":\"flex\",\"align-items\":\"center\",\"gap\":\"8px\",\"margin-top\":\"2px\"},\"children\":[{\"elmType\":\"div\",\"style\":{\"width\":\"140px\",\"height\":\"6px\",\"border-radius\":\"3px\",\"background-color\":\"#e5e7eb\",\"overflow\":\"hidden\"},\"children\":[{\"elmType\":\"div\",\"style\":{\"height\":\"6px\",\"border-radius\":\"3px\",\"background-color\":\"=if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), '#0b594b', '#b45309')\",\"width\":\"=if([$TasksTotal] &gt; 0, ((Number([$TasksComplete]) / Number([$TasksTotal])) * 100) + '%', '0%')\"}}]},{\"elmType\":\"span\",\"style\":{\"font-size\":\"11px\",\"color\":\"#6b7280\"},\"txtContent\":\"=[$TasksComplete] + ' / ' + [$TasksTotal] + ' tasks'\"}]}]}}",
+     "DefaultView": false,
+     "Id": "a9d66854-3e04-48f8-95cf-a8b6c258d2b1",
+     "Paged": true,
+     "ViewQuery": "<Where><And><Leq><FieldRef Name=\"ScheduledStart\" /><Value Type=\"DateTime\"><Today /></Value></Leq><Geq><FieldRef Name=\"ScheduledFinish\" /><Value Type=\"DateTime\"><Today /></Value></Geq></And></Where><GroupBy Collapse=\"FALSE\"><FieldRef Name=\"Crew\" /></GroupBy><OrderBy><FieldRef Name=\"Title\" Ascending=\"TRUE\" /></OrderBy>",
+     "RowLimit": 200,
+     "Title": "Today by Crew",
+     "ViewType2": null
+    },
+    {
+     "ViewFields": {
+      "SchemaXml": "<FieldRef Name=\"LinkTitle\" /><FieldRef Name=\"SubPhaseNumber\" /><FieldRef Name=\"SubPhaseName\" /><FieldRef Name=\"Crew\" /><FieldRef Name=\"ScheduledStart\" /><FieldRef Name=\"ScheduledFinish\" /><FieldRef Name=\"InstallerSignOff\" /><FieldRef Name=\"TasksComplete\" /><FieldRef Name=\"TasksTotal\" />",
+      "Items": [
+       "LinkTitle",
+       "SubPhaseNumber",
+       "SubPhaseName",
+       "Crew",
+       "ScheduledStart",
+       "ScheduledFinish",
+       "InstallerSignOff",
+       "TasksComplete",
+       "TasksTotal"
+      ]
+     },
+     "CustomFormatter": "{\"$schema\":\"https://developer.microsoft.com/json-schemas/sp/v2/row-formatting.schema.json\",\"hideColumnHeader\":true,\"hideSelection\":true,\"rowFormatter\":{\"elmType\":\"div\",\"style\":{\"display\":\"flex\",\"flex-direction\":\"column\",\"gap\":\"4px\",\"width\":\"100%\",\"box-sizing\":\"border-box\",\"align-items\":\"flex-start\",\"text-align\":\"left\",\"padding\":\"10px 14px\",\"margin\":\"4px 0\",\"border-radius\":\"4px\",\"background-color\":\"#ffffff\",\"box-shadow\":\"0 1px 2px rgba(8,37,68,.12)\",\"border-left\":\"4px solid\",\"border-left-color\":\"=if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), '#0b594b', if([$TasksComplete] &gt; 0, '#b45309', '#6b7280'))\"},\"children\":[{\"elmType\":\"div\",\"style\":{\"display\":\"flex\",\"align-items\":\"center\",\"flex-wrap\":\"wrap\"},\"children\":[{\"elmType\":\"span\",\"style\":{\"font-size\":\"15px\",\"font-weight\":\"600\",\"color\":\"#082544\"},\"txtContent\":\"=[$SubPhaseNumber] + '  ' + [$SubPhaseName]\"},{\"elmType\":\"span\",\"style\":{\"display\":\"=if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), 'inline', 'none')\"},\"children\":[{\"elmType\":\"span\",\"style\":{\"padding\":\"2px 8px\",\"border-radius\":\"10px\",\"font-size\":\"11px\",\"font-weight\":\"600\",\"white-space\":\"nowrap\",\"color\":\"#ffffff\",\"background-color\":\"#0b594b\",\"margin-left\":\"8px\"},\"txtContent\":\"SIGNED OFF\"}]},{\"elmType\":\"span\",\"style\":{\"display\":\"=if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), 'none', if([$TasksComplete] &gt; 0, 'inline', 'none'))\"},\"children\":[{\"elmType\":\"span\",\"style\":{\"padding\":\"2px 8px\",\"border-radius\":\"10px\",\"font-size\":\"11px\",\"font-weight\":\"600\",\"white-space\":\"nowrap\",\"color\":\"#ffffff\",\"background-color\":\"#b45309\",\"margin-left\":\"8px\"},\"txtContent\":\"IN PROGRESS\"}]},{\"elmType\":\"span\",\"style\":{\"display\":\"=if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), 'none', if([$TasksComplete] &gt; 0, 'none', 'inline'))\"},\"children\":[{\"elmType\":\"span\",\"style\":{\"padding\":\"2px 8px\",\"border-radius\":\"10px\",\"font-size\":\"11px\",\"font-weight\":\"600\",\"white-space\":\"nowrap\",\"color\":\"#ffffff\",\"background-color\":\"#6b7280\",\"margin-left\":\"8px\"},\"txtContent\":\"NOT STARTED\"}]}]},{\"elmType\":\"div\",\"style\":{\"font-size\":\"12px\",\"color\":\"#4b5563\"},\"txtContent\":\"=[$Title]\"},{\"elmType\":\"div\",\"style\":{\"font-size\":\"12px\",\"color\":\"#6b7280\"},\"txtContent\":\"=[$Crew] + '   ·   ' + [$ScheduledStart.displayValue] + '  to  ' + [$ScheduledFinish.displayValue]\"},{\"elmType\":\"div\",\"style\":{\"display\":\"flex\",\"align-items\":\"center\",\"gap\":\"8px\",\"margin-top\":\"2px\"},\"children\":[{\"elmType\":\"div\",\"style\":{\"width\":\"140px\",\"height\":\"6px\",\"border-radius\":\"3px\",\"background-color\":\"#e5e7eb\",\"overflow\":\"hidden\"},\"children\":[{\"elmType\":\"div\",\"style\":{\"height\":\"6px\",\"border-radius\":\"3px\",\"background-color\":\"=if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), '#0b594b', '#b45309')\",\"width\":\"=if([$TasksTotal] &gt; 0, ((Number([$TasksComplete]) / Number([$TasksTotal])) * 100) + '%', '0%')\"}}]},{\"elmType\":\"span\",\"style\":{\"font-size\":\"11px\",\"color\":\"#6b7280\"},\"txtContent\":\"=[$TasksComplete] + ' / ' + [$TasksTotal] + ' tasks'\"}]}]}}",
+     "DefaultView": false,
+     "Id": "85da575e-9452-4987-985e-96c8ee4fdb9c",
+     "Paged": true,
+     "ViewQuery": "<Where><And><Leq><FieldRef Name=\"WeekMonday\" /><Value Type=\"DateTime\"><Today /></Value></Leq><Geq><FieldRef Name=\"WeekMonday\" /><Value Type=\"DateTime\"><Today OffsetDays=\"-6\" /></Value></Geq></And></Where><GroupBy Collapse=\"FALSE\"><FieldRef Name=\"Job\" /></GroupBy><OrderBy><FieldRef Name=\"ScheduledStart\" Ascending=\"TRUE\" /></OrderBy>",
+     "RowLimit": 100,
+     "Title": "This Week by Job",
+     "ViewType2": null
+    },
+    {
+     "ViewFields": {
+      "SchemaXml": "<FieldRef Name=\"LinkTitle\" /><FieldRef Name=\"Job\" /><FieldRef Name=\"SubPhaseNumber\" /><FieldRef Name=\"SubPhaseName\" /><FieldRef Name=\"ScheduledStart\" /><FieldRef Name=\"ScheduledFinish\" /><FieldRef Name=\"ConflictWith\" />",
+      "Items": [
+       "LinkTitle",
+       "Job",
+       "SubPhaseNumber",
+       "SubPhaseName",
+       "ScheduledStart",
+       "ScheduledFinish",
+       "ConflictWith"
+      ]
+     },
+     "CustomFormatter": "{\"$schema\":\"https://developer.microsoft.com/json-schemas/sp/v2/row-formatting.schema.json\",\"hideColumnHeader\":true,\"hideSelection\":true,\"rowFormatter\":{\"elmType\":\"div\",\"style\":{\"display\":\"flex\",\"flex-direction\":\"column\",\"gap\":\"4px\",\"width\":\"100%\",\"box-sizing\":\"border-box\",\"align-items\":\"flex-start\",\"text-align\":\"left\",\"padding\":\"10px 14px\",\"margin\":\"4px 0\",\"border-radius\":\"4px\",\"background-color\":\"#ffffff\",\"box-shadow\":\"0 1px 2px rgba(8,37,68,.12)\",\"border-left\":\"4px solid\",\"border-left-color\":\"=if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), '#0b594b', if([$TasksComplete] &gt; 0, '#b45309', '#6b7280'))\"},\"children\":[{\"elmType\":\"div\",\"style\":{\"display\":\"flex\",\"align-items\":\"center\",\"flex-wrap\":\"wrap\"},\"children\":[{\"elmType\":\"span\",\"style\":{\"font-size\":\"15px\",\"font-weight\":\"600\",\"color\":\"#082544\"},\"txtContent\":\"=[$SubPhaseNumber] + '  ' + [$SubPhaseName]\"},{\"elmType\":\"span\",\"style\":{\"display\":\"=if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), 'inline', 'none')\"},\"children\":[{\"elmType\":\"span\",\"style\":{\"padding\":\"2px 8px\",\"border-radius\":\"10px\",\"font-size\":\"11px\",\"font-weight\":\"600\",\"white-space\":\"nowrap\",\"color\":\"#ffffff\",\"background-color\":\"#0b594b\",\"margin-left\":\"8px\"},\"txtContent\":\"SIGNED OFF\"}]},{\"elmType\":\"span\",\"style\":{\"display\":\"=if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), 'none', if([$TasksComplete] &gt; 0, 'inline', 'none'))\"},\"children\":[{\"elmType\":\"span\",\"style\":{\"padding\":\"2px 8px\",\"border-radius\":\"10px\",\"font-size\":\"11px\",\"font-weight\":\"600\",\"white-space\":\"nowrap\",\"color\":\"#ffffff\",\"background-color\":\"#b45309\",\"margin-left\":\"8px\"},\"txtContent\":\"IN PROGRESS\"}]},{\"elmType\":\"span\",\"style\":{\"display\":\"=if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), 'none', if([$TasksComplete] &gt; 0, 'none', 'inline'))\"},\"children\":[{\"elmType\":\"span\",\"style\":{\"padding\":\"2px 8px\",\"border-radius\":\"10px\",\"font-size\":\"11px\",\"font-weight\":\"600\",\"white-space\":\"nowrap\",\"color\":\"#ffffff\",\"background-color\":\"#6b7280\",\"margin-left\":\"8px\"},\"txtContent\":\"NOT STARTED\"}]}]},{\"elmType\":\"div\",\"style\":{\"font-size\":\"12px\",\"color\":\"#4b5563\"},\"txtContent\":\"=[$Title]\"},{\"elmType\":\"div\",\"style\":{\"font-size\":\"12px\",\"color\":\"#6b7280\"},\"txtContent\":\"=[$Crew] + '   ·   ' + [$ScheduledStart.displayValue] + '  to  ' + [$ScheduledFinish.displayValue]\"},{\"elmType\":\"div\",\"style\":{\"display\":\"flex\",\"align-items\":\"center\",\"gap\":\"8px\",\"margin-top\":\"2px\"},\"children\":[{\"elmType\":\"div\",\"style\":{\"width\":\"140px\",\"height\":\"6px\",\"border-radius\":\"3px\",\"background-color\":\"#e5e7eb\",\"overflow\":\"hidden\"},\"children\":[{\"elmType\":\"div\",\"style\":{\"height\":\"6px\",\"border-radius\":\"3px\",\"background-color\":\"=if((([$InstallerSignOff] == true) || ([$InstallerSignOff] == 'Yes') || ([$InstallerSignOff] == '1')), '#0b594b', '#b45309')\",\"width\":\"=if([$TasksTotal] &gt; 0, ((Number([$TasksComplete]) / Number([$TasksTotal])) * 100) + '%', '0%')\"}}]},{\"elmType\":\"span\",\"style\":{\"font-size\":\"11px\",\"color\":\"#6b7280\"},\"txtContent\":\"=[$TasksComplete] + ' / ' + [$TasksTotal] + ' tasks'\"}]},{\"elmType\":\"div\",\"style\":{\"display\":\"=if([$ConflictWith] == '', 'none', 'flex')\",\"align-items\":\"center\",\"gap\":\"6px\",\"margin-top\":\"2px\",\"padding\":\"4px 8px\",\"border-radius\":\"3px\",\"background-color\":\"#fff7ed\",\"color\":\"#b45309\",\"font-size\":\"12px\",\"font-weight\":\"600\"},\"txtContent\":\"='⚠ ' + [$ConflictWith]\"}]}}",
+     "DefaultView": false,
+     "Id": "a6dbd101-bf08-4820-98c2-dceefe8a4fca",
+     "Paged": true,
+     "ViewQuery": "<Where><IsNotNull><FieldRef Name=\"ConflictWith\" /></IsNotNull></Where><GroupBy Collapse=\"FALSE\"><FieldRef Name=\"Crew\" /></GroupBy><OrderBy><FieldRef Name=\"ScheduledStart\" Ascending=\"TRUE\" /></OrderBy>",
+     "RowLimit": 100,
+     "Title": "Conflicts",
+     "ViewType2": null
+    },
+    {
+     "ViewFields": {
+      "SchemaXml": "<FieldRef Name=\"LinkTitle\" /><FieldRef Name=\"Job\" /><FieldRef Name=\"SubPhaseNumber\" /><FieldRef Name=\"SubPhaseName\" /><FieldRef Name=\"Trade\" /><FieldRef Name=\"ScheduledStart\" /><FieldRef Name=\"TradeMismatch\" />",
+      "Items": [
+       "LinkTitle",
+       "Job",
+       "SubPhaseNumber",
+       "SubPhaseName",
+       "Trade",
+       "ScheduledStart",
+       "TradeMismatch"
+      ]
+     },
+     "CustomFormatter": null,
+     "DefaultView": false,
+     "Id": "466b2ac5-5aed-47b4-bbc2-545b3fe4e487",
+     "Paged": true,
+     "ViewQuery": "<Where><IsNotNull><FieldRef Name=\"TradeMismatch\" /></IsNotNull></Where><GroupBy Collapse=\"FALSE\"><FieldRef Name=\"Crew\" /></GroupBy><OrderBy><FieldRef Name=\"ScheduledStart\" Ascending=\"TRUE\" /></OrderBy>",
+     "RowLimit": 100,
+     "Title": "Trade Mismatch",
+     "ViewType2": null
+    },
+    {
+     "ViewFields": {
+      "SchemaXml": "<FieldRef Name=\"LinkTitle\" /><FieldRef Name=\"Job\" /><FieldRef Name=\"SubPhaseNumber\" /><FieldRef Name=\"SubPhaseName\" /><FieldRef Name=\"Crew\" /><FieldRef Name=\"ScheduledStart\" /><FieldRef Name=\"RejectedOn\" /><FieldRef Name=\"RejectedReason\" />",
+      "Items": [
+       "LinkTitle",
+       "Job",
+       "SubPhaseNumber",
+       "SubPhaseName",
+       "Crew",
+       "ScheduledStart",
+       "RejectedOn",
+       "RejectedReason"
+      ]
+     },
+     "CustomFormatter": null,
+     "DefaultView": false,
+     "Id": "9f489486-fac1-4633-87cc-0f46a10bf321",
+     "Paged": true,
+     "ViewQuery": "<Where><Eq><FieldRef Name=\"Rejected\" /><Value Type=\"Integer\">1</Value></Eq></Where><GroupBy Collapse=\"FALSE\"><FieldRef Name=\"Crew\" /></GroupBy><OrderBy><FieldRef Name=\"ScheduledStart\" Ascending=\"TRUE\" /></OrderBy>",
+     "RowLimit": 100,
+     "Title": "Rejected",
+     "ViewType2": null
+    }
+   ],
+   "contentTypes": [
+    {
+     "ClientFormCustomFormatter": "{\"headerJSONFormatter\":{\"elmType\":\"div\",\"style\":{\"background-color\":\"#082544\",\"padding\":\"14px 18px\",\"border-radius\":\"4px\",\"width\":\"100%\",\"box-sizing\":\"border-box\"},\"children\":[{\"elmType\":\"div\",\"style\":{\"font-size\":\"17px\",\"font-weight\":\"600\",\"color\":\"#ffffff\",\"padding-bottom\":\"9px\"},\"txtContent\":\"[$Title]\"},{\"elmType\":\"div\",\"style\":{\"font-size\":\"12px\",\"padding-bottom\":\"6px\"},\"children\":[{\"elmType\":\"span\",\"style\":{\"padding\":\"2px 9px\",\"border-radius\":\"10px\",\"font-size\":\"11px\",\"font-weight\":\"600\",\"margin-right\":\"8px\",\"display\":\"inline-block\",\"background-color\":\"#1d3a57\",\"color\":\"#dbe6f0\"},\"txtContent\":\"=if([$Crew] == '', 'No crew assigned', 'Crew ' + [$Crew])\"},{\"elmType\":\"span\",\"style\":{\"padding\":\"2px 9px\",\"border-radius\":\"10px\",\"font-size\":\"11px\",\"font-weight\":\"600\",\"margin-right\":\"8px\",\"display\":\"inline-block\",\"color\":\"#ffffff\",\"background-color\":\"=if([$InstallerSignOff] == true, '#0b594b', '#8a3b18')\"},\"txtContent\":\"=if([$InstallerSignOff] == true, 'Signed off', 'Not signed off')\"}]},{\"elmType\":\"div\",\"style\":{\"color\":\"#9fb2c4\",\"font-size\":\"11px\"},\"txtContent\":\"='Sub-phase ' + [$SubPhaseNumber] + ' of 46   ' + [$SubPhaseName]\"}]},\"bodyJSONFormatter\":{\"sections\":[{\"displayname\":\"Pool and sub-phase\",\"fields\":[\"Title\",\"Job\",\"SubPhaseNumber\",\"SubPhaseName\",\"Trade\"]},{\"displayname\":\"Schedule\",\"fields\":[\"ScheduledStart\",\"ScheduledFinish\",\"DurationDays\",\"WorkDate\"]},{\"displayname\":\"Crew and status\",\"fields\":[\"Crew\",\"Locked\",\"NotApplicable\"]},{\"displayname\":\"Sign-off and conflicts\",\"fields\":[\"SignOffNotes\",\"ConflictWith\"]},{\"displayname\":\"Other\",\"fields\":[]}],\"fieldsettings\":[{\"name\":\"SubPhaseNumber\",\"readonly\":true},{\"name\":\"SubPhaseName\",\"readonly\":true}]},\"footerJSONFormatter\":{\"elmType\":\"div\",\"style\":{\"padding\":\"10px 12px\",\"background-color\":\"#f6f3ed\",\"border-left\":\"3px solid #0b594b\",\"font-size\":\"12px\",\"color\":\"#3a4a42\",\"width\":\"100%\",\"box-sizing\":\"border-box\"},\"txtContent\":\"Crew must be a short code in lower case: devon, saul, guillermo, harrison, antonio, cirilo, campos, stl, george, armondo, brothers, subcon, office, unassigned. Never the display name. A code that is not on this list matches nothing, so the row is skipped by dispatch and by conflict detection.\"}}",
+     "Id": {
+      "StringValue": "0x01004FD1014CAE06C6469726C896CF573647"
+     },
+     "Name": "Item"
+    },
+    {
+     "ClientFormCustomFormatter": "",
+     "Id": {
+      "StringValue": "0x012000ED63DA5924ACC34F9C2EF5BA66F23DAF"
+     },
+     "Name": "Folder"
+    }
+   ]
+  },
+  {
+   "title": "Crew-Trades",
+   "id": "32c6154d-2572-4dfd-877a-18fa20a3a07e",
+   "itemCount": 51,
+   "versioning": true,
+   "versionLimit": 50,
+   "fields": [
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "Title",
+     "ReadOnlyField": false,
+     "Required": true,
+     "SchemaXml": "<Field ID=\"{fa564e0f-0c70-4ab9-b863-0177e6ddd247}\" Type=\"Text\" Name=\"Title\" DisplayName=\"Title\" Required=\"TRUE\" SourceID=\"http://schemas.microsoft.com/sharepoint/v3\" StaticName=\"Title\" FromBaseType=\"TRUE\" ColName=\"nvarchar1\" />",
+     "Title": "Title",
+     "TypeAsString": "Text",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "Crew",
+     "ReadOnlyField": false,
+     "Required": true,
+     "SchemaXml": "<Field Type=\"Lookup\" Name=\"Crew\" DisplayName=\"Crew\" List=\"{45e9ff1f-bf36-4ab5-929d-25ab9a80d460}\" ShowField=\"Title\" Required=\"TRUE\" ID=\"{e00908d7-dddb-4fa2-a28b-4158c605742e}\" SourceID=\"{32c6154d-2572-4dfd-877a-18fa20a3a07e}\" StaticName=\"Crew\" ColName=\"int1\" RowOrdinal=\"0\" />",
+     "Title": "Crew",
+     "TypeAsString": "Lookup",
+     "ValidationFormula": null,
+     "ValidationMessage": null,
+     "LookupField": "Title",
+     "LookupList": "{45e9ff1f-bf36-4ab5-929d-25ab9a80d460}"
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "Trade",
+     "ReadOnlyField": false,
+     "Required": true,
+     "SchemaXml": "<Field Type=\"Lookup\" Name=\"Trade\" DisplayName=\"Trade\" List=\"{05038f7f-a6cb-4f57-b1a1-3ff9c7126ba5}\" ShowField=\"Title\" Required=\"TRUE\" ID=\"{b02ee4b7-d6e7-470a-9b06-b25e2cbd3738}\" SourceID=\"{32c6154d-2572-4dfd-877a-18fa20a3a07e}\" StaticName=\"Trade\" ColName=\"int2\" RowOrdinal=\"0\" />",
+     "Title": "Trade",
+     "TypeAsString": "Lookup",
+     "ValidationFormula": null,
+     "ValidationMessage": null,
+     "LookupField": "Title",
+     "LookupList": "{05038f7f-a6cb-4f57-b1a1-3ff9c7126ba5}"
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "QualificationNote",
+     "ReadOnlyField": false,
+     "Required": false,
+     "SchemaXml": "<Field Type=\"Note\" Name=\"QualificationNote\" DisplayName=\"QualificationNote\" NumLines=\"2\" RichText=\"FALSE\" ID=\"{09d7caf2-50ed-4704-905b-2d99ae9a6acd}\" SourceID=\"{32c6154d-2572-4dfd-877a-18fa20a3a07e}\" StaticName=\"QualificationNote\" ColName=\"ntext2\" RowOrdinal=\"0\" />",
+     "Title": "QualificationNote",
+     "TypeAsString": "Note",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "ContentType",
+     "ReadOnlyField": false,
+     "Required": false,
+     "SchemaXml": "<Field ID=\"{c042a256-787d-4a6f-8a8a-cf6ab767f12d}\" Type=\"Computed\" DisplayName=\"Content Type\" Name=\"ContentType\" DisplaceOnUpgrade=\"TRUE\" RenderXMLUsingPattern=\"TRUE\" Sortable=\"FALSE\" SourceID=\"http://schemas.microsoft.com/sharepoint/v3\" StaticName=\"ContentType\" Group=\"_Hidden\" PITarget=\"MicrosoftWindowsSharePointServices\" PIAttribute=\"ContentTypeID\" FromBaseType=\"TRUE\"><FieldRefs><FieldRef Name=\"ContentTypeId\" /></FieldRefs><DisplayPattern><MapToContentType><Column Name=\"ContentTypeId\" /></MapToContentType></DisplayPattern></Field>",
+     "Title": "Content Type",
+     "TypeAsString": "Computed",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "Attachments",
+     "ReadOnlyField": false,
+     "Required": false,
+     "SchemaXml": "<Field ID=\"{67df98f4-9dec-48ff-a553-29bece9c5bf4}\" ColName=\"tp_HasAttachment\" RowOrdinal=\"0\" Type=\"Attachments\" Name=\"Attachments\" DisplayName=\"Attachments\" SourceID=\"http://schemas.microsoft.com/sharepoint/v3\" StaticName=\"Attachments\" FromBaseType=\"TRUE\" />",
+     "Title": "Attachments",
+     "TypeAsString": "Attachments",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    }
+   ],
+   "views": [
+    {
+     "ViewFields": {
+      "SchemaXml": "<FieldRef Name=\"LinkTitle\" />",
+      "Items": [
+       "LinkTitle"
+      ]
+     },
+     "CustomFormatter": null,
+     "DefaultView": true,
+     "Id": "657804e8-911a-48b5-a5b2-58a5eb6b4502",
+     "Paged": true,
+     "ViewQuery": "<OrderBy><FieldRef Name=\"ID\" /></OrderBy>",
+     "RowLimit": 30,
+     "Title": "All Items",
+     "ViewType2": null
+    }
+   ],
+   "contentTypes": [
+    {
+     "ClientFormCustomFormatter": "",
+     "Id": {
+      "StringValue": "0x010067494B3007CD2549AD10852A434C53B0"
+     },
+     "Name": "Item"
+    },
+    {
+     "ClientFormCustomFormatter": "",
+     "Id": {
+      "StringValue": "0x012000B1851C76BE845A4A81CBA341AE65F55F"
+     },
+     "Name": "Folder"
+    }
+   ]
+  },
+  {
+   "title": "Crews",
+   "id": "45e9ff1f-bf36-4ab5-929d-25ab9a80d460",
+   "itemCount": 14,
+   "versioning": true,
+   "versionLimit": 50,
+   "fields": [
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "Title",
+     "ReadOnlyField": false,
+     "Required": true,
+     "SchemaXml": "<Field ID=\"{fa564e0f-0c70-4ab9-b863-0177e6ddd247}\" Type=\"Text\" Name=\"Title\" DisplayName=\"Title\" Required=\"TRUE\" SourceID=\"http://schemas.microsoft.com/sharepoint/v3\" StaticName=\"Title\" FromBaseType=\"TRUE\" ColName=\"nvarchar1\" />",
+     "Title": "Title",
+     "TypeAsString": "Text",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "CrewID",
+     "ReadOnlyField": false,
+     "Required": true,
+     "SchemaXml": "<Field Type=\"Text\" Name=\"CrewID\" DisplayName=\"CrewID\" Required=\"TRUE\" EnforceUniqueValues=\"TRUE\" Indexed=\"TRUE\" ID=\"{19d134a3-a537-45aa-9e34-72bc670fce8c}\" SourceID=\"{45e9ff1f-bf36-4ab5-929d-25ab9a80d460}\" StaticName=\"CrewID\" ColName=\"nvarchar7\" RowOrdinal=\"0\" />",
+     "Title": "CrewID",
+     "TypeAsString": "Text",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "Size",
+     "ReadOnlyField": false,
+     "Required": false,
+     "SchemaXml": "<Field Type=\"Number\" Name=\"Size\" DisplayName=\"Size\" Decimals=\"0\" ID=\"{75d7c371-93cc-4595-82b6-803631cf7caf}\" SourceID=\"{45e9ff1f-bf36-4ab5-929d-25ab9a80d460}\" StaticName=\"Size\" ColName=\"float1\" RowOrdinal=\"0\" />",
+     "Title": "Size",
+     "TypeAsString": "Number",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": "0",
+     "Hidden": false,
+     "InternalName": "Unlimited",
+     "ReadOnlyField": false,
+     "Required": false,
+     "SchemaXml": "<Field Type=\"Boolean\" Name=\"Unlimited\" DisplayName=\"Unlimited\" ID=\"{cb845682-0445-4477-8206-4710bf63485b}\" SourceID=\"{45e9ff1f-bf36-4ab5-929d-25ab9a80d460}\" StaticName=\"Unlimited\" ColName=\"bit1\" RowOrdinal=\"0\"><Default>0</Default></Field>",
+     "Title": "Unlimited",
+     "TypeAsString": "Boolean",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": "1",
+     "Hidden": false,
+     "InternalName": "Active",
+     "ReadOnlyField": false,
+     "Required": true,
+     "SchemaXml": "<Field Type=\"Boolean\" Name=\"Active\" DisplayName=\"Active\" Required=\"TRUE\" ID=\"{1d1ef971-3c64-4938-bd58-db2d5bbe3a02}\" SourceID=\"{45e9ff1f-bf36-4ab5-929d-25ab9a80d460}\" StaticName=\"Active\" ColName=\"bit2\" RowOrdinal=\"0\"><Default>1</Default></Field>",
+     "Title": "Active",
+     "TypeAsString": "Boolean",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "LeadEmail",
+     "ReadOnlyField": false,
+     "Required": false,
+     "SchemaXml": "<Field Type=\"Text\" Name=\"LeadEmail\" DisplayName=\"LeadEmail\" ID=\"{d35fe955-7de5-4f40-b47b-f7d7e61fb9e7}\" SourceID=\"{45e9ff1f-bf36-4ab5-929d-25ab9a80d460}\" StaticName=\"LeadEmail\" ColName=\"nvarchar8\" RowOrdinal=\"0\" />",
+     "Title": "LeadEmail",
+     "TypeAsString": "Text",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "Notes",
+     "ReadOnlyField": false,
+     "Required": false,
+     "SchemaXml": "<Field Type=\"Note\" Name=\"Notes\" DisplayName=\"Notes\" NumLines=\"2\" RichText=\"FALSE\" ID=\"{d2b6153e-2cd5-46e8-a449-40032dad0edf}\" SourceID=\"{45e9ff1f-bf36-4ab5-929d-25ab9a80d460}\" StaticName=\"Notes\" ColName=\"ntext2\" RowOrdinal=\"0\" />",
+     "Title": "Notes",
+     "TypeAsString": "Note",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "ContentType",
+     "ReadOnlyField": false,
+     "Required": false,
+     "SchemaXml": "<Field ID=\"{c042a256-787d-4a6f-8a8a-cf6ab767f12d}\" Type=\"Computed\" DisplayName=\"Content Type\" Name=\"ContentType\" DisplaceOnUpgrade=\"TRUE\" RenderXMLUsingPattern=\"TRUE\" Sortable=\"FALSE\" SourceID=\"http://schemas.microsoft.com/sharepoint/v3\" StaticName=\"ContentType\" Group=\"_Hidden\" PITarget=\"MicrosoftWindowsSharePointServices\" PIAttribute=\"ContentTypeID\" FromBaseType=\"TRUE\"><FieldRefs><FieldRef Name=\"ContentTypeId\" /></FieldRefs><DisplayPattern><MapToContentType><Column Name=\"ContentTypeId\" /></MapToContentType></DisplayPattern></Field>",
+     "Title": "Content Type",
+     "TypeAsString": "Computed",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "Attachments",
+     "ReadOnlyField": false,
+     "Required": false,
+     "SchemaXml": "<Field ID=\"{67df98f4-9dec-48ff-a553-29bece9c5bf4}\" ColName=\"tp_HasAttachment\" RowOrdinal=\"0\" Type=\"Attachments\" Name=\"Attachments\" DisplayName=\"Attachments\" SourceID=\"http://schemas.microsoft.com/sharepoint/v3\" StaticName=\"Attachments\" FromBaseType=\"TRUE\" />",
+     "Title": "Attachments",
+     "TypeAsString": "Attachments",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    }
+   ],
+   "views": [
+    {
+     "ViewFields": {
+      "SchemaXml": "<FieldRef Name=\"LinkTitle\" />",
+      "Items": [
+       "LinkTitle"
+      ]
+     },
+     "CustomFormatter": null,
+     "DefaultView": true,
+     "Id": "d0bf9171-e723-4260-8083-ad26b5e498ff",
+     "Paged": true,
+     "ViewQuery": "<OrderBy><FieldRef Name=\"ID\" /></OrderBy>",
+     "RowLimit": 30,
+     "Title": "All Items",
+     "ViewType2": null
+    }
+   ],
+   "contentTypes": [
+    {
+     "ClientFormCustomFormatter": "",
+     "Id": {
+      "StringValue": "0x0100656EF8252320F94B9A0FBC3A35F565AE"
+     },
+     "Name": "Item"
+    },
+    {
+     "ClientFormCustomFormatter": "",
+     "Id": {
+      "StringValue": "0x01200048A7FA5B12ECD34683B3F9EC217CEB53"
+     },
+     "Name": "Folder"
+    }
+   ]
+  },
+  {
+   "title": "Delete Pool Requests",
+   "id": "b1ea3db6-7870-4648-80c2-7fe8414ecfd7",
+   "itemCount": 4,
+   "versioning": true,
+   "versionLimit": 50,
+   "fields": [
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "Title",
+     "ReadOnlyField": false,
+     "Required": true,
+     "SchemaXml": "<Field ID=\"{fa564e0f-0c70-4ab9-b863-0177e6ddd247}\" Type=\"Text\" Name=\"Title\" DisplayName=\"Title\" Required=\"TRUE\" SourceID=\"http://schemas.microsoft.com/sharepoint/v3\" StaticName=\"Title\" FromBaseType=\"TRUE\" ColName=\"nvarchar1\" Description=\"Enter the job number of the pool to delete (e.g. D2-1042), exactly as it appears in Jobs. This must match Confirm Job Number below, character for character, or the request is refused with no email sent -- the row is simply marked Refused (confirm mismatch). This is deliberate: it is the only thing standing between a typo and a permanent delete.\" Version=\"1\" RowOrdinal=\"0\" />",
+     "Title": "Title",
+     "TypeAsString": "Text",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "ConfirmJobNumber",
+     "ReadOnlyField": false,
+     "Required": true,
+     "SchemaXml": "<Field Type=\"Text\" Name=\"ConfirmJobNumber\" DisplayName=\"Confirm Job Number\" Required=\"TRUE\" MaxLength=\"255\" ID=\"{661dbe0a-523e-44fb-bfa0-de26ee3d9a5b}\" SourceID=\"{b1ea3db6-7870-4648-80c2-7fe8414ecfd7}\" StaticName=\"ConfirmJobNumber\" ColName=\"nvarchar7\" RowOrdinal=\"0\" Description=\"Retype the same job number entered above, exactly. Must match Title character for character or the request is silently refused (no email) and marked Refused (confirm mismatch).\" Version=\"1\" />",
+     "Title": "Confirm Job Number",
+     "TypeAsString": "Text",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "Reason",
+     "ReadOnlyField": false,
+     "Required": true,
+     "SchemaXml": "<Field Type=\"Note\" Name=\"Reason\" DisplayName=\"Reason\" Required=\"TRUE\" NumLines=\"6\" RichText=\"FALSE\" ID=\"{459aaaa6-aa50-43fd-b844-e927c58d5cc8}\" SourceID=\"{b1ea3db6-7870-4648-80c2-7fe8414ecfd7}\" StaticName=\"Reason\" ColName=\"ntext2\" RowOrdinal=\"0\" />",
+     "Title": "Reason",
+     "TypeAsString": "Note",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": "0",
+     "Hidden": false,
+     "InternalName": "OverrideSignedOff",
+     "ReadOnlyField": false,
+     "Required": true,
+     "SchemaXml": "<Field Type=\"Boolean\" Name=\"OverrideSignedOff\" DisplayName=\"Override Signed Off\" Required=\"TRUE\" ID=\"{7477cec6-b0ea-4347-acfc-40f8058eb38b}\" SourceID=\"{b1ea3db6-7870-4648-80c2-7fe8414ecfd7}\" StaticName=\"OverrideSignedOff\" ColName=\"bit1\" RowOrdinal=\"0\"><Default>0</Default></Field>",
+     "Title": "Override Signed Off",
+     "TypeAsString": "Boolean",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": "Requested",
+     "Hidden": false,
+     "InternalName": "Status",
+     "ReadOnlyField": false,
+     "Required": true,
+     "SchemaXml": "<Field ShowInNewForm=\"FALSE\" Type=\"Choice\" Name=\"Status\" DisplayName=\"Status\" Required=\"TRUE\" Format=\"Dropdown\" ID=\"{cc26c05f-dd40-4c1b-a3f6-7e0b235099b4}\" SourceID=\"{b1ea3db6-7870-4648-80c2-7fe8414ecfd7}\" StaticName=\"Status\" ColName=\"nvarchar8\" RowOrdinal=\"0\" Version=\"3\"><CHOICES><CHOICE>Requested</CHOICE><CHOICE>Deleting</CHOICE><CHOICE>Done</CHOICE><CHOICE>Refused</CHOICE><CHOICE>Failed</CHOICE></CHOICES><Default>Requested</Default></Field>",
+     "Title": "Status",
+     "TypeAsString": "Choice",
+     "ValidationFormula": null,
+     "ValidationMessage": null,
+     "Choices": [
+      "Requested",
+      "Deleting",
+      "Done",
+      "Refused",
+      "Failed"
+     ]
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "Result",
+     "ReadOnlyField": false,
+     "Required": false,
+     "SchemaXml": "<Field ShowInNewForm=\"FALSE\" Type=\"Note\" Name=\"Result\" DisplayName=\"Result\" Required=\"FALSE\" NumLines=\"6\" RichText=\"FALSE\" ID=\"{22d551d2-0010-4edb-87dd-84b5a3527ff6}\" SourceID=\"{b1ea3db6-7870-4648-80c2-7fe8414ecfd7}\" StaticName=\"Result\" ColName=\"ntext3\" RowOrdinal=\"0\" Version=\"2\" />",
+     "Title": "Result",
+     "TypeAsString": "Note",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "ContentType",
+     "ReadOnlyField": false,
+     "Required": false,
+     "SchemaXml": "<Field ID=\"{c042a256-787d-4a6f-8a8a-cf6ab767f12d}\" Type=\"Computed\" DisplayName=\"Content Type\" Name=\"ContentType\" DisplaceOnUpgrade=\"TRUE\" RenderXMLUsingPattern=\"TRUE\" Sortable=\"FALSE\" SourceID=\"http://schemas.microsoft.com/sharepoint/v3\" StaticName=\"ContentType\" Group=\"_Hidden\" PITarget=\"MicrosoftWindowsSharePointServices\" PIAttribute=\"ContentTypeID\" FromBaseType=\"TRUE\"><FieldRefs><FieldRef Name=\"ContentTypeId\" /></FieldRefs><DisplayPattern><MapToContentType><Column Name=\"ContentTypeId\" /></MapToContentType></DisplayPattern></Field>",
+     "Title": "Content Type",
+     "TypeAsString": "Computed",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "Attachments",
+     "ReadOnlyField": false,
+     "Required": false,
+     "SchemaXml": "<Field ID=\"{67df98f4-9dec-48ff-a553-29bece9c5bf4}\" ColName=\"tp_HasAttachment\" RowOrdinal=\"0\" Type=\"Attachments\" Name=\"Attachments\" DisplayName=\"Attachments\" SourceID=\"http://schemas.microsoft.com/sharepoint/v3\" StaticName=\"Attachments\" FromBaseType=\"TRUE\" />",
+     "Title": "Attachments",
+     "TypeAsString": "Attachments",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    }
+   ],
+   "views": [
+    {
+     "ViewFields": {
+      "SchemaXml": "<FieldRef Name=\"LinkTitle\" /><FieldRef Name=\"ConfirmJobNumber\" /><FieldRef Name=\"Reason\" /><FieldRef Name=\"Status\" /><FieldRef Name=\"Result\" /><FieldRef Name=\"Created\" />",
+      "Items": [
+       "LinkTitle",
+       "ConfirmJobNumber",
+       "Reason",
+       "Status",
+       "Result",
+       "Created"
+      ]
+     },
+     "CustomFormatter": null,
+     "DefaultView": true,
+     "Id": "79ab7255-b738-4fb7-9ba5-cc075dee77ea",
+     "Paged": true,
+     "ViewQuery": "<OrderBy><FieldRef Name=\"ID\" /></OrderBy>",
+     "RowLimit": 50,
+     "Title": "All Items",
+     "ViewType2": null
+    }
+   ],
+   "contentTypes": [
+    {
+     "ClientFormCustomFormatter": "",
+     "Id": {
+      "StringValue": "0x01005EB7F99E2B6FA64EB5416276FBBD73DA"
+     },
+     "Name": "Item"
+    },
+    {
+     "ClientFormCustomFormatter": "",
+     "Id": {
+      "StringValue": "0x012000A62AB87D61F5074EA461B487975900A3"
+     },
+     "Name": "Folder"
+    }
+   ]
+  },
+  {
+   "title": "Jobs",
+   "id": "ee0ecabf-2f11-458d-a9ea-641f76d10cc3",
+   "itemCount": 3,
+   "versioning": true,
+   "versionLimit": 50,
+   "fields": [
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "Title",
+     "ReadOnlyField": false,
+     "Required": true,
+     "SchemaXml": "<Field ID=\"{fa564e0f-0c70-4ab9-b863-0177e6ddd247}\" Type=\"Text\" Name=\"Title\" DisplayName=\"Title\" Required=\"TRUE\" SourceID=\"http://schemas.microsoft.com/sharepoint/v3\" StaticName=\"Title\" FromBaseType=\"TRUE\" ColName=\"nvarchar1\" />",
+     "Title": "Title",
+     "TypeAsString": "Text",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "JobNumber",
+     "ReadOnlyField": false,
+     "Required": true,
+     "SchemaXml": "<Field Type=\"Text\" Name=\"JobNumber\" DisplayName=\"JobNumber\" Required=\"TRUE\" EnforceUniqueValues=\"TRUE\" Indexed=\"TRUE\" ID=\"{d6d023e2-8a34-41a1-b886-4a441d013912}\" SourceID=\"{ee0ecabf-2f11-458d-a9ea-641f76d10cc3}\" StaticName=\"JobNumber\" ColName=\"nvarchar7\" RowOrdinal=\"0\" />",
+     "Title": "JobNumber",
+     "TypeAsString": "Text",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "Address",
+     "ReadOnlyField": false,
+     "Required": false,
+     "SchemaXml": "<Field Type=\"Text\" Name=\"Address\" DisplayName=\"Address\" ID=\"{176da36e-0f48-4c54-872c-903e000f7768}\" SourceID=\"{ee0ecabf-2f11-458d-a9ea-641f76d10cc3}\" StaticName=\"Address\" ColName=\"nvarchar8\" RowOrdinal=\"0\" />",
+     "Title": "Address",
+     "TypeAsString": "Text",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "City",
+     "ReadOnlyField": false,
+     "Required": false,
+     "SchemaXml": "<Field Type=\"Text\" Name=\"City\" DisplayName=\"City\" ID=\"{2360b59d-52a3-48f7-be7a-19e571c764b3}\" SourceID=\"{ee0ecabf-2f11-458d-a9ea-641f76d10cc3}\" StaticName=\"City\" ColName=\"nvarchar9\" RowOrdinal=\"0\" />",
+     "Title": "City",
+     "TypeAsString": "Text",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "StartDate",
+     "ReadOnlyField": false,
+     "Required": true,
+     "SchemaXml": "<Field Type=\"DateTime\" Name=\"StartDate\" DisplayName=\"StartDate\" Required=\"TRUE\" Format=\"DateOnly\" ID=\"{e27e0ef6-85fc-4911-9be4-7eb6ac462473}\" SourceID=\"{ee0ecabf-2f11-458d-a9ea-641f76d10cc3}\" StaticName=\"StartDate\" ColName=\"datetime1\" RowOrdinal=\"0\" />",
+     "Title": "StartDate",
+     "TypeAsString": "DateTime",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": "Planned",
+     "Hidden": false,
+     "InternalName": "Status",
+     "ReadOnlyField": false,
+     "Required": true,
+     "SchemaXml": "<Field Type=\"Choice\" Name=\"Status\" DisplayName=\"Status\" Required=\"TRUE\" ID=\"{243138e3-ff02-4761-9f0a-e5048e5ebb6c}\" SourceID=\"{ee0ecabf-2f11-458d-a9ea-641f76d10cc3}\" StaticName=\"Status\" ColName=\"nvarchar10\" RowOrdinal=\"0\"><CHOICES><CHOICE>Planned</CHOICE><CHOICE>Active</CHOICE><CHOICE>On Hold</CHOICE><CHOICE>Complete</CHOICE></CHOICES><Default>Planned</Default></Field>",
+     "Title": "Status",
+     "TypeAsString": "Choice",
+     "ValidationFormula": null,
+     "ValidationMessage": null,
+     "Choices": [
+      "Planned",
+      "Active",
+      "On Hold",
+      "Complete"
+     ]
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "ProjectManager",
+     "ReadOnlyField": false,
+     "Required": false,
+     "SchemaXml": "<Field Type=\"User\" Name=\"ProjectManager\" DisplayName=\"Project Manager\" UserSelectionMode=\"PeopleOnly\" UserSelectionScope=\"0\" Group=\"D2\" ID=\"{90ec6a24-4631-4c6f-bc78-43549dc1c37d}\" SourceID=\"{ee0ecabf-2f11-458d-a9ea-641f76d10cc3}\" StaticName=\"ProjectManager\" ColName=\"int1\" RowOrdinal=\"0\" />",
+     "Title": "Project Manager",
+     "TypeAsString": "User",
+     "ValidationFormula": null,
+     "ValidationMessage": null,
+     "LookupField": "",
+     "LookupList": "{0b0d7099-1aea-413b-baf7-2eaae99500a2}"
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "ContentType",
+     "ReadOnlyField": false,
+     "Required": false,
+     "SchemaXml": "<Field ID=\"{c042a256-787d-4a6f-8a8a-cf6ab767f12d}\" Type=\"Computed\" DisplayName=\"Content Type\" Name=\"ContentType\" DisplaceOnUpgrade=\"TRUE\" RenderXMLUsingPattern=\"TRUE\" Sortable=\"FALSE\" SourceID=\"http://schemas.microsoft.com/sharepoint/v3\" StaticName=\"ContentType\" Group=\"_Hidden\" PITarget=\"MicrosoftWindowsSharePointServices\" PIAttribute=\"ContentTypeID\" FromBaseType=\"TRUE\"><FieldRefs><FieldRef Name=\"ContentTypeId\" /></FieldRefs><DisplayPattern><MapToContentType><Column Name=\"ContentTypeId\" /></MapToContentType></DisplayPattern></Field>",
+     "Title": "Content Type",
+     "TypeAsString": "Computed",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "Attachments",
+     "ReadOnlyField": false,
+     "Required": false,
+     "SchemaXml": "<Field ID=\"{67df98f4-9dec-48ff-a553-29bece9c5bf4}\" ColName=\"tp_HasAttachment\" RowOrdinal=\"0\" Type=\"Attachments\" Name=\"Attachments\" DisplayName=\"Attachments\" SourceID=\"http://schemas.microsoft.com/sharepoint/v3\" StaticName=\"Attachments\" FromBaseType=\"TRUE\" />",
+     "Title": "Attachments",
+     "TypeAsString": "Attachments",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    }
+   ],
+   "views": [
+    {
+     "ViewFields": {
+      "SchemaXml": "<FieldRef Name=\"LinkTitle\" /><FieldRef Name=\"JobNumber\" /><FieldRef Name=\"Status\" /><FieldRef Name=\"ProjectManager\" /><FieldRef Name=\"StartDate\" /><FieldRef Name=\"Address\" /><FieldRef Name=\"City\" />",
+      "Items": [
+       "LinkTitle",
+       "JobNumber",
+       "Status",
+       "ProjectManager",
+       "StartDate",
+       "Address",
+       "City"
+      ]
+     },
+     "CustomFormatter": "{\"$schema\":\"https://developer.microsoft.com/json-schemas/sp/v2/row-formatting.schema.json\",\"hideColumnHeader\":true,\"hideSelection\":true,\"rowFormatter\":{\"elmType\":\"div\",\"style\":{\"display\":\"flex\",\"flex-direction\":\"column\",\"gap\":\"4px\",\"width\":\"100%\",\"box-sizing\":\"border-box\",\"align-items\":\"flex-start\",\"text-align\":\"left\",\"padding\":\"10px 14px\",\"margin\":\"4px 0\",\"border-radius\":\"4px\",\"background-color\":\"#ffffff\",\"box-shadow\":\"0 1px 2px rgba(8,37,68,.12)\",\"border-left\":\"4px solid\",\"border-left-color\":\"=if([$Status] == 'Active', '#0b594b', if([$Status] == 'Planned', '#b45309', if([$Status] == 'On Hold', '#6b7280', '#0b594b')))\"},\"children\":[{\"elmType\":\"div\",\"style\":{\"display\":\"flex\",\"align-items\":\"center\",\"flex-wrap\":\"wrap\"},\"children\":[{\"elmType\":\"span\",\"style\":{\"font-size\":\"15px\",\"font-weight\":\"600\",\"color\":\"#082544\"},\"txtContent\":\"=[$JobNumber] + '  ' + [$Title]\"},{\"elmType\":\"span\",\"style\":{\"padding\":\"2px 8px\",\"border-radius\":\"10px\",\"font-size\":\"11px\",\"font-weight\":\"600\",\"white-space\":\"nowrap\",\"color\":\"#ffffff\",\"margin-left\":\"8px\",\"background-color\":\"=if([$Status] == 'Active', '#0b594b', if([$Status] == 'Planned', '#b45309', if([$Status] == 'On Hold', '#6b7280', '#0b594b')))\"},\"txtContent\":\"=[$Status]\"}]},{\"elmType\":\"div\",\"style\":{\"font-size\":\"12px\",\"color\":\"#4b5563\"},\"txtContent\":\"=[$Address] + ', ' + [$City]\"},{\"elmType\":\"div\",\"style\":{\"font-size\":\"12px\",\"color\":\"#6b7280\"},\"txtContent\":\"=[$ProjectManager.title] + '   ·   starts ' + [$StartDate.displayValue]\"}]}}",
+     "DefaultView": true,
+     "Id": "6acf4eec-41d8-4513-a995-072cae0fb48a",
+     "Paged": true,
+     "ViewQuery": "<OrderBy><FieldRef Name=\"ID\" /></OrderBy>",
+     "RowLimit": 30,
+     "Title": "All Items",
+     "ViewType2": null
+    },
+    {
+     "ViewFields": {
+      "SchemaXml": "<FieldRef Name=\"LinkTitle\" /><FieldRef Name=\"JobNumber\" /><FieldRef Name=\"StartDate\" /><FieldRef Name=\"ProjectManager\" /><FieldRef Name=\"Address\" /><FieldRef Name=\"City\" /><FieldRef Name=\"Status\" />",
+      "Items": [
+       "LinkTitle",
+       "JobNumber",
+       "StartDate",
+       "ProjectManager",
+       "Address",
+       "City",
+       "Status"
+      ]
+     },
+     "CustomFormatter": "{\"$schema\":\"https://developer.microsoft.com/json-schemas/sp/v2/row-formatting.schema.json\",\"hideColumnHeader\":true,\"hideSelection\":true,\"rowFormatter\":{\"elmType\":\"div\",\"style\":{\"display\":\"flex\",\"flex-direction\":\"column\",\"gap\":\"4px\",\"width\":\"100%\",\"box-sizing\":\"border-box\",\"align-items\":\"flex-start\",\"text-align\":\"left\",\"padding\":\"10px 14px\",\"margin\":\"4px 0\",\"border-radius\":\"4px\",\"background-color\":\"#ffffff\",\"box-shadow\":\"0 1px 2px rgba(8,37,68,.12)\",\"border-left\":\"4px solid\",\"border-left-color\":\"=if([$Status] == 'Active', '#0b594b', if([$Status] == 'Planned', '#b45309', if([$Status] == 'On Hold', '#6b7280', '#0b594b')))\"},\"children\":[{\"elmType\":\"div\",\"style\":{\"display\":\"flex\",\"align-items\":\"center\",\"flex-wrap\":\"wrap\"},\"children\":[{\"elmType\":\"span\",\"style\":{\"font-size\":\"15px\",\"font-weight\":\"600\",\"color\":\"#082544\"},\"txtContent\":\"=[$JobNumber] + '  ' + [$Title]\"},{\"elmType\":\"span\",\"style\":{\"padding\":\"2px 8px\",\"border-radius\":\"10px\",\"font-size\":\"11px\",\"font-weight\":\"600\",\"white-space\":\"nowrap\",\"color\":\"#ffffff\",\"margin-left\":\"8px\",\"background-color\":\"=if([$Status] == 'Active', '#0b594b', if([$Status] == 'Planned', '#b45309', if([$Status] == 'On Hold', '#6b7280', '#0b594b')))\"},\"txtContent\":\"=[$Status]\"}]},{\"elmType\":\"div\",\"style\":{\"font-size\":\"12px\",\"color\":\"#4b5563\"},\"txtContent\":\"=[$Address] + ', ' + [$City]\"},{\"elmType\":\"div\",\"style\":{\"font-size\":\"12px\",\"color\":\"#6b7280\"},\"txtContent\":\"=[$ProjectManager.title] + '   ·   starts ' + [$StartDate.displayValue]\"}]}}",
+     "DefaultView": false,
+     "Id": "74b631b7-38cb-484d-8961-c22cc4d2b036",
+     "Paged": true,
+     "ViewQuery": "<Where><Eq><FieldRef Name=\"Status\" /><Value Type=\"Text\">Planned</Value></Eq></Where><OrderBy><FieldRef Name=\"StartDate\" /></OrderBy>",
+     "RowLimit": 100,
+     "Title": "Planned Pools",
+     "ViewType2": null
+    }
+   ],
+   "contentTypes": [
+    {
+     "ClientFormCustomFormatter": "",
+     "Id": {
+      "StringValue": "0x0100CE1D38EFEC59974A8FA155438D08BB4F"
+     },
+     "Name": "Item"
+    },
+    {
+     "ClientFormCustomFormatter": "",
+     "Id": {
+      "StringValue": "0x012000376DCCB016669B439992EB8EB109EAB6"
+     },
+     "Name": "Folder"
+    }
+   ]
+  },
+  {
+   "title": "New Pool Requests",
+   "id": "13331a5e-ea8e-4ab2-9276-db5b4f4d46bf",
+   "itemCount": 6,
+   "versioning": true,
+   "versionLimit": 50,
+   "fields": [
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "Title",
+     "ReadOnlyField": false,
+     "Required": true,
+     "SchemaXml": "<Field ID=\"{fa564e0f-0c70-4ab9-b863-0177e6ddd247}\" Type=\"Text\" Name=\"Title\" DisplayName=\"Title\" Required=\"TRUE\" SourceID=\"http://schemas.microsoft.com/sharepoint/v3\" StaticName=\"Title\" FromBaseType=\"TRUE\" ColName=\"nvarchar1\" />",
+     "Title": "Title",
+     "TypeAsString": "Text",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "JobNumber",
+     "ReadOnlyField": false,
+     "Required": true,
+     "SchemaXml": "<Field Type=\"Text\" Name=\"JobNumber\" DisplayName=\"JobNumber\" Required=\"TRUE\" MaxLength=\"255\" ID=\"{4fec6feb-442a-472b-87d1-6dcd328f2215}\" SourceID=\"{13331a5e-ea8e-4ab2-9276-db5b4f4d46bf}\" StaticName=\"JobNumber\" ColName=\"nvarchar7\" RowOrdinal=\"0\" />",
+     "Title": "JobNumber",
+     "TypeAsString": "Text",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "Address",
+     "ReadOnlyField": false,
+     "Required": false,
+     "SchemaXml": "<Field Type=\"Text\" Name=\"Address\" DisplayName=\"Address\" Required=\"FALSE\" MaxLength=\"255\" ID=\"{cce20edd-a464-4b8a-aebc-eb5fe9ad001a}\" SourceID=\"{13331a5e-ea8e-4ab2-9276-db5b4f4d46bf}\" StaticName=\"Address\" ColName=\"nvarchar8\" RowOrdinal=\"0\" />",
+     "Title": "Address",
+     "TypeAsString": "Text",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "City",
+     "ReadOnlyField": false,
+     "Required": false,
+     "SchemaXml": "<Field Type=\"Text\" Name=\"City\" DisplayName=\"City\" Required=\"FALSE\" MaxLength=\"255\" ID=\"{5ce78a97-0368-4e9d-8a30-03461471050c}\" SourceID=\"{13331a5e-ea8e-4ab2-9276-db5b4f4d46bf}\" StaticName=\"City\" ColName=\"nvarchar9\" RowOrdinal=\"0\" />",
+     "Title": "City",
+     "TypeAsString": "Text",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "StartDate",
+     "ReadOnlyField": false,
+     "Required": true,
+     "SchemaXml": "<Field Type=\"DateTime\" Name=\"StartDate\" DisplayName=\"StartDate\" Required=\"TRUE\" Format=\"DateOnly\" ID=\"{afd9c03e-eb4f-4c21-b3fc-9fe19c360eae}\" SourceID=\"{13331a5e-ea8e-4ab2-9276-db5b4f4d46bf}\" StaticName=\"StartDate\" ColName=\"datetime1\" RowOrdinal=\"0\" />",
+     "Title": "StartDate",
+     "TypeAsString": "DateTime",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "ProjectManager",
+     "ReadOnlyField": false,
+     "Required": true,
+     "SchemaXml": "<Field Type=\"User\" Name=\"ProjectManager\" DisplayName=\"Project Manager\" Required=\"TRUE\" UserSelectionMode=\"PeopleOnly\" UserSelectionScope=\"0\" ID=\"{6be16652-8e55-49a6-b0d8-4656e9d869cb}\" SourceID=\"{13331a5e-ea8e-4ab2-9276-db5b4f4d46bf}\" StaticName=\"ProjectManager\" ColName=\"int1\" RowOrdinal=\"0\" Version=\"1\" />",
+     "Title": "Project Manager",
+     "TypeAsString": "User",
+     "ValidationFormula": null,
+     "ValidationMessage": null,
+     "LookupField": "",
+     "LookupList": "{0b0d7099-1aea-413b-baf7-2eaae99500a2}"
+    },
+    {
+     "DefaultValue": "1",
+     "Hidden": false,
+     "InternalName": "AssignDefaultCrews",
+     "ReadOnlyField": false,
+     "Required": true,
+     "SchemaXml": "<Field Type=\"Boolean\" Name=\"AssignDefaultCrews\" DisplayName=\"Assign Default Crews\" Required=\"TRUE\" ID=\"{70fc70c9-acef-4412-8b06-2b65c1bc92f0}\" SourceID=\"{13331a5e-ea8e-4ab2-9276-db5b4f4d46bf}\" StaticName=\"AssignDefaultCrews\" ColName=\"bit1\" RowOrdinal=\"0\"><Default>1</Default></Field>",
+     "Title": "Assign Default Crews",
+     "TypeAsString": "Boolean",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": "Requested",
+     "Hidden": false,
+     "InternalName": "Status",
+     "ReadOnlyField": false,
+     "Required": true,
+     "SchemaXml": "<Field ShowInNewForm=\"FALSE\" Type=\"Choice\" Name=\"Status\" DisplayName=\"Status\" Required=\"TRUE\" Format=\"Dropdown\" ID=\"{2f55fb93-75ab-4660-9588-5b5e0829c167}\" SourceID=\"{13331a5e-ea8e-4ab2-9276-db5b4f4d46bf}\" StaticName=\"Status\" ColName=\"nvarchar10\" RowOrdinal=\"0\" Version=\"2\"><CHOICES><CHOICE>Requested</CHOICE><CHOICE>Building</CHOICE><CHOICE>Done</CHOICE><CHOICE>Failed</CHOICE></CHOICES><Default>Requested</Default></Field>",
+     "Title": "Status",
+     "TypeAsString": "Choice",
+     "ValidationFormula": null,
+     "ValidationMessage": null,
+     "Choices": [
+      "Requested",
+      "Building",
+      "Done",
+      "Failed"
+     ]
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "Result",
+     "ReadOnlyField": false,
+     "Required": false,
+     "SchemaXml": "<Field ShowInNewForm=\"FALSE\" Type=\"Note\" Name=\"Result\" DisplayName=\"Result\" Required=\"FALSE\" NumLines=\"6\" RichText=\"FALSE\" ID=\"{df9ec1ea-e026-4844-a985-22c6fcdfa738}\" SourceID=\"{13331a5e-ea8e-4ab2-9276-db5b4f4d46bf}\" StaticName=\"Result\" ColName=\"ntext2\" RowOrdinal=\"0\" Version=\"2\" />",
+     "Title": "Result",
+     "TypeAsString": "Note",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "ContentType",
+     "ReadOnlyField": false,
+     "Required": false,
+     "SchemaXml": "<Field ID=\"{c042a256-787d-4a6f-8a8a-cf6ab767f12d}\" Type=\"Computed\" DisplayName=\"Content Type\" Name=\"ContentType\" DisplaceOnUpgrade=\"TRUE\" RenderXMLUsingPattern=\"TRUE\" Sortable=\"FALSE\" SourceID=\"http://schemas.microsoft.com/sharepoint/v3\" StaticName=\"ContentType\" Group=\"_Hidden\" PITarget=\"MicrosoftWindowsSharePointServices\" PIAttribute=\"ContentTypeID\" FromBaseType=\"TRUE\"><FieldRefs><FieldRef Name=\"ContentTypeId\" /></FieldRefs><DisplayPattern><MapToContentType><Column Name=\"ContentTypeId\" /></MapToContentType></DisplayPattern></Field>",
+     "Title": "Content Type",
+     "TypeAsString": "Computed",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "Attachments",
+     "ReadOnlyField": false,
+     "Required": false,
+     "SchemaXml": "<Field ID=\"{67df98f4-9dec-48ff-a553-29bece9c5bf4}\" ColName=\"tp_HasAttachment\" RowOrdinal=\"0\" Type=\"Attachments\" Name=\"Attachments\" DisplayName=\"Attachments\" SourceID=\"http://schemas.microsoft.com/sharepoint/v3\" StaticName=\"Attachments\" FromBaseType=\"TRUE\" />",
+     "Title": "Attachments",
+     "TypeAsString": "Attachments",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    }
+   ],
+   "views": [
+    {
+     "ViewFields": {
+      "SchemaXml": "<FieldRef Name=\"LinkTitle\" /><FieldRef Name=\"JobNumber\" /><FieldRef Name=\"Status\" /><FieldRef Name=\"StartDate\" /><FieldRef Name=\"ProjectManager\" /><FieldRef Name=\"Result\" /><FieldRef Name=\"Created\" />",
+      "Items": [
+       "LinkTitle",
+       "JobNumber",
+       "Status",
+       "StartDate",
+       "ProjectManager",
+       "Result",
+       "Created"
+      ]
+     },
+     "CustomFormatter": null,
+     "DefaultView": true,
+     "Id": "3627852e-0894-474d-9e6b-736799883117",
+     "Paged": true,
+     "ViewQuery": "<OrderBy><FieldRef Name=\"ID\" /></OrderBy>",
+     "RowLimit": 50,
+     "Title": "All Items",
+     "ViewType2": null
+    }
+   ],
+   "contentTypes": [
+    {
+     "ClientFormCustomFormatter": "",
+     "Id": {
+      "StringValue": "0x010080998F9E88F9C048B8C5785D3974420D"
+     },
+     "Name": "Item"
+    },
+    {
+     "ClientFormCustomFormatter": "",
+     "Id": {
+      "StringValue": "0x01200042742D575E9B034CB7CBAA358B14ABCA"
+     },
+     "Name": "Folder"
+    }
+   ]
+  },
+  {
+   "title": "Reschedule Requests",
+   "id": "31ada231-3937-4d72-9abf-8677f07c3fea",
+   "itemCount": 3,
+   "versioning": true,
+   "versionLimit": 50,
+   "fields": [
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "Title",
+     "ReadOnlyField": false,
+     "Required": true,
+     "SchemaXml": "<Field ID=\"{fa564e0f-0c70-4ab9-b863-0177e6ddd247}\" Type=\"Text\" Name=\"Title\" DisplayName=\"Title\" Required=\"TRUE\" SourceID=\"http://schemas.microsoft.com/sharepoint/v3\" StaticName=\"Title\" FromBaseType=\"TRUE\" ColName=\"nvarchar1\" />",
+     "Title": "Title",
+     "TypeAsString": "Text",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "JobNumber",
+     "ReadOnlyField": false,
+     "Required": true,
+     "SchemaXml": "<Field Type=\"Text\" DisplayName=\"JobNumber\" Name=\"JobNumber\" Required=\"TRUE\" Description=\"The pool to reschedule, e.g. D2-1042.\" ID=\"{71c4fb3b-93f1-456a-a036-582bed606929}\" SourceID=\"{31ada231-3937-4d72-9abf-8677f07c3fea}\" StaticName=\"JobNumber\" ColName=\"nvarchar7\" RowOrdinal=\"0\" />",
+     "Title": "JobNumber",
+     "TypeAsString": "Text",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "FromSequence",
+     "ReadOnlyField": false,
+     "Required": true,
+     "SchemaXml": "<Field Type=\"Number\" DisplayName=\"FromSequence\" Name=\"FromSequence\" Required=\"TRUE\" Decimals=\"0\" Description=\"Reflow this sub-phase and every one after it.\" ID=\"{d42faccf-a075-437d-ad66-dbcab90d0f47}\" SourceID=\"{31ada231-3937-4d72-9abf-8677f07c3fea}\" StaticName=\"FromSequence\" ColName=\"float1\" RowOrdinal=\"0\" />",
+     "Title": "FromSequence",
+     "TypeAsString": "Number",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "NewStartDate",
+     "ReadOnlyField": false,
+     "Required": false,
+     "SchemaXml": "<Field Type=\"DateTime\" DisplayName=\"NewStartDate\" Name=\"NewStartDate\" Format=\"DateOnly\" Required=\"FALSE\" Description=\"Optional. Leave blank to keep the from-row where it is and only re-chain what follows.\" ID=\"{7a15506f-3f18-431a-94aa-efd9fbd2c29a}\" SourceID=\"{31ada231-3937-4d72-9abf-8677f07c3fea}\" StaticName=\"NewStartDate\" ColName=\"datetime1\" RowOrdinal=\"0\" />",
+     "Title": "NewStartDate",
+     "TypeAsString": "DateTime",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": "Requested",
+     "Hidden": false,
+     "InternalName": "Status",
+     "ReadOnlyField": false,
+     "Required": false,
+     "SchemaXml": "<Field ShowInNewForm=\"FALSE\" Type=\"Choice\" DisplayName=\"Status\" Name=\"Status\" Required=\"FALSE\" Format=\"Dropdown\" ID=\"{99b4561c-10be-41bc-b31a-88745c2ddc57}\" SourceID=\"{31ada231-3937-4d72-9abf-8677f07c3fea}\" StaticName=\"Status\" ColName=\"nvarchar8\" RowOrdinal=\"0\" Version=\"2\"><Default>Requested</Default><CHOICES><CHOICE>Requested</CHOICE><CHOICE>Running</CHOICE><CHOICE>Done</CHOICE><CHOICE>Failed</CHOICE></CHOICES></Field>",
+     "Title": "Status",
+     "TypeAsString": "Choice",
+     "ValidationFormula": null,
+     "ValidationMessage": null,
+     "Choices": [
+      "Requested",
+      "Running",
+      "Done",
+      "Failed"
+     ]
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "Result",
+     "ReadOnlyField": false,
+     "Required": false,
+     "SchemaXml": "<Field ShowInNewForm=\"FALSE\" Type=\"Note\" DisplayName=\"Result\" Name=\"Result\" Required=\"FALSE\" NumLines=\"6\" Description=\"Written by the flow. What moved, what was skipped and why.\" ID=\"{6cf8e920-3c5c-4d90-a276-22c4ce2a0f12}\" SourceID=\"{31ada231-3937-4d72-9abf-8677f07c3fea}\" StaticName=\"Result\" ColName=\"ntext2\" RowOrdinal=\"0\" Version=\"2\" />",
+     "Title": "Result",
+     "TypeAsString": "Note",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "ContentType",
+     "ReadOnlyField": false,
+     "Required": false,
+     "SchemaXml": "<Field ID=\"{c042a256-787d-4a6f-8a8a-cf6ab767f12d}\" Type=\"Computed\" DisplayName=\"Content Type\" Name=\"ContentType\" DisplaceOnUpgrade=\"TRUE\" RenderXMLUsingPattern=\"TRUE\" Sortable=\"FALSE\" SourceID=\"http://schemas.microsoft.com/sharepoint/v3\" StaticName=\"ContentType\" Group=\"_Hidden\" PITarget=\"MicrosoftWindowsSharePointServices\" PIAttribute=\"ContentTypeID\" FromBaseType=\"TRUE\"><FieldRefs><FieldRef Name=\"ContentTypeId\" /></FieldRefs><DisplayPattern><MapToContentType><Column Name=\"ContentTypeId\" /></MapToContentType></DisplayPattern></Field>",
+     "Title": "Content Type",
+     "TypeAsString": "Computed",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "Attachments",
+     "ReadOnlyField": false,
+     "Required": false,
+     "SchemaXml": "<Field ID=\"{67df98f4-9dec-48ff-a553-29bece9c5bf4}\" ColName=\"tp_HasAttachment\" RowOrdinal=\"0\" Type=\"Attachments\" Name=\"Attachments\" DisplayName=\"Attachments\" SourceID=\"http://schemas.microsoft.com/sharepoint/v3\" StaticName=\"Attachments\" FromBaseType=\"TRUE\" />",
+     "Title": "Attachments",
+     "TypeAsString": "Attachments",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    }
+   ],
+   "views": [
+    {
+     "ViewFields": {
+      "SchemaXml": "<FieldRef Name=\"LinkTitle\" /><FieldRef Name=\"JobNumber\" /><FieldRef Name=\"FromSequence\" /><FieldRef Name=\"NewStartDate\" /><FieldRef Name=\"Status\" /><FieldRef Name=\"Result\" /><FieldRef Name=\"Created\" />",
+      "Items": [
+       "LinkTitle",
+       "JobNumber",
+       "FromSequence",
+       "NewStartDate",
+       "Status",
+       "Result",
+       "Created"
+      ]
+     },
+     "CustomFormatter": null,
+     "DefaultView": true,
+     "Id": "acb5bdad-2145-4ac3-ba9c-083001e08847",
+     "Paged": true,
+     "ViewQuery": "<OrderBy><FieldRef Name=\"ID\" /></OrderBy>",
+     "RowLimit": 50,
+     "Title": "All Items",
+     "ViewType2": null
+    }
+   ],
+   "contentTypes": [
+    {
+     "ClientFormCustomFormatter": "",
+     "Id": {
+      "StringValue": "0x010039EC2B6E1BF88F42B32EF0F445284A1C"
+     },
+     "Name": "Item"
+    },
+    {
+     "ClientFormCustomFormatter": "",
+     "Id": {
+      "StringValue": "0x012000E911094B56AB1241A3E66AE0719F47DA"
+     },
+     "Name": "Folder"
+    }
+   ]
+  },
+  {
+   "title": "Sign-off Comments",
+   "id": "e6c97457-017d-4e18-868e-8a73b4fb6821",
+   "itemCount": 0,
+   "versioning": true,
+   "versionLimit": 50,
+   "fields": [
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "Title",
+     "ReadOnlyField": false,
+     "Required": true,
+     "SchemaXml": "<Field ID=\"{fa564e0f-0c70-4ab9-b863-0177e6ddd247}\" Type=\"Text\" Name=\"Title\" DisplayName=\"Title\" Required=\"TRUE\" SourceID=\"http://schemas.microsoft.com/sharepoint/v3\" StaticName=\"Title\" FromBaseType=\"TRUE\" ColName=\"nvarchar1\" />",
+     "Title": "Title",
+     "TypeAsString": "Text",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "Assignment",
+     "ReadOnlyField": false,
+     "Required": true,
+     "SchemaXml": "<Field Type=\"Lookup\" DisplayName=\"Assignment\" Required=\"TRUE\" List=\"{49ef7006-d3fe-40a7-a52f-c4c18545bd35}\" ShowField=\"Title\" StaticName=\"Assignment\" Name=\"Assignment\" ID=\"{9a6fae2b-bfab-4170-b3ce-66bf5bc52d27}\" SourceID=\"{e6c97457-017d-4e18-868e-8a73b4fb6821}\" ColName=\"int1\" RowOrdinal=\"0\" />",
+     "Title": "Assignment",
+     "TypeAsString": "Lookup",
+     "ValidationFormula": null,
+     "ValidationMessage": null,
+     "LookupField": "Title",
+     "LookupList": "{49ef7006-d3fe-40a7-a52f-c4c18545bd35}"
+    },
+    {
+     "DefaultValue": "Comment",
+     "Hidden": false,
+     "InternalName": "Kind",
+     "ReadOnlyField": false,
+     "Required": true,
+     "SchemaXml": "<Field Type=\"Choice\" DisplayName=\"Kind\" Required=\"TRUE\" Format=\"Dropdown\" FillInChoice=\"FALSE\" StaticName=\"Kind\" Name=\"Kind\" ID=\"{8d756aec-0335-4b5d-beaa-b633295896ad}\" SourceID=\"{e6c97457-017d-4e18-868e-8a73b4fb6821}\" ColName=\"nvarchar7\" RowOrdinal=\"0\"><CHOICES><CHOICE>Comment</CHOICE><CHOICE>Rejected</CHOICE><CHOICE>Resolved</CHOICE></CHOICES><Default>Comment</Default></Field>",
+     "Title": "Kind",
+     "TypeAsString": "Choice",
+     "ValidationFormula": null,
+     "ValidationMessage": null,
+     "Choices": [
+      "Comment",
+      "Rejected",
+      "Resolved"
+     ]
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "Body",
+     "ReadOnlyField": false,
+     "Required": false,
+     "SchemaXml": "<Field Type=\"Note\" DisplayName=\"Body\" Required=\"FALSE\" NumLines=\"6\" RichText=\"FALSE\" StaticName=\"Body\" Name=\"Body\" ID=\"{d036fabe-4a0b-4466-bd68-98c67dee5855}\" SourceID=\"{e6c97457-017d-4e18-868e-8a73b4fb6821}\" ColName=\"ntext2\" RowOrdinal=\"0\" />",
+     "Title": "Body",
+     "TypeAsString": "Note",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "ContentType",
+     "ReadOnlyField": false,
+     "Required": false,
+     "SchemaXml": "<Field ID=\"{c042a256-787d-4a6f-8a8a-cf6ab767f12d}\" Type=\"Computed\" DisplayName=\"Content Type\" Name=\"ContentType\" DisplaceOnUpgrade=\"TRUE\" RenderXMLUsingPattern=\"TRUE\" Sortable=\"FALSE\" SourceID=\"http://schemas.microsoft.com/sharepoint/v3\" StaticName=\"ContentType\" Group=\"_Hidden\" PITarget=\"MicrosoftWindowsSharePointServices\" PIAttribute=\"ContentTypeID\" FromBaseType=\"TRUE\"><FieldRefs><FieldRef Name=\"ContentTypeId\" /></FieldRefs><DisplayPattern><MapToContentType><Column Name=\"ContentTypeId\" /></MapToContentType></DisplayPattern></Field>",
+     "Title": "Content Type",
+     "TypeAsString": "Computed",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "Attachments",
+     "ReadOnlyField": false,
+     "Required": false,
+     "SchemaXml": "<Field ID=\"{67df98f4-9dec-48ff-a553-29bece9c5bf4}\" ColName=\"tp_HasAttachment\" RowOrdinal=\"0\" Type=\"Attachments\" Name=\"Attachments\" DisplayName=\"Attachments\" SourceID=\"http://schemas.microsoft.com/sharepoint/v3\" StaticName=\"Attachments\" FromBaseType=\"TRUE\" />",
+     "Title": "Attachments",
+     "TypeAsString": "Attachments",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    }
+   ],
+   "views": [
+    {
+     "ViewFields": {
+      "SchemaXml": "<FieldRef Name=\"LinkTitle\" />",
+      "Items": [
+       "LinkTitle"
+      ]
+     },
+     "CustomFormatter": null,
+     "DefaultView": true,
+     "Id": "1949b869-dd71-4918-993c-3b1da697f37f",
+     "Paged": true,
+     "ViewQuery": "<OrderBy><FieldRef Name=\"ID\" /></OrderBy>",
+     "RowLimit": 30,
+     "Title": "All Items",
+     "ViewType2": null
+    }
+   ],
+   "contentTypes": [
+    {
+     "ClientFormCustomFormatter": "",
+     "Id": {
+      "StringValue": "0x0100D5A21582A6B88C4A8349E573028AB075"
+     },
+     "Name": "Item"
+    },
+    {
+     "ClientFormCustomFormatter": "",
+     "Id": {
+      "StringValue": "0x01200024D686A8FBDA2E4C84419E80061CDA77"
+     },
+     "Name": "Folder"
+    }
+   ]
+  },
+  {
+   "title": "Sub-phase Template",
+   "id": "453e7cd5-f84a-4e2a-9372-73f26019e3f0",
+   "itemCount": 46,
+   "versioning": true,
+   "versionLimit": 50,
+   "fields": [
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "Title",
+     "ReadOnlyField": false,
+     "Required": true,
+     "SchemaXml": "<Field ID=\"{fa564e0f-0c70-4ab9-b863-0177e6ddd247}\" Type=\"Text\" Name=\"Title\" DisplayName=\"Title\" Required=\"TRUE\" SourceID=\"http://schemas.microsoft.com/sharepoint/v3\" StaticName=\"Title\" FromBaseType=\"TRUE\" ColName=\"nvarchar1\" />",
+     "Title": "Title",
+     "TypeAsString": "Text",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "SubPhaseNumber",
+     "ReadOnlyField": false,
+     "Required": true,
+     "SchemaXml": "<Field Type=\"Text\" Name=\"SubPhaseNumber\" DisplayName=\"SubPhaseNumber\" Required=\"TRUE\" MaxLength=\"255\" ID=\"{46279c69-1d60-4f29-bb8e-7089fb5fd0a8}\" SourceID=\"{453e7cd5-f84a-4e2a-9372-73f26019e3f0}\" StaticName=\"SubPhaseNumber\" ColName=\"nvarchar7\" RowOrdinal=\"0\" />",
+     "Title": "SubPhaseNumber",
+     "TypeAsString": "Text",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "Sequence",
+     "ReadOnlyField": false,
+     "Required": true,
+     "SchemaXml": "<Field Type=\"Number\" Name=\"Sequence\" DisplayName=\"Sequence\" Required=\"TRUE\" ID=\"{a03bed27-d35c-4c6f-8382-32b43eeb2198}\" SourceID=\"{453e7cd5-f84a-4e2a-9372-73f26019e3f0}\" StaticName=\"Sequence\" ColName=\"float1\" RowOrdinal=\"0\" />",
+     "Title": "Sequence",
+     "TypeAsString": "Number",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "Trade",
+     "ReadOnlyField": false,
+     "Required": false,
+     "SchemaXml": "<Field Type=\"Lookup\" Name=\"Trade\" DisplayName=\"Trade\" Required=\"FALSE\" List=\"{05038f7f-a6cb-4f57-b1a1-3ff9c7126ba5}\" ShowField=\"Title\" ID=\"{a8ec8088-ad51-45d6-aca3-df6144c6e273}\" SourceID=\"{453e7cd5-f84a-4e2a-9372-73f26019e3f0}\" StaticName=\"Trade\" ColName=\"int1\" RowOrdinal=\"0\" />",
+     "Title": "Trade",
+     "TypeAsString": "Lookup",
+     "ValidationFormula": null,
+     "ValidationMessage": null,
+     "LookupField": "Title",
+     "LookupList": "{05038f7f-a6cb-4f57-b1a1-3ff9c7126ba5}"
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "DefaultCrew",
+     "ReadOnlyField": false,
+     "Required": false,
+     "SchemaXml": "<Field Type=\"Text\" Name=\"DefaultCrew\" DisplayName=\"DefaultCrew\" Required=\"FALSE\" MaxLength=\"255\" ID=\"{1d6a7ab5-cf96-49e8-ad53-87cc2cf4a548}\" SourceID=\"{453e7cd5-f84a-4e2a-9372-73f26019e3f0}\" StaticName=\"DefaultCrew\" ColName=\"nvarchar8\" RowOrdinal=\"0\" />",
+     "Title": "DefaultCrew",
+     "TypeAsString": "Text",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "DurationDays",
+     "ReadOnlyField": false,
+     "Required": true,
+     "SchemaXml": "<Field Type=\"Number\" Name=\"DurationDays\" DisplayName=\"DurationDays\" Required=\"TRUE\" ID=\"{ead13e55-f7e5-477a-a63e-f95054bbbd43}\" SourceID=\"{453e7cd5-f84a-4e2a-9372-73f26019e3f0}\" StaticName=\"DurationDays\" ColName=\"float2\" RowOrdinal=\"0\" />",
+     "Title": "DurationDays",
+     "TypeAsString": "Number",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "ContentType",
+     "ReadOnlyField": false,
+     "Required": false,
+     "SchemaXml": "<Field ID=\"{c042a256-787d-4a6f-8a8a-cf6ab767f12d}\" Type=\"Computed\" DisplayName=\"Content Type\" Name=\"ContentType\" DisplaceOnUpgrade=\"TRUE\" RenderXMLUsingPattern=\"TRUE\" Sortable=\"FALSE\" SourceID=\"http://schemas.microsoft.com/sharepoint/v3\" StaticName=\"ContentType\" Group=\"_Hidden\" PITarget=\"MicrosoftWindowsSharePointServices\" PIAttribute=\"ContentTypeID\" FromBaseType=\"TRUE\"><FieldRefs><FieldRef Name=\"ContentTypeId\" /></FieldRefs><DisplayPattern><MapToContentType><Column Name=\"ContentTypeId\" /></MapToContentType></DisplayPattern></Field>",
+     "Title": "Content Type",
+     "TypeAsString": "Computed",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "Attachments",
+     "ReadOnlyField": false,
+     "Required": false,
+     "SchemaXml": "<Field ID=\"{67df98f4-9dec-48ff-a553-29bece9c5bf4}\" ColName=\"tp_HasAttachment\" RowOrdinal=\"0\" Type=\"Attachments\" Name=\"Attachments\" DisplayName=\"Attachments\" SourceID=\"http://schemas.microsoft.com/sharepoint/v3\" StaticName=\"Attachments\" FromBaseType=\"TRUE\" />",
+     "Title": "Attachments",
+     "TypeAsString": "Attachments",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    }
+   ],
+   "views": [
+    {
+     "ViewFields": {
+      "SchemaXml": "<FieldRef Name=\"LinkTitle\" />",
+      "Items": [
+       "LinkTitle"
+      ]
+     },
+     "CustomFormatter": null,
+     "DefaultView": true,
+     "Id": "1f377027-6210-4972-b5db-6a8b113447c8",
+     "Paged": true,
+     "ViewQuery": "<OrderBy><FieldRef Name=\"ID\" /></OrderBy>",
+     "RowLimit": 30,
+     "Title": "All Items",
+     "ViewType2": null
+    }
+   ],
+   "contentTypes": [
+    {
+     "ClientFormCustomFormatter": "",
+     "Id": {
+      "StringValue": "0x01004DF04F67322C924CBFE92B742E1D2392"
+     },
+     "Name": "Item"
+    },
+    {
+     "ClientFormCustomFormatter": "",
+     "Id": {
+      "StringValue": "0x0120004226FAE842876748B0B435DCBB90E4F6"
+     },
+     "Name": "Folder"
+    }
+   ]
+  },
+  {
+   "title": "Task Template",
+   "id": "61824add-8eaa-4b1b-aed7-a202204bf9f5",
+   "itemCount": 295,
+   "versioning": true,
+   "versionLimit": 50,
+   "fields": [
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "Title",
+     "ReadOnlyField": false,
+     "Required": true,
+     "SchemaXml": "<Field ID=\"{fa564e0f-0c70-4ab9-b863-0177e6ddd247}\" Type=\"Text\" Name=\"Title\" DisplayName=\"Title\" Required=\"TRUE\" SourceID=\"http://schemas.microsoft.com/sharepoint/v3\" StaticName=\"Title\" FromBaseType=\"TRUE\" ColName=\"nvarchar1\" />",
+     "Title": "Title",
+     "TypeAsString": "Text",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "SubPhase",
+     "ReadOnlyField": false,
+     "Required": true,
+     "SchemaXml": "<Field Type=\"Lookup\" Name=\"SubPhase\" DisplayName=\"SubPhase\" Required=\"TRUE\" List=\"{453e7cd5-f84a-4e2a-9372-73f26019e3f0}\" ShowField=\"Title\" ID=\"{6b5d4c65-0789-477b-b35b-c68644c2591e}\" SourceID=\"{61824add-8eaa-4b1b-aed7-a202204bf9f5}\" StaticName=\"SubPhase\" ColName=\"int1\" RowOrdinal=\"0\" />",
+     "Title": "SubPhase",
+     "TypeAsString": "Lookup",
+     "ValidationFormula": null,
+     "ValidationMessage": null,
+     "LookupField": "Title",
+     "LookupList": "{453e7cd5-f84a-4e2a-9372-73f26019e3f0}"
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "Sequence",
+     "ReadOnlyField": false,
+     "Required": true,
+     "SchemaXml": "<Field Type=\"Number\" Name=\"Sequence\" DisplayName=\"Sequence\" Required=\"TRUE\" ID=\"{082caa58-9647-4dba-a188-3dd94eb578ca}\" SourceID=\"{61824add-8eaa-4b1b-aed7-a202204bf9f5}\" StaticName=\"Sequence\" ColName=\"float1\" RowOrdinal=\"0\" />",
+     "Title": "Sequence",
+     "TypeAsString": "Number",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "ContentType",
+     "ReadOnlyField": false,
+     "Required": false,
+     "SchemaXml": "<Field ID=\"{c042a256-787d-4a6f-8a8a-cf6ab767f12d}\" Type=\"Computed\" DisplayName=\"Content Type\" Name=\"ContentType\" DisplaceOnUpgrade=\"TRUE\" RenderXMLUsingPattern=\"TRUE\" Sortable=\"FALSE\" SourceID=\"http://schemas.microsoft.com/sharepoint/v3\" StaticName=\"ContentType\" Group=\"_Hidden\" PITarget=\"MicrosoftWindowsSharePointServices\" PIAttribute=\"ContentTypeID\" FromBaseType=\"TRUE\"><FieldRefs><FieldRef Name=\"ContentTypeId\" /></FieldRefs><DisplayPattern><MapToContentType><Column Name=\"ContentTypeId\" /></MapToContentType></DisplayPattern></Field>",
+     "Title": "Content Type",
+     "TypeAsString": "Computed",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "Attachments",
+     "ReadOnlyField": false,
+     "Required": false,
+     "SchemaXml": "<Field ID=\"{67df98f4-9dec-48ff-a553-29bece9c5bf4}\" ColName=\"tp_HasAttachment\" RowOrdinal=\"0\" Type=\"Attachments\" Name=\"Attachments\" DisplayName=\"Attachments\" SourceID=\"http://schemas.microsoft.com/sharepoint/v3\" StaticName=\"Attachments\" FromBaseType=\"TRUE\" />",
+     "Title": "Attachments",
+     "TypeAsString": "Attachments",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    }
+   ],
+   "views": [
+    {
+     "ViewFields": {
+      "SchemaXml": "<FieldRef Name=\"LinkTitle\" />",
+      "Items": [
+       "LinkTitle"
+      ]
+     },
+     "CustomFormatter": null,
+     "DefaultView": true,
+     "Id": "1b7e369a-9984-408c-8c1b-5fb1db52a113",
+     "Paged": true,
+     "ViewQuery": "<OrderBy><FieldRef Name=\"ID\" /></OrderBy>",
+     "RowLimit": 30,
+     "Title": "All Items",
+     "ViewType2": null
+    }
+   ],
+   "contentTypes": [
+    {
+     "ClientFormCustomFormatter": "",
+     "Id": {
+      "StringValue": "0x010052EE7F14411D6947BB586DDDFDFA8CFA"
+     },
+     "Name": "Item"
+    },
+    {
+     "ClientFormCustomFormatter": "",
+     "Id": {
+      "StringValue": "0x012000D7E85B3A6BDE034BB86191108D73B1D9"
+     },
+     "Name": "Folder"
+    }
+   ]
+  },
+  {
+   "title": "Tasks",
+   "id": "22c45847-ff0d-417a-b53e-1ea018fbb6d3",
+   "itemCount": 618,
+   "versioning": true,
+   "versionLimit": 50,
+   "fields": [
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "Title",
+     "ReadOnlyField": false,
+     "Required": true,
+     "SchemaXml": "<Field ID=\"{fa564e0f-0c70-4ab9-b863-0177e6ddd247}\" Type=\"Text\" Name=\"Title\" DisplayName=\"Title\" Required=\"TRUE\" SourceID=\"http://schemas.microsoft.com/sharepoint/v3\" StaticName=\"Title\" FromBaseType=\"TRUE\" ColName=\"nvarchar1\" />",
+     "Title": "Title",
+     "TypeAsString": "Text",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "Assignment",
+     "ReadOnlyField": false,
+     "Required": true,
+     "SchemaXml": "<Field Type=\"Lookup\" Name=\"Assignment\" DisplayName=\"Assignment\" List=\"{49ef7006-d3fe-40a7-a52f-c4c18545bd35}\" ShowField=\"Title\" Required=\"TRUE\" Indexed=\"TRUE\" ID=\"{5d4f05c6-b255-4b1a-a349-3a0e79766e13}\" SourceID=\"{22c45847-ff0d-417a-b53e-1ea018fbb6d3}\" StaticName=\"Assignment\" ColName=\"int1\" RowOrdinal=\"0\" />",
+     "Title": "Assignment",
+     "TypeAsString": "Lookup",
+     "ValidationFormula": null,
+     "ValidationMessage": null,
+     "LookupField": "Title",
+     "LookupList": "{49ef7006-d3fe-40a7-a52f-c4c18545bd35}"
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "Sequence",
+     "ReadOnlyField": false,
+     "Required": false,
+     "SchemaXml": "<Field Type=\"Number\" Name=\"Sequence\" DisplayName=\"Sequence\" ID=\"{271698c3-e8a7-4408-9566-2f303593cb6c}\" SourceID=\"{22c45847-ff0d-417a-b53e-1ea018fbb6d3}\" StaticName=\"Sequence\" ColName=\"float1\" RowOrdinal=\"0\" />",
+     "Title": "Sequence",
+     "TypeAsString": "Number",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "Complete",
+     "ReadOnlyField": false,
+     "Required": false,
+     "SchemaXml": "<Field Type=\"Boolean\" Name=\"Complete\" DisplayName=\"Complete\" ID=\"{2f6064e8-79f9-469d-96ba-0f4e7b76dbb2}\" SourceID=\"{22c45847-ff0d-417a-b53e-1ea018fbb6d3}\" StaticName=\"Complete\" ColName=\"bit1\" RowOrdinal=\"0\" />",
+     "Title": "Complete",
+     "TypeAsString": "Boolean",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "CompletedBy",
+     "ReadOnlyField": false,
+     "Required": false,
+     "SchemaXml": "<Field Type=\"User\" Name=\"CompletedBy\" DisplayName=\"CompletedBy\" ID=\"{575c23d6-b4f3-4038-90c1-10d13db79f0a}\" SourceID=\"{22c45847-ff0d-417a-b53e-1ea018fbb6d3}\" StaticName=\"CompletedBy\" ColName=\"int2\" RowOrdinal=\"0\" />",
+     "Title": "CompletedBy",
+     "TypeAsString": "User",
+     "ValidationFormula": null,
+     "ValidationMessage": null,
+     "LookupField": "",
+     "LookupList": "{0b0d7099-1aea-413b-baf7-2eaae99500a2}"
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "CompletedOn",
+     "ReadOnlyField": false,
+     "Required": false,
+     "SchemaXml": "<Field Type=\"DateTime\" Name=\"CompletedOn\" DisplayName=\"CompletedOn\" ID=\"{1bb9e671-2842-4dc4-bce3-345fa35f2fbe}\" SourceID=\"{22c45847-ff0d-417a-b53e-1ea018fbb6d3}\" StaticName=\"CompletedOn\" ColName=\"datetime1\" RowOrdinal=\"0\" />",
+     "Title": "CompletedOn",
+     "TypeAsString": "DateTime",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": "0",
+     "Hidden": false,
+     "InternalName": "NotApplicable",
+     "ReadOnlyField": false,
+     "Required": false,
+     "SchemaXml": "<Field Type=\"Boolean\" Name=\"NotApplicable\" DisplayName=\"NotApplicable\" Required=\"FALSE\" ID=\"{c674113f-f800-4c09-9745-b29a4d33da67}\" SourceID=\"{22c45847-ff0d-417a-b53e-1ea018fbb6d3}\" StaticName=\"NotApplicable\" ColName=\"bit2\" RowOrdinal=\"0\"><Default>0</Default></Field>",
+     "Title": "NotApplicable",
+     "TypeAsString": "Boolean",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "Note",
+     "ReadOnlyField": false,
+     "Required": false,
+     "SchemaXml": "<Field Type=\"Text\" Name=\"Note\" DisplayName=\"Note\" Required=\"FALSE\" MaxLength=\"255\" ID=\"{79e27448-6e38-4165-b4ea-24f8068551f2}\" SourceID=\"{22c45847-ff0d-417a-b53e-1ea018fbb6d3}\" StaticName=\"Note\" ColName=\"nvarchar7\" RowOrdinal=\"0\" />",
+     "Title": "Note",
+     "TypeAsString": "Text",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "ContentType",
+     "ReadOnlyField": false,
+     "Required": false,
+     "SchemaXml": "<Field ID=\"{c042a256-787d-4a6f-8a8a-cf6ab767f12d}\" Type=\"Computed\" DisplayName=\"Content Type\" Name=\"ContentType\" DisplaceOnUpgrade=\"TRUE\" RenderXMLUsingPattern=\"TRUE\" Sortable=\"FALSE\" SourceID=\"http://schemas.microsoft.com/sharepoint/v3\" StaticName=\"ContentType\" Group=\"_Hidden\" PITarget=\"MicrosoftWindowsSharePointServices\" PIAttribute=\"ContentTypeID\" FromBaseType=\"TRUE\"><FieldRefs><FieldRef Name=\"ContentTypeId\" /></FieldRefs><DisplayPattern><MapToContentType><Column Name=\"ContentTypeId\" /></MapToContentType></DisplayPattern></Field>",
+     "Title": "Content Type",
+     "TypeAsString": "Computed",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "Attachments",
+     "ReadOnlyField": false,
+     "Required": false,
+     "SchemaXml": "<Field ID=\"{67df98f4-9dec-48ff-a553-29bece9c5bf4}\" ColName=\"tp_HasAttachment\" RowOrdinal=\"0\" Type=\"Attachments\" Name=\"Attachments\" DisplayName=\"Attachments\" SourceID=\"http://schemas.microsoft.com/sharepoint/v3\" StaticName=\"Attachments\" FromBaseType=\"TRUE\" />",
+     "Title": "Attachments",
+     "TypeAsString": "Attachments",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    }
+   ],
+   "views": [
+    {
+     "ViewFields": {
+      "SchemaXml": "<FieldRef Name=\"LinkTitle\" />",
+      "Items": [
+       "LinkTitle"
+      ]
+     },
+     "CustomFormatter": null,
+     "DefaultView": false,
+     "Id": "365cadc5-4b8f-4e00-bbd8-f1c7578c3056",
+     "Paged": true,
+     "ViewQuery": "<OrderBy><FieldRef Name=\"ID\" /></OrderBy>",
+     "RowLimit": 30,
+     "Title": "All Items",
+     "ViewType2": null
+    },
+    {
+     "ViewFields": {
+      "SchemaXml": "<FieldRef Name=\"LinkTitle\" /><FieldRef Name=\"Sequence\" /><FieldRef Name=\"Complete\" /><FieldRef Name=\"CompletedBy\" /><FieldRef Name=\"CompletedOn\" />",
+      "Items": [
+       "LinkTitle",
+       "Sequence",
+       "Complete",
+       "CompletedBy",
+       "CompletedOn"
+      ]
+     },
+     "CustomFormatter": "{\"$schema\":\"https://developer.microsoft.com/json-schemas/sp/v2/row-formatting.schema.json\",\"hideColumnHeader\":true,\"hideSelection\":true,\"rowFormatter\":{\"elmType\":\"div\",\"style\":{\"display\":\"flex\",\"align-items\":\"center\",\"gap\":\"10px\",\"width\":\"100%\",\"box-sizing\":\"border-box\",\"text-align\":\"left\",\"padding\":\"6px 14px\",\"border-bottom\":\"1px solid #eef1f5\"},\"children\":[{\"elmType\":\"span\",\"style\":{\"width\":\"18px\",\"height\":\"18px\",\"border-radius\":\"3px\",\"flex-shrink\":\"0\",\"display\":\"flex\",\"align-items\":\"center\",\"justify-content\":\"center\",\"font-size\":\"12px\",\"font-weight\":\"700\",\"color\":\"#ffffff\",\"background-color\":\"=if((([$Complete] == true) || ([$Complete] == 'Yes') || ([$Complete] == '1')), '#0b594b', if((([$NotApplicable] == true) || ([$NotApplicable] == 'Yes') || ([$NotApplicable] == '1')), '#6b7280', '#d1d5db'))\"},\"txtContent\":\"=if((([$Complete] == true) || ([$Complete] == 'Yes') || ([$Complete] == '1')), '✓', if((([$NotApplicable] == true) || ([$NotApplicable] == 'Yes') || ([$NotApplicable] == '1')), '–', ''))\"},{\"elmType\":\"span\",\"style\":{\"font-size\":\"13px\",\"color\":\"=if((([$Complete] == true) || ([$Complete] == 'Yes') || ([$Complete] == '1')), '#6b7280', '#082544')\",\"text-decoration\":\"=if((([$NotApplicable] == true) || ([$NotApplicable] == 'Yes') || ([$NotApplicable] == '1')), 'line-through', 'none')\"},\"txtContent\":\"=[$Title]\"},{\"elmType\":\"span\",\"style\":{\"font-size\":\"11px\",\"color\":\"#6b7280\",\"margin-left\":\"auto\"},\"txtContent\":\"=if([$CompletedOn] == '', '', [$CompletedOn.displayValue])\"}]}}",
+     "DefaultView": true,
+     "Id": "1fad7c06-9e47-41e7-be28-498a77da3bdc",
+     "Paged": true,
+     "ViewQuery": "<GroupBy Collapse=\"TRUE\"><FieldRef Name=\"Assignment\" /></GroupBy><OrderBy><FieldRef Name=\"Sequence\" Ascending=\"TRUE\" /></OrderBy>",
+     "RowLimit": 100,
+     "Title": "All Tasks (by Assignment)",
+     "ViewType2": null
+    },
+    {
+     "ViewFields": {
+      "SchemaXml": "<FieldRef Name=\"LinkTitle\" /><FieldRef Name=\"Sequence\" /><FieldRef Name=\"Complete\" /><FieldRef Name=\"CompletedBy\" /><FieldRef Name=\"CompletedOn\" />",
+      "Items": [
+       "LinkTitle",
+       "Sequence",
+       "Complete",
+       "CompletedBy",
+       "CompletedOn"
+      ]
+     },
+     "CustomFormatter": "{\"$schema\":\"https://developer.microsoft.com/json-schemas/sp/v2/row-formatting.schema.json\",\"hideColumnHeader\":true,\"hideSelection\":true,\"rowFormatter\":{\"elmType\":\"div\",\"style\":{\"display\":\"flex\",\"align-items\":\"center\",\"gap\":\"10px\",\"width\":\"100%\",\"box-sizing\":\"border-box\",\"text-align\":\"left\",\"padding\":\"6px 14px\",\"border-bottom\":\"1px solid #eef1f5\"},\"children\":[{\"elmType\":\"span\",\"style\":{\"width\":\"18px\",\"height\":\"18px\",\"border-radius\":\"3px\",\"flex-shrink\":\"0\",\"display\":\"flex\",\"align-items\":\"center\",\"justify-content\":\"center\",\"font-size\":\"12px\",\"font-weight\":\"700\",\"color\":\"#ffffff\",\"background-color\":\"=if((([$Complete] == true) || ([$Complete] == 'Yes') || ([$Complete] == '1')), '#0b594b', if((([$NotApplicable] == true) || ([$NotApplicable] == 'Yes') || ([$NotApplicable] == '1')), '#6b7280', '#d1d5db'))\"},\"txtContent\":\"=if((([$Complete] == true) || ([$Complete] == 'Yes') || ([$Complete] == '1')), '✓', if((([$NotApplicable] == true) || ([$NotApplicable] == 'Yes') || ([$NotApplicable] == '1')), '–', ''))\"},{\"elmType\":\"span\",\"style\":{\"font-size\":\"13px\",\"color\":\"=if((([$Complete] == true) || ([$Complete] == 'Yes') || ([$Complete] == '1')), '#6b7280', '#082544')\",\"text-decoration\":\"=if((([$NotApplicable] == true) || ([$NotApplicable] == 'Yes') || ([$NotApplicable] == '1')), 'line-through', 'none')\"},\"txtContent\":\"=[$Title]\"},{\"elmType\":\"span\",\"style\":{\"font-size\":\"11px\",\"color\":\"#6b7280\",\"margin-left\":\"auto\"},\"txtContent\":\"=if([$CompletedOn] == '', '', [$CompletedOn.displayValue])\"}]}}",
+     "DefaultView": false,
+     "Id": "fc5da80e-72fb-438c-9332-fba015808bb0",
+     "Paged": true,
+     "ViewQuery": "<Where><Eq><FieldRef Name=\"Complete\" /><Value Type=\"Integer\">0</Value></Eq></Where><GroupBy Collapse=\"TRUE\"><FieldRef Name=\"Assignment\" /></GroupBy><OrderBy><FieldRef Name=\"Sequence\" Ascending=\"TRUE\" /></OrderBy>",
+     "RowLimit": 100,
+     "Title": "Incomplete Tasks",
+     "ViewType2": null
+    }
+   ],
+   "contentTypes": [
+    {
+     "ClientFormCustomFormatter": "",
+     "Id": {
+      "StringValue": "0x0100346C7DD81C297B4CA5DC19FF7044A163"
+     },
+     "Name": "Item"
+    },
+    {
+     "ClientFormCustomFormatter": "",
+     "Id": {
+      "StringValue": "0x01200021577283EB30AC409CB9B011AE4BA9C2"
+     },
+     "Name": "Folder"
+    }
+   ]
+  },
+  {
+   "title": "Trades",
+   "id": "05038f7f-a6cb-4f57-b1a1-3ff9c7126ba5",
+   "itemCount": 26,
+   "versioning": true,
+   "versionLimit": 50,
+   "fields": [
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "Title",
+     "ReadOnlyField": false,
+     "Required": true,
+     "SchemaXml": "<Field ID=\"{fa564e0f-0c70-4ab9-b863-0177e6ddd247}\" Type=\"Text\" Name=\"Title\" DisplayName=\"Title\" Required=\"TRUE\" SourceID=\"http://schemas.microsoft.com/sharepoint/v3\" StaticName=\"Title\" FromBaseType=\"TRUE\" ColName=\"nvarchar1\" Indexed=\"TRUE\" EnforceUniqueValues=\"TRUE\" Version=\"1\" RowOrdinal=\"0\" />",
+     "Title": "Title",
+     "TypeAsString": "Text",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "TradeCode",
+     "ReadOnlyField": false,
+     "Required": true,
+     "SchemaXml": "<Field Type=\"Text\" Name=\"TradeCode\" DisplayName=\"TradeCode\" Required=\"TRUE\" EnforceUniqueValues=\"TRUE\" Indexed=\"TRUE\" ID=\"{eaad650f-bf24-4221-bc3b-4b2c5cff4352}\" SourceID=\"{05038f7f-a6cb-4f57-b1a1-3ff9c7126ba5}\" StaticName=\"TradeCode\" ColName=\"nvarchar7\" RowOrdinal=\"0\" />",
+     "Title": "TradeCode",
+     "TypeAsString": "Text",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "SortOrder",
+     "ReadOnlyField": false,
+     "Required": false,
+     "SchemaXml": "<Field Type=\"Number\" Name=\"SortOrder\" DisplayName=\"SortOrder\" Decimals=\"0\" ID=\"{b0500637-5927-483c-b0f7-eed62d2a2d40}\" SourceID=\"{05038f7f-a6cb-4f57-b1a1-3ff9c7126ba5}\" StaticName=\"SortOrder\" ColName=\"float1\" RowOrdinal=\"0\" />",
+     "Title": "SortOrder",
+     "TypeAsString": "Number",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "ContentType",
+     "ReadOnlyField": false,
+     "Required": false,
+     "SchemaXml": "<Field ID=\"{c042a256-787d-4a6f-8a8a-cf6ab767f12d}\" Type=\"Computed\" DisplayName=\"Content Type\" Name=\"ContentType\" DisplaceOnUpgrade=\"TRUE\" RenderXMLUsingPattern=\"TRUE\" Sortable=\"FALSE\" SourceID=\"http://schemas.microsoft.com/sharepoint/v3\" StaticName=\"ContentType\" Group=\"_Hidden\" PITarget=\"MicrosoftWindowsSharePointServices\" PIAttribute=\"ContentTypeID\" FromBaseType=\"TRUE\"><FieldRefs><FieldRef Name=\"ContentTypeId\" /></FieldRefs><DisplayPattern><MapToContentType><Column Name=\"ContentTypeId\" /></MapToContentType></DisplayPattern></Field>",
+     "Title": "Content Type",
+     "TypeAsString": "Computed",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "Attachments",
+     "ReadOnlyField": false,
+     "Required": false,
+     "SchemaXml": "<Field ID=\"{67df98f4-9dec-48ff-a553-29bece9c5bf4}\" ColName=\"tp_HasAttachment\" RowOrdinal=\"0\" Type=\"Attachments\" Name=\"Attachments\" DisplayName=\"Attachments\" SourceID=\"http://schemas.microsoft.com/sharepoint/v3\" StaticName=\"Attachments\" FromBaseType=\"TRUE\" />",
+     "Title": "Attachments",
+     "TypeAsString": "Attachments",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    }
+   ],
+   "views": [
+    {
+     "ViewFields": {
+      "SchemaXml": "<FieldRef Name=\"LinkTitle\" />",
+      "Items": [
+       "LinkTitle"
+      ]
+     },
+     "CustomFormatter": null,
+     "DefaultView": true,
+     "Id": "f62d4df6-1c83-4677-9388-306980ea0695",
+     "Paged": true,
+     "ViewQuery": "<OrderBy><FieldRef Name=\"ID\" /></OrderBy>",
+     "RowLimit": 30,
+     "Title": "All Items",
+     "ViewType2": null
+    }
+   ],
+   "contentTypes": [
+    {
+     "ClientFormCustomFormatter": "",
+     "Id": {
+      "StringValue": "0x0100BCBC5A7AFE3F38439B580BEECED51ACF"
+     },
+     "Name": "Item"
+    },
+    {
+     "ClientFormCustomFormatter": "",
+     "Id": {
+      "StringValue": "0x01200073B5171E0151594A9B24DA36A5DD77CF"
+     },
+     "Name": "Folder"
+    }
+   ]
+  },
+  {
+   "title": "Work Calendar",
+   "id": "d36758cf-9d27-4342-84e4-817f8dcfa2ba",
+   "itemCount": 210,
+   "versioning": true,
+   "versionLimit": 50,
+   "fields": [
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "Title",
+     "ReadOnlyField": false,
+     "Required": true,
+     "SchemaXml": "<Field ID=\"{fa564e0f-0c70-4ab9-b863-0177e6ddd247}\" Type=\"Text\" Name=\"Title\" DisplayName=\"Title\" Required=\"TRUE\" SourceID=\"http://schemas.microsoft.com/sharepoint/v3\" StaticName=\"Title\" FromBaseType=\"TRUE\" ColName=\"nvarchar1\" />",
+     "Title": "Title",
+     "TypeAsString": "Text",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "Date",
+     "ReadOnlyField": false,
+     "Required": true,
+     "SchemaXml": "<Field Type=\"DateTime\" Name=\"Date\" DisplayName=\"Date\" Required=\"TRUE\" Format=\"DateOnly\" ID=\"{79c4c744-c5e5-46c5-9be7-96983758040f}\" SourceID=\"{d36758cf-9d27-4342-84e4-817f8dcfa2ba}\" StaticName=\"Date\" ColName=\"datetime1\" RowOrdinal=\"0\" />",
+     "Title": "Date",
+     "TypeAsString": "DateTime",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "Reason",
+     "ReadOnlyField": false,
+     "Required": true,
+     "SchemaXml": "<Field Type=\"Choice\" Name=\"Reason\" DisplayName=\"Reason\" Required=\"TRUE\" ID=\"{81758264-858a-4689-91f2-646b8d31b413}\" SourceID=\"{d36758cf-9d27-4342-84e4-817f8dcfa2ba}\" StaticName=\"Reason\" ColName=\"nvarchar7\" RowOrdinal=\"0\"><CHOICES><CHOICE>Sunday</CHOICE><CHOICE>Holiday</CHOICE><CHOICE>Weather</CHOICE><CHOICE>Shutdown</CHOICE></CHOICES></Field>",
+     "Title": "Reason",
+     "TypeAsString": "Choice",
+     "ValidationFormula": null,
+     "ValidationMessage": null,
+     "Choices": [
+      "Sunday",
+      "Holiday",
+      "Weather",
+      "Shutdown"
+     ]
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "Crew",
+     "ReadOnlyField": false,
+     "Required": false,
+     "SchemaXml": "<Field Type=\"Lookup\" Name=\"Crew\" DisplayName=\"Crew\" List=\"{45e9ff1f-bf36-4ab5-929d-25ab9a80d460}\" ShowField=\"Title\" ID=\"{c57fddb4-51bb-4ea9-81c5-22f6aac703eb}\" SourceID=\"{d36758cf-9d27-4342-84e4-817f8dcfa2ba}\" StaticName=\"Crew\" ColName=\"int1\" RowOrdinal=\"0\" />",
+     "Title": "Crew",
+     "TypeAsString": "Lookup",
+     "ValidationFormula": null,
+     "ValidationMessage": null,
+     "LookupField": "Title",
+     "LookupList": "{45e9ff1f-bf36-4ab5-929d-25ab9a80d460}"
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "ContentType",
+     "ReadOnlyField": false,
+     "Required": false,
+     "SchemaXml": "<Field ID=\"{c042a256-787d-4a6f-8a8a-cf6ab767f12d}\" Type=\"Computed\" DisplayName=\"Content Type\" Name=\"ContentType\" DisplaceOnUpgrade=\"TRUE\" RenderXMLUsingPattern=\"TRUE\" Sortable=\"FALSE\" SourceID=\"http://schemas.microsoft.com/sharepoint/v3\" StaticName=\"ContentType\" Group=\"_Hidden\" PITarget=\"MicrosoftWindowsSharePointServices\" PIAttribute=\"ContentTypeID\" FromBaseType=\"TRUE\"><FieldRefs><FieldRef Name=\"ContentTypeId\" /></FieldRefs><DisplayPattern><MapToContentType><Column Name=\"ContentTypeId\" /></MapToContentType></DisplayPattern></Field>",
+     "Title": "Content Type",
+     "TypeAsString": "Computed",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    },
+    {
+     "DefaultValue": null,
+     "Hidden": false,
+     "InternalName": "Attachments",
+     "ReadOnlyField": false,
+     "Required": false,
+     "SchemaXml": "<Field ID=\"{67df98f4-9dec-48ff-a553-29bece9c5bf4}\" ColName=\"tp_HasAttachment\" RowOrdinal=\"0\" Type=\"Attachments\" Name=\"Attachments\" DisplayName=\"Attachments\" SourceID=\"http://schemas.microsoft.com/sharepoint/v3\" StaticName=\"Attachments\" FromBaseType=\"TRUE\" />",
+     "Title": "Attachments",
+     "TypeAsString": "Attachments",
+     "ValidationFormula": null,
+     "ValidationMessage": null
+    }
+   ],
+   "views": [
+    {
+     "ViewFields": {
+      "SchemaXml": "<FieldRef Name=\"LinkTitle\" />",
+      "Items": [
+       "LinkTitle"
+      ]
+     },
+     "CustomFormatter": null,
+     "DefaultView": true,
+     "Id": "bfd91cea-8968-4dd0-b95a-a17e26831811",
+     "Paged": true,
+     "ViewQuery": "<OrderBy><FieldRef Name=\"ID\" /></OrderBy>",
+     "RowLimit": 30,
+     "Title": "All Items",
+     "ViewType2": null
+    }
+   ],
+   "contentTypes": [
+    {
+     "ClientFormCustomFormatter": "",
+     "Id": {
+      "StringValue": "0x0100C89738033631FE46B619B65B2AC05DB9"
+     },
+     "Name": "Item"
+    },
+    {
+     "ClientFormCustomFormatter": "",
+     "Id": {
+      "StringValue": "0x0120009B011046AE3B33428138796D49735904"
+     },
+     "Name": "Folder"
+    }
+   ]
+  }
+ ]
+}

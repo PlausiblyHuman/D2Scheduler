@@ -1,6 +1,6 @@
 # Scheduler build proposal, from the 24 September status meeting
 
-**Status: revised 2026-09-25 after Shane's answers to the first draft. Nothing here is built.** This decomposes his 25 September
+**Status: batch 1 shipped 2026-09-25 (commit `a3013fc`, tag `deploy/2026-09-25`). Revised the same day with Shane's third-round answers.** This decomposes his 25 September
 decisions into work packages, gives each a design at the depth it needs, and proposes an order.
 Approval of this document approves the bounded packages (WP1, WP2, WP4) for implementation and
 approves writing a separate spec for each architectural one (WP3-B, WP5, WP6, WP8). It does not
@@ -37,6 +37,15 @@ Second round, same day, on the first draft of this document:
 | WP5, who asks Don what an unreleased phase should hold back | Shane sends it; the draft is under WP5 |
 | WP8, a custom Dataverse solution | Asked what one looks like and what it costs, with a concern that the system is outgrowing SharePoint and would run faster on Dataverse. Answered under WP8 |
 | WP3-B | Not a project table. The ask is that editing a sub-phase on the Board is too heavy for a simple change: put crew, days and date on the Board row so they can be changed in place without the panel |
+
+Third round, same day, on the revised document:
+
+| Question | Answer |
+|---|---|
+| WP3-B controls behind a toggle or always visible | **Always visible** |
+| WP8 Backups folder | **Plain, in the site's Documents library** |
+| Order | **Backups next**, but first delete every test pool except the one Don created |
+| WP5, answered by Shane on Don's behalf | An unreleased phase holds **everything** back. Double-bookings involving it are **flagged on screen, never emailed**. Release is by **major phase only**, never by sub-phase. A **release-everything** button stays |
 
 ## 2. Work packages
 
@@ -116,12 +125,8 @@ controls belong on the Board row itself. So:
 - Edits mark the project diverged and count on the Save button; Save pushes them through the
   existing allowlist and per-field compare. Nothing new is written and no new column is involved.
 - Locked, signed-off, N/A and Building-guarded rows render their values as text, not controls.
-- **The controls are behind an "Edit in place" toggle on the Board, off by default and remembered
-  per browser.** With the toggle off the Board reads as it does today. With it on, the name column
-  widens (`--nmw` goes from 516px to roughly 720px) and the controls appear on every editable row.
-  The toggle keeps the Board readable for people who only look, and one click gives Don the fast
-  path for a whole project. If Shane would rather have the controls always visible, that is one
-  constant.
+- **The controls are always visible** (Shane, third round). The name column widens (`--nmw` from
+  516px to roughly 720px) and every editable row carries the three controls. No toggle.
 - Tests: the shakedown ticks INST on a row with the toggle on (the name click and the sign-off
   click must not be swallowed by the controls), changes days on one row and asserts the following
   unlocked rows moved and a locked one did not, and asserts Save counts the edit; `rules.js` pins
@@ -177,10 +182,15 @@ Event-Driven and Nightly Reconciliation raise conflict alerts to the PM.
 - **Option C. A Phases list with its own status.** Rejected: a new list and two lookups for what a
   boolean on the existing row gives.
 
-**Recommendation: B, sequenced after WP3-B, and one question to Don first:** on an unreleased
-phase, what should stop? Only the crew emails, or the calendar, the summaries and the alerts too?
-If the answer is "only the crew emails", Option A already does it and B is not worth six flow
-edits. Until that is answered this package stays a design note.
+**Answered 2026-09-25 (Shane, on Don's behalf): Option B, with three refinements.** An unreleased
+phase holds everything back: dispatch, the calendar, the summaries and the alerts. Release is by
+**major phase**, never by sub-phase, so the flag lives on the Assignments row but is set for a whole
+phase at once from the planner, and the Board's phase row is where the control sits. A
+double-booking that involves an unreleased phase is **shown on the Board and in Schedule Check but
+never emailed**, which the planner's `conflicts()` already does for every row, so the flows' alert
+paths simply add `Released eq 1`. And Activate keeps a **release everything** choice beside
+"release nothing and pick phases". This package now has what its spec needs; it is sequenced after
+WP3-B.
 
 **Draft for Shane to send to Don** (Shane's call; written 2026-09-25):
 
@@ -353,9 +363,9 @@ strongest candidate: a transactional link to QuickBooks wants a relational store
 estimator work goes that way, evaluate Dataverse for both systems together rather than migrating
 the scheduler on its own.
 
-**One decision left for Shane on WP8:** whether the Backups folder sits in the site's Documents
-library, where Members can see it, or in a folder with inheritance broken to Owners only. The data
-is the same data PMs already see, so the default is the plain folder.
+**Decided 2026-09-25: the Backups folder is a plain folder in the site's Documents library.**
+Versioning was read off the live lists the same day: Jobs, Assignments, Tasks and Sign-off
+Comments are all on at 50 versions; the reference and template lists are still to check.
 
 ## 3. Proposed order
 
@@ -374,10 +384,6 @@ edits.
 
 ## 4. What is still open
 
-Questions 1 to 5 of the first draft were answered on 2026-09-25 (see the second table in section
-1). Left:
-
-1. WP3-B: is the design above right, and should the controls sit behind an "Edit in place" toggle
-   or be always visible?
-2. WP8: Backups folder plain or Owners-only?
-3. Order: batch 1b before batch 2, or the safety net first?
+Every question in this document has been answered as of 2026-09-25. The order is: delete the test
+pools, then WP8 (backups), then WP3-B (always-visible controls), then WP6 when Don's phase list
+arrives, then WP5 as its own spec.

@@ -1,0 +1,67 @@
+[
+ {
+  "label": "DRY_RUN guard removed",
+  "find": "if (DRY_RUN) {\n    console.log('DRY_RUN: nothing written.",
+  "replace": "if (false) {\n    console.log('DRY_RUN: nothing written."
+ },
+ {
+  "label": "every field written whether it differs or not",
+  "find": "if (sv !== lv) {\n          body[col] = writeVal(kind, s[col]);",
+  "replace": "if (true) {\n          body[col] = writeVal(kind, s[col]);"
+ },
+ {
+  "label": "job identity check removed",
+  "find": "if (Number(lJob.Id) !== Number(sJob.Id)) return refuse(",
+  "replace": "if (false) return refuse("
+ },
+ {
+  "label": "missing or extra assignment rows no longer refuse",
+  "find": "if (missingAsg.length || extraAsg.length) return refuse(",
+  "replace": "if (false) return refuse("
+ },
+ {
+  "label": "missing or extra task rows no longer refuse",
+  "find": "if (missingTasks.length || extraTasks.length) return refuse(",
+  "replace": "if (false) return refuse("
+ },
+ {
+  "label": "suppression stamp dropped from assignment writes",
+  "find": "body: Object.assign({}, r.body, { SuppressReconcileUntil: stamp }) })),",
+  "replace": "body: r.body })),"
+ },
+ {
+  "label": "suppression stamp sent to Tasks",
+  "find": "taskDiff.map(r => ({ list: 'Tasks', id: r.id, num: r.num, body: r.body })));",
+  "replace": "taskDiff.map(r => ({ list: 'Tasks', id: r.id, num: r.num, body: Object.assign({}, r.body, { SuppressReconcileUntil: stamp }) })));"
+ },
+ {
+  "label": "failed MERGE not recorded",
+  "find": "else failed.push({ list: w.list, id: w.id, num: w.num, status: r.status, detail: await r.text().catch(() => '') });",
+  "replace": "else {}"
+ },
+ {
+  "label": "verify pass reports nothing",
+  "find": "if (verifyMismatch.length) { console.warn(",
+  "replace": "verifyMismatch.length = 0; if (verifyMismatch.length) { console.warn("
+ },
+ {
+  "label": "sign-off person id not restored",
+  "find": "InstallerSignOff: 'bool', InstallerSignOffById: 'num', InstallerSignOffOn: 'dt',",
+  "replace": "InstallerSignOff: 'bool', InstallerSignOffOn: 'dt',"
+ },
+ {
+  "label": "task N/A reason not restored",
+  "find": "const TASK_FIELDS = { Complete: 'bool', CompletedOn: 'dt', CompletedById: 'num', NotApplicable: 'bool', Note: 'text' };",
+  "replace": "const TASK_FIELDS = { Complete: 'bool', CompletedOn: 'dt', CompletedById: 'num', NotApplicable: 'bool' };"
+ },
+ {
+  "label": "digest not sent",
+  "find": "'X-RequestDigest': digest, 'X-HTTP-Method': 'MERGE', 'IF-MATCH': '*' }),",
+  "replace": "'X-HTTP-Method': 'MERGE', 'IF-MATCH': '*' }),"
+ },
+ {
+  "label": "job snapshot filter ignores the job number",
+  "find": "const snapJob = snapJobs.filter(r => jobKey(r.JobNumber) === jobKey(JOB_NUMBER));",
+  "replace": "const snapJob = snapJobs.slice(0, 1);"
+ }
+]
