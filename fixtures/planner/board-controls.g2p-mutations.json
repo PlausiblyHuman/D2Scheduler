@@ -1,0 +1,17 @@
+[
+ {
+  "label": "building never derived from the request list",
+  "find": "building: building.has(jobKey(jf.JobNumber)),",
+  "replace": "building: false,"
+ },
+ {
+  "label": "a Requested (not yet Building) request is not treated as building",
+  "find": "return st === 'Requested' || st === 'Building';",
+  "replace": "return st === 'Building';"
+ },
+ {
+  "label": "job-number match is case- and whitespace-sensitive",
+  "find": "const jobKey = v => String(v == null ? '' : v).trim().toLowerCase();",
+  "replace": "const jobKey = v => String(v == null ? '' : v);"
+ }
+]

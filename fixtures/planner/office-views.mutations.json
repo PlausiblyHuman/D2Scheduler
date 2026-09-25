@@ -6,7 +6,7 @@
  },
  {
   "label": "filters wiped by Refresh",
-  "find": "UI={collapsed:{},tlScroll:{},pmFilter:UI.pmFilter,signoffJob:UI.signoffJob}",
+  "find": "UI={collapsed:{},tlScroll:{},pmFilter:UI.pmFilter,signoffJob:UI.signoffJob,boardJob:UI.boardJob,boardStatus:UI.boardStatus}",
   "replace": "UI={collapsed:{},tlScroll:{}}"
  },
  {
@@ -61,8 +61,8 @@
  },
  {
   "label": "Sign-Offs option name unescaped",
-  "find": "${esc(j.jobno||'')} \u00b7 ${esc(j.name)}</option>",
-  "replace": "${esc(j.jobno||'')} \u00b7 ${j.name}</option>"
+  "find": "${esc(j.jobno||'')} · ${esc(j.name)}</option>",
+  "replace": "${esc(j.jobno||'')} · ${j.name}</option>"
  },
  {
   "label": "PM column name unescaped",

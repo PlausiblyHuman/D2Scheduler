@@ -82,6 +82,47 @@ const ok=(label,cond,detail='')=>{console.log((cond?'PASS':'FAIL')+' · '+label+
    const tlR=tl.getBoundingClientRect(), tR=t.getBoundingClientRect();
    const nmW=tl.querySelector('thead .nm').getBoundingClientRect().width;
    return tl.scrollLeft>0 && tR.left>tlR.left+nmW-1 && tR.right<tlR.right+1;})()`));
+ // Batch 1 of the 24 September build. The board must keep its place when a
+ // sign-off box far down it is ticked: jsdom cannot see a real scroll container.
+ await ev("(()=>{const tl=document.querySelector('#main .tl');tl.scrollTop=250;tl.dispatchEvent(new Event('scroll'));return 1;})()");
+ await sleep(150);
+ const tickable=await ev("[...document.querySelectorAll('#main tbody .sg input[type=checkbox]')].findIndex(i=>!i.disabled&&!i.checked)");
+ if(tickable>=0){
+   await ev(`[...document.querySelectorAll('#main tbody .sg input[type=checkbox]')][${tickable}].click();'ok'`);await sleep(450);
+   const top=await ev("document.querySelector('#main .tl').scrollTop");
+   ok('ticking a sign-off box keeps the board where it was scrolled', top===250, 'scrollTop='+top);
+   await ev(`[...document.querySelectorAll('#main tbody .sg input[type=checkbox]')][${tickable}].click();'ok'`);await sleep(450);
+ }else ok('a tickable sign-off box exists on the board', false);
+ // Zoom narrows the cells, hides the finer header rows, and lands on today.
+ await ev("setZoom('week');'ok'");await sleep(450);
+ // Cells carry colspans, so the width per day is the row width over the day count.
+ const perDay=await ev(`(()=>{const tl=document.querySelector('#main .tl');const tr=tl.querySelector('tbody tr');
+   const nmW=tl.querySelector('thead .nm').getBoundingClientRect().width;
+   const days=tl.querySelectorAll('thead tr.drow th.dn').length;
+   return days?(tr.getBoundingClientRect().width-nmW)/days:0;})()`);
+ ok('Week zoom narrows the cells to about 10px a day', perDay>=9&&perDay<=12, 'per day='+perDay.toFixed(2));
+ ok('Week zoom hides the day row and keeps the week row', await ev(`(()=>{const tl=document.querySelector('#main .tl');
+   return tl.classList.contains('zoom-week')
+     &&tl.querySelector('tr.drow').getBoundingClientRect().height===0&&tl.querySelector('tr.wrow').getBoundingClientRect().height>0;})()`)===true);
+ const inView=await ev(`(()=>{const tl=document.querySelector('#main .tl'),t=tl.querySelector('th.today');if(!t)return null;
+   const nmW=tl.querySelector('thead .nm').getBoundingClientRect().width;const days=tl.querySelectorAll('thead tr.drow th.dn').length;
+   const per=(tl.querySelector('tbody tr').getBoundingClientRect().width-nmW)/days;
+   return {x:nmW+(+t.dataset.idx)*per-tl.scrollLeft,nmW,cw:tl.clientWidth,scroll:tl.scrollLeft};})()`);
+ ok('Week zoom keeps today in view, clear of the name column', !!inView&&inView.scroll>0&&inView.x>=inView.nmW-1&&inView.x<=inView.cw, JSON.stringify(inView));
+ await ev("setZoom('month');'ok'");await sleep(450);
+ ok('Month zoom shows the months row and hides the weeks', await ev(`(()=>{const tl=document.querySelector('#main .tl');
+   return tl.classList.contains('zoom-month')&&tl.querySelector('tr.mrow').getBoundingClientRect().height>0
+     &&tl.querySelector('tr.wrow').getBoundingClientRect().height===0;})()`)===true);
+ const perDayM=await ev(`(()=>{const tl=document.querySelector('#main .tl');const tr=tl.querySelector('tbody tr');
+   const nmW=tl.querySelector('thead .nm').getBoundingClientRect().width;
+   const days=tl.querySelectorAll('thead tr.drow th.dn').length;
+   return days?(tr.getBoundingClientRect().width-nmW)/days:0;})()`);
+ ok('Month zoom narrows the cells to about 4px a day', perDayM>=3.5&&perDayM<=6, 'per day='+perDayM.toFixed(2));
+ await ev("setZoom('day');'ok'");await sleep(450);
+ ok('Day zoom restores the day row', await ev("document.querySelector('#main .tl tr.drow').getBoundingClientRect().height>0")===true);
+ // Live / Planned / Both and the project picker are on the board.
+ ok('the board carries the project picker, the status filter and the zoom',
+    await ev("!!document.getElementById('boardJob')&&!!document.getElementById('boardStatus')&&!!document.getElementById('boardZoom')")===true);
  // Every sign-off box, sub-phase and phase level, on both tabs that carry them:
  // each must say what Save does with it. A missed copy is how a stale tooltip
  // survived on the phase rows after the sub-phase rows had been corrected.
@@ -151,6 +192,16 @@ const ok=(label,cond,detail='')=>{console.log((cond?'PASS':'FAIL')+' · '+label+
  ok('+ Job carries the default-crews choice', /crew/i.test(addBody));
  await ev("closeDrawer();'ok'");
 
+ // Open schedule lands on the Board showing that one project; Back to planning
+ // sits on every Active project.
+ await ev(`document.querySelector('[data-t="jobs"]').click();'ok'`);await sleep(500);
+ const backBtns=await ev("[...document.querySelectorAll('#main button')].filter(b=>/Back to planning/.test(b.textContent)).length");
+ ok('every Active project offers Back to planning', backBtns===3, 'buttons='+backBtns);
+ ok('every project has an editable Start', await ev("document.querySelectorAll('#main input[type=date][data-reset]').length")===3);
+ await ev("document.querySelector('#main [data-open-schedule]').click();'ok'");await sleep(600);
+ ok('Open schedule lands on the Board showing one project',
+    await ev("TAB==='board'&&document.querySelectorAll('#main tr.jobrow').length===1")===true);
+ await ev("UI.boardJob='';render();'ok'");await sleep(300);
  // Activate only offers itself on a Planned pool.
  await ev(`document.querySelector('[data-t="jobs"]').click();'ok'`);await sleep(500);
  const commitsNow=await ev("[...document.querySelectorAll('#main button')].filter(b=>b.textContent==='Activate').length");

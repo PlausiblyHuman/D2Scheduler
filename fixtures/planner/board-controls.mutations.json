@@ -1,0 +1,157 @@
+[
+ {
+  "label": "vertical scroll forgotten on re-render",
+  "find": "if(keep!=null){tl.scrollLeft=keep.left;tl.scrollTop=keep.top;return;}",
+  "replace": "if(keep!=null){tl.scrollLeft=keep.left;return;}"
+ },
+ {
+  "label": "scroll listener records only the horizontal axis",
+  "find": "UI.tlScroll[TAB]={left:tl.scrollLeft,top:tl.scrollTop};",
+  "replace": "UI.tlScroll[TAB]={left:tl.scrollLeft,top:0};"
+ },
+ {
+  "label": "skill labels lose the chip class",
+  "find": "<span class=\"chip skill${c.skills.includes(s.id)?'':' off'}\"",
+  "replace": "<span class=\"skill${c.skills.includes(s.id)?'':' off'}\""
+ },
+ {
+  "label": "building flag never imported",
+  "find": "j.building=!!inj.building;",
+  "replace": "j.building=false;"
+ },
+ {
+  "label": "Activate offered on a building project",
+  "find": "const j=S.jobs.find(x=>x.id===jobId); if(!j||j.building)return;\n  /* Split by level.",
+  "replace": "const j=S.jobs.find(x=>x.id===jobId); if(!j)return;\n  /* Split by level."
+ },
+ {
+  "label": "Jobs tab shows Activate while building",
+  "find": "<td class=\"small\">${j.building\n      ? '<span class=\"muted\" title=\"Still being built in SharePoint\">Building…</span>'\n      : j.status==='Planned'&&graphModeAvailable()",
+  "replace": "<td class=\"small\">${false\n      ? '<span class=\"muted\" title=\"Still being built in SharePoint\">Building…</span>'\n      : j.status==='Planned'&&graphModeAvailable()"
+ },
+ {
+  "label": "Board does not badge a building project",
+  "find": "const building=j.building?'<span class=\"chip jb hold\"",
+  "replace": "const building=false?'<span class=\"chip jb hold\""
+ },
+ {
+  "label": "divergedSecs counts edits on a building project",
+  "find": "if(j.building)return out;   // half-built in SharePoint: nothing on it is offered to Save",
+  "replace": ""
+ },
+ {
+  "label": "buildChangeSet pushes a building project",
+  "find": "if(!poolHasBaseline(j)||j.building)return;   // a local sketch, or a project still being built: never pushed",
+  "replace": "if(!poolHasBaseline(j))return;"
+ },
+ {
+  "label": "drawer opens for editing on a building project",
+  "find": "if(j.building){\n    document.getElementById('dTitle').textContent=`${j.name} › ${s.num} ${s.name}`;",
+  "replace": "if(false){\n    document.getElementById('dTitle').textContent=`${j.name} › ${s.num} ${s.name}`;"
+ },
+ {
+  "label": "Back to planning writes without checking the live status",
+  "find": "if(row.fields.Status!==from)\n      throw new Error('This pool is already '+row.fields.Status+' in SharePoint. Nothing was changed.');",
+  "replace": ""
+ },
+ {
+  "label": "Back to planning writes Active instead of Planned",
+  "find": "function doActivatePool(jobId){ return doSetPoolStatus(jobId,'Planned','Active'); }",
+  "replace": "function doActivatePool(jobId){ return doSetPoolStatus(jobId,'Planned','Active'); }\nfunction planPool(jobId){ return doSetPoolStatus(jobId,'Active','Active'); }"
+ },
+ {
+  "label": "project picker ignored on the Board",
+  "find": "return S.jobs.filter(j=>(!pick||j.id===pick)&&(st==='both'||(st==='planned'?j.status==='Planned':j.status!=='Planned')));",
+  "replace": "return S.jobs.filter(j=>(st==='both'||(st==='planned'?j.status==='Planned':j.status!=='Planned')));"
+ },
+ {
+  "label": "status filter ignored",
+  "find": "return S.jobs.filter(j=>(!pick||j.id===pick)&&(st==='both'||(st==='planned'?j.status==='Planned':j.status!=='Planned')));",
+  "replace": "return S.jobs.filter(j=>(!pick||j.id===pick));"
+ },
+ {
+  "label": "a vanished picked project shows nothing",
+  "find": "function boardPick(){ return UI.boardJob&&S.jobs.some(j=>j.id===UI.boardJob)?UI.boardJob:''; }",
+  "replace": "function boardPick(){ return UI.boardJob||''; }"
+ },
+ {
+  "label": "Crew Board ignores the status filter",
+  "find": "boardJobs(false).forEach(j=>allSecs(j).forEach(({s,gi,si})=>{",
+  "replace": "S.jobs.forEach(j=>allSecs(j).forEach(({s,gi,si})=>{"
+ },
+ {
+  "label": "board filters wiped by Refresh",
+  "find": "UI={collapsed:{},tlScroll:{},pmFilter:UI.pmFilter,signoffJob:UI.signoffJob,boardJob:UI.boardJob,boardStatus:UI.boardStatus}",
+  "replace": "UI={collapsed:{},tlScroll:{},pmFilter:UI.pmFilter,signoffJob:UI.signoffJob}"
+ },
+ {
+  "label": "Open schedule does not filter the Board",
+  "find": "function openSchedule(jobId){\n  UI.boardJob=jobId; TAB='board';",
+  "replace": "function openSchedule(jobId){\n  TAB='board';"
+ },
+ {
+  "label": "zoom not remembered",
+  "find": "function setZoom(z){S.settings=S.settings||{};S.settings.zoom=ZOOM_PX[z]?z:'day';UI.tlScroll={};save();render();}",
+  "replace": "function setZoom(z){UI.tlScroll={};render();}"
+ },
+ {
+  "label": "zoom class never applied",
+  "find": "tl.classList.remove('zoom-week','zoom-month'); if(z!=='day')tl.classList.add('zoom-'+z);",
+  "replace": "tl.classList.remove('zoom-week','zoom-month');"
+ },
+ {
+  "label": "zoom does not change the cell width",
+  "find": "tl.style.setProperty('--day',ZOOM_PX[z]+'px');",
+  "replace": "tl.style.setProperty('--day','26px');"
+ },
+ {
+  "label": "months header row missing",
+  "find": "return `<tr class=\"mrow\"><th class=\"nm\"></th>${mo.map(m=>`<th class=\"mo\" colspan=\"${m.n}\">${FRESH_MONTHS[+m.first.slice(5,7)-1]} ${m.first.slice(0,4)}</th>`).join('')}</tr>",
+  "replace": "return `"
+ },
+ {
+  "label": "Start box inert on a scheduled project",
+  "find": "? `<input type=\"date\" data-reset value=\"${a}\" title=\"Change the start and reflow the whole project from it. Nothing is written until Save.\" onchange=\"resetStart('${j.id}',this.value)\">`",
+  "replace": "? pretty(a)"
+ },
+ {
+  "label": "reset reflows nothing",
+  "find": "const r=first?reflowFrom(jobId,first.gi,first.si,date):null;",
+  "replace": "const r=null;"
+ },
+ {
+  "label": "reset moves locked rows",
+  "find": "if(s.locked||s.inst){                          // pinned or signed: leave it",
+  "replace": "if(false){                          // pinned or signed: leave it"
+ },
+ {
+  "label": "reset does not record the new project start",
+  "find": "j.start=date; touch(j); save(); closeDrawer(); render();",
+  "replace": "touch(j); save(); closeDrawer(); render();"
+ },
+ {
+  "label": "baseline start never recorded",
+  "find": "j.baseStart=inj.start||null;",
+  "replace": "j.baseStart=null;"
+ },
+ {
+  "label": "StartDate written without comparing the live value",
+  "find": "if(live!==c.from){refusals.push({jobno:c.jobno,col:'StartDate',reason:'diverged',loaded:c.from,nowLive:live,wanted:c.to});return;}",
+  "replace": ""
+ },
+ {
+  "label": "StartDate never pushed",
+  "find": "if(PENDING_JOBSTARTS&&PENDING_JOBSTARTS.length){\n      try{ out.js=await pushJobStarts(out.siteId,out.tok,PENDING_JOBSTARTS); }",
+  "replace": "if(false){\n      try{ out.js=await pushJobStarts(out.siteId,out.tok,PENDING_JOBSTARTS); }"
+ },
+ {
+  "label": "preview omits the project start section",
+  "find": "(jobStarts.length?`<div class=\"fld\"><label>Project start dates (${jobStarts.length})</label>",
+  "replace": "(false?`<div class=\"fld\"><label>Project start dates (${jobStarts.length})</label>"
+ },
+ {
+  "label": "start refusal not reported",
+  "find": "+sec('Project start NOT saved — changed in SharePoint since you loaded',jsBad,'#a84a18')",
+  "replace": ""
+ }
+]

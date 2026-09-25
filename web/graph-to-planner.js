@@ -110,6 +110,18 @@
     const asg = graph.asg || [];
     const tasks = graph.tasks || [];
     const cal = graph.cal || [];
+    /* New Pool Requests. A request still Requested or Building means D2 - New
+       Pool is mid-way through creating that project's rows: the Job row exists
+       early and the Assignments arrive over 10 to 20 minutes, so the project is
+       visible here with a partial set. Edits made then land on a half-built
+       pool, which is how the first live pool was damaged. Matched on JobNumber
+       the way SharePoint's own $filter compares it, ignoring case and
+       whitespace. */
+    const req = graph.req || [];
+    const jobKey = v => String(v == null ? '' : v).trim().toLowerCase();
+    const building = new Set(req
+      .filter(r => { const st = String(((r && r.fields) || {}).Status || ''); return st === 'Requested' || st === 'Building'; })
+      .map(r => jobKey(((r && r.fields) || {}).JobNumber)));
 
     const tasksByAsg = new Map();
     tasks.forEach(t => {
@@ -191,6 +203,7 @@
           // the name comes from graph.users when the caller read it.
           pm: nameById.get(key(jf.ProjectManagerLookupId)) || '',
           pmId: jf.ProjectManagerLookupId == null ? null : key(jf.ProjectManagerLookupId),
+          building: building.has(jobKey(jf.JobNumber)),
           sections: (asgByJob.get(jobId) || [])
             .slice()
             .sort((a, b) => (a.fields.Sequence || 0) - (b.fields.Sequence || 0))

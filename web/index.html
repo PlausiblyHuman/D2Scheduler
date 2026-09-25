@@ -82,6 +82,21 @@ tr.jobrow .dt,tr.phrow .dt{color:#475569}
 .dn.mon{border-left:1px solid var(--line)}
 .dn.sat{color:#c7cbd1;background:#fafbfc}
 .dn.today{background:#fef3c7;color:#92400e;font-weight:700}
+/* Zoom shows or hides header rows; the cells below keep their exact day span.
+   Hidden rows are COLLAPSED, not display:none: the table is auto-layout, and
+   the day header cells are what hold every column open to --day. A column whose
+   body cells are all spanning bars has nothing else enforcing its width. */
+.tl tr.mrow{visibility:collapse}
+.tl.zoom-week tr.drow{visibility:collapse}
+.tl.zoom-month tr.drow,.tl.zoom-month tr.wrow{visibility:collapse}
+.tl.zoom-month tr.mrow{visibility:visible}
+.tl th.dn{min-width:var(--day);width:var(--day)}
+.tl.zoom-week th.dn,.tl.zoom-month th.dn,.tl.zoom-month th.wk{font-size:0;padding:0}
+.tl.zoom-week th.wk,.tl.zoom-month th.mo{font-size:10px;overflow:hidden;white-space:nowrap;padding:2px 0}
+/* The table is auto-layout, so a bar's nowrap label sets a minimum width on
+   its columns. Narrow zooms drop the label (the crew is in the bar's tooltip)
+   so the cells can actually shrink to --day. */
+.tl.zoom-week .bar,.tl.zoom-month .bar{font-size:0;padding:0}
 td.cell{width:var(--day);min-width:var(--day);height:24px;border-left:1px solid #f6f7f8}
 .bar{height:18px;margin:3px 1px;border-radius:4px;color:#fff;font-size:10.5px;line-height:18px;padding:0 6px;white-space:nowrap;overflow:hidden;cursor:pointer;font-weight:600}
 .bar:hover{filter:brightness(1.12);outline:2px solid #111}
@@ -339,10 +354,11 @@ const fullAddr=j=>[j.addr,j.city,[j.state,j.zip].filter(Boolean).join(' ')].filt
    missing, not the behaviour. */
 function jobBadge(j){
   const edited=j.touchedAt?'<span class="chip jb edited" title="Changed here since the last Refresh">edited here</span>':'';
-  if(!j.status)return '<span class="chip jb local" title="Sketched here, not yet raised in SharePoint">Local only</span>'+edited;
-  if(j.status==='Active')return edited;
+  const building=j.building?'<span class="chip jb hold" title="Still being built in SharePoint, usually 10 to 20 minutes. Nothing on it can be changed until it finishes; Refresh then.">Building</span>':'';
+  if(!j.status)return '<span class="chip jb local" title="Sketched here, not yet raised in SharePoint">Local only</span>'+building+edited;
+  if(j.status==='Active')return building+edited;
   const cls=j.status==='Planned'?'planned':j.status==='On Hold'?'hold':'other';
-  return `<span class="chip jb ${cls}" title="Jobs.Status in SharePoint">${esc(j.status)}</span>`+edited;
+  return `<span class="chip jb ${cls}" title="Jobs.Status in SharePoint">${esc(j.status)}</span>`+building+edited;
 }
 function load(){
   try{const raw=localStorage.getItem(KEY);if(raw){S=JSON.parse(raw);S.settings=S.settings||{};S.pendingCreates=S.pendingCreates||[];S.pendingComments=S.pendingComments||[];syncNonWork();return;}}catch(e){}
@@ -663,6 +679,7 @@ function secFieldDiffs(s){
    diffed by buildSignoffSet instead. */
 function divergedSecs(j){
   const out=[];
+  if(j.building)return out;   // half-built in SharePoint: nothing on it is offered to Save
   allSecs(j).forEach(({s})=>{ if(s.base && secFieldDiffs(s).length) out.push(s); });
   return out;
 }
@@ -825,10 +842,18 @@ function headHTML(ax){
     while(i+n<ax.days.length&&parseD(ax.days[i+n]).getDay()>parseD(ax.days[i+n-1]).getDay())n++;
     wk.push({first,n});i+=n;
   }
+  const mo=[];let k=0;
+  while(k<ax.days.length){let n=1;const first=ax.days[k],m=first.slice(0,7);
+    while(k+n<ax.days.length&&ax.days[k+n].slice(0,7)===m)n++;
+    mo.push({first,n});k+=n;}
   const t=todayStr();
-  return `<tr><th class="nm"></th>${wk.map(w=>`<th class="wk" colspan="${w.n}">${pretty(w.first)}</th>`).join('')}</tr>
-  <tr><th class="nm small muted">${ax.days.length} work days · Mon–Sat</th>${ax.days.map(d=>{const g=parseD(d).getDay();
-    return `<th class="dn${g===1?' mon':''}${g===6?' sat':''}${d===t?' today':''}">${parseD(d).getDate()}</th>`;}).join('')}</tr>`;
+  /* Three header rows, always rendered; the zoom class on .tl decides which
+     show. data-idx on the day cells is how "open on today" is placed when the
+     day row itself is hidden. */
+  return `<tr class="mrow"><th class="nm"></th>${mo.map(m=>`<th class="mo" colspan="${m.n}">${FRESH_MONTHS[+m.first.slice(5,7)-1]} ${m.first.slice(0,4)}</th>`).join('')}</tr>
+  <tr class="wrow"><th class="nm"></th>${wk.map(w=>`<th class="wk" colspan="${w.n}">${pretty(w.first)}</th>`).join('')}</tr>
+  <tr class="drow"><th class="nm small muted">${ax.days.length} work days · Mon–Sat</th>${ax.days.map((d,i)=>{const g=parseD(d).getDay();
+    return `<th class="dn${g===1?' mon':''}${g===6?' sat':''}${d===t?' today':''}" data-idx="${i}">${parseD(d).getDate()}</th>`;}).join('')}</tr>`;
 }
 function bandRow(ax,i0,len,inner){
   const pre=i0,post=ax.days.length-i0-len;let s='';
@@ -900,21 +925,35 @@ function render(){
    out from under someone mid-edit, which is worse than the problem it fixes. The
    position is remembered per tab and restored; only a tab never visited, or a
    fresh Refresh (which replaces the schedule anyway), starts at today. */
+const ZOOM_PX={day:26,week:10,month:4};
+/* A remembered scroll position is in pixels at the OLD cell width, so a zoom
+   change forgets it and lands on today at the new width. */
+function setZoom(z){S.settings=S.settings||{};S.settings.zoom=ZOOM_PX[z]?z:'day';UI.tlScroll={};save();render();}
 function positionTimeline(){
   const tl=document.querySelector('#main .tl');
   if(!tl)return;
-  tl.addEventListener('scroll',()=>{UI.tlScroll[TAB]=tl.scrollLeft;},{passive:true});
+  /* Zoom is a cell width, never a second layout: bars keep their exact day
+     span and the header rows above them are shown or hidden by class. */
+  const z=(S.settings&&ZOOM_PX[S.settings.zoom])?S.settings.zoom:'day';
+  tl.classList.remove('zoom-week','zoom-month'); if(z!=='day')tl.classList.add('zoom-'+z);
+  tl.style.setProperty('--day',ZOOM_PX[z]+'px');
+  /* Both axes. render() rebuilds the board on every sign-off tick, and
+     remembering scrollLeft alone put the PM back at the TOP of the board each
+     time a box far down it was ticked. */
+  tl.addEventListener('scroll',()=>{UI.tlScroll[TAB]={left:tl.scrollLeft,top:tl.scrollTop};},{passive:true});
   const keep=UI.tlScroll[TAB];
-  if(keep!=null){tl.scrollLeft=keep;return;}
+  if(keep!=null){tl.scrollLeft=keep.left;tl.scrollTop=keep.top;return;}
   const t=tl.querySelector('th.today');
   if(!t)return;                      // today is outside this schedule: leave it at the start
   // The name column is sticky and overlays the left of the scroll area, so today
   // has to clear it, plus a few days of run-up for context.
   const nm=tl.querySelector('thead .nm');
   const nmW=nm?nm.getBoundingClientRect().width:0;
-  const day=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--day'))||26;
-  tl.scrollLeft=Math.max(0,t.offsetLeft-nmW-day*3);
-  UI.tlScroll[TAB]=tl.scrollLeft;
+  const day=ZOOM_PX[z];
+  /* At Day zoom the day cell is on screen and its own offset is exact. At Week
+     and Month the day row is hidden, so today is placed by its index instead. */
+  tl.scrollLeft=Math.max(0,t.getBoundingClientRect().height>0?t.offsetLeft-nmW-day*3:(+t.dataset.idx-3)*day);
+  UI.tlScroll[TAB]={left:tl.scrollLeft,top:0};
 }
 function flagsCard(){
   const c=conflicts(),e=c.filter(x=>x.lvl==='err'),w=c.filter(x=>x.lvl==='warn');
@@ -929,9 +968,37 @@ function flagsCard(){
 const legend=()=>`<div class="legend">${S.crews.map(c=>`<span><i style="background:${crewColor(c.id)}"></i>${c.name} <span class="muted">(${sizeTxt(c)})</span></span>`).join('')}
   <span><i style="background:#94a3b8"></i>Office / sub — no crew</span><span class="muted">INST = installer sign-off · PM = project manager sign-off</span></div>`;
 
+/* Which projects the Board and the Crew Board show. The project picker applies
+   to the Board only; Live / Planned / Both applies to both. Schedule Check is
+   deliberately NOT filtered: a conflict between a Planned project and a live
+   one is still a conflict. A picked project no longer here falls back to all. */
+function boardPick(){ return UI.boardJob&&S.jobs.some(j=>j.id===UI.boardJob)?UI.boardJob:''; }
+function boardJobs(withPick){
+  const pick=withPick?boardPick():'', st=UI.boardStatus||'both';
+  return S.jobs.filter(j=>(!pick||j.id===pick)&&(st==='both'||(st==='planned'?j.status==='Planned':j.status!=='Planned')));
+}
+function boardControls(withPick){
+  const pick=boardPick(), st=UI.boardStatus||'both', z=(S.settings&&ZOOM_PX[S.settings.zoom])?S.settings.zoom:'day';
+  const sty='style="text-transform:none;font-weight:400"';
+  return (withPick?`<select id="boardJob" ${sty} title="Show one project" onchange="UI.boardJob=this.value;render()"><option value="">All projects</option>${
+      S.jobs.map(j=>`<option value="${j.id}"${pick===j.id?' selected':''}>${esc(j.jobno||'')} ${esc(j.name)}</option>`).join('')}</select> `:'')
+    +`<select id="boardStatus" ${sty} title="Planned projects, live ones, or both" onchange="UI.boardStatus=this.value;render()">
+        <option value="both"${st==='both'?' selected':''}>Planned and live</option>
+        <option value="live"${st==='live'?' selected':''}>Live only</option>
+        <option value="planned"${st==='planned'?' selected':''}>Planned only</option></select> `
+    +`<select id="boardZoom" ${sty} title="Zoom" onchange="setZoom(this.value)">
+        <option value="day"${z==='day'?' selected':''}>Day</option>
+        <option value="week"${z==='week'?' selected':''}>Week</option>
+        <option value="month"${z==='month'?' selected':''}>Month</option></select>`;
+}
+function openSchedule(jobId){
+  UI.boardJob=jobId; TAB='board';
+  document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.t==='board'));
+  render();
+}
 function vBoard(){
   const ax=axis();
-  const rows=S.jobs.map(j=>{
+  const rows=boardJobs(true).map(j=>{
     const [js,je]=jobSpan(j);
     const jbar=(js&&ax.idx[js]!=null)
       ? bandRow(ax,ax.idx[js],Math.max(1,(ax.idx[je]??ax.idx[js])-ax.idx[js]+1),`<div class="jobbar" style="background:#94a3b8"></div>`)
@@ -973,16 +1040,17 @@ function vBoard(){
         const bad=s.skill&&(!c||!isQualified(c,s.skill));
         const lbl=(c?c.name:'⚠ NO CREW')+(s.locked?' 🔒':'');
         html+=`<tr>${nm}${bandRow(ax,ax.idx[s.start],s.days,
-          `<div class="bar${bad?' bad':''}" style="background:${c?crewColor(c.id):'#94a3b8'}" onclick="editSec('${j.id}',${gi},${si})">${lbl}</div>`)}</tr>`;
+          `<div class="bar${bad?' bad':''}" title="${esc(lbl)}" style="background:${c?crewColor(c.id):'#94a3b8'}" onclick="editSec('${j.id}',${gi},${si})">${lbl}</div>`)}</tr>`;
       });
     });
     return html;
   }).join('');
   return flagsCard()+`<div class="card"><h2>Job Board<span class="sp"></span>
+    ${boardControls(true)}
     <button class="btn sm" onclick="collapseAll(true)">Collapse all</button>
     <button class="btn sm" onclick="collapseAll(false)">Expand all</button>
     <span class="muted small" style="text-transform:none">Click a sub-phase name or its bar to reassign, move, lock, or open its checklist</span></h2>
-    ${legend()}<div class="tl"><table><thead>${headHTML(ax)}</thead><tbody>${rows||'<tr><td class="pad muted">No jobs.</td></tr>'}</tbody></table></div></div>`;
+    ${legend()}<div class="tl"><table><thead>${headHTML(ax)}</thead><tbody>${rows||'<tr><td class="pad muted">No projects match.</td></tr>'}</tbody></table></div></div>`;
 }
 /* The crews on a phase, for its FOLDED line only. "Collapse all" is how a PM
    gets one line per phase, and it used to hide who is on the work, which was
@@ -1002,7 +1070,7 @@ function vCrewBoard(){
   const ax=axis(),load=crewLoad();
   const rows=S.crews.map(c=>{
     const cells=new Array(ax.days.length).fill(null);
-    S.jobs.forEach(j=>allSecs(j).forEach(({s,gi,si})=>{
+    boardJobs(false).forEach(j=>allSecs(j).forEach(({s,gi,si})=>{
       if(s.skip||s.crewId!==c.id||!s.start)return;
       workSpan(s.start,s.days).forEach(d=>{const k=ax.idx[d];if(k==null)return;
         if(!cells[k])cells[k]={j,s,gi,si,n:1};
@@ -1022,7 +1090,7 @@ function vCrewBoard(){
     return `<tr><td class="nm"><b>${c.name}</b><div class="muted small">${c.skills.map(skillLabel).join(', ')}</div></td>${html}</tr>`;
   }).join('');
   const max=Math.max(1,...Object.values(load));
-  return `<div class="card"><h2>Crew Board — who is where</h2>
+  return `<div class="card"><h2>Crew Board — who is where<span class="sp"></span>${boardControls(false)}</h2>
     <div class="tl"><table><thead>${headHTML(ax)}</thead><tbody>${rows}</tbody></table></div></div>
   <div class="card"><h2>Crew Load (scheduled days)</h2><table><tbody>
     ${S.crews.map(c=>`<tr><td style="width:160px">${c.name}</td>
@@ -1176,12 +1244,17 @@ function vJobs(){
     <td><input value="${esc(j.state)}" onchange="setJob('${j.id}','state',this.value)" style="width:46px" maxlength="2" placeholder="CA"></td>
     <td><input value="${esc(j.zip)}" onchange="setJob('${j.id}','zip',this.value)" style="width:72px" placeholder="ZIP"></td>
     <td class="small">${a
-      ? pretty(a)
+      ? `<input type="date" data-reset value="${a}" title="Change the start and reflow the whole project from it. Nothing is written until Save." onchange="resetStart('${j.id}',this.value)">`
       : `<input type="date" value="${j.start}" onchange="setJob('${j.id}','start',this.value)">`}</td>
     <td class="small muted">${b?pretty(b):''}</td>
-    <td class="small">${allSecs(j).filter(x=>!x.s.skip).length} active ${jobBadge(j)}</td>
-    <td class="small">${j.status==='Planned'&&graphModeAvailable()
+    <td class="small">${allSecs(j).filter(x=>!x.s.skip).length} active ${jobBadge(j)}
+      <a href="#" class="small" data-open-schedule onclick="openSchedule('${j.id}');return false" title="Open the Job Board showing only this project">Open schedule</a></td>
+    <td class="small">${j.building
+      ? '<span class="muted" title="Still being built in SharePoint">Building…</span>'
+      : j.status==='Planned'&&graphModeAvailable()
       ? `<button class="btn sm p" onclick="activatePool('${j.id}')">Activate</button>`
+      : j.status==='Active'&&graphModeAvailable()
+      ? `<span class="muted">Active</span> <button class="btn sm" onclick="planPool('${j.id}')" title="Move this project back to Planned: out of the dispatch, the summaries and the alerts until it is activated again.">Back to planning</button>`
       : `<span class="muted">${esc(j.status||'Active')}</span>`}</td>
     <td style="text-align:right">${poolHasBaseline(j)
       ? `<button class="btn sm" onclick="delJob('${j.id}')" title="Removes this pool from this screen only. It stays in SharePoint and comes back on the next Refresh.">Remove</button>`
@@ -1200,7 +1273,7 @@ function vCrews(){
       ${c.note?`<div class="small muted" style="margin-top:2px">⚠ ${esc(c.note)}</div>`:''}</td>
     <td><input value="${esc(c.members.join(', '))}" onchange="setCrew('${c.id}','members',this.value)" style="width:190px" placeholder="not specified"></td>
     <td><input type="number" min="1" value="${c.size==null?'':c.size}" placeholder="?" onchange="setCrew('${c.id}','size',this.value)"></td>
-    <td>${SKILLS.map(s=>`<span class="skill${c.skills.includes(s.id)?'':' off'}" onclick="toggleSkill('${c.id}','${s.id}')">${s.label}</span>`).join('')}</td>
+    <td>${SKILLS.map(s=>`<span class="chip skill${c.skills.includes(s.id)?'':' off'}" onclick="toggleSkill('${c.id}','${s.id}')">${s.label}</span>`).join('')}</td>
     <td style="text-align:right"><button class="btn sm d" onclick="delCrew('${c.id}')">✕</button></td></tr>`).join('')}
   </tbody></table></div>
   <div class="card"><h2>Skill Coverage</h2><table><thead><tr><th style="width:160px">Skill</th><th>Qualified crews</th><th style="width:230px">Sub-phases needing it</th></tr></thead><tbody>
@@ -1250,6 +1323,14 @@ function vPhases(){
 let CUR=null;
 function editSec(jobId,gi,si){
   const j=S.jobs.find(x=>x.id===jobId),g=j.groups[gi],s=g.sections[si];CUR={jobId,gi,si};
+  if(j.building){
+    document.getElementById('dTitle').textContent=`${j.name} › ${s.num} ${s.name}`;
+    document.getElementById('dBody').innerHTML=`<div class="hint">This project is still being built in SharePoint,
+      which usually takes 10 to 20 minutes. Nothing on it can be changed until that finishes. Press Refresh once it has.</div>`;
+    document.getElementById('dFoot').innerHTML=`<button class="btn" onclick="closeDrawer()">Close</button>`;
+    document.getElementById('drawer').classList.add('open');
+    return;
+  }
   // What the Lock checkbox shows as this dialog opens -- the DERIVED lock, so
   // it reads checked on a signed-off row even when SharePoint's raw Locked is
   // false. saveSec compares the checkbox against this on the way out: only a
@@ -1438,6 +1519,36 @@ const closeDrawer=()=>document.getElementById('drawer').classList.remove('open')
 /* ============================== mutations ============================== */
 const esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
 function setJob(id,k,v){S.jobs.find(x=>x.id===id)[k]=v;save();if(k==='start')render();}
+/* Change a scheduled project's start and reflow the whole project from it,
+   through the same walk Save + reflow uses: locked and signed-off rows stay,
+   N/A rows are skipped, crews are untouched. The Jobs tab Start box used to be
+   inert once a project had dates, and Jobs.StartDate drifted from the first
+   sub-phase for every project that was ever reflowed. */
+function resetStart(jobId,date){
+  const j=S.jobs.find(x=>x.id===jobId);
+  if(!j||!date||j.building){render();return;}
+  const [a]=jobSpan(j);
+  document.getElementById('dTitle').textContent='Reflow '+(j.jobno||j.name)+' from '+pretty(date);
+  document.getElementById('dBody').innerHTML=
+    `<div class="hint" style="padding:0 0 11px">
+       This moves the first sub-phase of <strong>${esc(j.jobno)} ${esc(j.name)}</strong> to
+       <b>${esc(pretty(date))}</b> (now ${a?esc(pretty(a)):'unscheduled'}) and reflows every sub-phase after it to follow on,
+       using the working calendar. Locked and signed-off sub-phases stay where they are, and
+       not-applicable ones are skipped. Crews are not changed.
+       <br><br>Nothing is written until you press Save. The project's own start date is saved with it.
+     </div>`;
+  document.getElementById('dFoot').innerHTML=
+    `<button class="btn p" onclick="doResetStart('${jobId}','${esc(date)}')">Reflow from ${esc(pretty(date))}</button>
+     <button class="btn" onclick="closeDrawer();render()">Cancel</button>`;
+  document.getElementById('drawer').classList.add('open');
+}
+function doResetStart(jobId,date){
+  const j=S.jobs.find(x=>x.id===jobId); if(!j)return;
+  const first=allSecs(j)[0];
+  const r=first?reflowFrom(jobId,first.gi,first.si,date):null;
+  j.start=date; touch(j); save(); closeDrawer(); render();
+  if(r&&!r.moved)alert('Nothing moved: every sub-phase after the start is locked, signed off or not applicable.');
+}
 /* `+ Job` used to build a full 46-sub-phase pool directly in this browser,
    with its own nextJobNo() and no connection to SharePoint at all -- D10 in
    docs/planner-vs-sharepoint-parity.md. RETIRED 2026-09-12, per the owner,
@@ -1563,7 +1674,7 @@ function delJob(id){
    Planned / Active / On Hold, so the verb and the state it produces are the
    same word. "Commit" was developer vocabulary and meant nothing to a PM. */
 function activatePool(jobId){
-  const j=S.jobs.find(x=>x.id===jobId); if(!j)return;
+  const j=S.jobs.find(x=>x.id===jobId); if(!j||j.building)return;
   /* Split by level. conflicts() returns hard errors AND advisory warnings, and
      lumping them made this dialog announce "13 unresolved conflicts" on a pool
      whose only findings were unassigned pseudo-trade rows and sign-offs nobody
@@ -1598,9 +1709,31 @@ function activatePool(jobId){
   document.getElementById('drawer').classList.add('open');
 }
 
-async function doActivatePool(jobId){
+/* The reverse of Activate. A project activated too early (the first live one
+   was, eight minutes before its build finished) needs a way back that is not
+   an edit on the SharePoint list. Same write path and the same
+   compare-before-write; the calendar side lags, so the dialog says so. */
+function planPool(jobId){
+  const j=S.jobs.find(x=>x.id===jobId); if(!j||j.building)return;
+  document.getElementById('dTitle').textContent='Back to planning: '+(j.jobno||j.name);
+  document.getElementById('dBody').innerHTML=
+    `<div class="hint" style="padding:0 0 11px">
+       This moves <strong>${esc(j.jobno)} ${esc(j.name)}</strong> from Active back to Planned.
+       From then on it is left out of the daily dispatch, the summary emails and conflict alerts,
+       until it is activated again. Its entries on the shared calendar are removed on the next
+       full calendar sweep, at 04:30.
+       <br><br><strong>This one writes straight away.</strong> Everything else you change on this
+       screen waits for Save.
+     </div>`;
+  document.getElementById('dFoot').innerHTML=
+    `<button class="btn p" onclick="doSetPoolStatus('${jobId}','Active','Planned')">Back to planning</button>
+     <button class="btn" onclick="closeDrawer()">Cancel</button>`;
+  document.getElementById('drawer').classList.add('open');
+}
+function doActivatePool(jobId){ return doSetPoolStatus(jobId,'Planned','Active'); }
+async function doSetPoolStatus(jobId,from,to){
   const j=S.jobs.find(x=>x.id===jobId); if(!j)return;
-  document.getElementById('dFoot').innerHTML='<span class="hint">Activating…</span>';
+  document.getElementById('dFoot').innerHTML='<span class="hint">'+(to==='Active'?'Activating…':'Saving…')+'</span>';
   try{
     const tok=await graphToken(), G=window.D2GraphWriteback;
     const siteId=(await graphSite(tok)).id, U=G.urls(siteId);
@@ -1610,10 +1743,10 @@ async function doActivatePool(jobId){
     /* Compare-before-write for this one field: re-read Status immediately
        before changing it, so two people activating at once cannot both think
        they did it, and so a pool already put On Hold is not quietly reactivated. */
-    if(row.fields.Status!=='Planned')
+    if(row.fields.Status!==from)
       throw new Error('This pool is already '+row.fields.Status+' in SharePoint. Nothing was changed.');
     const r=await fetch(U.fields(D2_GRAPH.lists.jobs,row.fields.id),
-      {method:'PATCH',headers:G.headers(tok),body:JSON.stringify(G.statusBody('Active'))});
+      {method:'PATCH',headers:G.headers(tok),body:JSON.stringify(G.statusBody(to))});
     if(!r.ok) throw new Error('SharePoint refused the change (HTTP '+r.status+').');
     closeDrawer();
     await loadFromD2ViaGraph(true);
@@ -1760,6 +1893,12 @@ function importFromD2Payload(d,silent){
         if(inj.start)j.start=inj.start;
         if(inj.status)j.status=inj.status;
       }
+      /* Still being built by D2 - New Pool. Read off New Pool Requests on the
+         Graph path; the REST export does not carry it, so it reads false. */
+      j.building=!!inj.building;
+      /* The project's own start as loaded, so a reset here can be written back
+         to Jobs.StartDate with a compare against what was loaded. */
+      j.baseStart=inj.start||null;
       // PM name for the Jobs tab. The id rides along for the Graph path only;
       // the REST export carries the name without it.
       if(inj.pm!=null)j.pm=inj.pm;
@@ -1872,7 +2011,7 @@ function importFromD2Payload(d,silent){
 
     // A Refresh re-centres the timeline and unfolds the board, but a PM who
     // filtered to their own jobs asked for that view and keeps it.
-    save(); UI={collapsed:{},tlScroll:{},pmFilter:UI.pmFilter,signoffJob:UI.signoffJob}; render();
+    save(); UI={collapsed:{},tlScroll:{},pmFilter:UI.pmFilter,signoffJob:UI.signoffJob,boardJob:UI.boardJob,boardStatus:UI.boardStatus}; render();
     /* The routine summary is skipped on a silent re-read -- that runs straight
        after a Save, and a "Schedule loaded" modal stacked on top of the save
        results is noise the PM did not ask for.
@@ -1905,7 +2044,7 @@ function importFromD2Payload(d,silent){
 function buildChangeSet(){
   const pools=[];
   S.jobs.forEach(j=>{
-    if(!poolHasBaseline(j))return;   // a local sketch -- never raised in SharePoint, never pushed
+    if(!poolHasBaseline(j)||j.building)return;   // a local sketch, or a project still being built: never pushed
     const secs=[];
     allSecs(j).forEach(({s})=>{
       if(!s.base)return;             // unmatched against the template -- nothing to diff
@@ -1918,6 +2057,17 @@ function buildChangeSet(){
     if(secs.length)pools.push({jobno:j.jobno,name:j.name,sections:secs});
   });
   return pools;
+}
+/* Project start dates that diverged from what was loaded. One field on the
+   Jobs list, written with its own compare-before-write against the loaded
+   value. A project still being built, or one never loaded, has nothing here. */
+function buildJobStartChanges(){
+  const out=[];
+  S.jobs.forEach(j=>{
+    if(!poolHasBaseline(j)||j.building||!j.baseStart)return;
+    if(j.start&&j.start!==j.baseStart)out.push({jobno:j.jobno,name:j.name,from:j.baseStart,to:j.start});
+  });
+  return out;
 }
 /* Which queued pool requests have never yet been included in a downloaded
    change-set -- what a PM has raised here but not yet pushed. A create that
@@ -1973,7 +2123,7 @@ function saveStaleness(nowMs){
 function buildSignoffSet(){
   const pools=[];
   S.jobs.forEach(j=>{
-    if(!poolHasBaseline(j))return;          // a local sketch has nothing to diff against
+    if(!poolHasBaseline(j)||j.building)return;          // a local sketch has nothing to diff against; a half-built one is closed
     const sections=[];
     allSecs(j).forEach(({s})=>{
       if(!s.base||s.base.id==null)return;
@@ -2018,7 +2168,7 @@ function buildRejectionSet(){
   const pools=[];
   (S.pendingComments||[]).forEach(e=>{
     const j=S.jobs.find(x=>String(x.jobno)===String(e.jobno));
-    if(!j||!poolHasBaseline(j))return;
+    if(!j||!poolHasBaseline(j)||j.building)return;
     const hit=allSecs(j).find(({s})=>s.base&&String(s.base.id)===String(e.secId));
     if(!hit)return;
     let p=pools.find(x=>x.jobno===j.jobno);
@@ -2148,6 +2298,26 @@ async function pushChangeSet(pools){
   return {plan,res,siteId,tok,liveById};
 }
 
+/* Same fresh-read discipline as pushChangeSet, on the Jobs list. The row is
+   found by JobNumber, exactly as Activate finds it; the live StartDate must
+   still read what was loaded or the write is refused with both values. No
+   suppression stamp: Jobs has no such column, and sending one fails the PATCH. */
+async function pushJobStarts(siteId,tok,changes){
+  const G=window.D2GraphWriteback;
+  const rows=await graphPageAll(G.urls(siteId).items(D2_GRAPH.lists.jobs)+'?$expand=fields&$top=500',tok);
+  const key=v=>String(v==null?'':v).trim().toLowerCase();
+  const writes=[],refusals=[],errors=[];
+  (changes||[]).forEach(c=>{
+    const row=rows.find(r=>key(r.fields.JobNumber)===key(c.jobno));
+    if(!row){errors.push({jobno:c.jobno,reason:'row-missing'});return;}
+    const live=String(row.fields.StartDate||'').slice(0,10)||null;
+    if(live!==c.from){refusals.push({jobno:c.jobno,col:'StartDate',reason:'diverged',loaded:c.from,nowLive:live,wanted:c.to});return;}
+    writes.push({id:String(row.fields.id),jobno:c.jobno,num:'',fields:{StartDate:c.to}});
+  });
+  const res=await G.applyWrites({token:tok,siteId,listId:D2_GRAPH.lists.jobs},writes);
+  return {plan:{writes,refusals,errors},res};
+}
+
 function downloadChangeSet(pools,creates){
   const stamp=fmt(new Date());
   const payload={app:'D2 Pool Build Scheduler',kind:'d2-planner-changeset',
@@ -2166,7 +2336,7 @@ function wbFmt(col,v){
   if(col==='Locked'||col==='NotApplicable')return v?'Yes':'No';
   return String(v);
 }
-let PENDING_CHANGESET=null, PENDING_CREATES=null, PENDING_SIGNOFFS=null, PENDING_REJECTIONS=null;
+let PENDING_CHANGESET=null, PENDING_CREATES=null, PENDING_SIGNOFFS=null, PENDING_REJECTIONS=null, PENDING_JOBSTARTS=null;
 /* The preview a PM must confirm before anything downloads. Grouped by pool,
    one line per changed field, naming the field and the loaded value next to
    the new one -- a count is not enough to see "this is about to move 46
@@ -2182,8 +2352,9 @@ function openSavePreview(){
   const soCount=signoffChangeCount(sops);
   const rops=graphModeAvailable()?buildRejectionSet():[];
   const rCount=rejectionChangeCount(rops);
+  const jobStarts=graphModeAvailable()?buildJobStartChanges():[];   // the console applier cannot write Jobs
   const totalSecs=pools.reduce((n,p)=>n+p.sections.length,0);
-  if(!totalSecs&&!creates.length&&!soCount&&!rCount){alert('Nothing to push -- no pool has changed here since the last Refresh, and no new pool is queued.');return;}
+  if(!totalSecs&&!creates.length&&!soCount&&!rCount&&!jobStarts.length){alert('Nothing to push -- no pool has changed here since the last Refresh, and no new pool is queued.');return;}
   const skipped=S.jobs.filter(j=>!poolHasBaseline(j));
   const canPush=graphModeAvailable();
   const st=saveStaleness(Date.now());
@@ -2245,6 +2416,11 @@ function openSavePreview(){
         <td class="small muted">${esc(pretty(c.start))}</td>
         <td class="small muted">${c.assignDefaultCrews?'Assign default crews':'Leave unassigned'}</td></tr>`).join('')}
       </tbody></table></div>`:'')+
+    (jobStarts.length?`<div class="fld"><label>Project start dates (${jobStarts.length})</label>
+      <div class="hint" style="padding:0 0 6px">Written to the Jobs list, so the project's own start matches its first sub-phase.</div>
+      <table><tbody>${jobStarts.map(c=>`<tr><td class="small"><b>${esc(c.jobno)}</b> ${esc(c.name)}</td><td class="small muted">Start</td>
+        <td class="small">${esc(pretty(c.from))}</td><td class="small muted">→</td><td class="small"><b>${esc(pretty(c.to))}</b></td></tr>`).join('')}
+      </tbody></table></div>`:'')+
     pools.map(p=>`<div class="fld"><label>${esc(p.jobno)} · ${esc(p.name)} — ${p.sections.length} sub-phase${p.sections.length===1?'':'s'}</label>
       <table><tbody>${p.sections.map(sec=>Object.keys(sec.fields).map(col=>
         `<tr><td class="small">${esc(sec.num)} ${esc(sec.name)}</td>
@@ -2262,6 +2438,7 @@ function openSavePreview(){
   if(totalSecs)pushParts.push(plural(totalSecs,'schedule edit'));
   if(soCount)pushParts.push(plural(soCount,'sign-off and checklist change'));
   if(rCount)pushParts.push(`${rCount} ${rCount===1?'comment or rejection':'comments and rejections'}`);
+  if(jobStarts.length)pushParts.push(plural(jobStarts.length,'project start'));
   const pushLabel=pushParts.length
     ? `Save ${pushParts.join(' and ')} to SharePoint`+(creates.length?` and request ${plural(creates.length,'new pool')}`:'')
     : `Request ${plural(creates.length,'new pool')}`;
@@ -2277,6 +2454,7 @@ function openSavePreview(){
   PENDING_CREATES=creates;
   PENDING_SIGNOFFS=sops;
   PENDING_REJECTIONS=rops;
+  PENDING_JOBSTARTS=jobStarts;
   document.getElementById('drawer').classList.add('open');
 }
 /* Save's two endings. Graph mode writes; otherwise the change-set downloads
@@ -2337,6 +2515,11 @@ async function confirmSaveByPush(){
   let out=null,err=null;
   try{
     out=await pushChangeSet(pools);
+    /* Project start dates, on the Jobs list, one field with its own compare. */
+    if(PENDING_JOBSTARTS&&PENDING_JOBSTARTS.length){
+      try{ out.js=await pushJobStarts(out.siteId,out.tok,PENDING_JOBSTARTS); }
+      catch(e){ out.jsError=e; }
+    }
     /* Rejections go BEFORE sign-off and ticks. A tick on a sub-phase SharePoint
        holds as signed is allowed only because this Save reopens it; if the
        rejection does not land, the row is still signed, so its section loses
@@ -2382,6 +2565,7 @@ async function confirmSaveByPush(){
      the flows did in the meantime, and means the next Save diffs against
      something current rather than against what we just moved away from. */
   const anyWrite = out && (out.res.written.length
+    || (out.js && out.js.res.written.length)
     || (out.so && (out.so.sRes.written.length || out.so.tRes.written.length))
     || (out.rj && out.rj.rRes.done.length));
   if(anyWrite){ try{ await loadFromD2ViaGraph(true); }catch(e){} }
@@ -2445,8 +2629,19 @@ function showPushResult(out,err){
           f.stage==='post'&&f.patched
             ?'sign-off cleared and reason recorded on the sub-phase, but the comment was not added (HTTP '+f.status+')'
             :'HTTP '+f.status);})):[];
+    const js=out.js;
+    const jsRows=js?js.res.written.map(w=>row(w.jobno,'project start','')):[];
+    const jsBad=js?[].concat(
+      js.plan.refusals.map(r=>row(r.jobno,'project start',
+        `loaded ${pretty(r.loaded)}, now ${r.nowLive?pretty(r.nowLive):'blank'}, wanted ${pretty(r.wanted)}`)),
+      js.plan.errors.map(e=>row(e.jobno,'project start',e.reason==='row-missing'?'no longer in SharePoint':e.reason)),
+      js.res.failed.map(f=>row(f.jobno,'project start','HTTP '+f.status))):[];
     body.innerHTML=
-      (out.soError?`<div class="hint" style="color:#a84a18">Scheduling changes were saved, but
+      (out.jsError?`<div class="hint" style="color:#a84a18">Project start dates were not saved:
+        ${esc(out.jsError.message||'unknown error')}</div>`:'')
+     +sec('Project start saved',jsRows,'')
+     +sec('Project start NOT saved — changed in SharePoint since you loaded',jsBad,'#a84a18')
+     +(out.soError?`<div class="hint" style="color:#a84a18">Scheduling changes were saved, but
         sign-off and checklist changes were not: ${esc(out.soError.message||'unknown error')}</div>`:'')
      +(out.rjError?`<div class="hint" style="color:#a84a18">Comments and rejections were not saved:
         ${esc(out.rjError.message||'unknown error')}. They are still queued.</div>`:'')
@@ -2471,6 +2666,7 @@ function showPushResult(out,err){
           No pool was requested. ${esc(out.createError.message)}</div>`:'')
      +(!res.written.length&&!plan.refusals.length&&!plan.errors.length&&!res.failed.length&&!out.creates
        &&!soRows.length&&!soBad.length&&!out.soError&&!rjRows.length&&!rjBad.length&&!out.rjError
+       &&!jsRows.length&&!jsBad.length&&!out.jsError
         ? '<div class="hint">Nothing needed saving.</div>':'');
   }
   document.getElementById('dFoot').innerHTML='<button class="btn p" onclick="closeDrawer()">Close</button>';
@@ -2487,7 +2683,7 @@ function confirmSaveByDownload(){
     const pc=(S.pendingCreates||[]).find(x=>x.jobno===c.jobno&&!x.requestedAt);
     if(pc)pc.requestedAt=now;
   });
-  PENDING_CHANGESET=null; PENDING_CREATES=null; PENDING_SIGNOFFS=null; PENDING_REJECTIONS=null;
+  PENDING_CHANGESET=null; PENDING_CREATES=null; PENDING_SIGNOFFS=null; PENDING_REJECTIONS=null; PENDING_JOBSTARTS=null;
   save();
   closeDrawer();render();
 }
@@ -2558,7 +2754,8 @@ const D2_GRAPH={
     asg:'49ef7006-d3fe-40a7-a52f-c4c18545bd35',
     tasks:'22c45847-ff0d-417a-b53e-1ea018fbb6d3',
     cal:'d36758cf-9d27-4342-84e4-817f8dcfa2ba',
-    // Written to only by + Job, via New Pool Requests. Never read on Refresh.
+    // Written by + Job, and read on Refresh so a project whose request is
+    // still Requested or Building is marked and closed to edits (j.building).
     req:'13331a5e-ea8e-4ab2-9276-db5b4f4d46bf'
   }
 };
