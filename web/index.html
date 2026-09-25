@@ -14,7 +14,7 @@
   --navy:#082544; --green:#0B594B; --cream:#F6F3ED;
   --bg:var(--cream); --panel:#fff; --ink:#111827; --muted:#6b7280; --line:#e3ded4;
   --accent:var(--green); --danger:#b91c1c; --warn:#a84a18; --ok:#0B594B;
-  --day:26px; --nmw:516px;
+  --day:26px; --nmw:708px;
 }
 *{box-sizing:border-box}
 body{margin:0;font:14px/1.45 "Source Sans 3","Source Sans Pro",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink)}
@@ -69,12 +69,20 @@ thead .nm{background:#fbf9f5;z-index:30}
 /* Dates sit in their own fixed-width cell so they line up down the board
    rather than trailing each name at a different x. Tabular figures keep the
    slashes aligned. */
-.dt{flex:0 0 104px;text-align:right;font-size:11px;color:var(--muted);
+.dt{flex:0 0 296px;text-align:right;font-size:11px;color:var(--muted);
     font-variant-numeric:tabular-nums;white-space:nowrap}
 tr.jobrow .dt,tr.phrow .dt{color:#475569}
 .nmflex .t.click{cursor:pointer;border-radius:4px}
 .nmflex .t.click:hover{background:#eef2f6;box-shadow:0 0 0 3px #eef2f6}
 .sg{display:flex;gap:9px;align-items:center;flex:0 0 auto;min-width:94px;justify-content:flex-end}
+/* Edit in place: crew, days and start on the row itself. The dates cell keeps
+   its fixed width so the column's right edge still lines up down the board. */
+.dt.ic-row{display:flex;gap:4px;align-items:center;justify-content:flex-end;text-align:left}
+.ic{font-size:11px;height:22px;padding:0 3px;border:1px solid var(--line);border-radius:4px;background:#fff;color:var(--ink);font-family:inherit}
+select.ic{max-width:118px}
+input.ic[type=number]{width:46px}
+input.ic[type=date]{width:116px}
+.dt .fin{white-space:nowrap;color:var(--muted)}
 .sg label{font-size:9.5px;text-transform:uppercase;letter-spacing:.3px;color:var(--muted);display:flex;align-items:center;gap:2px;font-weight:650;cursor:pointer}
 .sg label.on{color:var(--ok)}
 .wk{font-size:10px;color:var(--muted);text-align:center;border-left:1px solid var(--line);font-weight:600;white-space:nowrap;padding:3px 0!important}
@@ -765,7 +773,7 @@ function conflicts(){
         out.push({jobs:[j.jobno],lvl:'err',msg:`<b>${ref}</b> — no crew assigned${q.length?'':` and <u>no crew has the ${skillLabel(s.skill)} skill</u>`}.`});}
       if(s.skill&&s.crewId){const c=crew(s.crewId);
         if(!c)out.push({jobs:[j.jobno],lvl:'err',msg:`<b>${ref}</b> — assigned crew no longer exists.`});
-        else if(!isQualified(c,s.skill))out.push({jobs:[j.jobno],lvl:'err',msg:`<b>${ref}</b> — ${c.name} is not qualified for ${skillLabel(s.skill)}.`});}
+        else if(!isQualified(c,s.skill))out.push({jobs:[j.jobno],lvl:'err',msg:`<b>${ref}</b> — ${esc(c.name)} is not qualified for ${skillLabel(s.skill)}.`});}
       if(s.crewId==='unassigned')out.push({jobs:[j.jobno],lvl:'warn',msg:`<b>${ref}</b> — sitting in <b>Unassigned</b>. Give it Main Office, a Subcontractor, or a field crew.`});
       if(prevEnd&&s.start<=prevEnd)out.push({jobs:[j.jobno],lvl:'err',msg:`<b>${ref}</b> — starts ${pretty(s.start)}, on or before the prior sub-phase ends (${pretty(prevEnd)}).`});
       const end=workSpan(s.start,s.days).pop();
@@ -965,7 +973,7 @@ function flagsCard(){
       `<span class="flag ok">Every sub-phase has a qualified crew, no crew is double-booked, and all sub-phases run in order.</span>`}
     ${c.length>40?`<span class="flag muted">…and ${c.length-40} more.</span>`:''}</div>`;
 }
-const legend=()=>`<div class="legend">${S.crews.map(c=>`<span><i style="background:${crewColor(c.id)}"></i>${c.name} <span class="muted">(${sizeTxt(c)})</span></span>`).join('')}
+const legend=()=>`<div class="legend">${S.crews.map(c=>`<span><i style="background:${crewColor(c.id)}"></i>${esc(c.name)} <span class="muted">(${sizeTxt(c)})</span></span>`).join('')}
   <span><i style="background:#94a3b8"></i>Office / sub — no crew</span><span class="muted">INST = installer sign-off · PM = project manager sign-off</span></div>`;
 
 /* Which projects the Board and the Crew Board show. The project picker applies
@@ -1033,14 +1041,16 @@ function vBoard(){
             ${s.rejected?'<span class="chip rej" title="Sign-off rejected. See the Sign-Offs tab.">Rejected</span>':''}
             <span class="muted small">· ${s.skill?skillLabel(s.skill):'—'}</span>
             <span class="tw" title="${pct}% of checklist"><i style="width:${pct}%"></i></span></span>
-          <span class="dt">${s.skip?'<span class="muted">not applicable</span>':(s.start?pretty(s.start)+' → '+pretty(fin):'<span class="muted">not scheduled</span>')}</span>
+          ${inlineEditable(j,s)
+            ? `<span class="dt ic-row">${inlineControls(j,gi,si,s,fin)}</span>`
+            : `<span class="dt">${s.skip?'<span class="muted">not applicable</span>':(s.start?pretty(s.start)+' → '+pretty(fin):'<span class="muted">not scheduled</span>')}</span>`}
           ${sgHTML(j.id,gi,si,s)}</div></td>`;
         if(s.skip||!s.start||ax.idx[s.start]==null){html+=`<tr>${nm}${emptyRow(ax)}</tr>`;return;}
         const c=s.crewId?crew(s.crewId):null;
         const bad=s.skill&&(!c||!isQualified(c,s.skill));
         const lbl=(c?c.name:'⚠ NO CREW')+(s.locked?' 🔒':'');
         html+=`<tr>${nm}${bandRow(ax,ax.idx[s.start],s.days,
-          `<div class="bar${bad?' bad':''}" title="${esc(lbl)}" style="background:${c?crewColor(c.id):'#94a3b8'}" onclick="editSec('${j.id}',${gi},${si})">${lbl}</div>`)}</tr>`;
+          `<div class="bar${bad?' bad':''}" title="${esc(lbl)}" style="background:${c?crewColor(c.id):'#94a3b8'}" onclick="editSec('${j.id}',${gi},${si})">${esc(lbl)}</div>`)}</tr>`;
       });
     });
     return html;
@@ -1049,8 +1059,41 @@ function vBoard(){
     ${boardControls(true)}
     <button class="btn sm" onclick="collapseAll(true)">Collapse all</button>
     <button class="btn sm" onclick="collapseAll(false)">Expand all</button>
-    <span class="muted small" style="text-transform:none">Click a sub-phase name or its bar to reassign, move, lock, or open its checklist</span></h2>
+    <span class="muted small" style="text-transform:none">Change crew, days or start on the row; days or start reflows the rest of that project. Click a name or bar for lock, N/A and the checklist</span></h2>
     ${legend()}<div class="tl"><table><thead>${headHTML(ax)}</thead><tbody>${rows||'<tr><td class="pad muted">No projects match.</td></tr>'}</tbody></table></div></div>`;
+}
+/* Edit in place. A sub-phase row carries its own crew dropdown, days input
+   and start date input, always visible, so a simple change no longer needs the
+   drawer. Locked, signed-off, N/A and still-building rows show text: the
+   drawer is the only way into those, on purpose. The crew list keeps the
+   drawer's Qualified / Not qualified split. */
+function inlineEditable(j,s){ return !j.building && !s.skip && !s.locked && !s.inst; }
+function inlineControls(j,gi,si,s,fin){
+  const cands=s.skill?qualified(s.skill):[],other=S.crews.filter(c=>!cands.includes(c));
+  const opt=c=>`<option value="${c.id}"${s.crewId===c.id?' selected':''}>${esc(c.name)}</option>`;
+  return `<select class="ic" data-ic="crew" title="Crew for this sub-phase" onchange="inlineSet('${j.id}',${gi},${si},'crew',this.value)">
+      <option value="">— Unassigned —</option>
+      ${cands.length?`<optgroup label="Qualified">${cands.map(opt).join('')}</optgroup>`:''}
+      ${other.length?`<optgroup label="⚠ Not qualified">${other.map(opt).join('')}</optgroup>`:''}</select>`
+    +`<input class="ic" type="number" min="1" data-ic="days" title="Days. Changing it reflows the rest of this project." value="${s.days}" onchange="inlineSet('${j.id}',${gi},${si},'days',this.value)">`
+    +`<input class="ic" type="date" data-ic="start" title="Start. Changing it reflows the rest of this project." value="${s.start||''}" onchange="inlineSet('${j.id}',${gi},${si},'start',this.value)">`
+    +`<span class="fin" title="Finish, from the start and the days">→ ${s.start?pretty(fin):'—'}</span>`;
+}
+/* A days or start change reflows THIS project from THIS row, the same walk as
+   the drawer's Save + reflow: locked and signed-off rows stay, N/A rows are
+   skipped, crews are untouched. Leaving the rows below where they were would
+   put the board out of step with itself. A crew change moves nothing. */
+function inlineSet(jobId,gi,si,k,v){
+  const j=S.jobs.find(x=>x.id===jobId); if(!j)return;
+  const s=j.groups[gi]&&j.groups[gi].sections[si];
+  if(!s||!inlineEditable(j,s)){render();return;}
+  if(k==='crew'){ s.crewId=v||null; touch(j); save(); render(); return; }
+  if(k==='days') s.days=Math.max(1,+v||1);
+  else if(k==='start') s.start=v?nextWork(v):null;
+  else return;
+  touch(j);
+  if(s.start)reflowFrom(jobId,gi,si);
+  save(); render();
 }
 /* The crews on a phase, for its FOLDED line only. "Collapse all" is how a PM
    gets one line per phase, and it used to hide who is on the work, which was
@@ -1087,13 +1130,13 @@ function vCrewBoard(){
       let n=0;while(k+n<ax.days.length&&cells[k+n]&&cells[k+n]!=='DBL'&&!cells[k+n].many&&cells[k+n].s===v.s)n++;
       html+=`<td colspan="${n}" style="padding:0"><div class="bar" style="background:${crewColor(c.id)}" onclick="editSec('${v.j.id}',${v.gi},${v.si})">${esc(v.j.name)} — ${esc(v.s.num)} ${esc(v.s.name)}</div></td>`;k+=n;
     }
-    return `<tr><td class="nm"><b>${c.name}</b><div class="muted small">${c.skills.map(skillLabel).join(', ')}</div></td>${html}</tr>`;
+    return `<tr><td class="nm"><b>${esc(c.name)}</b><div class="muted small">${c.skills.map(skillLabel).join(', ')}</div></td>${html}</tr>`;
   }).join('');
   const max=Math.max(1,...Object.values(load));
   return `<div class="card"><h2>Crew Board — who is where<span class="sp"></span>${boardControls(false)}</h2>
     <div class="tl"><table><thead>${headHTML(ax)}</thead><tbody>${rows}</tbody></table></div></div>
   <div class="card"><h2>Crew Load (scheduled days)</h2><table><tbody>
-    ${S.crews.map(c=>`<tr><td style="width:160px">${c.name}</td>
+    ${S.crews.map(c=>`<tr><td style="width:160px">${esc(c.name)}</td>
       <td><div class="bars"><i style="width:${(load[c.id]||0)/max*100}%;background:${crewColor(c.id)}"></i></div></td>
       <td style="width:70px" class="small muted">${load[c.id]||0} days</td></tr>`).join('')}</tbody></table>
     <div class="hint">Auto-Schedule gives each sub-phase to the qualified crew with the lightest load that is free for the whole span.</div></div>`;
@@ -1114,7 +1157,7 @@ function vDispatch(){
       <span class="small muted">day ${workSpan(h.s.start,h.s.days).indexOf(DDATE)+1} of ${h.s.days} · checklist ${pct}%</span>
       ${sgHTML(h.j.id,h.gi,h.si,h.s)}`;}).join('<hr style="border:0;border-top:1px solid #eee;margin:6px 0">')
       :`<span class="muted">— Available —</span>`;
-    return `<tr><td style="width:170px"><b>${c.name}</b><div class="muted small">${c.members.length?c.members.join(', '):'members not specified'}${c.note?' · ⚠ '+esc(c.note):''}</div></td>
+    return `<tr><td style="width:170px"><b>${esc(c.name)}</b><div class="muted small">${c.members.length?c.members.join(', '):'members not specified'}${c.note?' · ⚠ '+esc(c.note):''}</div></td>
       <td>${cell}${hits.length>1?(c.unlimited?` <span class="chip sub">${hits.length} jobs</span>`:' <span class="chip" style="background:#fee2e2;color:#991b1b">DOUBLE-BOOKED</span>'):''}</td></tr>`;
   }).join('');
   const subs=[];
@@ -1183,7 +1226,7 @@ function vSignoff(){
           const e=s.start?workSpan(s.start,s.days).pop():null;
           return `<tr${s.skip?' class="skip"':''}><td class="small muted">${s.num}</td>
             <td><a href="#" onclick="editSec('${j.id}',${gi},${si});return false">${s.name}</a></td>
-            <td class="small">${c?`<span class="chip" style="background:${crewColor(c.id)};color:#fff">${c.name}</span>`:'<span class="chip sub">none</span>'}</td>
+            <td class="small">${c?`<span class="chip" style="background:${crewColor(c.id)};color:#fff">${esc(c.name)}</span>`:'<span class="chip sub">none</span>'}</td>
             <td class="small muted">${pretty(s.start)} → ${pretty(e)}</td>
             <td class="small"><span class="tw" style="width:50px"><i style="width:${pct}%"></i></span> ${pct}%</td>
             <td>${sgHTML(j.id,gi,si,s)}</td></tr>`;}).join('');
@@ -1280,7 +1323,7 @@ function vCrews(){
   ${SKILLS.map(s=>{const q=qualified(s.id);
     const used=S.template.flatMap(g=>g.sections.filter(x=>x.skill===s.id).map(x=>x.num));
     return `<tr><td>${s.label}</td>
-      <td>${q.length?q.map(c=>`<span class="chip" style="background:${crewColor(c.id)};color:#fff">${c.name}</span>`).join(' '):'<span class="err-txt">none</span>'}</td>
+      <td>${q.length?q.map(c=>`<span class="chip" style="background:${crewColor(c.id)};color:#fff">${esc(c.name)}</span>`).join(' '):'<span class="err-txt">none</span>'}</td>
       <td class="small ${used.length?'muted':'err-txt'}">${used.length?used.join(', '):'not mapped to any sub-phase yet'}</td></tr>`;}).join('')}
   </tbody></table><div class="hint">A skill with no sub-phase is a trade you have crews for but no place in the build template — set it on the Phase Template tab.</div></div>`;
 }
@@ -1345,8 +1388,8 @@ function editSec(jobId,gi,si){
     <div class="small muted" style="margin-bottom:9px">Phase ${g.num}.0 ${g.name}</div>
     <div class="fld"><label>Required trade</label>${s.skill?`<span class="chip skill">${skillLabel(s.skill)}</span>`:`<span class="chip sub">No trade set</span>`}</div>
     <div class="fld"><label>Crew</label><select id="fCrew"><option value="">— Unassigned —</option>
-      ${cands.length?`<optgroup label="Qualified">${cands.map(c=>`<option value="${c.id}"${s.crewId===c.id?' selected':''}>${c.name} (${sizeTxt(c)})</option>`).join('')}</optgroup>`:''}
-      ${other.length?`<optgroup label="⚠ Not qualified">${other.map(c=>`<option value="${c.id}"${s.crewId===c.id?' selected':''}>${c.name}${s.skill?' — no '+skillLabel(s.skill):''}</option>`).join('')}</optgroup>`:''}
+      ${cands.length?`<optgroup label="Qualified">${cands.map(c=>`<option value="${c.id}"${s.crewId===c.id?' selected':''}>${esc(c.name)} (${sizeTxt(c)})</option>`).join('')}</optgroup>`:''}
+      ${other.length?`<optgroup label="⚠ Not qualified">${other.map(c=>`<option value="${c.id}"${s.crewId===c.id?' selected':''}>${esc(c.name)}${s.skill?' — no '+skillLabel(s.skill):''}</option>`).join('')}</optgroup>`:''}
     </select></div>
     <div class="row"><div class="fld"><label>Start</label><input type="date" id="fStart" value="${s.start||''}"></div>
       <div class="fld"><label>Days</label><input type="number" min="1" id="fDays" value="${s.days}"></div></div>
@@ -1479,7 +1522,7 @@ function showAvail(){
   const span=workSpan(nextWork(start),days),busy=busyMap(CUR),cands=s.skill?qualified(s.skill):S.crews;
   el.innerHTML=`<div class="muted" style="margin-bottom:4px">${pretty(span[0])} → ${pretty(span[span.length-1])} · ${days} work day${days===1?'':'s'}</div>`+
     (cands.length?cands.map(c=>{const set=busy.get(c.id)||new Set(),hit=span.filter(d=>set.has(d));
-      return `<div>${hit.length?'🔴':'🟢'} <b>${c.name}</b> ${hit.length?`<span class="err-txt">busy ${hit.length} of these days (${pretty(hit[0])}…)</span>`:'<span class="ok-txt">free</span>'}</div>`;}).join('')
+      return `<div>${hit.length?'🔴':'🟢'} <b>${esc(c.name)}</b> ${hit.length?`<span class="err-txt">busy ${hit.length} of these days (${pretty(hit[0])}…)</span>`:'<span class="ok-txt">free</span>'}</div>`;}).join('')
       :'<span class="err-txt">No crew has this trade.</span>');
 }
 function saveSec(reflow){

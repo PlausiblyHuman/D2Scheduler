@@ -1,0 +1,57 @@
+[
+ {
+  "label": "controls rendered on locked and signed rows too",
+  "find": "function inlineEditable(j,s){ return !j.building && !s.skip && !s.locked && !s.inst; }",
+  "replace": "function inlineEditable(j,s){ return !j.building && !s.skip; }"
+ },
+ {
+  "label": "controls rendered on a building project",
+  "find": "function inlineEditable(j,s){ return !j.building && !s.skip && !s.locked && !s.inst; }",
+  "replace": "function inlineEditable(j,s){ return !s.skip && !s.locked && !s.inst; }"
+ },
+ {
+  "label": "crew change not recorded",
+  "find": "if(k==='crew'){ s.crewId=v||null; touch(j); save(); render(); return; }",
+  "replace": "if(k==='crew'){ render(); return; }"
+ },
+ {
+  "label": "crew change reflows the project",
+  "find": "if(k==='crew'){ s.crewId=v||null; touch(j); save(); render(); return; }",
+  "replace": "if(k==='crew'){ s.crewId=v||null; touch(j); reflowFrom(jobId,gi,si); s.start=nextWork(addCal(s.start,1)); save(); render(); return; }"
+ },
+ {
+  "label": "days change does not reflow",
+  "find": "  if(s.start)reflowFrom(jobId,gi,si);\n  save(); render();\n}",
+  "replace": "  save(); render();\n}"
+ },
+ {
+  "label": "start not snapped to a working day",
+  "find": "else if(k==='start') s.start=v?nextWork(v):null;",
+  "replace": "else if(k==='start') s.start=v||null;"
+ },
+ {
+  "label": "days below one accepted",
+  "find": "if(k==='days') s.days=Math.max(1,+v||1);",
+  "replace": "if(k==='days') s.days=+v;"
+ },
+ {
+  "label": "inline edit not marked as edited",
+  "find": "  else return;\n  touch(j);\n  if(s.start)reflowFrom(jobId,gi,si);",
+  "replace": "  else return;\n  if(s.start)reflowFrom(jobId,gi,si);"
+ },
+ {
+  "label": "crew names unescaped in the dropdown",
+  "find": "const opt=c=>`<option value=\"${c.id}\"${s.crewId===c.id?' selected':''}>${esc(c.name)}</option>`;",
+  "replace": "const opt=c=>`<option value=\"${c.id}\"${s.crewId===c.id?' selected':''}>${c.name}</option>`;"
+ },
+ {
+  "label": "Not qualified crews offered as qualified",
+  "find": "const cands=s.skill?qualified(s.skill):[],other=S.crews.filter(c=>!cands.includes(c));\n  const opt=",
+  "replace": "const cands=S.crews.slice(),other=[];\n  const opt="
+ },
+ {
+  "label": "controls placed inside the clickable name",
+  "find": "onclick=\"editSec('${j.id}',${gi},${si})\"><b>${s.num}</b> ${s.name}",
+  "replace": "onclick=\"editSec('${j.id}',${gi},${si})\"><b>${s.num}</b> ${s.name}${inlineEditable(j,s)?inlineControls(j,gi,si,s,fin):''}"
+ }
+]
