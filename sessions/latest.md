@@ -1,61 +1,75 @@
-# 2026-09-23a: reject-a-sign-off, built, deployed and verified live
+# 2026-09-25a: the 24 September meeting turned into a proposal, then batch 1, backups and edit in place
 
-**Session goal:** finish the reject-with-comments plan (Tasks 6 to 11). Done: built, deployed to the hosted planner,
-added to the Daily Summary, walked end to end on a throwaway pool, and written into the client guide.
+**Session goal:** ingest the 24 September status meeting, propose a build for its scheduler items, and
+build what Shane approved. Shipped in one day: batch 1 (seven changes), WP8 backups with a live
+restore rehearsal, WP3-B edit in place, and the deletion of the four demo pools.
+
+**Time:** 09:12–14:23 local, 2.75 h billable by the hook clock (D2 bucket, 15-min idle rule); the wall
+clock was 5.2 h with no break, so the idle rule trimmed long tool waits. Shane picks the figure.
 
 ## What shipped
 
 | Commit | Change |
 |---|---|
-| `cce7b88` | Refresh reads `Sign-off Comments` with its own catch; a failing read costs the threads, never the schedule |
-| `c97fb09` | Sub-phase panel: thread, Add comment, Reject sign-off (reason required), Mark resolved, a removable queue |
-| `c8d9e9e` | Save counts, previews, sends and reports them; rejections go before sign-off |
-| `b17c55c` | Open rejections card on Sign-Offs, Rejected label on the board; the shakedown now drives the panel |
-| `a408f63` | Daily Summary Open rejections section, omitted when empty; export regenerated |
-| `f53ecfa` | CLAUDE.md record |
+| `960f870` | Meeting review list and the build proposal (`docs/superpowers/specs/2026-09-25-scheduler-build-proposal-design.md`) |
+| `a3013fc` | Batch 1: board keeps vertical scroll, Crews tab chips, Building guard, Back to planning, project picker and Open schedule link, Live / Planned / Both filter, Day / Week / Month zoom, reset from a new start with `Jobs.StartDate` written back. Tag `deploy/2026-09-25` |
+| `e54bf5d` | CLAUDE.md record of the meeting decisions and batch 1 |
+| `9e70790` | WP8: `D2 - Snapshot` (03:00 Central, all 13 lists to Documents/Backups), `sharepoint/restore-project.js` (27 assertions, 13 mutations red), `D2BuildSchedulerFlows` solution exported, schema capture, `docs/restore-runbook.md` |
+| `cb23d09` | WP8 close-out: live rehearsal record, flow exports regenerated with the snapshot flow |
+| `aceaea0` | WP3-B: crew, days and start controls on every editable Board row, always visible (32 assertions, 11 mutations red); crew names escaped in eight places. Tag `deploy/2026-09-25b` |
+| `762a02e` | Records |
 
-Deployed to the Static Web App; the wall was re-checked anonymously (everything 302 except `/auth-redirect.html` 200
-and `/.auth/login/github` 404). Client guide published as **Version 8** of `MnJkMLwg3LHXpv9g74SiV2`.
+Two deploys to the Static Web App, the wall re-checked after each. `npm test` 391 passes with the
+documented oracle failure only; shakedown 44 passes, console clean.
+
+**Tenant changes, all read back:** the four demo pools (`D2-1042` to `D2-1045`) deleted through
+Delete Pool Requests and their 184 calendar events cleared over Graph; the tenant holds Don's two
+projects (`26- 2055` Active, `26-2065` Planned, raised during the meeting), 92 assignments, 590 tasks,
+46 calendar events. A throwaway `TEST-9600` was built, snapshotted, damaged in fifteen fields,
+restored by the real script through the session proxy, and deleted; its request rows were removed.
+The session proxy flow was deleted at the end.
 
 ## Decisions made
 
-- **Four departures from the plan, all kept:** rejections are sent before sign-off, and a reject that did not land
-  takes its reopen away so ticks are refused under a live sign-off; a queued reject carries the sign-off change, so
-  the on-screen Installer un-tick is not also sent as a plain reopen; removing a queued reject restores Installer;
-  the Daily Summary section is an `if()` in `Compose_body` rather than a Condition action.
-- The Daily Summary was tested on a copy mailing `stratirus@` only, against a temporary flag on a Navarro row
-  (PM D2 Bot), then the real flow was edited.
-- The client guide was published to the shared artifact on Shane's explicit instruction, after the classifier refused
-  the first attempt.
-
-## Verified
-
-Live on `TEST-9500` (built 10m19s, removed via Delete Pool Requests), every step read back from SharePoint: sign-off;
-reject plus ticks in one Save (one Central-time audit line, ticks landed, counters 2/17); a comment that leaves the
-assignment untouched; both refusal directions stay queued and write nothing; "Signed again" on the card; resolve
-keeps `RejectedOn`; the view 0 → 1 → 0 with an inverted control. Event-Driven Reconciliation fired twice and sent no
-alert. `npm test` green, 50 of 50 mutations red, shakedown console clean. Tenant audited back to baseline: 5 jobs,
-230 assignments, 1475 tasks, 5 New Pool Requests rows, 0 Delete Pool Requests, 0 comments, 0 rejected.
+- Meeting outcomes as recorded in the proposal: "project" is the word (applied opportunistically);
+  STL stays; Harrison and Campos come off; zero-day sub-phases approved on the fold-or-allow
+  recommendation; B4 is a filtered Job Board, not a calendar tool; WP3-B controls always visible;
+  the Backups folder is plain in the Documents library; backups before edit-in-place, test pools
+  deleted first.
+- WP5 answers, given by Shane on Don's behalf: an unreleased phase holds everything back, double
+  bookings involving it are shown on screen and never emailed, release is by major phase only, a
+  release-everything button stays. WP5 is Option B and now has what its spec needs.
+- `26-2065 Brandon - Cross` was kept as a real job; the request rows for the deleted pools were left
+  as history.
+- The flows got their own solution rather than joining the canvas app's, because `deploy.py`
+  re-imports that one on every app deploy.
+- Dataverse: the solution container is free and done; moving the data is the Rev D migration at
+  about $20 a user a month and is not warranted at 5 projects. Three cheaper scale steps named.
 
 ## Found
 
-- `edit_flow` on the Daily Summary wrote straight to the published row; `PublishXml` then failed with a generic
-  `0x80040216` because there was no draft. Verify by reading the Dataverse row, not by `PublishXml`'s result.
-- `Rejected` reads null on every pre-existing row; filter with `eq 1` / `ne 1`, never `eq 0`.
-- **A fifth job, `26- 2055 Gunite/Trailov`, raised and activated by Don on 09-22** (see CLAUDE.md). It is complete,
-  but its start date and default crews copy Navarro's schedule: 18 double-bookings, 27 unsigned sub-phases counting
-  against compliance. Activating before the build finished may have sent Don conflict alerts; not checked.
-- Sessions 09-17 to 09-22 had no logs; three were reconstructed from commits.
+- Graph transcript access is disabled in the Tennetech tenant and the Loop notes file cannot be
+  read headlessly; the Facilitator chat notes give the outline and Shane pasted the rundown (saved
+  as a memory).
+- The Gantt table is auto-layout: bar labels set column minimums, and hidden header rows must be
+  `visibility:collapse`, not `display:none`, or the columns lose the cells that hold them open.
+- FlowAgent `invoke_operation` reaches only dynamic resolvers; the proxy flow remains the headless
+  SharePoint route. `az rest --body` with inline JSON is mangled through a Windows subprocess shell.
+- Crew names were painted raw in eight places, including the drawer's own option lists.
+- Entra's sign-in log for the 24th shows only Don, both sign-ins successful: the "sign-in bug"
+  follow-up had nothing behind it.
 
 ## Open questions / blocked on
 
-- **Is `26- 2055` a real job or Don trying the system?** Real: set its real start, reflow, fix the job number.
-  Practice: set it to Planned, delete after the 04:30 sweep.
-- **The client guide's share link is still pinned to an earlier version.** Shane moves it in the Share menu.
-- Did Don get conflict-alert emails from the early activation? Checkable from Flow 3's runs, 20:07–20:15 UTC on 09-22.
-- Carried: Don's trade mapping, the template-permissions gate (item 7), crew-lead accounts and seats.
+- The two new live writes from batch 1 and the inline controls have run against stubbed Graph and a
+  local browser, not through a signed-in session on the hosted site.
+- The client guide (Version 8) describes none of today's changes.
+- Don's phase list (WP6), the six-trade coverage, the job numbering format, the fiberglass and
+  construction phase lists, Amy's inspection list.
+- Delete Pool does not snapshot before it deletes; the nightly snapshot and the recycle bin cover it.
 
 ## Next action
 
-Settle `26- 2055` with Don, move the guide's share pin to Version 8, and check the first live Daily Summary with the
-new section on the next rejection.
+WP6 zero-day rows when Don's phase list arrives, then the WP5 spec from the answers in the proposal,
+then the Delete Pool snapshot; before any of them, a signed-in pass over Back to planning, the
+`StartDate` write and the inline controls on the hosted planner, and the client guide update.
