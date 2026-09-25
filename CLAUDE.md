@@ -2636,6 +2636,38 @@ no two crews on the same date, so it asserted over an empty set. It now builds t
 carries a second assertion confirming the scenario is reached. **A new assertion has to be watched
 fail before it is worth anything** -- the fourth time this file has recorded that lesson.
 
+## WP3-B EDIT IN PLACE ON THE JOB BOARD — shipped 2026-09-25, second deploy of the day
+
+Every editable sub-phase row on the Board carries its own **crew dropdown** (the drawer's Qualified /
+Not qualified split), **days** input and **start** date input, always visible, with the derived
+finish beside them. Don's ask from the 24th: editing through the panel was too heavy for a simple
+change. Shane chose always-visible over a toggle.
+
+- **A days or start change reflows that project from that row** through `reflowFrom`, the same walk
+  as the drawer's Save + reflow: locked and signed-off rows stay, N/A rows are skipped, crews are
+  untouched. Leaving the rows below where they were would put the Board out of step with itself.
+  **A crew change moves nothing.** A start on a Sunday lands on the next working day; days below 1
+  are refused.
+- **Locked, signed-off, N/A and still-building rows show text, not controls.** The drawer is the only
+  way into those, on purpose.
+- The controls sit in the dates cell (`.dt.ic-row`), outside the clickable name, so they neither open
+  the drawer nor swallow the sign-off boxes beside them. `.dt` is a fixed 296px on every row so the
+  column's right edge still lines up; `--nmw` went from 516px to 708px.
+- Edits mark the project edited and count on Save through the existing allowlist and compare. **The
+  edit itself calls `touch`**: `reflowFrom` marks the project only when it moves a row, and a change
+  on the last row moves nothing. The mutation sweep found that one.
+- **Crew names are now escaped everywhere they are painted.** The Board bar label, the legend, the
+  Crew Board, the crew load table, the Crews tab chips, the drawer's two `<option>` lists and the
+  Schedule Check "not qualified" message were all raw. Crews are per-browser data, so the exposure was
+  a PM's own browser, but the rule is escape at construction.
+
+`fixtures/planner/inline-edit.js`, 32 assertions, 11 mutations red; the shakedown drives a days change
+in a real browser and sees the next row move, with the dates column still aligned. Tag
+`deploy/2026-09-25b`. Adding a phase to a live project is still deferred (no create path).
+
+**Not done: the client guide** does not describe the inline controls, nor anything else shipped on
+2026-09-25.
+
 ## WP8 BACKUPS — built and rehearsed 2026-09-25; the demo pools are gone
 
 **Read `docs/restore-runbook.md` for how to use any of this.** The short version of what exists:

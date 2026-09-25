@@ -1,6 +1,6 @@
 # Scheduler build proposal, from the 24 September status meeting
 
-**Status: batch 1 shipped 2026-09-25 (commit `a3013fc`, tag `deploy/2026-09-25`). Revised the same day with Shane's third-round answers.** This decomposes his 25 September
+**Status: batch 1 (`a3013fc`, `deploy/2026-09-25`), WP8 (`9e70790`, `cb23d09`) and WP3-B (`aceaea0`, `deploy/2026-09-25b`) all shipped 2026-09-25. Left: WP6 when Don's phase list arrives, WP5 as its own spec, and the Delete Pool snapshot-before-delete.** This decomposes his 25 September
 decisions into work packages, gives each a design at the depth it needs, and proposes an order.
 Approval of this document approves the bounded packages (WP1, WP2, WP4) for implementation and
 approves writing a separate spec for each architectural one (WP3-B, WP5, WP6, WP8). It does not
@@ -384,6 +384,6 @@ edits.
 
 ## 4. What is still open
 
-Every question in this document has been answered as of 2026-09-25. The order is: delete the test
-pools, then WP8 (backups), then WP3-B (always-visible controls), then WP6 when Don's phase list
-arrives, then WP5 as its own spec.
+Every question in this document has been answered as of 2026-09-25, and the test pools, WP8 and
+WP3-B are done. Left, in order: WP6 when Don's phase list arrives, then WP5 as its own spec (the
+answers it needed are in section 1), then the Delete Pool snapshot-before-delete from WP8.
