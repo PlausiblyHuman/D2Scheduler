@@ -1,0 +1,354 @@
+{
+ "flowId": "2f649fe7-d3ce-3c0b-06b6-f05511c11a5a",
+ "displayName": "D2 - Snapshot",
+ "workflowEntityId": "25396cc3-0db9-f111-aaad-000d3a3b11dd",
+ "state": "Started",
+ "lastModifiedTime": "2026-09-25T18:21:52Z",
+ "connectionReferences": {
+  "shared_sharepointonline": {
+   "connectionName": "shared-sharepointonl-20b83f29-d689-437e-b1ff-930f7bf3fda4",
+   "connectionReferenceLogicalName": "new_sharedsharepointonline_beb06",
+   "source": "Embedded",
+   "id": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+   "displayName": "SharePoint",
+   "iconUri": "https://static.powerapps.com/resource/ppcr/releases/v1.0.1827/1.0.1827.4913/sharepointonline/icon.png",
+   "brandColor": "",
+   "tier": "Standard",
+   "apiName": "sharepointonline",
+   "isProcessSimpleApiReferenceConversionAlreadyDone": false
+  },
+  "shared_office365": {
+   "connectionName": "shared-office365-0bc14d33-bf94-4439-bdbc-d600759333d5",
+   "connectionReferenceLogicalName": "new_sharedoffice365_4d59e",
+   "source": "Embedded",
+   "id": "/providers/Microsoft.PowerApps/apis/shared_office365",
+   "displayName": "Office 365 Outlook",
+   "iconUri": "https://static.powerapps.com/resource/ppcr/releases/v1.0.1819/1.0.1819.4795/office365/icon.png",
+   "brandColor": "#0078D4",
+   "tier": "Standard",
+   "apiName": "office365",
+   "isProcessSimpleApiReferenceConversionAlreadyDone": false
+  }
+ },
+ "definition": {
+  "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+   "$connections": {
+    "defaultValue": {},
+    "type": "Object"
+   },
+   "$authentication": {
+    "defaultValue": {},
+    "type": "SecureObject"
+   }
+  },
+  "triggers": {
+   "Recurrence": {
+    "recurrence": {
+     "frequency": "Day",
+     "interval": 1,
+     "timeZone": "Central Standard Time",
+     "startTime": "2026-09-26T03:00:00",
+     "schedule": {
+      "hours": [
+       "3"
+      ],
+      "minutes": [
+       0
+      ]
+     }
+    },
+    "type": "Recurrence"
+   }
+  },
+  "actions": {
+   "Init_rows": {
+    "runAfter": {},
+    "type": "InitializeVariable",
+    "inputs": {
+     "variables": [
+      {
+       "name": "rows",
+       "type": "array",
+       "value": []
+      }
+     ]
+    }
+   },
+   "Init_nextUri": {
+    "runAfter": {
+     "Init_rows": [
+      "Succeeded"
+     ]
+    },
+    "type": "InitializeVariable",
+    "inputs": {
+     "variables": [
+      {
+       "name": "nextUri",
+       "type": "string",
+       "value": ""
+      }
+     ]
+    }
+   },
+   "Init_report": {
+    "runAfter": {
+     "Init_nextUri": [
+      "Succeeded"
+     ]
+    },
+    "type": "InitializeVariable",
+    "inputs": {
+     "variables": [
+      {
+       "name": "report",
+       "type": "array",
+       "value": []
+      }
+     ]
+    }
+   },
+   "Compose_stamp": {
+    "runAfter": {
+     "Init_report": [
+      "Succeeded"
+     ]
+    },
+    "type": "Compose",
+    "inputs": "@formatDateTime(convertFromUtc(utcNow(),'Central Standard Time'),'yyyy-MM-dd HHmm')"
+   },
+   "Compose_lists": {
+    "runAfter": {
+     "Compose_stamp": [
+      "Succeeded"
+     ]
+    },
+    "type": "Compose",
+    "inputs": [
+     {
+      "name": "Jobs",
+      "id": "ee0ecabf-2f11-458d-a9ea-641f76d10cc3"
+     },
+     {
+      "name": "Assignments",
+      "id": "49ef7006-d3fe-40a7-a52f-c4c18545bd35"
+     },
+     {
+      "name": "Tasks",
+      "id": "22c45847-ff0d-417a-b53e-1ea018fbb6d3"
+     },
+     {
+      "name": "Sign-off Comments",
+      "id": "e6c97457-017d-4e18-868e-8a73b4fb6821"
+     },
+     {
+      "name": "Crews",
+      "id": "45e9ff1f-bf36-4ab5-929d-25ab9a80d460"
+     },
+     {
+      "name": "Crew-Trades",
+      "id": "32c6154d-2572-4dfd-877a-18fa20a3a07e"
+     },
+     {
+      "name": "Trades",
+      "id": "05038f7f-a6cb-4f57-b1a1-3ff9c7126ba5"
+     },
+     {
+      "name": "Work Calendar",
+      "id": "d36758cf-9d27-4342-84e4-817f8dcfa2ba"
+     },
+     {
+      "name": "Sub-phase Template",
+      "id": "453e7cd5-f84a-4e2a-9372-73f26019e3f0"
+     },
+     {
+      "name": "Task Template",
+      "id": "61824add-8eaa-4b1b-aed7-a202204bf9f5"
+     },
+     {
+      "name": "New Pool Requests",
+      "id": "13331a5e-ea8e-4ab2-9276-db5b4f4d46bf"
+     },
+     {
+      "name": "Delete Pool Requests",
+      "id": "b1ea3db6-7870-4648-80c2-7fe8414ecfd7"
+     },
+     {
+      "name": "Reschedule Requests",
+      "id": "31ada231-3937-4d72-9abf-8677f07c3fea"
+     }
+    ]
+   },
+   "For_each_list": {
+    "foreach": "@outputs('Compose_lists')",
+    "actions": {
+     "Set_nextUri_first": {
+      "runAfter": {},
+      "type": "SetVariable",
+      "inputs": {
+       "name": "nextUri",
+       "value": "_api/web/lists(guid'@{item()?['id']}')/items?$top=5000"
+      }
+     },
+     "Set_rows_empty": {
+      "runAfter": {
+       "Set_nextUri_first": [
+        "Succeeded"
+       ]
+      },
+      "type": "SetVariable",
+      "inputs": {
+       "name": "rows",
+       "value": "@json('[]')"
+      }
+     },
+     "Until_paged": {
+      "actions": {
+       "Get_page": {
+        "runAfter": {},
+        "type": "OpenApiConnection",
+        "inputs": {
+         "host": {
+          "connectionName": "shared_sharepointonline",
+          "operationId": "HttpRequest",
+          "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+         },
+         "parameters": {
+          "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+          "parameters/method": "GET",
+          "parameters/uri": "@variables('nextUri')",
+          "parameters/headers": {
+           "Accept": "application/json;odata=nometadata"
+          }
+         }
+        }
+       },
+       "Compose_merged": {
+        "runAfter": {
+         "Get_page": [
+          "Succeeded"
+         ]
+        },
+        "type": "Compose",
+        "inputs": "@union(variables('rows'), coalesce(body('Get_page')?['value'], json('[]')))"
+       },
+       "Set_rows": {
+        "runAfter": {
+         "Compose_merged": [
+          "Succeeded"
+         ]
+        },
+        "type": "SetVariable",
+        "inputs": {
+         "name": "rows",
+         "value": "@outputs('Compose_merged')"
+        }
+       },
+       "Compose_next": {
+        "runAfter": {
+         "Set_rows": [
+          "Succeeded"
+         ]
+        },
+        "type": "Compose",
+        "inputs": "@replace(coalesce(body('Get_page')?['odata.nextLink'],''),'https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler/','')"
+       },
+       "Set_nextUri": {
+        "runAfter": {
+         "Compose_next": [
+          "Succeeded"
+         ]
+        },
+        "type": "SetVariable",
+        "inputs": {
+         "name": "nextUri",
+         "value": "@outputs('Compose_next')"
+        }
+       }
+      },
+      "runAfter": {
+       "Set_rows_empty": [
+        "Succeeded"
+       ]
+      },
+      "expression": "@empty(variables('nextUri'))",
+      "limit": {
+       "count": 30,
+       "timeout": "PT30M"
+      },
+      "type": "Until"
+     },
+     "Create_file": {
+      "runAfter": {
+       "Until_paged": [
+        "Succeeded"
+       ]
+      },
+      "type": "OpenApiConnection",
+      "inputs": {
+       "host": {
+        "connectionName": "shared_sharepointonline",
+        "operationId": "CreateFile",
+        "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+       },
+       "parameters": {
+        "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+        "folderPath": "/Shared Documents/Backups",
+        "name": "@{outputs('Compose_stamp')} @{item()?['name']}.json",
+        "body": "@{string(variables('rows'))}"
+       }
+      }
+     },
+     "Append_report": {
+      "runAfter": {
+       "Create_file": [
+        "Succeeded"
+       ]
+      },
+      "type": "AppendToArrayVariable",
+      "inputs": {
+       "name": "report",
+       "value": "@{item()?['name']}: @{length(variables('rows'))} rows"
+      }
+     }
+    },
+    "runAfter": {
+     "Compose_lists": [
+      "Succeeded"
+     ]
+    },
+    "type": "Foreach",
+    "runtimeConfiguration": {
+     "concurrency": {
+      "repetitions": 1
+     }
+    }
+   },
+   "Send_failure_email": {
+    "runAfter": {
+     "For_each_list": [
+      "Failed",
+      "TimedOut"
+     ]
+    },
+    "type": "OpenApiConnection",
+    "inputs": {
+     "host": {
+      "connectionName": "shared_office365",
+      "operationId": "SendEmailV2",
+      "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365"
+     },
+     "parameters": {
+      "emailMessage/To": "stratirus@d2pools.com",
+      "emailMessage/Subject": "D2 Build Scheduler: nightly snapshot FAILED",
+      "emailMessage/Body": "<p>The nightly snapshot did not complete. Lists written before the failure:</p><p>@{join(variables('report'),'<br>')}</p><p>Open the run in Power Automate for the failing step.</p>",
+      "emailMessage/Importance": "High"
+     }
+    }
+   }
+  },
+  "outputs": {}
+ }
+}

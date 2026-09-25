@@ -1488,15 +1488,15 @@ the same time, and a surprising row is not automatically a bug in this session's
 
 | List | Rows | GUID |
 |---|---|---|
-| Jobs | **3** (`D2-1042` Reyes, `D2-1043` Whitfield, `D2-1044` Salcedo — all Active, all fictional; Harrison and both TEST pools deleted 2026-09-10) | `ee0ecabf-2f11-458d-a9ea-641f76d10cc3` |
-| Assignments | **138** (3 pools x 46; 24 fields — `ConflictWith` and `CalendarEventId` added since Phase A) | `49ef7006-d3fe-40a7-a52f-c4c18545bd35` |
-| Tasks | **885** (3 pools x 295) | `22c45847-ff0d-417a-b53e-1ea018fbb6d3` |
+| Jobs | **2** as of 2026-09-25: `26- 2055` Gunite/Trailov (Active) and `26-2065` Brandon - Cross (Planned), both raised by Don. The four fictional demo pools (`D2-1042` to `D2-1045`) were deleted 2026-09-25 on Shane's instruction, through `Delete Pool Requests`, and their 184 calendar events cleared over Graph | `ee0ecabf-2f11-458d-a9ea-641f76d10cc3` |
+| Assignments | **92** (2 pools x 46, as of 2026-09-25) | `49ef7006-d3fe-40a7-a52f-c4c18545bd35` |
+| Tasks | **590** (2 pools x 295, as of 2026-09-25) | `22c45847-ff0d-417a-b53e-1ea018fbb6d3` |
 | Trades | 26 | `05038f7f-a6cb-4f57-b1a1-3ff9c7126ba5` |
 | Crews | 14 (subcontractor patch applied) | `45e9ff1f-bf36-4ab5-929d-25ab9a80d460` |
 | Crew-Trades | 51 | (see viewlsts.aspx) |
 | Work Calendar | **210** (175 Sundays + 35 holidays, 2026-08-30 to 2029-12-30) | (see viewlsts.aspx) |
-| New Pool Requests | 0 (cleared 2026-09-08 of build-time test rows; this is a client-facing operational log, not a place for our test litter) | `13331a5e-ea8e-4ab2-9276-db5b4f4d46bf` |
-| Delete Pool Requests | 0 (cleared 2026-09-08, same reason) | `b1ea3db6-7870-4648-80c2-7fe8414ecfd7` |
+| New Pool Requests | **6** as of 2026-09-25: four `Done` rows for the deleted demo pools (13, 14, 15, 17) and Don's two (22, 24). The rehearsal row for `TEST-9600` was removed. This is a client-facing operational log, not a place for test litter | `13331a5e-ea8e-4ab2-9276-db5b4f4d46bf` |
+| Delete Pool Requests | **4** as of 2026-09-25: the four `Done` rows that removed the demo pools (22 to 25). The rehearsal row was removed | `b1ea3db6-7870-4648-80c2-7fe8414ecfd7` |
 | Sub-phase Template | 46 (one row per sub-phase; read by `D2 - New Pool`) | `453e7cd5-f84a-4e2a-9372-73f26019e3f0` |
 | Task Template | 295 (one row per task across the 46 sub-phases) | `61824add-8eaa-4b1b-aed7-a202204bf9f5` |
 | Reschedule Requests | **3** (the 2026-09-10 demo-pool reflows, all `Done` -- legitimate history, not test litter) | `31ada231-3937-4d72-9abf-8677f07c3fea` |
@@ -2635,6 +2635,45 @@ The shared-member check only fires for crews sharing a working day, and the harn
 no two crews on the same date, so it asserted over an empty set. It now builds the overlap and
 carries a second assertion confirming the scenario is reached. **A new assertion has to be watched
 fail before it is worth anything** -- the fourth time this file has recorded that lesson.
+
+## WP8 BACKUPS — built and rehearsed 2026-09-25; the demo pools are gone
+
+**Read `docs/restore-runbook.md` for how to use any of this.** The short version of what exists:
+
+| Layer | What | Where |
+|---|---|---|
+| Data, nightly | **`D2 - Snapshot`** (flow 15; workflowid `25396cc3-0db9-f111-aaad-000d3a3b11dd`, ProcessSimple `2f649fe7-d3ce-3c0b-06b6-f05511c11a5a`), 03:00 Central, every row of all 13 lists as `odata=nometadata` REST JSON, one file per list, named `<yyyy-MM-dd HHmm> <List>.json`, in Documents > `Backups`. Pages `$top=5000` through `odata.nextLink`. Emails `stratirus@` only on failure. About 1.2 MB a night at today's size; retention is manual |
+| Data, per project | **`sharepoint/restore-project.js`**, console-paste on the site, `DRY_RUN` default true. Puts one project's Jobs, Assignments and Tasks rows back to a snapshot field by field: scheduling, sign-off with person and time, notes, counters, rejection state, task ticks and N/A reasons. Refuses the whole restore if the project changed shape or was re-created under the same number. Assignments MERGEs carry the suppression stamp; Jobs and Tasks do not. `fixtures/planner/restore.js` runs the real script under Node (27 assertions, 13 mutations red) |
+| Data, per row | item version history, verified ON at 50 versions on all 13 lists. Nothing had to be turned on |
+| Flows | `flows/exports/` as before, plus the new **`D2BuildSchedulerFlows`** solution (publisher Stratirus) holding all 16 flows and their 3 connection references, exported to `flows/solution/D2BuildSchedulerFlows-<date>.zip` with `pac solution export`. **Deliberately a second solution:** `D2BuildScheduler` holds the canvas app and `canvas-app/deploy.py` exports, swaps and re-imports it on every app deploy, which would have pushed sixteen flow definitions through every canvas deploy |
+| Planner | git plus a `deploy/yyyy-mm-dd` tag on every Static Web App deploy, first one `deploy/2026-09-25` |
+| Schema | `sharepoint/schema-live/lists-<date>.json`: every list's fields (validation formulas and choices included), views with CAML and formatters, and content-type form formatters |
+
+**Three things learned building it.** FlowAgent's `invoke_operation` reaches only dynamic resolvers
+(`GetTables`, `GetTableViews`...), never `GetItems` or `PostItem`, so headless list I/O is still the
+request-triggered proxy flow from the recipe above; it carried every read and write on 2026-09-25 and
+was deleted at the end of the session. `az rest --body` with inline JSON is mangled by the Windows
+shell inside a Python `subprocess(shell=True)`; pass `--body @file` from bash. And a
+`CreateFile` with the same name fails, so the snapshot stamps files to the minute rather than the
+day; a same-day re-run makes a second set.
+
+**REHEARSED LIVE 2026-09-25, not only under the harness.** A throwaway Planned pool (`TEST-9600`) was
+snapshotted, fifteen fields were damaged across its Jobs row, three sub-phases and two tasks (a full
+installer sign-off with person and time among them), and `restore-project.js` was run against the
+live rows with only its transport swapped for the session proxy. The dry run listed exactly the
+fifteen fields and wrote nothing; the live run wrote six rows with none failed; the script's own
+verify pass and an independent read-back both showed every field back as the snapshot held it,
+including person, date and note fields cleared to null. The pool was then deleted through Delete
+Pool Requests. Details in the runbook's rehearsal record.
+
+**Delete Pool does not yet snapshot before it deletes.** Proposed in WP8, not built: the nightly
+snapshot covers it to within a day, and the recycle bin holds deleted rows for 93 days. Revisit when
+a throwaway pool exists for testing the flow edit.
+
+**A sixth pool appeared during the 24 September meeting:** `26-2065 Brandon - Cross`, Planned, start
+2026-11-01, PM Don, raised 14:53 UTC on the 24th. It reads as a real job and was kept when the demo
+pools were deleted. The request rows for the four deleted pools (New Pool Requests 13, 14, 15, 17;
+Reschedule Requests 33, 34, 35; Delete Pool Requests 22 to 25) were left in place as history.
 
 ## THE 24 SEPTEMBER STATUS MEETING, AND BATCH 1 OF ITS BUILD — shipped 2026-09-25
 
