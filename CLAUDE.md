@@ -2523,7 +2523,8 @@ correctly with `assignDefaultCrews: true` carried through. A hand-crafted change
 `D2-1042` was **refused**: *"refusing to create a duplicate pool -- a Jobs row with this job number
 already exists live"*. That guard is what stands between a re-run and 92 assignments plus 590 tasks.
 
-**KNOWN GAP CONFIRMED: a duration write leaves `ScheduledFinish` stale.** The allowlist deliberately
+**FIXED FOR THE HOSTED PLANNER 2026-09-28, STILL TRUE OF THE CONSOLE APPLIER** (see "SAVE NOW SENDS
+THE FINISH" below). Original entry: **KNOWN GAP CONFIRMED: a duration write leaves `ScheduledFinish` stale.** The allowlist deliberately
 excludes it as derived, so writing `DurationDays` alone leaves the old finish date in place until a
 reflow recomputes it. Related to the Phase G item about a duration edit reflowing the pool by
 itself; not a defect in the applier, but do not expect the dates to agree after a duration-only push.
@@ -2667,6 +2668,47 @@ in a real browser and sees the next row move, with the dates column still aligne
 
 **Not done: the client guide** does not describe the inline controls, nor anything else shipped on
 2026-09-25.
+
+## SAVE NOW SENDS THE FINISH — found, fixed and verified live 2026-09-28
+
+**The planner's Save wrote `ScheduledStart` and `DurationDays` and never `ScheduledFinish`.** The
+Board recomputes finishes from start plus days on the work calendar, so it always looked right, while
+every flow reads the stored finish: Daily Dispatch, Calendar Sync, Conflict Flag, Nightly and
+Event-Driven Reconciliation, both summaries' "finished" counts. This was recorded twice as a known
+gap when a Save carried one or two rows. WP3-B edit in place and batch 1's reset-from-start turned it
+into the normal path: one days change reflows the rest of the project.
+
+**Reproduced live on `TEST-9700` before fixing:** one inline days change (1.1 from 2 to 4) saved 45
+rows and left **44 of 46 with the wrong finish, 43 of them finishing before they start** (1.2 start
+11-19, finish 11-18). Don's two projects were checked first: 92 of 92 agreed, so nobody had yet saved
+a date edit from the planner and nothing real was damaged.
+
+**The fix (`0e3aeb2`, deployed `deploy/2026-09-28`):** `planEdits` takes an optional
+`finishFor(start, days)` and, when a start or duration write lands, adds `ScheduledFinish` computed
+from **what landed**: a refused duration means the live duration still stands. The planner passes
+`workSpan(st,d).pop()`, its own work calendar. The finish is derived, never taken from a change-set,
+so the five-column allowlist is unchanged and a `ScheduledFinish` in a hostile change-set is still
+refused. A crew-only write carries no finish. **The frozen console applier passes no `finishFor` and
+still leaves the finish stale**; it is the `file://` fallback only.
+
+**Verified live after deploy, rows read back:** a days change (1.1 from 4 to 3) reflowed 44 rows and
+left 46 of 46 finishes correct, none before its start, stored at site-local midnight (`T06:00:00Z`
+under CST), planner and SharePoint agreeing row for row. A reset-from-start to 2026-11-16 then wrote
+`Jobs.StartDate` (`2026-11-16T06:00:00Z`, matching the first assignment) and all 46 rows, again 46
+of 46 correct.
+
+Pinned by 8 assertions in `writeback-core.js` and 3 in `inline-edit.js` (the real page Save against
+stubbed Graph, checking every PATCH body); 5 mutations watched red.
+
+**Same session, also verified live on the hosted planner for the first time:** Refresh over Graph
+from a clean profile; `+ Job` raising a request with a picked PM (`ProjectManagerLookupId` 7) and
+`AssignDefaultCrews` false; the **Building guard** on a real half-built project (flagged, Activate
+withheld, Board rows text only, drawer refusing, nothing in the change-set); the inline crew and
+days controls. **Activate and Back to planning were NOT exercised live**: the step was held for a
+permission decision.
+
+**`D2 - New Pool` measured 10m 30s** for `TEST-9700` (default crews off), request 17:39:50 to Done
+by 17:50:20 UTC.
 
 ## WP8 BACKUPS — built and rehearsed 2026-09-25; the demo pools are gone
 
@@ -3023,7 +3065,8 @@ assignments, 0 required-but-null, 0 counter drift).
 | **The refusal path, per FIELD** | `DurationDays` refused (`loaded 2, now 4, wanted 3`) while `Locked` landed **on the same row in the same pass** |
 | **Suppression over Graph** | Flow 3 ran, `Condition_scheduling_changed` **Succeeded**, `Terminate_suppressed` **Succeeded**, `Send_email_alert` **Skipped** |
 
-**A duration write still leaves `ScheduledFinish` stale** — the allowlist excludes it as derived.
+**~~A duration write still leaves `ScheduledFinish` stale~~ FIXED 2026-09-28, see "SAVE NOW SENDS THE
+FINISH" below.** Original: the allowlist excludes it as derived.
 Seen plainly in the live test: a start moved to 09-24 while the finish stayed 09-23, i.e. before
 its own start, until reverted. Unchanged from the console applier, and related to the standing
 Phase G item about a duration edit reflowing the pool by itself.
