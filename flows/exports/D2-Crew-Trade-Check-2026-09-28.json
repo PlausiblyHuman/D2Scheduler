@@ -1,0 +1,402 @@
+{
+ "flowId": "15eeddd5-85bb-dc10-a485-6da5c654e752",
+ "displayName": "D2 - Crew Trade Check",
+ "workflowEntityId": "a5f50628-eead-f111-aaac-6045bd0195dd",
+ "state": "Started",
+ "lastModifiedTime": "2026-09-28T21:15:01Z",
+ "connectionReferences": {
+  "shared_sharepointonline": {
+   "connectionName": "shared-sharepointonl-20b83f29-d689-437e-b1ff-930f7bf3fda4",
+   "connectionReferenceLogicalName": "new_sharedsharepointonline_beb06",
+   "source": "Embedded",
+   "id": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+   "displayName": "SharePoint",
+   "iconUri": "https://static.powerapps.com/resource/ppcr/releases/v1.0.1827/1.0.1827.4913/sharepointonline/icon.png",
+   "brandColor": "",
+   "tier": "Standard",
+   "apiName": "sharepointonline",
+   "isProcessSimpleApiReferenceConversionAlreadyDone": false
+  }
+ },
+ "definition": {
+  "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+   "$connections": {
+    "defaultValue": {},
+    "type": "Object"
+   },
+   "$authentication": {
+    "defaultValue": {},
+    "type": "SecureObject"
+   }
+  },
+  "triggers": {
+   "Recurrence": {
+    "recurrence": {
+     "frequency": "Day",
+     "interval": 1,
+     "timeZone": "Central Standard Time",
+     "startTime": "2026-09-12T05:15:00",
+     "schedule": {
+      "hours": [
+       "5"
+      ],
+      "minutes": [
+       15
+      ]
+     }
+    },
+    "type": "Recurrence"
+   }
+  },
+  "actions": {
+   "Get_crews": {
+    "runAfter": {},
+    "type": "OpenApiConnection",
+    "inputs": {
+     "parameters": {
+      "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+      "table": "45e9ff1f-bf36-4ab5-929d-25ab9a80d460",
+      "$filter": "Active eq 1",
+      "$top": 100
+     },
+     "host": {
+      "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+      "operationId": "GetItems",
+      "connectionName": "shared_sharepointonline"
+     }
+    }
+   },
+   "Get_crew_trades": {
+    "runAfter": {
+     "Get_crews": [
+      "Succeeded"
+     ]
+    },
+    "type": "OpenApiConnection",
+    "inputs": {
+     "parameters": {
+      "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+      "table": "32c6154d-2572-4dfd-877a-18fa20a3a07e",
+      "$top": 500
+     },
+     "host": {
+      "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+      "operationId": "GetItems",
+      "connectionName": "shared_sharepointonline"
+     }
+    }
+   },
+   "Get_assignments": {
+    "runAfter": {
+     "Get_crew_trades": [
+      "Succeeded"
+     ]
+    },
+    "type": "OpenApiConnection",
+    "inputs": {
+     "parameters": {
+      "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+      "table": "49ef7006-d3fe-40a7-a52f-c4c18545bd35",
+      "$top": 5000
+     },
+     "host": {
+      "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+      "operationId": "GetItems",
+      "connectionName": "shared_sharepointonline"
+     }
+    }
+   },
+   "Init_qual": {
+    "runAfter": {
+     "Guard_read_complete": [
+      "Succeeded"
+     ]
+    },
+    "type": "InitializeVariable",
+    "inputs": {
+     "variables": [
+      {
+       "name": "qual",
+       "type": "array",
+       "value": []
+      }
+     ]
+    }
+   },
+   "Init_flagged": {
+    "runAfter": {
+     "Init_qual": [
+      "Succeeded"
+     ]
+    },
+    "type": "InitializeVariable",
+    "inputs": {
+     "variables": [
+      {
+       "name": "flagged",
+       "type": "integer",
+       "value": 0
+      }
+     ]
+    }
+   },
+   "Init_cleared": {
+    "runAfter": {
+     "Init_flagged": [
+      "Succeeded"
+     ]
+    },
+    "type": "InitializeVariable",
+    "inputs": {
+     "variables": [
+      {
+       "name": "cleared",
+       "type": "integer",
+       "value": 0
+      }
+     ]
+    }
+   },
+   "For_each_crew": {
+    "foreach": "@outputs('Get_crews')?['body/value']",
+    "actions": {
+     "Filter_crew_trades": {
+      "runAfter": {},
+      "type": "Query",
+      "inputs": {
+       "from": "@outputs('Get_crew_trades')?['body/value']",
+       "where": "@equals(item()?['Crew']?['Id'], items('For_each_crew')?['ID'])"
+      }
+     },
+     "Select_pairs": {
+      "runAfter": {
+       "Filter_crew_trades": [
+        "Succeeded"
+       ]
+      },
+      "type": "Select",
+      "inputs": {
+       "from": "@body('Filter_crew_trades')",
+       "select": "@concat(string(item()?['Trade']?['Id']), ':', items('For_each_crew')?['CrewID'])"
+      }
+     },
+     "Compose_merged": {
+      "runAfter": {
+       "Select_pairs": [
+        "Succeeded"
+       ]
+      },
+      "type": "Compose",
+      "inputs": "@union(variables('qual'), body('Select_pairs'))"
+     },
+     "Set_qual": {
+      "runAfter": {
+       "Compose_merged": [
+        "Succeeded"
+       ]
+      },
+      "type": "SetVariable",
+      "inputs": {
+       "name": "qual",
+       "value": "@outputs('Compose_merged')"
+      }
+     }
+    },
+    "runAfter": {
+     "Init_cleared": [
+      "Succeeded"
+     ]
+    },
+    "type": "Foreach",
+    "runtimeConfiguration": {
+     "concurrency": {
+      "repetitions": 1
+     }
+    }
+   },
+   "Guard_qual_not_empty": {
+    "actions": {
+     "Terminate_join_broken": {
+      "runAfter": {},
+      "type": "Terminate",
+      "inputs": {
+       "runStatus": "Failed",
+       "runError": {
+        "code": "QualificationSetEmpty",
+        "message": "The crew-to-trade join produced an EMPTY qualification set from a non-empty Crew-Trades list. Every checkable assignment would be flagged unqualified. This is almost certainly the connector-vs-REST lookup shape trap: Crew-Trades exposes CrewId/TradeId over raw REST but Crew/Trade as {Id,Value} objects through the connector. Failing instead of writing 66 wrong flags."
+       }
+      }
+     }
+    },
+    "runAfter": {
+     "For_each_crew": [
+      "Succeeded"
+     ]
+    },
+    "else": {
+     "actions": {}
+    },
+    "expression": {
+     "less": [
+      "@length(variables('qual'))",
+      1
+     ]
+    },
+    "type": "If"
+   },
+   "For_each_assignment": {
+    "foreach": "@outputs('Get_assignments')?['body/value']",
+    "actions": {
+     "Compose_pair": {
+      "runAfter": {},
+      "type": "Compose",
+      "inputs": "@concat(string(coalesce(items('For_each_assignment')?['Trade']?['Id'],'')), ':', coalesce(items('For_each_assignment')?['Crew']?['Value'],''))"
+     },
+     "Compose_text": {
+      "runAfter": {
+       "Compose_pair": [
+        "Succeeded"
+       ]
+      },
+      "type": "Compose",
+      "inputs": "@if(or(equals(coalesce(items('For_each_assignment')?['Trade']?['Id'],''),''), equals(coalesce(items('For_each_assignment')?['Crew']?['Value'],''),'')),'',if(contains(variables('qual'), outputs('Compose_pair')),'',concat('Crew ', items('For_each_assignment')?['Crew']?['Value'],' does not hold the required trade ', items('For_each_assignment')?['Trade']?['Value'])))"
+     },
+     "Condition_changed": {
+      "actions": {
+       "Set_mismatch": {
+        "runAfter": {},
+        "type": "OpenApiConnection",
+        "inputs": {
+         "parameters": {
+          "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+          "parameters/method": "POST",
+          "parameters/uri": "_api/web/lists/GetByTitle('Assignments')/items(@{items('For_each_assignment')?['ID']})",
+          "parameters/headers": {
+           "X-HTTP-Method": "MERGE",
+           "If-Match": "*",
+           "Content-Type": "application/json;odata=verbose",
+           "Accept": "application/json;odata=verbose"
+          },
+          "parameters/body": "@{string(setProperty(json('{\"__metadata\":{\"type\":\"SP.Data.AssignmentsListItem\"}}'), 'TradeMismatch', outputs('Compose_text')))}"
+         },
+         "host": {
+          "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+          "operationId": "HttpRequest",
+          "connectionName": "shared_sharepointonline"
+         }
+        }
+       },
+       "Condition_direction": {
+        "actions": {
+         "Inc_flagged": {
+          "runAfter": {},
+          "type": "IncrementVariable",
+          "inputs": {
+           "name": "flagged",
+           "value": 1
+          }
+         }
+        },
+        "runAfter": {
+         "Set_mismatch": [
+          "Succeeded"
+         ]
+        },
+        "else": {
+         "actions": {
+          "Inc_cleared": {
+           "runAfter": {},
+           "type": "IncrementVariable",
+           "inputs": {
+            "name": "cleared",
+            "value": 1
+           }
+          }
+         }
+        },
+        "expression": {
+         "not": {
+          "equals": [
+           "@outputs('Compose_text')",
+           ""
+          ]
+         }
+        },
+        "type": "If"
+       }
+      },
+      "runAfter": {
+       "Compose_text": [
+        "Succeeded"
+       ]
+      },
+      "else": {
+       "actions": {}
+      },
+      "expression": {
+       "not": {
+        "equals": [
+         "@outputs('Compose_text')",
+         "@coalesce(items('For_each_assignment')?['TradeMismatch'], '')"
+        ]
+       }
+      },
+      "type": "If"
+     }
+    },
+    "runAfter": {
+     "Guard_qual_not_empty": [
+      "Succeeded"
+     ]
+    },
+    "type": "Foreach",
+    "runtimeConfiguration": {
+     "concurrency": {
+      "repetitions": 1
+     }
+    }
+   },
+   "Compose_result": {
+    "runAfter": {
+     "For_each_assignment": [
+      "Succeeded"
+     ]
+    },
+    "type": "Compose",
+    "inputs": "@concat('Crew Trade Check: ', string(variables('flagged')), ' flagged, ', string(variables('cleared')), ' cleared, from ', string(length(variables('qual'))), ' qualification pairs.')"
+   },
+   "Guard_read_complete": {
+    "actions": {
+     "Terminate_read_at_cap": {
+      "runAfter": {},
+      "type": "Terminate",
+      "inputs": {
+       "runStatus": "Failed",
+       "runError": {
+        "code": "ReadAtCap",
+        "message": "Assignments read returned 5,000 rows, the most one read can return, so some rows were probably not read. Stopped before writing any TradeMismatch flag."
+       }
+      }
+     }
+    },
+    "runAfter": {
+     "Get_assignments": [
+      "Succeeded"
+     ]
+    },
+    "else": {
+     "actions": {}
+    },
+    "expression": {
+     "greaterOrEquals": [
+      "@length(outputs('Get_assignments')?['body/value'])",
+      5000
+     ]
+    },
+    "type": "If"
+   }
+  }
+ }
+}
