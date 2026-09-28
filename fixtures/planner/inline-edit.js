@@ -211,6 +211,9 @@ const ctl = (tr, kind) => tr && tr.querySelector(`[data-ic="${kind}"]`);
        wrong.slice(0, 3).map(p => JSON.stringify(p.body)).join(' | '));
     const crewOnly = state.patches.filter(p => p.url.includes('/lists/' + asgId + '/items/') && !('ScheduledStart' in p.body) && !('DurationDays' in p.body));
     ok('a write with no start or duration carries no finish', crewOnly.every(p => !('ScheduledFinish' in p.body)));
+    const said = w.document.getElementById('dBody').textContent;
+    ok('the Save results name the fields in words, not SharePoint column names',
+       /Start date, Finish date/.test(said) && !/Scheduled(Start|Finish)|DurationDays/.test(said), said.slice(0, 200));
   }
 
   // ---------- a project still building shows text only ----------

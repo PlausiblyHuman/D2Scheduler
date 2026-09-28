@@ -2374,7 +2374,8 @@ function downloadChangeSet(pools,creates){
   a.click();
 }
 const WB_FIELD_LABEL={Crew:'Crew',ScheduledStart:'Start date',DurationDays:'Duration (days)',
-  Locked:'Locked',NotApplicable:'Not applicable'};
+  Locked:'Locked',NotApplicable:'Not applicable',ScheduledFinish:'Finish date'};
+const wbLabel=col=>WB_FIELD_LABEL[col]||col;
 function wbFmt(col,v){
   if(v==null||v==='')return '—';
   if(col==='Crew'){const c=crew(v);return c?c.name:v;}
@@ -2695,9 +2696,9 @@ function showPushResult(out,err){
      +sec('Comments and rejections NOT saved (still queued)',rjBad,'#a84a18')
      +sec('Sign-off and checklist saved',soRows,'')
      +sec('Sign-off and checklist NOT saved',soBad,'#a84a18')
-     +sec('Saved',res.written.map(w=>row(w.jobno+' '+w.num,w.fields.join(', '),'')))
+     +sec('Saved',res.written.map(w=>row(w.jobno+' '+w.num,w.fields.map(wbLabel).join(', '),'')))
      +sec('Refused — changed in SharePoint since you loaded',
-          plan.refusals.map(r=>row(r.jobno+' '+r.num,r.col,
+          plan.refusals.map(r=>row(r.jobno+' '+r.num,wbLabel(r.col),
             r.reason==='diverged'?`loaded ${r.loaded}, now ${r.nowLive}, wanted ${r.wanted}`:r.reason)),'#a84a18')
      +sec('Skipped',plan.errors.map(e=>row(e.jobno+' '+e.num,e.reason,e.liveTitle||'')),'#a84a18')
      +sec('Failed',res.failed.map(f=>row(f.jobno+' '+f.num,'HTTP '+f.status,'')),'#a84a18')
