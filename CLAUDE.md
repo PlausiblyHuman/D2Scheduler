@@ -2753,6 +2753,26 @@ was held for a permission decision.
   `startTime 2026-09-26T03:00:00`, and the first run lands on the first slot AFTER the start time.
   It ran on the 27th and 28th as scheduled.
 
+## CLOSING FINISHED PROJECTS — DECIDED 2026-09-28 by Shane (scale piece 5)
+
+1. **A project is closed by a person pressing Close on the Jobs tab**, offered only once every
+   sub-phase is signed off or marked not applicable. The planner lists projects ready to close.
+2. **Closed means `Jobs.Status = Closed`, and the rows stay where they are.** No archive lists, no
+   export-and-delete. Flows and the planner skip Closed projects; the sign-off record stays in
+   place.
+3. **Closed projects are hidden from the planner**, with a Closed projects list on the Jobs tab that
+   opens one read-only, on demand.
+4. **A closed project can be reopened** (back to Active), and the change is recorded.
+
+**Warranty is NOT managed in this tool** (Shane: "There are other ways of tracking warranty than the
+planner"). So there is no retention rule, the read-only view is reference only, and nothing here
+should grow warranty features.
+
+Every flow that alerts or reports already filters `Status eq 'Active'`, so Closed drops out of
+dispatch, the calendar, the summaries and the alerts with no change. The whole-list readers
+(Counter Reconciliation, Crew Trade Check, Conflict Flag, Reschedule Pool) do not filter by status
+and must learn to skip Closed, or they keep reading every project ever built.
+
 ## SAVE NOW SENDS THE FINISH — found, fixed and verified live 2026-09-28
 
 **The planner's Save wrote `ScheduledStart` and `DurationDays` and never `ScheduledFinish`.** The
