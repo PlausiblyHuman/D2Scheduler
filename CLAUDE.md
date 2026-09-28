@@ -2734,6 +2734,21 @@ was held for a permission decision.
   REST proxy flow (deleted afterwards), each read back; `Crew`'s validation formula survived.
   **`Tasks.Assignment` and `Jobs.JobNumber` were already indexed**: SharePoint indexes a lookup that
   enforces a relationship, so Delete Pool's Tasks filter was already safe past 5,000 rows.
+- **MEASURED (piece 3 spike), real Chrome on the dev PC, example pools cloned to N projects:**
+
+  | Projects | Import | First Board render | Board re-render | Sign-Offs | localStorage |
+  |---|---|---|---|---|---|
+  | 3 | 182 ms | 376 ms | 310 ms | 107 ms | 180 KB |
+  | 20 | 1.6 s | 2.1 s | **2.4 s** | 0.5 s | 1.1 MB |
+  | 50 | 3.3 s | 4.8 s | **4.8 s** | 1.6 s | **2.7 MB** |
+
+  Live Graph: **1.1 s per 500-row Tasks page**, 0.6 s for Assignments, read sequentially. So a
+  Refresh at ~20 live projects is about 15 s of network plus 4 s of import and render, and about
+  45 s after a year of unarchived projects. **The Board re-render is the first thing a PM will feel:
+  every tick or crew change redraws the whole board, 2.4 s at 20 projects.** And
+  **`const save=()=>localStorage.setItem(...)` has no try/catch**: past about 5 MB (roughly 90
+  projects held in the planner) it throws mid-handler and the screen stops updating. The spike
+  script was throwaway and is not committed.
 - **The 26 Sept snapshot never ran, and that is not a fault.** The Recurrence was created with
   `startTime 2026-09-26T03:00:00`, and the first run lands on the first slot AFTER the start time.
   It ran on the 27th and 28th as scheduled.
