@@ -2669,6 +2669,39 @@ in a real browser and sees the next row move, with the dates column still aligne
 **Not done: the client guide** does not describe the inline controls, nor anything else shipped on
 2026-09-25.
 
+## SCALE: D2 BUILDS ABOUT 60 POOLS A YEAR, AND FIVE FLOW READS WILL SILENTLY TRUNCATE — found 2026-09-28
+
+**Shane, 2026-09-28: D2 does about 60 pools a year.** A pool runs about four months, so roughly
+**20 are live at any time**: about 920 live Assignments and **5,900 live Tasks even with finished
+projects archived**. The Tasks list therefore sits above SharePoint's 5,000-item threshold in normal
+running. That is a query rule, not a storage limit, so the answer is indexes and paging, not a move:
+but the 25 Sept proposal's Dataverse trigger ("active Tasks approach 5,000") will be met in steady
+state and needs restating.
+
+**Audit of every connector `GetItems` over a growing list (latest exports), none with a
+`paginationPolicy`:**
+
+| Flow | Read | `$top` | Fails at | How it fails |
+|---|---|---|---|---|
+| Calendar Sync | `Get_in_scope`, `Get_with_event` | 500 | ~11 live projects | rows past 500 look like orphans; **their events are deleted** on the 04:30 sweep |
+| Crew Trade Check | `Get_assignments` | 1,000 | ~22 projects in the list | later rows never checked |
+| Counter Reconciliation | `Get_all_tasks`, `Get_all_assignments` | 5,000 | ~17 projects in the list | recounts from a partial read and **writes wrong counters** |
+| Conflict Flag, Reschedule Pool | Assignments, `NotApplicable ne 1` | 5,000 | ~108 projects | truncation, and the unindexed filter itself fails past 5,000 rows |
+
+**Unindexed filters fail outright past 5,000 rows**, which Tasks reaches at about 17 projects in the
+list: Delete Pool filters Tasks by `AssignmentId`. Indexes are needed on at least `Tasks.Assignment`,
+`Assignments.Job`, `Jobs.Status`, and the Assignments date columns the flows filter on.
+
+**Calendar Sync fix written, not applied:** paging (`$top` 5000, `minimumItemCount` 20000) on both
+reads, plus `Guard_in_scope_complete` before orphan removal (full sweep, events exist, and either
+Active jobs exist but in-scope is empty, or in-scope hit the 20,000 ceiling: email D2 Bot and
+terminate Failed, deleting nothing). **`edit_flow` could not save this flow at all**: even the
+paging-only change failed with `InvalidOpenApiFlow ... connection reference
+'new_sharedsharepointonline_beb06' could not be found for the operation 'Get_active_jobs'`, the
+documented misleading error, twice. Both attempts rolled back cleanly. The Dataverse `clientdata`
+PATCH + `PublishXml` route was prepared and dry-run clean against the published row, and the apply
+was held for a permission decision.
+
 ## SAVE NOW SENDS THE FINISH — found, fixed and verified live 2026-09-28
 
 **The planner's Save wrote `ScheduledStart` and `DurationDays` and never `ScheduledFinish`.** The
