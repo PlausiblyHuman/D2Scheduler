@@ -2702,6 +2702,42 @@ documented misleading error, twice. Both attempts rolled back cleanly. The Datav
 PATCH + `PublishXml` route was prepared and dry-run clean against the published row, and the apply
 was held for a permission decision.
 
+**APPLIED THE SAME DAY (scale pieces 1 and 2, `f68fe8c` and after):**
+
+- **THE LICENCE CAPS ONE CONNECTOR READ AT 5,000 ROWS.** A `paginationPolicy.minimumItemCount` of
+  20,000 is refused at save: `InvalidPaginationPolicy ... 'minimumItemsCount' exceeds the maximum
+  allowed. Actual: '20000'. Maximum: '5000'.` That is the seeded Power Automate for Microsoft 365
+  ceiling; higher needs premium. So paging cannot rescue a flow that reads a whole growing list.
+  Anything that must read more than 5,000 rows needs a `Do until` over raw REST with
+  `odata.nextLink`, or a narrower query. **Counter Reconciliation reads every Task and needs that
+  rewrite within about 2 to 3 months at 60 pools a year**; until then its guard fails the run rather
+  than writing wrong counters.
+- **Calendar Sync:** both Assignments reads `$top` 5000, plus `Guard_in_scope_complete` (full
+  sweep, events exist, and either Active jobs exist but in-scope is empty or in-scope hit 5,000):
+  emails D2 Bot "D2 Calendar Sync stopped before removing events" and terminates
+  `InScopeReadIncomplete`.
+- **Crew Trade Check** `$top` 1000 to 5000; it, **Counter Reconciliation** and **Conflict Flag** gain
+  `Guard_read_complete`, terminating `ReadAtCap` before any write when a read returns 5,000.
+  Reschedule Pool deliberately left alone (a terminate inside its reflow scope would skip its own
+  failure emails, and archiving keeps it far from the cap).
+- **`edit_flow` could not save Calendar Sync even for a paging-only change**, so all four went
+  through the Dataverse `clientdata` PATCH + `PublishXml` route
+  (`flows/scripts/2026-09-28-*.py`). That route surfaced the real error message where `edit_flow`
+  only ever showed the misleading connection-reference one.
+- **Verified both directions.** Each live flow run once: guard false, normal work, no spurious
+  writes. Then disarmed copies of Counter Reconciliation and Calendar Sync (cap lowered to 1,
+  Calendar forced to full mode), created as Dataverse workflow rows, published, run: both failed
+  at their guard with nothing written or deleted, the Calendar copy's notice email sent; copies
+  deleted, calendar still 46 events.
+- **Indexes (piece 2):** `Assignments.Job`, `ScheduledStart`, `ScheduledFinish`, `Crew`,
+  `CalendarEventId` and `Jobs.Status` set `Indexed` by a property-only MERGE through a temporary
+  REST proxy flow (deleted afterwards), each read back; `Crew`'s validation formula survived.
+  **`Tasks.Assignment` and `Jobs.JobNumber` were already indexed**: SharePoint indexes a lookup that
+  enforces a relationship, so Delete Pool's Tasks filter was already safe past 5,000 rows.
+- **The 26 Sept snapshot never ran, and that is not a fault.** The Recurrence was created with
+  `startTime 2026-09-26T03:00:00`, and the first run lands on the first slot AFTER the start time.
+  It ran on the 27th and 28th as scheduled.
+
 ## SAVE NOW SENDS THE FINISH — found, fixed and verified live 2026-09-28
 
 **The planner's Save wrote `ScheduledStart` and `DurationDays` and never `ScheduledFinish`.** The
