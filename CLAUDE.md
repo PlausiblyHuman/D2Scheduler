@@ -2705,7 +2705,15 @@ from a clean profile; `+ Job` raising a request with a picked PM (`ProjectManage
 `AssignDefaultCrews` false; the **Building guard** on a real half-built project (flagged, Activate
 withheld, Board rows text only, drawer refusing, nothing in the change-set); the inline crew and
 days controls. **Activate and Back to planning were NOT exercised live**: the step was held for a
-permission decision.
+permission decision and then skipped. `TEST-9700` was deleted through Delete Pool Requests (46
+sub-phases, 295 tasks) and both request rows removed; tenant read back at 2 jobs, 92 assignments,
+590 tasks, no `TEST-` rows anywhere, 46 calendar events (all `26- 2055`).
+
+**Also 2026-09-28:** the Save results name fields in words (`WB_FIELD_LABEL`, plus `Finish date`)
+instead of SharePoint column names, and the Jobs tab's Open schedule link uses the accent colour.
+Deployed as `deploy/2026-09-28b`. The PM guide Version 9 draft (Job Board inline controls, filters
+and zoom, Building, Back to planning, reset from a new start, two new figures) sits on the private
+copy `UoeNwV4i4EQQaQgSuJCqiJ` awaiting approval; the client copy `a84a2e1a-…` is still Version 8.
 
 **`D2 - New Pool` measured 10m 30s** for `TEST-9700` (default crews off), request 17:39:50 to Done
 by 17:50:20 UTC.
