@@ -53,5 +53,10 @@
   "label": "controls placed inside the clickable name",
   "find": "onclick=\"editSec('${j.id}',${gi},${si})\"><b>${s.num}</b> ${s.name}",
   "replace": "onclick=\"editSec('${j.id}',${gi},${si})\"><b>${s.num}</b> ${s.name}${inlineEditable(j,s)?inlineControls(j,gi,si,s,fin):''}"
+ },
+ {
+  "label": "Save sends no finish with a start or days change",
+  "find": ",\n    finishFor:(st,d)=>workSpan(st,d).pop()});",
+  "replace": "});"
  }
 ]

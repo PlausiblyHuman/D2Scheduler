@@ -41,7 +41,9 @@
   function jobKey(v) { return String(v == null ? '' : v).trim().toLowerCase(); }
 
   /* THE ALLOWLIST. The only Assignments columns this system will ever write.
-     ScheduledFinish is derived from start plus duration and is never sent.
+     ScheduledFinish is derived from start plus duration, so it is never taken
+     from a change-set; planEdits computes it and sends it alongside a start or
+     duration that lands (see finishFor below).
      Nothing on the Tasks list and no sign-off column appears here, and adding
      one would also have to get past fixtures/planner/writeback-parity.js. */
   var ALLOWLIST = ['Crew', 'ScheduledStart', 'DurationDays', 'Locked', 'NotApplicable'];
@@ -161,6 +163,18 @@
           }
           fields[col] = writeVal(col, d.to);
         });
+
+        /* The finish travels with the start and the duration. Every flow
+           reads ScheduledFinish, so leaving it behind put the finish before
+           the start on every row a reflow moved. It is derived, never taken
+           from the change-set, and computed from what LANDS: when the
+           duration was refused, the live duration still stands. The caller
+           supplies finishFor because only it holds the work calendar. */
+        if (opts.finishFor && ('ScheduledStart' in fields || 'DurationDays' in fields)) {
+          var st = 'ScheduledStart' in fields ? fields.ScheduledStart : FIELD_DEFS.ScheduledStart.read(liveRow);
+          var dd = 'DurationDays' in fields ? fields.DurationDays : FIELD_DEFS.DurationDays.read(liveRow);
+          if (st && dd > 0) fields.ScheduledFinish = opts.finishFor(st, dd);
+        }
 
         if (Object.keys(fields).length) {
           writes.push({

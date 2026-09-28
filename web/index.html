@@ -2336,7 +2336,10 @@ async function pushChangeSet(pools){
   const liveById={};
   rows.forEach(r=>{liveById[String(r.fields.id)]=r.fields;});
 
-  const plan=C.planEdits(pools,liveById,{nowMs:Date.now(),suppressMinutes:10});
+  /* finishFor: every start or duration write also sends ScheduledFinish, on
+     this page's work calendar, because every flow reads the finish. */
+  const plan=C.planEdits(pools,liveById,{nowMs:Date.now(),suppressMinutes:10,
+    finishFor:(st,d)=>workSpan(st,d).pop()});
   const res=await G.applyWrites({token:tok,siteId,listId:D2_GRAPH.lists.asg},plan.writes);
   return {plan,res,siteId,tok,liveById};
 }

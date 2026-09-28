@@ -118,6 +118,43 @@ ok('titleMatches rejects the same sub-phase number on a different job',
      r.writes[0].fields.ScheduledStart === '2026-10-01', r.writes[0].fields.ScheduledStart);
 }
 
+// ---------- the finish travels with the start and the duration ----------
+// Every flow reads ScheduledFinish (dispatch, calendar, conflicts, summaries),
+// so a start or duration write that left it behind put the finish before the
+// start on every row a reflow moved. The finish is derived, never taken from
+// the change-set, and computed from what LANDS: a refused duration means the
+// live duration still stands. finishFor here echoes its inputs so the test
+// sees exactly what it was asked.
+{
+  const FO = Object.assign({ finishFor: (s, d) => s + '+' + d }, OPTS);
+  let r = C.planEdits(pool({ ScheduledStart: { from: '2026-09-22', to: '2026-10-01' } }), { '384': live() }, FO);
+  ok('a start write carries a finish computed from the new start and the live duration',
+     r.writes[0].fields.ScheduledFinish === '2026-10-01+2', JSON.stringify(r.writes[0].fields));
+  r = C.planEdits(pool({ DurationDays: { from: 2, to: 5 } }), { '384': live() }, FO);
+  ok('a duration write carries a finish computed from the live start and the new duration',
+     r.writes[0].fields.ScheduledFinish === '2026-09-22+5', JSON.stringify(r.writes[0].fields));
+  r = C.planEdits(pool({ ScheduledStart: { from: '2026-09-22', to: '2026-10-01' }, DurationDays: { from: 2, to: 5 } }),
+                  { '384': live({ DurationDays: 4 }) }, FO);
+  ok('a refused duration leaves the finish computed from the LIVE duration, not the refused one',
+     r.writes[0].fields.ScheduledFinish === '2026-10-01+4' && !('DurationDays' in r.writes[0].fields),
+     JSON.stringify(r.writes[0].fields));
+  r = C.planEdits(pool({ ScheduledStart: { from: '2026-09-22', to: '2026-10-01T00:00:00Z' } }), { '384': live() }, FO);
+  ok('the finish is computed from the normalised bare date, not the raw change-set value',
+     r.writes[0].fields.ScheduledFinish === '2026-10-01+2', JSON.stringify(r.writes[0].fields));
+  r = C.planEdits(pool({ Crew: { from: 'subcon', to: 'saul' } }), { '384': live() }, FO);
+  ok('a crew-only write carries no finish',
+     !('ScheduledFinish' in r.writes[0].fields), JSON.stringify(r.writes[0].fields));
+  r = C.planEdits(pool({ DurationDays: { from: 2, to: 5 } }), { '384': live({ DurationDays: 4 }) }, FO);
+  ok('a fully refused row writes nothing, finish included',
+     r.writes.length === 0, JSON.stringify(r.writes));
+  r = C.planEdits(pool({ DurationDays: { from: 2, to: 5 } }), { '384': live({ ScheduledStart: null }) }, FO);
+  ok('no finish is invented for a row with no start',
+     !('ScheduledFinish' in r.writes[0].fields), JSON.stringify(r.writes[0].fields));
+  r = C.planEdits(pool({ ScheduledStart: { from: '2026-09-22', to: '2026-10-01' } }), { '384': live() }, OPTS);
+  ok('without a finishFor (the console applier) no finish is written',
+     !('ScheduledFinish' in r.writes[0].fields), JSON.stringify(r.writes[0].fields));
+}
+
 // ---------- 5. creates: refuse rather than guess ----------
 {
   const r = C.planCreates([{ jobno: 'D2-1042', name: 'X', start: '2026-10-01' }], ['D2-1042'], []);

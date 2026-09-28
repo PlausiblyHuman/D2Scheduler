@@ -40,7 +40,8 @@ function boot(state) {
     .replace('<script src="writeback-core.js"></script>', inline('writeback-core.js'))
     .replace('<script src="graph-writeback.js"></script>', inline('graph-writeback.js'))
     .replace('</body>', `<script>window.__x=()=>{window.S=S;window.getUI=()=>UI;window.D2_GRAPH=D2_GRAPH;window.render=render;window.crew=crew;window.allSecs=allSecs;
-       window.divergedSecs=divergedSecs;window.nextWork=nextWork;window.workSpan=workSpan;window.qualified=qualified;};</script><script>__x();</script></body>`);
+       window.divergedSecs=divergedSecs;window.nextWork=nextWork;window.workSpan=workSpan;window.qualified=qualified;
+       window.openSavePreview=openSavePreview;window.confirmSaveByPush=confirmSaveByPush;};</script><script>__x();</script></body>`);
   const errs = [];
   const vc = new VirtualConsole(); vc.on('jsdomError', e => errs.push(e.message));
   const dom = new JSDOM(html, {
@@ -49,6 +50,7 @@ function boot(state) {
       w.fetch = (u, opts) => {
         u = String(u);
         const json = (status, body) => Promise.resolve({ ok: status >= 200 && status < 300, status, json: () => Promise.resolve(body), text: () => Promise.resolve(JSON.stringify(body)) });
+        if (opts && opts.method === 'PATCH') { state.patches.push({ url: u, body: JSON.parse(opts.body) }); return json(200, {}); }
         if (u.endsWith('/.auth/me')) return json(200, { clientPrincipal: { identityProvider: 'aad', userDetails: 'cody@d2pools.com' } });
         if (u.startsWith('https://graph.microsoft.com/v1.0/sites/netorgft15040037.sharepoint.com:')) return json(200, { id: G.siteId, webUrl: G.site });
         if (u.includes('User Information List')) return json(200, { value: [] });
@@ -75,7 +77,7 @@ const rowFor = (w, j, s) => [...main(w).querySelectorAll('#main tbody tr')].find
 const ctl = (tr, kind) => tr && tr.querySelector(`[data-ic="${kind}"]`);
 
 (async () => {
-  const state = { req: [] };
+  const state = { req: [], patches: [] };
   const { w, errs } = boot(state);
   await sleep(400);
   w.document.getElementById('d2Btn').click(); await sleep(600);
@@ -185,6 +187,30 @@ const ctl = (tr, kind) => tr && tr.querySelector(`[data-ic="${kind}"]`);
     change(w, ctl(tr, 'days'), String(last.s.base.days + 1));
     ok('a days change on the last row marks the project edited even though nothing below it moved', !!j.touchedAt && last.s.days === last.s.base.days + 1);
     change(w, ctl(rowFor(w, j, last.s), 'days'), String(last.s.base.days));
+  }
+
+  // ---------- Save sends the finish with every start or days change ----------
+  {
+    // The start change above moved a row and reflowed the rows after it, so
+    // this Save carries real start writes. Every flow reads ScheduledFinish,
+    // so a PATCH that moves a start or a duration without its finish leaves
+    // the finish behind the start in SharePoint while the Board looks right.
+    const asgId = w.D2_GRAPH.lists.asg;
+    state.patches = [];
+    w.openSavePreview(); await w.confirmSaveByPush(); await sleep(300);
+    const moved = state.patches.filter(p => p.url.includes('/lists/' + asgId + '/items/') && ('ScheduledStart' in p.body || 'DurationDays' in p.body));
+    ok('the Save carried start or duration writes to check', moved.length >= 2, 'moved=' + moved.length);
+    const liveById = Object.fromEntries(G.asg.map(r => [String(r.fields.id), r.fields]));
+    const wrong = moved.filter(p => {
+      const id = p.url.split('/items/')[1].split('/')[0], lv = liveById[id];
+      const st = p.body.ScheduledStart || String(lv.ScheduledStart).slice(0, 10);
+      const dd = p.body.DurationDays != null ? p.body.DurationDays : lv.DurationDays;
+      return p.body.ScheduledFinish !== w.workSpan(st, dd).pop();
+    });
+    ok('every one also sends the finish, on the work calendar, as a bare date', wrong.length === 0,
+       wrong.slice(0, 3).map(p => JSON.stringify(p.body)).join(' | '));
+    const crewOnly = state.patches.filter(p => p.url.includes('/lists/' + asgId + '/items/') && !('ScheduledStart' in p.body) && !('DurationDays' in p.body));
+    ok('a write with no start or duration carries no finish', crewOnly.every(p => !('ScheduledFinish' in p.body)));
   }
 
   // ---------- a project still building shows text only ----------
