@@ -1,75 +1,60 @@
-# 2026-09-25a: the 24 September meeting turned into a proposal, then batch 1, backups and edit in place
+# 2026-09-28a: live check found the finish-date bug; the scale work began
 
-**Session goal:** ingest the 24 September status meeting, propose a build for its scheduler items, and
-build what Shane approved. Shipped in one day: batch 1 (seven changes), WP8 backups with a live
-restore rehearsal, WP3-B edit in place, and the deletion of the four demo pools.
+**Session goal:** a signed-in pass over the 25 Sept features on the hosted planner, then the client
+guide. It turned into a live bug fix, and a scale package after Shane gave the real volume: about
+60 pools a year, about 20 live at once.
 
-**Time:** 09:12–14:23 local, 2.75 h billable by the hook clock (D2 bucket, 15-min idle rule); the wall
-clock was 5.2 h with no break, so the idle rule trimmed long tool waits. Shane picks the figure.
+**Time:** 12:27 to 20:21 local, 1.75 h billable by the hook clock (D2 bucket, 15-min idle rule). The
+wall clock was much longer, with long waits on flow builds and time away.
 
 ## What shipped
 
 | Commit | Change |
 |---|---|
-| `960f870` | Meeting review list and the build proposal (`docs/superpowers/specs/2026-09-25-scheduler-build-proposal-design.md`) |
-| `a3013fc` | Batch 1: board keeps vertical scroll, Crews tab chips, Building guard, Back to planning, project picker and Open schedule link, Live / Planned / Both filter, Day / Week / Month zoom, reset from a new start with `Jobs.StartDate` written back. Tag `deploy/2026-09-25` |
-| `e54bf5d` | CLAUDE.md record of the meeting decisions and batch 1 |
-| `9e70790` | WP8: `D2 - Snapshot` (03:00 Central, all 13 lists to Documents/Backups), `sharepoint/restore-project.js` (27 assertions, 13 mutations red), `D2BuildSchedulerFlows` solution exported, schema capture, `docs/restore-runbook.md` |
-| `cb23d09` | WP8 close-out: live rehearsal record, flow exports regenerated with the snapshot flow |
-| `aceaea0` | WP3-B: crew, days and start controls on every editable Board row, always visible (32 assertions, 11 mutations red); crew names escaped in eight places. Tag `deploy/2026-09-25b` |
-| `762a02e` | Records |
+| `0e3aeb2` | **Save sends `ScheduledFinish`** with every start or duration write. Before this, one inline days change left 43 of 46 rows finishing before they start in SharePoint, while the Board looked right. Reproduced live, fixed, redeployed (`deploy/2026-09-28`), verified 46 of 46 |
+| `118946c`, `288452a` | Save results name fields in words; Open schedule link in the accent colour. `deploy/2026-09-28b` |
+| `f68fe8c` | **Scale piece 1:** Calendar Sync reads up to 5,000 rows (was 500, which would have deleted real calendar events past about 11 live projects) with a guard that stops the 04:30 sweep rather than delete after a bad read; Crew Trade Check 1,000 to 5,000; guards on Counter Reconciliation, Crew Trade Check and Conflict Flag that fail before writing when a read comes back full. Verified both ways, including disarmed copies that tripped their guards |
+| (tenant) | **Scale piece 2:** six columns indexed. `Tasks.Assignment` and `Jobs.JobNumber` were already indexed |
+| `8f19288` | **Scale piece 3, measured:** the Board redraw is 2.4 s per click at 20 projects, set by row count (fixed table layout made no difference; folding phases took it to 0.25 s). Refresh about 19 s at 20 live projects. `save()` has no error handling and browser storage fills at about 90 projects |
+| `c582903` | The project-close decisions |
+| `67d0334`, `e5a3c7d` | **Spec A** (complete projects, read only live ones, Counter Reconciliation per project) and **Spec B** (Board speed) |
 
-Two deploys to the Static Web App, the wall re-checked after each. `npm test` 391 passes with the
-documented oracle failure only; shakedown 44 passes, console clean.
-
-**Tenant changes, all read back:** the four demo pools (`D2-1042` to `D2-1045`) deleted through
-Delete Pool Requests and their 184 calendar events cleared over Graph; the tenant holds Don's two
-projects (`26- 2055` Active, `26-2065` Planned, raised during the meeting), 92 assignments, 590 tasks,
-46 calendar events. A throwaway `TEST-9600` was built, snapshotted, damaged in fifteen fields,
-restored by the real script through the session proxy, and deleted; its request rows were removed.
-The session proxy flow was deleted at the end.
+Also verified live for the first time on the hosted planner: Refresh over Graph from a clean
+profile, `+ Job` with a picked PM and default crews off, the Building guard on a real half-built
+project, the inline controls, and reset from a new start writing `Jobs.StartDate`. `TEST-9700` was
+built for this (10m 30s) and deleted, with both request rows; the tenant is back to 2 jobs, 92
+assignments, 590 tasks, 46 calendar events. Guide Version 9 drafted with two new screenshots.
 
 ## Decisions made
 
-- Meeting outcomes as recorded in the proposal: "project" is the word (applied opportunistically);
-  STL stays; Harrison and Campos come off; zero-day sub-phases approved on the fold-or-allow
-  recommendation; B4 is a filtered Job Board, not a calendar tool; WP3-B controls always visible;
-  the Backups folder is plain in the Documents library; backups before edit-in-place, test pools
-  deleted first.
-- WP5 answers, given by Shane on Don's behalf: an unreleased phase holds everything back, double
-  bookings involving it are shown on screen and never emailed, release is by major phase only, a
-  release-everything button stays. WP5 is Option B and now has what its spec needs.
-- `26-2065 Brandon - Cross` was kept as a real job; the request rows for the deleted pools were left
-  as history.
-- The flows got their own solution rather than joining the canvas app's, because `deploy.py`
-  re-imports that one on every app deploy.
-- Dataverse: the solution container is free and done; moving the data is the Rev D migration at
-  about $20 a user a month and is not warranted at 5 projects. Three cheaper scale steps named.
+- Guide Version 9 approved as drafted.
+- Scale package before WP5, in the order: paging and guards, indexes, measure, then specs.
+- Projects are completed by a person, only when every sub-phase is signed or N/A; they stay in
+  place as `Status = Complete` (the existing, unused choice, confirmed by Shane); hidden from the
+  planner with a read-only Completed list; can be reopened. **Warranty is not managed in this tool.**
+- WP5 release goes through an immediate write with a conflict warning, like Activate (design
+  presented, spec not yet written).
 
 ## Found
 
-- Graph transcript access is disabled in the Tennetech tenant and the Loop notes file cannot be
-  read headlessly; the Facilitator chat notes give the outline and Shane pasted the rundown (saved
-  as a memory).
-- The Gantt table is auto-layout: bar labels set column minimums, and hidden header rows must be
-  `visibility:collapse`, not `display:none`, or the columns lose the cells that hold them open.
-- FlowAgent `invoke_operation` reaches only dynamic resolvers; the proxy flow remains the headless
-  SharePoint route. `az rest --body` with inline JSON is mangled through a Windows subprocess shell.
-- Crew names were painted raw in eight places, including the drawer's own option lists.
-- Entra's sign-in log for the 24th shows only Don, both sign-ins successful: the "sign-in bug"
-  follow-up had nothing behind it.
+- **D2's licence caps a connector read at 5,000 rows** (`InvalidPaginationPolicy` above that), so
+  paging cannot save a flow that reads a whole growing list.
+- `edit_flow` could not save Calendar Sync at all; the Dataverse `clientdata` + `PublishXml` route
+  worked for all four flows and showed the real error where `edit_flow` showed a misleading one.
+- The 26 Sept snapshot never ran because the first run lands on the slot after the start time. Not
+  a fault.
+- Dataverse for Teams is not an option: no API access, so the hosted planner could not reach it.
 
 ## Open questions / blocked on
 
-- The two new live writes from batch 1 and the inline controls have run against stubbed Graph and a
-  local browser, not through a signed-in session on the hosted site.
-- The client guide (Version 8) describes none of today's changes.
-- Don's phase list (WP6), the six-trade coverage, the job numbering format, the fiberglass and
-  construction phase lists, Amy's inspection list.
-- Delete Pool does not snapshot before it deletes; the nightly snapshot and the recycle bin cover it.
+- **Guide Version 9 is not on the client page.** The publish was blocked by the permission check;
+  the file is ready. Shane pinned the page, which still pins Version 8.
+- Specs A and B await Shane's go-ahead to plan and build.
+- Activate and Back to planning have still not been exercised live.
+- Counter Reconciliation needs the Spec A rewrite before about December 2026.
+- Tomorrow's 04:30 Calendar Sync full sweep is the first run of its new full-sweep path.
 
 ## Next action
 
-WP6 zero-day rows when Don's phase list arrives, then the WP5 spec from the answers in the proposal,
-then the Delete Pool snapshot; before any of them, a signed-in pass over Back to planning, the
-`StartDate` write and the inline controls on the hosted planner, and the client guide update.
+Check the 04:30 Calendar Sync run (succeeded, guard not tripped, still 46 events), publish guide
+Version 9 with Shane's approval, then plan and build Spec A.
