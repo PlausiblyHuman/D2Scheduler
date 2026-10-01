@@ -8,5 +8,25 @@
   "label": "completed projects read too",
   "find": "const live=(graphPayload.jobs||[]).filter(r=>!R.isComplete(r.fields&&r.fields.Status));",
   "replace": "const live=(graphPayload.jobs||[]);"
+ },
+ {
+  "label": "sketches dropped with completed projects",
+  "find": "const leaving=S.jobs.filter(j=>doneNos.has(String(j.jobno))&&poolHasBaseline(j));",
+  "replace": "const leaving=S.jobs.filter(j=>doneNos.has(String(j.jobno)));"
+ },
+ {
+  "label": "job numbers matched ignoring spaces",
+  "find": "const doneNos=new Set((d.completedJobNumbers||[]).map(String));",
+  "replace": "const doneNos=new Set((d.completedJobNumbers||[]).flatMap(x=>[String(x),String(x).replace(/\\s/g,'')]));const _jn=String;"
+ },
+ {
+  "label": "completed projects never removed",
+  "find": "if(leaving.length) S.jobs=S.jobs.filter(j=>!leaving.includes(j));",
+  "replace": ""
+ },
+ {
+  "label": "completed list not kept",
+  "find": "if(Array.isArray(d.completedJobs)) S.completedJobs=d.completedJobs;",
+  "replace": ""
  }
 ]

@@ -1924,7 +1924,13 @@ function importFromD2Payload(d,silent){
     added=plan.filter(p=>!p.existing).length;
     updated=plan.filter(p=>p.existing).length;
     plan.forEach(p=>{(p.inj.sections||[]).forEach(()=>secs++);});
-    const untouched=S.jobs.filter(j=>!d.jobs.some(i=>String(i.jobno)===String(j.jobno))).length;
+    /* A project completed since the last Refresh is no longer in d.jobs, which would otherwise
+       make it "a pool that exists only in this browser" and leave it here forever. It came from
+       SharePoint (it has a baseline), so it goes. A sketch made here and never saved has no
+       baseline and stays, whatever its number. Matched by exact job number, as the merge is. */
+    const doneNos=new Set((d.completedJobNumbers||[]).map(String));
+    const leaving=S.jobs.filter(j=>doneNos.has(String(j.jobno))&&poolHasBaseline(j));
+    const untouched=S.jobs.filter(j=>!leaving.includes(j)&&!d.jobs.some(i=>String(i.jobno)===String(j.jobno))).length;
 
     /* `silent` is set only by the automatic re-read after a successful Save.
        Re-asking "load the live schedule?" one second after the PM confirmed
@@ -1941,9 +1947,10 @@ function importFromD2Payload(d,silent){
       : '';
     if(!silent&&!confirm(
       'Load the live schedule exported '+(d.exported||'(unknown date)')+'?\n\n'+
-      updated+' pool(s) already here will be updated\n'+
-      added+' pool(s) will be added\n'+
-      untouched+' pool(s) that exist only in this browser will be left alone\n\n'+
+      updated+' project(s) already here will be updated\n'+
+      added+' project(s) will be added\n'+
+      (leaving.length?leaving.length+' completed project'+(leaving.length===1?'':'s')+' will leave the planner\n':'')+
+      untouched+' project(s) that exist only in this browser will be left alone\n\n'+
       secs+' sub-phases carrying crew, dates and sign-off state.'+pendingWarn))return;
 
     // Take the tenant's work calendar before anything recomputes a span.
@@ -2080,6 +2087,10 @@ function importFromD2Payload(d,silent){
     // The people a job can be assigned to, for the + Job PM picker. Only the
     // Graph path supplies it; a file import leaves the last good list alone.
     if(Array.isArray(d.people)&&d.people.length)S.people=d.people;
+
+    if(leaving.length) S.jobs=S.jobs.filter(j=>!leaving.includes(j));
+    // A file export carries no completed list; keep the last good one rather than blanking it.
+    if(Array.isArray(d.completedJobs)) S.completedJobs=d.completedJobs;
 
     sortJobsByNumber();
 

@@ -166,5 +166,36 @@ const jobsWith = (id, status, modified) => G.jobs.map(j => String(j.fields.id) =
     ok('Refresh raised no script error', errs.length === 0, errs.join(' / '));
   }
 
+  // ---------- Task 7: the import drops newly completed projects, keeps local sketches ----------
+  {
+    // Two projects whose numbers differ only by a space, as 26-2055 and 26- 2055 do live.
+    const [a, b, c] = G.jobs;
+    const base = [{ ...a, fields: { ...a.fields, JobNumber: '26-2055' } }, { ...b, fields: { ...b.fields, JobNumber: '26- 2055' } }, c];
+    const state = { jobs: base };
+    const { w, errs } = boot(state);
+    await sleep(300); await refresh(w);
+    ok('both look-alike numbers load', w.S.jobs.some(j => j.jobno === '26-2055') && w.S.jobs.some(j => j.jobno === '26- 2055'));
+
+    // A sketch made here and never saved, carrying the same number as the project about to be
+    // completed. It has no SharePoint baseline, so it is not that project and must survive.
+    const real = w.S.jobs.find(j => j.jobno === '26- 2055');
+    const sketch = JSON.parse(JSON.stringify(real));
+    sketch.id = 'sketch-1'; delete sketch.status;
+    sketch.groups.forEach(g => g.sections.forEach(s => { delete s.base; delete s.id; }));
+    w.S.jobs.push(sketch);
+
+    state.jobs = base.map(j => j.fields.JobNumber === '26- 2055' ? { ...j, fields: { ...j.fields, Status: 'Complete', Modified: '2026-10-02T15:00:00Z' } } : j);
+    w.__confirms = [];
+    await refresh(w);
+    const nos = w.S.jobs.map(j => j.jobno);
+    ok('a project completed since the last Refresh leaves the planner', !w.S.jobs.some(j => j.jobno === '26- 2055' && j.id !== 'sketch-1'), nos.join(' | '));
+    ok('a local sketch with the same number is kept', w.S.jobs.some(j => j.id === 'sketch-1'));
+    ok('the look-alike number stays', nos.includes('26-2055'));
+    ok('the completed project is listed for the Jobs tab', (w.S.completedJobs || []).length === 1 && w.S.completedJobs[0].jobno === '26- 2055');
+    ok('the Refresh dialog says a completed project will leave', (w.__confirms[0] || '').includes('1 completed project will leave the planner'), w.__confirms[0]);
+    ok('the Refresh dialog says projects, not pools', !/pool\(s\)/.test(w.__confirms[0] || ''));
+    ok('import raised no script error', errs.length === 0, errs.join(' / '));
+  }
+
   process.exit(fail);
 })().catch(e => { console.log('FAIL · harness threw: ' + (e && e.stack || e)); process.exit(1); });
