@@ -327,5 +327,46 @@ const jobsWith = (id, status, modified) => G.jobs.map(j => String(j.fields.id) =
     ok('Mark complete and Reopen raised no script error', errs.length === 0, errs.join(' / '));
   }
 
+  // ---------- Task 10: a completed project opened read-only ----------
+  {
+    const X = String(G.jobs[0].fields.id), noX = G.jobs[0].fields.JobNumber;
+    const state = { jobs: jobsWith(X, 'Complete', '2026-10-02T15:00:00Z') };
+    const { w, errs, net } = boot(state);
+    await sleep(300); await refresh(w);
+    ok('a completed project starts out of the planner', !w.S.jobs.some(j => j.jobno === noX));
+    tab(w, 'jobs'); await sleep(50);
+    const openBtn = [...main(w).querySelectorAll('[data-completed] button')].find(b => /^Open/.test(b.textContent.trim()));
+    ok('Completed projects offers Open', !!openBtn);
+    net.gets.length = 0;
+    openBtn.click(); await sleep(900);
+    const jx = w.S.jobs.find(j => j.jobno === noX);
+    ok('Open loads that one project, read-only', jx && jx.readOnly === true && w.allSecs(jx).length === 46);
+    ok('Open reads only that project\'s rows', net.gets.filter(u => listOf(w, u) === 'asg').every(u => decodeURIComponent(u).includes("JobLookupId eq '" + X + "'")));
+    const m = main(w).textContent;
+    ok('the Board says so', /Completed project, read only/.test(m));
+    ok('no inline controls on it', w.allSecs(jx).every(x => !w.fn('inlineEditable')(jx, x.s)));
+    const boxes = [...main(w).querySelectorAll('.sg input[type=checkbox]')].filter(b => (b.getAttribute('onchange') || '').includes("'" + jx.id + "'"));
+    ok('its sign-off boxes are disabled', boxes.length > 0 && boxes.every(b => b.disabled), boxes.filter(b => !b.disabled).length + ' enabled of ' + boxes.length);
+    const s0 = w.allSecs(jx)[1];
+    const before = JSON.stringify({ inst: s0.s.inst, pm: s0.s.pm });
+    w.sign(jx.id, s0.gi, s0.si, 'pm', !s0.s.pm); w.sign(jx.id, s0.gi, null, 'inst', !s0.s.inst);
+    ok('sign() changes nothing on it', JSON.stringify({ inst: s0.s.inst, pm: s0.s.pm }) === before);
+    w.editSec(jx.id, s0.gi, s0.si);
+    ok('its sub-phase panel is read-only', /Completed project, read only/.test(w.document.getElementById('dBody').textContent)
+      && !/Save/.test(w.document.getElementById('dFoot').textContent));
+    w.closeDrawer();
+    const snap = JSON.stringify(w.allSecs(jx).map(x => [x.s.crewId, x.s.start]));
+    w.autoSchedule();
+    ok('Auto-Schedule moves none of its rows', JSON.stringify(w.allSecs(jx).map(x => [x.s.crewId, x.s.start])) === snap);
+    ok('it is in no change set, sign-off set or rejection set',
+      !w.buildChangeSet().some(p => p.jobno === noX) && !w.buildSignoffSet().some(p => p.jobno === noX) && !w.buildRejectionSet().some(p => p.jobno === noX));
+    ok('Schedule Check raises nothing for it', !w.conflicts().some(c => (c.jobs || []).includes(noX)));
+    w.fn('setJob')(jx.id, 'name', 'Renamed');
+    ok('its Jobs-tab fields cannot be edited', jx.name !== 'Renamed');
+    await refresh(w);
+    ok('the next Refresh puts it away again', !w.S.jobs.some(j => j.jobno === noX));
+    ok('Open raised no script error', errs.length === 0, errs.join(' / '));
+  }
+
   process.exit(fail);
 })().catch(e => { console.log('FAIL · harness threw: ' + (e && e.stack || e)); process.exit(1); });

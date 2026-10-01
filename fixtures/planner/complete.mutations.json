@@ -103,5 +103,50 @@
   "label": "Completed list missing",
   "find": "skip it on one pool.</div></div>`+completedCard;",
   "replace": "skip it on one pool.</div></div>`;"
+ },
+ {
+  "label": "read-only not frozen",
+  "find": "function frozen(j){ return !!(j&&(j.building||j.readOnly)); }",
+  "replace": "function frozen(j){ return !!(j&&j.building); }"
+ },
+ {
+  "label": "sign() ignores read-only",
+  "find": "  if(!j||frozen(j)){render();return;}\n",
+  "replace": "\n"
+ },
+ {
+  "label": "sign-off boxes not disabled",
+  "find": "function sgOff(jobId){ return frozen(S.jobs.find(x=>x.id===jobId))?'disabled':''; }",
+  "replace": "function sgOff(jobId){ return ''; }"
+ },
+ {
+  "label": "Auto-Schedule moves read-only rows",
+  "find": "[...S.jobs].filter(j=>!frozen(j)).sort(",
+  "replace": "[...S.jobs].sort("
+ },
+ {
+  "label": "Schedule Check counts read-only projects",
+  "find": "  S.jobs.filter(j=>!j.readOnly).forEach(j=>{",
+  "replace": "  S.jobs.forEach(j=>{"
+ },
+ {
+  "label": "Jobs-tab fields editable on read-only",
+  "find": "if(!j||j.readOnly){render();return;}j[k]=v;",
+  "replace": "j[k]=v;"
+ },
+ {
+  "label": "Open does not mark read-only",
+  "find": "    if(j){ j.readOnly=true; save(); openSchedule(j.id); }",
+  "replace": "    if(j){ save(); openSchedule(j.id); }"
+ },
+ {
+  "label": "Board banner missing",
+  "find": "  return roCard+flagsCard()+",
+  "replace": "  return flagsCard()+"
+ },
+ {
+  "label": "Open reads every project",
+  "find": "    const lr=await R.readLive({jobs:[row], pageAll:u=>graphPageAll(u,tok),",
+  "replace": "    const lr=await R.readLive({jobs:jobs, pageAll:u=>graphPageAll(u,tok),"
  }
 ]

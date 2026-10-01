@@ -363,6 +363,7 @@ const fullAddr=j=>[j.addr,j.city,[j.state,j.zip].filter(Boolean).join(' ')].filt
    why the reflow's own conflict sweep is tenant-wide too. Only the label was
    missing, not the behaviour. */
 function jobBadge(j){
+  if(j.readOnly)return '<span class="chip jb hold" title="Completed. Opened from Completed projects for reference; nothing on it can be changed. The next Refresh puts it away.">Completed, read only</span>';
   const edited=j.touchedAt?'<span class="chip jb edited" title="Changed here since the last Refresh">edited here</span>':'';
   const building=j.building?'<span class="chip jb hold" title="Still being built in SharePoint, usually 10 to 20 minutes. Nothing on it can be changed until it finishes; Refresh then.">Building</span>':'';
   if(!j.status)return '<span class="chip jb local" title="Sketched here, not yet raised in SharePoint">Local only</span>'+building+edited;
@@ -427,7 +428,7 @@ function autoSchedule(){
   S.jobs.forEach(j=>allSecs(j).forEach(({s})=>{
     if(s.locked&&s.crewId&&s.start&&!s.skip)load[s.crewId]=(load[s.crewId]||0)+s.days;
   }));
-  [...S.jobs].sort((a,b)=>jobStart(a).localeCompare(jobStart(b))).forEach(j=>{
+  [...S.jobs].filter(j=>!frozen(j)).sort((a,b)=>jobStart(a).localeCompare(jobStart(b))).forEach(j=>{
     touch(j);
     let cursor=nextWork(jobStart(j));
     allSecs(j).forEach(({s})=>{
@@ -717,7 +718,7 @@ function secFieldDiffs(s){
    diffed by buildSignoffSet instead. */
 function divergedSecs(j){
   const out=[];
-  if(j.building)return out;   // half-built in SharePoint: nothing on it is offered to Save
+  if(frozen(j))return out;   // half-built in SharePoint, or completed and read-only: nothing on it is offered to Save
   allSecs(j).forEach(({s})=>{ if(s.base && secFieldDiffs(s).length) out.push(s); });
   return out;
 }
@@ -727,6 +728,10 @@ function divergedSecs(j){
    exclude it entirely rather than offer to "push" a pool SharePoint has never
    heard of. Creating a pool is out of scope for the write-back; that stays
    `New Pool Requests`. */
+/* A project nothing on this screen may change: still being built by D2 - New Pool, or a
+   completed project opened read-only from Completed projects (Spec A). Every edit gate and
+   every Save set asks this; the Building chip and its copy still read j.building directly. */
+function frozen(j){ return !!(j&&(j.building||j.readOnly)); }
 function poolHasBaseline(j){ return allSecs(j).some(({s})=>!!s.base); }
 /* Comments need a SharePoint row to hang off and a Graph token to write with.
    A local sketch has no row; a downloaded copy has no token. Both are told,
@@ -748,6 +753,7 @@ function grpSign(g,k){const act=g.sections.filter(s=>!s.skip);
   return n===0?'none':(n===act.length?'all':'some');}
 function sign(jobId,gi,si,k,val){
   const j=S.jobs.find(x=>x.id===jobId);
+  if(!j||frozen(j)){render();return;}
   if(si===null||si===undefined){j.groups[gi][k]=val;j.groups[gi].sections.forEach(s=>{if(!s.skip)s[k]=val;});}
   else{j.groups[gi].sections[si][k]=val;j.groups[gi][k]=grpSign(j.groups[gi],k)==='all';}
   touch(j);
@@ -772,12 +778,15 @@ function sgNote(k,jobId){
     ? '. Press Save to record it in SharePoint under your name. Un-ticking a recorded sign-off reopens it, and the reopen is noted.'
     : '. Press Save to record it in SharePoint.';
 }
+// Sign-off boxes on a project nothing here may change render disabled.
+function sgOff(jobId){ return frozen(S.jobs.find(x=>x.id===jobId))?'disabled':''; }
 function sgHTML(jobId,gi,si,o){
   const i=`sign('${jobId}',${gi},${si===null?'null':si},'inst',this.checked)`;
   const p=`sign('${jobId}',${gi},${si===null?'null':si},'pm',this.checked)`;
+  const off=sgOff(jobId);
   return `<span class="sg">
-    <label class="${o.inst?'on':''}" title="Installer sign-off${sgNote('inst',jobId)}"><input type="checkbox" ${o.inst?'checked':''} onchange="${i}">INST</label>
-    <label class="${o.pm?'on':''}" title="Project Manager sign-off${sgNote('pm',jobId)}"><input type="checkbox" ${o.pm?'checked':''} onchange="${p}">PM</label></span>`;
+    <label class="${o.inst?'on':''}" title="Installer sign-off${sgNote('inst',jobId)}"><input type="checkbox" ${o.inst?'checked':''} ${off} onchange="${i}">INST</label>
+    <label class="${o.pm?'on':''}" title="Project Manager sign-off${sgNote('pm',jobId)}"><input type="checkbox" ${o.pm?'checked':''} ${off} onchange="${p}">PM</label></span>`;
 }
 
 /* ============================== conflicts ==============================
@@ -788,7 +797,7 @@ function sgHTML(jobId,gi,si,o){
    none. */
 function conflicts(){
   const out=[],byDay={},T=todayStr();
-  S.jobs.forEach(j=>{
+  S.jobs.filter(j=>!j.readOnly).forEach(j=>{
     let prevEnd=null;
     allSecs(j).forEach(({g,gi,s,si})=>{
       if(s.skip)return;
@@ -1052,8 +1061,8 @@ function vBoard(){
         : emptyRow(ax);
       const gi_=grpSign(g,'inst'),gp_=grpSign(g,'pm');
       const gsg=`<span class="sg">
-        <label class="${gi_==='all'?'on':''}" title="Installer sign-off for every sub-phase in this phase${sgNote('inst',j.id)}"><input type="checkbox" ${gi_==='all'?'checked':''} ${gi_==='some'?'data-ind="1"':''} onchange="sign('${j.id}',${gi},null,'inst',this.checked)">INST</label>
-        <label class="${gp_==='all'?'on':''}" title="Project Manager sign-off for every sub-phase in this phase${sgNote('pm',j.id)}"><input type="checkbox" ${gp_==='all'?'checked':''} ${gp_==='some'?'data-ind="1"':''} onchange="sign('${j.id}',${gi},null,'pm',this.checked)">PM</label></span>`;
+        <label class="${gi_==='all'?'on':''}" title="Installer sign-off for every sub-phase in this phase${sgNote('inst',j.id)}"><input type="checkbox" ${gi_==='all'?'checked':''} ${gi_==='some'?'data-ind="1"':''} ${sgOff(j.id)} onchange="sign('${j.id}',${gi},null,'inst',this.checked)">INST</label>
+        <label class="${gp_==='all'?'on':''}" title="Project Manager sign-off for every sub-phase in this phase${sgNote('pm',j.id)}"><input type="checkbox" ${gp_==='all'?'checked':''} ${gp_==='some'?'data-ind="1"':''} ${sgOff(j.id)} onchange="sign('${j.id}',${gi},null,'pm',this.checked)">PM</label></span>`;
       html+=`<tr class="phrow"><td class="nm"><div class="nmflex">
         <button class="btn sm" onclick="UI.collapsed['${ck}']=!UI.collapsed['${ck}'];render()" style="padding:0 5px">${col?'▸':'▾'}</button>
         <span class="t"><b>${g.num}.0</b> ${g.name}${col?phaseCrews(g):''}</span>
@@ -1086,7 +1095,11 @@ function vBoard(){
     });
     return html;
   }).join('');
-  return flagsCard()+`<div class="card"><h2>Job Board<span class="sp"></span>
+  const ro=S.jobs.filter(j=>j.readOnly);
+  const roCard=ro.length?`<div class="card"><div class="pad"><b>Completed project, read only:</b>
+      ${ro.map(j=>esc(j.jobno)+' '+esc(j.name)).join(', ')}. Shown for reference; nothing on it can be changed.
+      The next Refresh puts it away. Reopen it from Completed projects on the Jobs tab to work on it again.</div></div>`:'';
+  return roCard+flagsCard()+`<div class="card"><h2>Job Board<span class="sp"></span>
     ${boardControls(true)}
     <button class="btn sm" onclick="collapseAll(true)">Collapse all</button>
     <button class="btn sm" onclick="collapseAll(false)">Expand all</button>
@@ -1098,7 +1111,7 @@ function vBoard(){
    drawer. Locked, signed-off, N/A and still-building rows show text: the
    drawer is the only way into those, on purpose. The crew list keeps the
    drawer's Qualified / Not qualified split. */
-function inlineEditable(j,s){ return !j.building && !s.skip && !s.locked && !s.inst; }
+function inlineEditable(j,s){ return !frozen(j) && !s.skip && !s.locked && !s.inst; }
 function inlineControls(j,gi,si,s,fin){
   const cands=s.skill?qualified(s.skill):[],other=S.crews.filter(c=>!cands.includes(c));
   const opt=c=>`<option value="${c.id}"${s.crewId===c.id?' selected':''}>${esc(c.name)}</option>`;
@@ -1249,8 +1262,8 @@ function vSignoff(){
         const gi_=grpSign(g,'inst'),gp_=grpSign(g,'pm');
         return `<tr class="phrow"><td><b>${g.num}.0</b></td><td colspan="4"><b>${g.name}</b></td>
           <td><span class="sg">
-            <label class="${gi_==='all'?'on':''}" title="Installer sign-off for every sub-phase in this phase${sgNote('inst',j.id)}"><input type="checkbox" ${gi_==='all'?'checked':''} ${gi_==='some'?'data-ind="1"':''} onchange="sign('${j.id}',${gi},null,'inst',this.checked)">INST</label>
-            <label class="${gp_==='all'?'on':''}" title="Project Manager sign-off for every sub-phase in this phase${sgNote('pm',j.id)}"><input type="checkbox" ${gp_==='all'?'checked':''} ${gp_==='some'?'data-ind="1"':''} onchange="sign('${j.id}',${gi},null,'pm',this.checked)">PM</label></span></td></tr>`+
+            <label class="${gi_==='all'?'on':''}" title="Installer sign-off for every sub-phase in this phase${sgNote('inst',j.id)}"><input type="checkbox" ${gi_==='all'?'checked':''} ${gi_==='some'?'data-ind="1"':''} ${sgOff(j.id)} onchange="sign('${j.id}',${gi},null,'inst',this.checked)">INST</label>
+            <label class="${gp_==='all'?'on':''}" title="Project Manager sign-off for every sub-phase in this phase${sgNote('pm',j.id)}"><input type="checkbox" ${gp_==='all'?'checked':''} ${gp_==='some'?'data-ind="1"':''} ${sgOff(j.id)} onchange="sign('${j.id}',${gi},null,'pm',this.checked)">PM</label></span></td></tr>`+
         g.sections.map((s,si)=>{
           const c=s.crewId?crew(s.crewId):null,pct=Math.round(secDone(s)*100);
           const e=s.start?workSpan(s.start,s.days).pop():null;
@@ -1312,7 +1325,8 @@ function vJobs(){
       <td class="small">${c.pm?esc(c.pm):'<span class="muted">—</span>'}</td>
       <td class="small muted">${c.completedOn?pretty(String(c.completedOn).slice(0,10)):''}</td>
       <td style="text-align:right">${graphModeAvailable()
-        ?`<button class="btn sm" data-jobno="${esc(c.jobno)}" onclick="reopenProject(this.dataset.jobno)">Reopen</button>`:''}</td>
+        ?`<button class="btn sm" data-jobno="${esc(c.jobno)}" onclick="openCompleted(this.dataset.jobno)" title="Show it on the Job Board, read only, until the next Refresh.">Open</button>
+          <button class="btn sm" data-jobno="${esc(c.jobno)}" onclick="reopenProject(this.dataset.jobno)">Reopen</button>`:''}</td>
       </tr>`).join('')}
     </tbody></table></details>`:'';
   return pendingCard+readyBanner+`<div class="card"><h2>Jobs<span class="sp"></span>
@@ -1417,9 +1431,12 @@ function vPhases(){
 let CUR=null;
 function editSec(jobId,gi,si){
   const j=S.jobs.find(x=>x.id===jobId),g=j.groups[gi],s=g.sections[si];CUR={jobId,gi,si};
-  if(j.building){
+  if(frozen(j)){
     document.getElementById('dTitle').textContent=`${j.name} › ${s.num} ${s.name}`;
-    document.getElementById('dBody').innerHTML=`<div class="hint">This project is still being built in SharePoint,
+    document.getElementById('dBody').innerHTML=j.readOnly
+      ? `<div class="hint"><b>Completed project, read only.</b> It is shown for reference and nothing on it
+      can be changed here. Reopen it from Completed projects on the Jobs tab to work on it again.</div>`
+      : `<div class="hint">This project is still being built in SharePoint,
       which usually takes 10 to 20 minutes. Nothing on it can be changed until that finishes. Press Refresh once it has.</div>`;
     document.getElementById('dFoot').innerHTML=`<button class="btn" onclick="closeDrawer()">Close</button>`;
     document.getElementById('drawer').classList.add('open');
@@ -1612,7 +1629,7 @@ const closeDrawer=()=>document.getElementById('drawer').classList.remove('open')
 
 /* ============================== mutations ============================== */
 const esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
-function setJob(id,k,v){S.jobs.find(x=>x.id===id)[k]=v;save();if(k==='start')render();}
+function setJob(id,k,v){const j=S.jobs.find(x=>x.id===id);if(!j||j.readOnly){render();return;}j[k]=v;save();if(k==='start')render();}
 /* Change a scheduled project's start and reflow the whole project from it,
    through the same walk Save + reflow uses: locked and signed-off rows stay,
    N/A rows are skipped, crews are untouched. The Jobs tab Start box used to be
@@ -1620,7 +1637,7 @@ function setJob(id,k,v){S.jobs.find(x=>x.id===id)[k]=v;save();if(k==='start')ren
    sub-phase for every project that was ever reflowed. */
 function resetStart(jobId,date){
   const j=S.jobs.find(x=>x.id===jobId);
-  if(!j||!date||j.building){render();return;}
+  if(!j||!date||frozen(j)){render();return;}
   const [a]=jobSpan(j);
   document.getElementById('dTitle').textContent='Reflow '+(j.jobno||j.name)+' from '+pretty(date);
   document.getElementById('dBody').innerHTML=
@@ -1768,7 +1785,7 @@ function delJob(id){
    Planned / Active / On Hold, so the verb and the state it produces are the
    same word. "Commit" was developer vocabulary and meant nothing to a PM. */
 function activatePool(jobId){
-  const j=S.jobs.find(x=>x.id===jobId); if(!j||j.building)return;
+  const j=S.jobs.find(x=>x.id===jobId); if(!j||frozen(j))return;
   /* Split by level. conflicts() returns hard errors AND advisory warnings, and
      lumping them made this dialog announce "13 unresolved conflicts" on a pool
      whose only findings were unassigned pseudo-trade rows and sign-offs nobody
@@ -1808,7 +1825,7 @@ function activatePool(jobId){
    an edit on the SharePoint list. Same write path and the same
    compare-before-write; the calendar side lags, so the dialog says so. */
 function planPool(jobId){
-  const j=S.jobs.find(x=>x.id===jobId); if(!j||j.building)return;
+  const j=S.jobs.find(x=>x.id===jobId); if(!j||frozen(j))return;
   document.getElementById('dTitle').textContent='Back to planning: '+(j.jobno||j.name);
   document.getElementById('dBody').innerHTML=
     `<div class="hint" style="padding:0 0 11px">
@@ -2218,7 +2235,7 @@ function importFromD2Payload(d,silent){
 function buildChangeSet(){
   const pools=[];
   S.jobs.forEach(j=>{
-    if(!poolHasBaseline(j)||j.building)return;   // a local sketch, or a project still being built: never pushed
+    if(!poolHasBaseline(j)||frozen(j))return;   // a local sketch, a project still being built, or a read-only one: never pushed
     const secs=[];
     allSecs(j).forEach(({s})=>{
       if(!s.base)return;             // unmatched against the template -- nothing to diff
@@ -2238,7 +2255,7 @@ function buildChangeSet(){
 function buildJobStartChanges(){
   const out=[];
   S.jobs.forEach(j=>{
-    if(!poolHasBaseline(j)||j.building||!j.baseStart)return;
+    if(!poolHasBaseline(j)||frozen(j)||!j.baseStart)return;
     if(j.start&&j.start!==j.baseStart)out.push({jobno:j.jobno,name:j.name,from:j.baseStart,to:j.start});
   });
   return out;
@@ -2297,7 +2314,7 @@ function saveStaleness(nowMs){
 function buildSignoffSet(){
   const pools=[];
   S.jobs.forEach(j=>{
-    if(!poolHasBaseline(j)||j.building)return;          // a local sketch has nothing to diff against; a half-built one is closed
+    if(!poolHasBaseline(j)||frozen(j))return;          // a local sketch has nothing to diff against; a half-built or read-only one is closed
     const sections=[];
     allSecs(j).forEach(({s})=>{
       if(!s.base||s.base.id==null)return;
@@ -2342,7 +2359,7 @@ function buildRejectionSet(){
   const pools=[];
   (S.pendingComments||[]).forEach(e=>{
     const j=S.jobs.find(x=>String(x.jobno)===String(e.jobno));
-    if(!j||!poolHasBaseline(j)||j.building)return;
+    if(!j||!poolHasBaseline(j)||frozen(j))return;
     const hit=allSecs(j).find(({s})=>s.base&&String(s.base.id)===String(e.secId));
     if(!hit)return;
     let p=pools.find(x=>x.jobno===j.jobno);
@@ -3081,6 +3098,39 @@ async function graphPageAll(url,tok){
   }
   return out;
 }
+/* The small lists from the last Refresh, so Open on a completed project reads only that
+   project's rows. Null until the first Refresh. */
+let LAST_GRAPH=null;
+/* Open a completed project read-only (Spec A). Reads that one project's Jobs row,
+   Assignments and Tasks, merges it in silently and marks it readOnly; the next Refresh drops
+   it again because its number is in completedJobNumbers. */
+async function openCompleted(jobno){
+  const c=(S.completedJobs||[]).find(x=>String(x.jobno)===String(jobno)); if(!c)return;
+  try{
+    const tok=await graphToken(), R=window.D2GraphToPlanner;
+    if(!LAST_GRAPH){ await loadFromD2ViaGraph(true); if(!LAST_GRAPH)return; }
+    const base=LAST_GRAPH.base;
+    const jobs=await graphPageAll(base+D2_GRAPH.lists.jobs+'/items?$expand=fields&$top=500',tok);
+    const row=jobs.find(r=>String(r.fields.id)===String(c.id));
+    if(!row) throw new Error('That project is no longer in SharePoint.');
+    const lr=await R.readLive({jobs:[row], pageAll:u=>graphPageAll(u,tok),
+      asgItems:base+D2_GRAPH.lists.asg+'/items', taskItems:base+D2_GRAPH.lists.tasks+'/items'});
+    const GW=window.D2GraphWriteback;
+    const users=GW?await graphPageAll(GW.urls(LAST_GRAPH.siteId).userInfo,tok).catch(()=>[]):[];
+    const payload=R.toPlannerPayload({site:LAST_GRAPH.site, cal:LAST_GRAPH.cal, req:LAST_GRAPH.req, users,
+      jobs:[row], asg:lr.asg, tasks:lr.tasks},{includeComplete:true});
+    // Keep the list this screen already holds; this payload carries only the one project.
+    payload.completedJobs=S.completedJobs; payload.completedJobNumbers=[];
+    importFromD2Payload(payload,true);
+    const j=S.jobs.find(x=>String(x.jobno)===String(jobno));
+    if(j){ j.readOnly=true; save(); openSchedule(j.id); }
+  }catch(e){
+    document.getElementById('dTitle').textContent='Open '+jobno;
+    document.getElementById('dBody').innerHTML=graphErrorHTML(e,'');
+    document.getElementById('dFoot').innerHTML='<button class="btn" onclick="closeDrawer()">Close</button>';
+    document.getElementById('drawer').classList.add('open');
+  }
+}
 async function loadFromD2ViaGraph(silent,opts){
   const tok=await graphToken(opts);
   const site=await graphSite(tok);
@@ -3098,6 +3148,7 @@ async function loadFromD2ViaGraph(silent,opts){
   const lr=await R.readLive({jobs:live, pageAll:u=>graphPageAll(u,tok),
     asgItems:base+D2_GRAPH.lists.asg+'/items', taskItems:base+D2_GRAPH.lists.tasks+'/items'});
   graphPayload.asg=lr.asg; graphPayload.tasks=lr.tasks;
+  LAST_GRAPH={site:graphPayload.site, siteId:site.id, base, cal:graphPayload.cal, req:graphPayload.req};
   /* PM names and the + Job people list come from the User Information List,
      read once here. A failure costs only the names, never the Refresh: the
      schedule is what a PM opened the page for. */
