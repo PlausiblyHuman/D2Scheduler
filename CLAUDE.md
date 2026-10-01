@@ -2753,25 +2753,62 @@ was held for a permission decision.
   `startTime 2026-09-26T03:00:00`, and the first run lands on the first slot AFTER the start time.
   It ran on the 27th and 28th as scheduled.
 
-## CLOSING FINISHED PROJECTS — DECIDED 2026-09-28 by Shane (scale piece 5)
+## DON LOADED 32 REAL PROJECTS AT ONCE, 2026-09-30 19:56 Central — the scale limit arrived early
 
-1. **A project is closed by a person pressing Close on the Jobs tab**, offered only once every
-   sub-phase is signed off or marked not applicable. The planner lists projects ready to close.
-2. **Closed means `Jobs.Status = Closed`, and the rows stay where they are.** No archive lists, no
-   export-and-delete. Flows and the planner skip Closed projects; the sign-off record stays in
+Read off the live tenant on 2026-10-01. Don raised **32 New Pool Requests in ten seconds**
+(requests by `don@d2pools.com`, PM Don, default crews on, start dates as early as 2025-10-01), so
+32 `D2 - New Pool` runs started concurrently. **Thirteen hours later all 32 were still Running**, 845
+of 1,472 sub-phases built, every write `Created` with no errors: slow, not failing, consistent with
+throttling on D2 Bot's one seeded request allowance (not yet proven; one 06:30 Calendar Sync read
+took five minutes). All 32 are `Planned`, so no dispatch, alerts or calendar while they build. The
+assignment ids of concurrent builds INTERLEAVE, so a job's assignments are not a contiguous id range.
+
+Consequences, all observed rather than predicted:
+
+- **Counter Reconciliation failed at 03:30 with `ReadAtCap`** (809 assignments, Tasks read at 5,000):
+  the scale-piece-1 guard working, three months before the December forecast. It will fail every
+  night until the Spec A per-project rewrite. Spec A moved to the front of the queue.
+- **The 04:30 Calendar Sync full sweep removed all 46 events, correctly.** Don set `26- 2055` back
+  to `Planned` at 15:55 Central on 09-30, leaving zero Active jobs. `Guard_in_scope_complete` stays
+  quiet when there are no Active jobs, by design. Read the run's `Get_active_jobs` output before
+  treating an empty calendar as a fault.
+- Data for Don, not changed by us: `26-2055` (Glennellen - Delvizis GP) beside `26- 2055`
+  (Gunite/Trailov); job numbers carrying names (`25-2038 Becky`, `25-2040 Annecy - Vaillencourt -
+  FP- Autocover`); `25=2029 White Heart`.
+
+**`az` had lost the D2 account entirely** (only Tennetech cached), so `az account set` cannot fix
+it; `az login --tenant f24d9b39-... --allow-no-subscriptions` with Shane picking
+`stratirus@d2pools.com`, then FlowAgent `reconnect`.
+
+**Reading a run's action outputs headlessly:** ProcessSimple
+`.../flows/{flow}/runs/{run}/actions?api-version=2016-11-01` with a `service.flow.microsoft.com`
+token, then fetch each `outputsLink` with no auth. `.../actions/<name>/repetitions` works for an
+action one loop deep and **500s for one nested two loops deep** (`Create_task` in New Pool).
+
+## COMPLETING FINISHED PROJECTS — DECIDED 2026-09-28 by Shane (scale piece 5)
+
+**The value is `Complete`, not `Closed`.** This section first said `Closed`; the same day Shane
+confirmed the existing, unused `Jobs.Status` choice `Complete` instead (no schema change). Spec A
+(`docs/superpowers/specs/2026-09-28-complete-projects-and-live-reads-design.md`) uses `Complete`
+and the controls Mark complete / Completed projects / Reopen.
+
+1. **A project is completed by a person pressing Mark complete on the Jobs tab**, offered only once
+   every sub-phase is installer-signed or marked not applicable. The planner lists projects ready.
+2. **Completed means `Jobs.Status = Complete`, and the rows stay where they are.** No archive lists,
+   no export-and-delete. Flows and the planner skip Complete projects; the sign-off record stays in
    place.
-3. **Closed projects are hidden from the planner**, with a Closed projects list on the Jobs tab that
-   opens one read-only, on demand.
-4. **A closed project can be reopened** (back to Active), and the change is recorded.
+3. **Completed projects are hidden from the planner**, with a Completed projects list on the Jobs tab
+   that opens one read-only, on demand.
+4. **A completed project can be reopened** (back to Active), and the change is recorded.
 
 **Warranty is NOT managed in this tool** (Shane: "There are other ways of tracking warranty than the
 planner"). So there is no retention rule, the read-only view is reference only, and nothing here
 should grow warranty features.
 
-Every flow that alerts or reports already filters `Status eq 'Active'`, so Closed drops out of
+Every flow that alerts or reports already filters `Status eq 'Active'`, so Complete drops out of
 dispatch, the calendar, the summaries and the alerts with no change. The whole-list readers
 (Counter Reconciliation, Crew Trade Check, Conflict Flag, Reschedule Pool) do not filter by status
-and must learn to skip Closed, or they keep reading every project ever built.
+and must learn to skip Complete, or they keep reading every project ever built.
 
 ## SAVE NOW SENDS THE FINISH — found, fixed and verified live 2026-09-28
 
