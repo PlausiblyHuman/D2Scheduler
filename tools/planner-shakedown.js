@@ -225,6 +225,16 @@ const ok=(label,cond,detail='')=>{console.log((cond?'PASS':'FAIL')+' · '+label+
  ok('Activate appears only on a Planned pool', commitsNow===0&&commitsPlanned===1,
     `active=${commitsNow} planned=${commitsPlanned}`);
 
+ // Spec A: Completed projects renders on the Jobs tab with Open and Reopen, and a project whose
+ // every sub-phase is signed or N/A is offered Mark complete. No Graph needed to render either.
+ await ev(`(()=>{S.completedJobs=[{id:99,jobno:'D2-0999',name:'Finished Residence',pm:'Cody Campbell',completedOn:'2026-09-30T15:00:00Z'}];
+   const j=S.jobs.find(x=>x.status==='Active');allSecs(j).forEach(({s})=>{s.inst=true;});render();return 1;})()`);await sleep(400);
+ ok('Completed projects lists a finished project with Open and Reopen', await ev(`(()=>{const d=document.querySelector('#main [data-completed]');
+   return !!d&&/Completed projects \\(1\\)/.test(d.textContent)&&[...d.querySelectorAll('button')].map(b=>b.textContent.trim()).join(',')==='Open,Reopen';})()`)===true);
+ ok('a fully signed Active project is offered Mark complete',
+    await ev("[...document.querySelectorAll('#main button')].some(b=>b.textContent==='Mark complete')")===true);
+ ok('the ready banner names it', await ev("!!document.querySelector('#main [data-ready-banner]')")===true);
+
  console.log('\nconsole during shakedown:', c.logs.length?c.logs.join('\n  '):'clean');
  if(c.logs.length)bad=1;
  await c.send('Page.close').catch(()=>{});c.close();
