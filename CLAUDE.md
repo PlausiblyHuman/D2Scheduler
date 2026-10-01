@@ -463,6 +463,14 @@ model could not express, because it implied we were mid-Phase-C and on schedule.
   2026-09-08b, so this is no longer near-term, but it still expires and nothing still maintains
   it. A yearly recurrence appending the next year's Sundays and holidays closes it permanently.
   Do it before the horizon is inside a pool's four-month span again, i.e. well before mid-2029.
+- **A "wait your turn" gate in `D2 - New Pool`, so a burst of requests builds a few at a time.
+  Tabled 2026-10-01 by Shane.** Don's 32-at-once load is a one-time event for D2 ("he says this is
+  a one-time thing"), so D2 does not need it now. **Any other client using this solution does**, so
+  build it before productising. Design agreed in principle: at the start of a build, count earlier
+  requests (lower ID) still `Building`; if four or more, Delay 5 minutes and re-check, then build.
+  Race-free by the same ID tie-break as the concurrent-duplicate guard, reversible, drops nothing.
+  **Not** trigger concurrency control (irreversible, and a burst overflows its 10 + N waiting
+  queue and can drop requests) and **not** a Process licence (~$150/month, treats the symptom).
 - **Photo capture** on a task or sign-off. Raised by Shane 2026-09-07, likely the highest-value
   addition after go-live for a warranty/QC trail. Needs a camera control, image storage, and an
   upload through a flow.
