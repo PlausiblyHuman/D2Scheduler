@@ -1,7 +1,42 @@
 [
-  {"label": "completed projects still mapped", "find": "const jobs = includeComplete ? allJobs : allJobs.filter(j => !isComplete(j.fields.Status));", "replace": "const jobs = allJobs;"},
-  {"label": "completed list not sorted newest first", "find": ".sort((a, b) => String(b.completedOn || '').localeCompare(String(a.completedOn || '')));", "replace": ";"},
-  {"label": "completed job numbers dropped", "find": "payload.completedJobNumbers = completedRows.map(j => j.fields.JobNumber);", "replace": "payload.completedJobNumbers = [];"},
-  {"label": "includeComplete ignored", "find": "const includeComplete = !!(opts && opts.includeComplete);", "replace": "const includeComplete = false;"},
-  {"label": "Complete matched loosely", "find": "return String(status == null ? '' : status) === 'Complete';", "replace": "return /complete/i.test(String(status || '')) || true;"}
+ {
+  "label": "completed projects still mapped",
+  "find": "const jobs = includeComplete ? allJobs : allJobs.filter(j => !isComplete(j.fields.Status));",
+  "replace": "const jobs = allJobs;"
+ },
+ {
+  "label": "completed list not sorted newest first",
+  "find": ".sort((a, b) => String(b.completedOn || '').localeCompare(String(a.completedOn || '')));",
+  "replace": ";"
+ },
+ {
+  "label": "completed job numbers dropped",
+  "find": "payload.completedJobNumbers = completedRows.map(j => j.fields.JobNumber);",
+  "replace": "payload.completedJobNumbers = [];"
+ },
+ {
+  "label": "includeComplete ignored",
+  "find": "const includeComplete = !!(opts && opts.includeComplete);",
+  "replace": "const includeComplete = false;"
+ },
+ {
+  "label": "Complete matched loosely",
+  "find": "return String(status == null ? '' : status) === 'Complete';",
+  "replace": "return /complete/i.test(String(status || '')) || true;"
+ },
+ {
+  "label": "assignment rows not checked against the project",
+  "find": ".filter(r => key(r.fields.JobLookupId) === jid);",
+  "replace": ";"
+ },
+ {
+  "label": "task rows not checked against the project",
+  "find": ".filter(r => want.has(key(r.fields.AssignmentLookupId)));",
+  "replace": ";"
+ },
+ {
+  "label": "task chain unquoted ids dropped to one",
+  "find": "ids.slice(i, i + size).map(",
+  "replace": "ids.slice(i, i + 1).map("
+ }
 ]

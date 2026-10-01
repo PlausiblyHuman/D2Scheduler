@@ -2965,11 +2965,19 @@ async function loadFromD2ViaGraph(silent,opts){
   const tok=await graphToken(opts);
   const site=await graphSite(tok);
   const base='https://graph.microsoft.com/v1.0/sites/'+site.id+'/lists/';
-  const keys=Object.keys(D2_GRAPH.lists);
+  /* Assignments and Tasks are NOT read whole any more (Spec A): only the live projects' rows,
+     project by project, through D2GraphToPlanner.readLive. A completed project is never read;
+     it is listed from its Jobs row alone. The other lists are small and read whole as before. */
+  const R=window.D2GraphToPlanner;
+  const keys=Object.keys(D2_GRAPH.lists).filter(k=>k!=='asg'&&k!=='tasks');
   const rows=await Promise.all(keys.map(k=>
     graphPageAll(base+D2_GRAPH.lists[k]+'/items?$expand=fields&$top=500',tok)));
   const graphPayload={site:site.webUrl};
   keys.forEach((k,i)=>{graphPayload[k]=rows[i];});
+  const live=(graphPayload.jobs||[]).filter(r=>!R.isComplete(r.fields&&r.fields.Status));
+  const lr=await R.readLive({jobs:live, pageAll:u=>graphPageAll(u,tok),
+    asgItems:base+D2_GRAPH.lists.asg+'/items', taskItems:base+D2_GRAPH.lists.tasks+'/items'});
+  graphPayload.asg=lr.asg; graphPayload.tasks=lr.tasks;
   /* PM names and the + Job people list come from the User Information List,
      read once here. A failure costs only the names, never the Refresh: the
      schedule is what a PM opened the page for. */

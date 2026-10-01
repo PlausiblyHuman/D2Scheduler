@@ -1,0 +1,12 @@
+[
+ {
+  "label": "Refresh reads Assignments and Tasks whole again",
+  "find": "const keys=Object.keys(D2_GRAPH.lists).filter(k=>k!=='asg'&&k!=='tasks');",
+  "replace": "const keys=Object.keys(D2_GRAPH.lists);"
+ },
+ {
+  "label": "completed projects read too",
+  "find": "const live=(graphPayload.jobs||[]).filter(r=>!R.isComplete(r.fields&&r.fields.Status));",
+  "replace": "const live=(graphPayload.jobs||[]);"
+ }
+]

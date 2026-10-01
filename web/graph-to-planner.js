@@ -274,5 +274,49 @@
     return payload;
   }
 
-  return { toPlannerPayload, isComplete };
+  /* ---- Reading only live projects (Spec A, 2026-10-01) ----
+     A Refresh used to page every Assignment and every Task ever written. It now reads each live
+     project's Assignments by fields/JobLookupId, then that project's Tasks by an `or` chain of
+     its assignment ids. Concurrent New Pool builds interleave assignment ids, so an id RANGE
+     would pick up other projects' rows; the chain is exact. Shapes are from the 2026-10-01
+     capture (fixtures/planner/live-payloads-graph-filtered.json): quoted ids, no Prefer header,
+     a 46-term chain accepted, 34 projects read in 7.1 s against 16.3 s for the whole lists. */
+  function asgUrl(itemsUrl, jobId) {
+    return itemsUrl + '?$expand=fields&$top=500&$filter=' + encodeURIComponent("fields/JobLookupId eq '" + key(jobId) + "'");
+  }
+  // No ids means no query at all: an empty chain would be `$filter=` and read the whole list.
+  function taskUrls(itemsUrl, asgIds, chunk) {
+    const ids = (asgIds || []).map(key).filter(v => v != null);
+    if (!ids.length) return [];
+    const size = chunk > 0 && isFinite(chunk) ? chunk : ids.length;
+    const out = [];
+    for (let i = 0; i < ids.length; i += size) {
+      const chain = ids.slice(i, i + size).map(id => "fields/AssignmentLookupId eq '" + id + "'").join(' or ');
+      out.push(itemsUrl + '?$expand=fields&$top=500&$filter=' + encodeURIComponent(chain));
+    }
+    return out;
+  }
+  /* Reads every live project, at most `limit` at once (Graph throttles sustained bursts with
+     429). Keeps only the rows belonging to the project it asked about, so a filter Graph ever
+     ignored could not hand one project's rows to every other. */
+  async function readLive(o) {
+    const jobs = o.jobs || [], limit = o.limit > 0 ? o.limit : 12;
+    const results = new Array(jobs.length);
+    let next = 0;
+    async function worker() {
+      while (next < jobs.length) {
+        const n = next++, j = jobs[n];
+        const jid = key(j.fields ? j.fields.id : j.id);
+        const asg = (await o.pageAll(asgUrl(o.asgItems, jid))).filter(r => key(r.fields.JobLookupId) === jid);
+        const want = new Set(asg.map(r => key(r.fields.id)));
+        const parts = await Promise.all(taskUrls(o.taskItems, [...want], o.chunk).map(u => o.pageAll(u)));
+        const tasks = [].concat(...parts).filter(r => want.has(key(r.fields.AssignmentLookupId)));
+        results[n] = { asg, tasks };
+      }
+    }
+    await Promise.all(Array.from({ length: Math.min(limit, jobs.length) }, worker));
+    return { asg: [].concat(...results.map(r => r.asg)), tasks: [].concat(...results.map(r => r.tasks)) };
+  }
+
+  return { toPlannerPayload, isComplete, asgUrl, taskUrls, readLive };
 });
