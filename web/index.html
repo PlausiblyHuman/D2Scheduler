@@ -1894,11 +1894,13 @@ function hasUnsaved(j){
 function completeProject(jobId){
   const j=S.jobs.find(x=>x.id===jobId); if(!j||!readyToComplete(j))return;
   document.getElementById('dTitle').textContent='Mark complete: '+(j.jobno||j.name);
-  if(hasUnsaved(j)){
+  /* Any project, not just this one: completing reloads the whole schedule afterwards. */
+  const unsaved=S.jobs.filter(hasUnsaved);
+  if(unsaved.length){
     document.getElementById('dBody').innerHTML=
-      `<div class="hint" style="padding:0 0 11px"><strong>Save first.</strong> ${esc(j.jobno)} ${esc(j.name)} has
-       changes on this screen that are not in SharePoint yet. Marking it complete reloads the
-       schedule, which would lose them. Press Save, then mark it complete.</div>`;
+      `<div class="hint" style="padding:0 0 11px"><strong>Save first.</strong> There are changes on this screen
+       that are not in SharePoint yet (${unsaved.map(x=>esc(x.jobno)).join(', ')}). Marking a project complete
+       reloads the schedule, which would lose them. Press Save, then mark it complete.</div>`;
     document.getElementById('dFoot').innerHTML='<button class="btn" onclick="closeDrawer()">Close</button>';
   }else{
     document.getElementById('dBody').innerHTML=
@@ -1911,14 +1913,48 @@ function completeProject(jobId){
          screen waits for Save.
        </div>`;
     document.getElementById('dFoot').innerHTML=
-      `<button class="btn p" onclick="doSetPoolStatus('${jobId}','Active','Complete')">Mark complete</button>
+      `<button class="btn p" onclick="doCompleteProject('${jobId}')">Mark complete</button>
        <button class="btn" onclick="closeDrawer()">Cancel</button>`;
   }
   document.getElementById('drawer').classList.add('open');
 }
+/* Sign-off is re-read before Complete is written: a sub-phase rejected or reopened elsewhere
+   since this screen last loaded would otherwise be completed unsigned. */
+async function doCompleteProject(jobId){
+  const j=S.jobs.find(x=>x.id===jobId); if(!j)return;
+  document.getElementById('dFoot').innerHTML='<span class="hint">Checking sign-off…</span>';
+  try{
+    const tok=await graphToken(), siteId=(await graphSite(tok)).id;
+    const rows=(await readAsgForJobs(siteId,tok,[j.jobno])).filter(r=>String(r.fields.JobLookupId)===String(j.spId));
+    const open=rows.filter(r=>!r.fields.InstallerSignOff&&!r.fields.NotApplicable);
+    if(!rows.length||open.length){
+      document.getElementById('dBody').innerHTML=`<div class="hint" style="padding:0 0 11px"><strong>Not marked complete.</strong>
+        ${open.length?`${open.length} sub-phase${open.length===1?' is':'s are'} not signed off in SharePoint any more
+        (${open.slice(0,5).map(r=>esc(r.fields.SubPhaseNumber||'')+' '+esc(r.fields.SubPhaseName||'')).join(', ')}${open.length>5?', …':''}).`
+        :'Its sub-phases could not be read.'} Refresh to see the current state. Nothing was changed.</div>`;
+      document.getElementById('dFoot').innerHTML='<button class="btn" onclick="closeDrawer()">Close</button>';
+      return;
+    }
+  }catch(e){
+    document.getElementById('dBody').innerHTML=graphErrorHTML(e,'');
+    document.getElementById('dFoot').innerHTML='<button class="btn" onclick="closeDrawer()">Close</button>';
+    return;
+  }
+  return doSetPoolStatus(jobId,'Active','Complete');
+}
 function reopenProject(jobno){
   const c=(S.completedJobs||[]).find(x=>String(x.jobno)===String(jobno)); if(!c)return;
   document.getElementById('dTitle').textContent='Reopen '+jobno;
+  /* Reopening reloads the whole schedule, so unsaved work anywhere is a reason to stop. */
+  const unsaved=S.jobs.filter(hasUnsaved);
+  if(unsaved.length){
+    document.getElementById('dBody').innerHTML=`<div class="hint" style="padding:0 0 11px"><strong>Save first.</strong>
+      There are changes on this screen that are not in SharePoint yet (${unsaved.map(x=>esc(x.jobno)).join(', ')}).
+      Reopening reloads the schedule, which would lose them.</div>`;
+    document.getElementById('dFoot').innerHTML='<button class="btn" onclick="closeDrawer()">Close</button>';
+    document.getElementById('drawer').classList.add('open');
+    return;
+  }
   document.getElementById('dBody').innerHTML=
     `<div class="hint" style="padding:0 0 11px">
        This moves <strong>${esc(c.jobno)} ${esc(c.name)}</strong> from Complete back to Active. It returns
@@ -2032,7 +2068,8 @@ function importFromD2Payload(d,silent){
        make it "a pool that exists only in this browser" and leave it here forever. It came from
        SharePoint (it has a baseline), so it goes. A sketch made here and never saved has no
        baseline and stays, whatever its number. Matched by exact job number, as the merge is. */
-    const doneNos=new Set((d.completedJobNumbers||[]).map(String));
+    const liveNos=new Set(d.jobs.map(i=>String(i.jobno)));
+    const doneNos=new Set((d.completedJobNumbers||[]).map(String).filter(n=>!liveNos.has(n)));
     const leaving=S.jobs.filter(j=>doneNos.has(String(j.jobno))&&poolHasBaseline(j));
     const untouched=S.jobs.filter(j=>!leaving.includes(j)&&!d.jobs.some(i=>String(i.jobno)===String(j.jobno))).length;
 
@@ -2079,6 +2116,8 @@ function importFromD2Payload(d,silent){
       /* Still being built by D2 - New Pool. Read off New Pool Requests on the
          Graph path; the REST export does not carry it, so it reads false. */
       j.building=!!inj.building;
+      // A project arriving in a Refresh is live; only openCompleted marks one read-only, after this.
+      j.readOnly=false;
       /* The project's own start as loaded, so a reset here can be written back
          to Jobs.StartDate with a compare against what was loaded. */
       j.baseStart=inj.start||null;
@@ -2446,7 +2485,7 @@ async function pushSignoffs(siteId,tok,liveById,pools){
   if(wantTaskIds.size){
     /* Only the Tasks of the sub-phases in play, by an `or` chain of their ids (Spec A). */
     const R=window.D2GraphToPlanner;
-    const parts=await Promise.all(R.taskUrls(U.items(D2_GRAPH.lists.tasks),Object.keys(sectionsById),Infinity)
+    const parts=await Promise.all(R.taskUrls(U.items(D2_GRAPH.lists.tasks),Object.keys(sectionsById),R.TASK_CHAIN_MAX)
       .map(u=>graphPageAll(u,tok)));
     const trows=[].concat(...parts);
     trows.forEach(r=>{
@@ -3090,7 +3129,20 @@ function refreshLive(interactive){
 async function graphPageAll(url,tok){
   let out=[];
   while(url){
-    const r=await fetch(url,{headers:{Authorization:'Bearer '+tok}});
+    /* Graph answers a burst with 429 (or 503) and a Retry-After. A Refresh now makes a couple of
+       reads per live project, so one throttled read is retried, twice at most, rather than failing
+       the whole Refresh. A read that still fails throws: a partial schedule is worse than none. */
+    let r, tries=0;
+    for(;;){
+      r=await fetch(url,{headers:{Authorization:'Bearer '+tok}});
+      if((r.status===429||r.status===503)&&tries<2){
+        tries++;
+        const ra=Number(r.headers&&r.headers.get&&r.headers.get('Retry-After'));
+        await new Promise(res=>setTimeout(res,Math.min(10,isFinite(ra)&&ra>=0?ra:2)*1000));
+        continue;
+      }
+      break;
+    }
     if(!r.ok)throw graphHttpError('Graph '+r.status+' on '+url.slice(0,120),r.status);
     const d=await r.json();
     out=out.concat(d.value||[]);
@@ -3108,7 +3160,15 @@ async function openCompleted(jobno){
   const c=(S.completedJobs||[]).find(x=>String(x.jobno)===String(jobno)); if(!c)return;
   try{
     const tok=await graphToken(), R=window.D2GraphToPlanner;
-    if(!LAST_GRAPH){ await loadFromD2ViaGraph(true); if(!LAST_GRAPH)return; }
+    if(S.jobs.some(j=>String(j.jobno)===String(jobno)&&!j.readOnly))
+      throw new Error('A project numbered '+jobno+' is already on screen, so the completed one cannot be opened beside it.');
+    /* After a page reload nothing has been read yet. Read just the small lists Open needs; a
+       full Refresh here would be silent and overwrite unsaved work on every other project. */
+    if(!LAST_GRAPH){
+      const site=await graphSite(tok), base='https://graph.microsoft.com/v1.0/sites/'+site.id+'/lists/';
+      const [cal,req]=await Promise.all(['cal','req'].map(k=>graphPageAll(base+D2_GRAPH.lists[k]+'/items?$expand=fields&$top=500',tok)));
+      LAST_GRAPH={site:site.webUrl, siteId:site.id, base, cal, req};
+    }
     const base=LAST_GRAPH.base;
     const jobs=await graphPageAll(base+D2_GRAPH.lists.jobs+'/items?$expand=fields&$top=500',tok);
     const row=jobs.find(r=>String(r.fields.id)===String(c.id));

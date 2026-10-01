@@ -281,6 +281,9 @@
      would pick up other projects' rows; the chain is exact. Shapes are from the 2026-10-01
      capture (fixtures/planner/live-payloads-graph-filtered.json): quoted ids, no Prefer header,
      a 46-term chain accepted, 34 projects read in 7.1 s against 16.3 s for the whole lists. */
+  // The longest Tasks `or` chain proven against Graph (the 2026-10-01 capture: 46 terms, one
+  // project). Longer sets are split, so no query goes past what has been seen to work.
+  const TASK_CHAIN_MAX = 46;
   function asgUrl(itemsUrl, jobId) {
     return itemsUrl + '?$expand=fields&$top=500&$filter=' + encodeURIComponent("fields/JobLookupId eq '" + key(jobId) + "'");
   }
@@ -309,7 +312,7 @@
         const jid = key(j.fields ? j.fields.id : j.id);
         const asg = (await o.pageAll(asgUrl(o.asgItems, jid))).filter(r => key(r.fields.JobLookupId) === jid);
         const want = new Set(asg.map(r => key(r.fields.id)));
-        const parts = await Promise.all(taskUrls(o.taskItems, [...want], o.chunk).map(u => o.pageAll(u)));
+        const parts = await Promise.all(taskUrls(o.taskItems, [...want], o.chunk > 0 ? o.chunk : TASK_CHAIN_MAX).map(u => o.pageAll(u)));
         const tasks = [].concat(...parts).filter(r => want.has(key(r.fields.AssignmentLookupId)));
         results[n] = { asg, tasks };
       }
@@ -318,5 +321,5 @@
     return { asg: [].concat(...results.map(r => r.asg)), tasks: [].concat(...results.map(r => r.tasks)) };
   }
 
-  return { toPlannerPayload, isComplete, asgUrl, taskUrls, readLive };
+  return { toPlannerPayload, isComplete, asgUrl, taskUrls, readLive, TASK_CHAIN_MAX };
 });

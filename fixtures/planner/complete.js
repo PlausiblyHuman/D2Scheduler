@@ -65,6 +65,12 @@ function boot(state) {
         if (opts && opts.method === 'POST') { net.posts.push({ url: u, body: JSON.parse(opts.body) }); return json(201, {}); }
         if (opts && opts.method === 'PATCH') { net.patches.push({ url: u, body: JSON.parse(opts.body) }); return json(200, {}); }
         net.gets.push(u);
+        // state.throttleOnce: the first read matching it answers 429 Retry-After 0, as Graph does under load.
+        if (state.throttleOnce && u.includes(state.throttleOnce) && !state.throttled) {
+          state.throttled = true;
+          return Promise.resolve({ ok: false, status: 429, headers: { get: h => /retry-after/i.test(h) ? '0' : null },
+            json: () => Promise.resolve({}), text: () => Promise.resolve('throttled') });
+        }
         const L = w.D2_GRAPH && w.D2_GRAPH.lists;
         const flt = decodeURIComponent((u.match(/[?&]\$filter=([^&]*)/) || [])[1] || '');
         const ids = re => [...flt.matchAll(re)].map(m => m[1]);
@@ -286,6 +292,8 @@ const jobsWith = (id, status, modified) => G.jobs.map(j => String(j.fields.id) =
     ok('...and offers no way to go ahead', !/Mark complete/.test(w.document.getElementById('dFoot').textContent));
     ok('...and writes nothing', net.patches.length === 0);
     w.closeDrawer();
+    // Undo Y's unsaved tick: since the review fix, ANY unsaved change on screen blocks Mark complete.
+    w.sign(jy.id, open.gi, open.si, 'inst', false); await sleep(20);
 
     // Mark complete on X: one PATCH, Status Complete, then a Refresh that drops it.
     const jx = w.S.jobs.find(j => j.jobno === jobNo(X));
@@ -366,6 +374,98 @@ const jobsWith = (id, status, modified) => G.jobs.map(j => String(j.fields.id) =
     await refresh(w);
     ok('the next Refresh puts it away again', !w.S.jobs.some(j => j.jobno === noX));
     ok('Open raised no script error', errs.length === 0, errs.join(' / '));
+  }
+
+  // ---------- Final-review fixes ----------
+  // R1: Open, then Reopen. The reopened project must come back editable, not stay frozen.
+  {
+    const X = String(G.jobs[0].fields.id), noX = G.jobs[0].fields.JobNumber;
+    const state = { jobs: jobsWith(X, 'Complete', '2026-10-02T15:00:00Z') };
+    const { w } = boot(state);
+    await sleep(300); await refresh(w);
+    await w.fn('openCompleted')(noX); await sleep(600);
+    ok('R1 setup: opened read-only', (w.S.jobs.find(j => j.jobno === noX) || {}).readOnly === true);
+    const realFetch = w.fetch;
+    w.fetch = (u, o) => { if (o && o.method === 'PATCH') state.jobs = jobsWith(X, 'Active'); return realFetch(u, o); };
+    w.fn('reopenProject')(noX); await sleep(50);
+    [...w.document.querySelectorAll('#dFoot button')].find(b => /^Reopen/.test(b.textContent.trim())).click(); await sleep(900);
+    w.fetch = realFetch;
+    const jx = w.S.jobs.find(j => j.jobno === noX);
+    ok('R1: a reopened project comes back editable', jx && !jx.readOnly && w.allSecs(jx).some(x => w.fn('inlineEditable')(jx, x.s)));
+  }
+
+  // R2: Open with no Refresh since the page loaded must not silently overwrite unsaved edits.
+  {
+    const X = String(G.jobs[0].fields.id), noX = G.jobs[0].fields.JobNumber;
+    const { w, net } = boot({ jobs: jobsWith(X, 'Complete', '2026-10-02T15:00:00Z') });
+    await sleep(300); await refresh(w);
+    const B = w.S.jobs[0];
+    const sB = w.allSecs(B).find(x => x.s.base && !x.s.inst && !x.s.locked);
+    sB.s.crewId = sB.s.crewId === 'devon' ? 'saul' : 'devon'; w.touch(B);
+    w.fn('LAST_GRAPH=null');                       // as after a page reload
+    net.gets.length = 0;
+    await w.fn('openCompleted')(noX); await sleep(600);
+    ok('R2: an unsaved edit elsewhere survives Open', w.divergedSecs(w.S.jobs.find(j => j.jobno === B.jobno)).length === 1);
+    ok('R2: Open read only the opened project\'s Assignments',
+      net.gets.filter(u => listOf(w, u) === 'asg').every(u => decodeURIComponent(u).includes("JobLookupId eq '" + X + "'")));
+    ok('R2: and still opened it', (w.S.jobs.find(j => j.jobno === noX) || {}).readOnly === true);
+  }
+
+  // R3: a live project and a completed one sharing a job number.
+  {
+    const [a, b] = G.jobs;
+    const twin = { ...b, fields: { ...b.fields, JobNumber: a.fields.JobNumber, Status: 'Complete', Modified: '2026-10-02T15:00:00Z' } };
+    const { w } = boot({ jobs: [a, twin, G.jobs[2]] });
+    await sleep(300); await refresh(w); await refresh(w);
+    ok('R3: the live project with that number stays through Refresh', w.S.jobs.some(j => j.jobno === a.fields.JobNumber && !j.readOnly));
+    await w.fn('openCompleted')(a.fields.JobNumber); await sleep(600);
+    ok('R3: Open refuses rather than overlay the live project', !w.S.jobs.some(j => j.readOnly)
+      && /already/.test(w.document.getElementById('dBody').textContent));
+  }
+
+  // R4: a sign-off rejected elsewhere after this browser loaded. Mark complete must re-check.
+  // R5: unsaved edits on ANOTHER project also block it, since the Refresh after reloads everything.
+  {
+    const X = String(G.jobs[0].fields.id), noX = G.jobs[0].fields.JobNumber;
+    const signed = G.asg.map(r => String(r.fields.JobLookupId) === X ? { ...r, fields: { ...r.fields, InstallerSignOff: true, NotApplicable: false } } : r);
+    const state = { asg: signed };
+    const { w, net } = boot(state);
+    await sleep(300); await refresh(w);
+    const jx = w.S.jobs.find(j => j.jobno === noX);
+    const other = w.S.jobs.find(j => j.jobno !== noX);
+    const so = w.allSecs(other).find(x => x.s.base && !x.s.inst && !x.s.locked);
+    so.s.crewId = so.s.crewId === 'devon' ? 'saul' : 'devon'; w.touch(other);
+    net.patches.length = 0;
+    w.fn('completeProject')(jx.id); await sleep(50);
+    ok('R5: an unsaved change on another project asks to Save first', /Save first/.test(w.document.getElementById('dBody').textContent) && net.patches.length === 0);
+    w.closeDrawer();
+    so.s.crewId = so.s.base.crewId; delete other.touchedAt;
+    // Now SharePoint unsigns one of X's sub-phases (a rejection elsewhere).
+    state.asg = signed.map((r, i) => String(r.fields.JobLookupId) === X && r === signed.find(q => String(q.fields.JobLookupId) === X) ? { ...r, fields: { ...r.fields, InstallerSignOff: false } } : r);
+    w.fn('completeProject')(jx.id); await sleep(50);
+    [...w.document.querySelectorAll('#dFoot button')].find(b => /Mark complete/.test(b.textContent)).click(); await sleep(600);
+    ok('R4: a sub-phase unsigned in SharePoint since loading stops Mark complete', net.patches.length === 0
+      && /not signed off/.test(w.document.getElementById('dBody').textContent), w.document.getElementById('dBody').textContent.slice(0, 160));
+  }
+
+  // R6: the Tasks or-chain never exceeds the 46 terms proven against Graph.
+  {
+    const M = require(path.join(WEB, 'graph-to-planner.js'));
+    ok('R6: the proven chain length is exported', M.TASK_CHAIN_MAX === 46);
+    const asg = Array.from({ length: 60 }, (_, i) => ({ fields: { id: String(9000 + i), JobLookupId: '1' } }));
+    const urls = [];
+    await M.readLive({ jobs: [{ id: '1' }], asgItems: 'A', taskItems: 'T', pageAll: async u => { urls.push(u); return u.startsWith('A') ? asg : []; } });
+    const chains = urls.filter(u => u.startsWith('T')).map(u => (decodeURIComponent(u).match(/AssignmentLookupId/g) || []).length);
+    ok('R6: 60 assignments are read in chains of at most 46', chains.length === 2 && Math.max(...chains) <= 46, chains.join(','));
+  }
+
+  // R7: one throttled read is retried, not fatal to the whole Refresh.
+  {
+    const { w, errs } = boot({ throttleOnce: '/lists/' + '49ef7006-d3fe-40a7-a52f-c4c18545bd35' + '/items' });
+    await sleep(300); await refresh(w); await sleep(300);
+    ok('R7: a 429 on one read is retried and the Refresh completes', w.S.jobs.length === G.jobs.length
+      && w.S.jobs.every(j => w.allSecs(j).filter(x => x.s.base).length === 46), w.S.jobs.length + ' projects');
+    ok('R7: no error left behind', errs.length === 0 && !/couldn|failed/i.test((w.document.getElementById('dBody') || {}).textContent || ''));
   }
 
   process.exit(fail);

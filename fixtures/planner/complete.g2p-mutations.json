@@ -38,5 +38,10 @@
   "label": "task chain unquoted ids dropped to one",
   "find": "ids.slice(i, i + size).map(",
   "replace": "ids.slice(i, i + 1).map("
+ },
+ {
+  "label": "R6 chain unbounded",
+  "find": "o.chunk > 0 ? o.chunk : TASK_CHAIN_MAX",
+  "replace": "o.chunk > 0 ? o.chunk : Infinity"
  }
 ]

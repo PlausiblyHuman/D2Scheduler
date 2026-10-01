@@ -15,11 +15,6 @@
   "replace": "const leaving=S.jobs.filter(j=>doneNos.has(String(j.jobno)));"
  },
  {
-  "label": "job numbers matched ignoring spaces",
-  "find": "const doneNos=new Set((d.completedJobNumbers||[]).map(String));",
-  "replace": "const doneNos=new Set((d.completedJobNumbers||[]).flatMap(x=>[String(x),String(x).replace(/\\s/g,'')]));const _jn=String;"
- },
- {
   "label": "completed projects never removed",
   "find": "if(leaving.length) S.jobs=S.jobs.filter(j=>!leaving.includes(j));",
   "replace": ""
@@ -41,8 +36,8 @@
  },
  {
   "label": "Save reads Tasks whole again",
-  "find": "const parts=await Promise.all(R.taskUrls(U.items(D2_GRAPH.lists.tasks),Object.keys(sectionsById),Infinity)\n      .map(u=>graphPageAll(u,tok)));",
-  "replace": "const parts=[await graphPageAll(U.items(D2_GRAPH.lists.tasks)+'?$expand=fields&$top=999',tok)];"
+  "find": "    const parts=await Promise.all(R.taskUrls(U.items(D2_GRAPH.lists.tasks),Object.keys(sectionsById),R.TASK_CHAIN_MAX)\n      .map(u=>graphPageAll(u,tok)));",
+  "replace": "    const parts=[await graphPageAll(U.items(D2_GRAPH.lists.tasks)+'?$expand=fields&$top=999',tok)];"
  },
  {
   "label": "SharePoint id not kept",
@@ -76,13 +71,13 @@
  },
  {
   "label": "Save-first guard removed",
-  "find": "  if(hasUnsaved(j)){\n    document.getElementById('dBody').innerHTML=\n      `<div class=\"hint\" style=\"padding:0 0 11px\"><strong>Save first.</strong>",
-  "replace": "  if(false){\n    document.getElementById('dBody').innerHTML=\n      `<div class=\"hint\" style=\"padding:0 0 11px\"><strong>Save first.</strong>"
+  "find": "  /* Any project, not just this one: completing reloads the whole schedule afterwards. */\n  const unsaved=S.jobs.filter(hasUnsaved);",
+  "replace": "  /* Any project, not just this one: completing reloads the whole schedule afterwards. */\n  const unsaved=[];"
  },
  {
   "label": "Mark complete writes the wrong status",
-  "find": "onclick=\"doSetPoolStatus('${jobId}','Active','Complete')\">Mark complete</button>",
-  "replace": "onclick=\"doSetPoolStatus('${jobId}','Active','Planned')\">Mark complete</button>"
+  "find": "  return doSetPoolStatus(jobId,'Active','Complete');\n}",
+  "replace": "  return doSetPoolStatus(jobId,'Active','Planned');\n}"
  },
  {
   "label": "live Status not compared",
@@ -148,5 +143,40 @@
   "label": "Open reads every project",
   "find": "    const lr=await R.readLive({jobs:[row], pageAll:u=>graphPageAll(u,tok),",
   "replace": "    const lr=await R.readLive({jobs:jobs, pageAll:u=>graphPageAll(u,tok),"
+ },
+ {
+  "label": "R1 readOnly not cleared on Refresh",
+  "find": "      j.readOnly=false;\n",
+  "replace": "\n"
+ },
+ {
+  "label": "R2 Open runs a silent full Refresh",
+  "find": "    if(!LAST_GRAPH){\n      const site=await graphSite(tok),",
+  "replace": "    if(!LAST_GRAPH){ await loadFromD2ViaGraph(true); }\n    if(!LAST_GRAPH){\n      const site=await graphSite(tok),"
+ },
+ {
+  "label": "R3 a live number can still leave",
+  "find": "const doneNos=new Set((d.completedJobNumbers||[]).map(String).filter(n=>!liveNos.has(n)));",
+  "replace": "const doneNos=new Set((d.completedJobNumbers||[]).map(String));"
+ },
+ {
+  "label": "R3 Open overlays a live project",
+  "find": "    if(S.jobs.some(j=>String(j.jobno)===String(jobno)&&!j.readOnly))\n      throw new Error(",
+  "replace": "    if(false)\n      throw new Error("
+ },
+ {
+  "label": "R4 sign-off not re-read before Complete",
+  "find": "      `<button class=\"btn p\" onclick=\"doCompleteProject('${jobId}')\">Mark complete</button>",
+  "replace": "      `<button class=\"btn p\" onclick=\"doSetPoolStatus('${jobId}','Active','Complete')\">Mark complete</button>"
+ },
+ {
+  "label": "R5 only this project checked",
+  "find": "  /* Any project, not just this one: completing reloads the whole schedule afterwards. */\n  const unsaved=S.jobs.filter(hasUnsaved);",
+  "replace": "  /* Any project, not just this one: completing reloads the whole schedule afterwards. */\n  const unsaved=[j].filter(hasUnsaved);"
+ },
+ {
+  "label": "R7 no retry on 429",
+  "find": "      if((r.status===429||r.status===503)&&tries<2){",
+  "replace": "      if(false){"
  }
 ]
