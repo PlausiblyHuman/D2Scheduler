@@ -4,12 +4,26 @@ import json, pathlib, sys
 sys.path.insert(0, str(pathlib.Path(__file__).parent))
 from counter_recon_per_job import build_actions, max_depth, terminates_in_loop
 
-EXP = sorted(pathlib.Path(__file__).parents[1].joinpath('exports').glob('D2-Counter-Reconciliation-*.json'))[-1]
-old = json.loads(EXP.read_text(encoding='utf-8'))['definition']['actions']
+EXPORTS = sorted(pathlib.Path(__file__).parents[1].joinpath('exports').glob('D2-Counter-Reconciliation-*.json'))
+load = lambda p: json.loads(p.read_text(encoding='utf-8'))['definition']['actions']
+# The builder's input is the last export taken BEFORE conversion (it still reads every Task).
+old = load([p for p in EXPORTS if 'Get_all_tasks' in load(p)][-1])
 fails = 0
 def ok(label, cond):
     global fails
     print(('PASS' if cond else 'FAIL') + ' · ' + label); fails += (not cond)
+
+def strip_auth(x):
+    if isinstance(x, dict):
+        return {k: strip_auth(v) for k, v in x.items() if k != 'authentication'}
+    if isinstance(x, list):
+        return [strip_auth(v) for v in x]
+    return x
+
+newest = load(EXPORTS[-1])
+if 'For_each_job' in newest:
+    ok('published flow equals what the builder produces (no drift)',
+       strip_auth(newest) == strip_auth(build_actions(json.loads(json.dumps(old)))))
 
 for disarm in (False, True):
     A = build_actions(json.loads(json.dumps(old)), disarm=disarm)
