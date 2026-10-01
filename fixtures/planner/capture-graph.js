@@ -82,7 +82,33 @@ function page() {
     .replace('__LISTS__', JSON.stringify(LISTS));
 }
 
+const OUT_FILTERED = path.join(__dirname, 'live-payloads-graph-filtered.json');
+
 const server = http.createServer((req, res) => {
+  if (req.method === 'POST' && req.url === '/capture-filtered') {
+    let body = '';
+    req.on('data', c => { body += c; });
+    req.on('end', () => {
+      try {
+        const d = JSON.parse(body);
+        fs.writeFileSync(OUT_FILTERED, JSON.stringify(d, null, 1), 'utf8');
+        console.log('\nWROTE ' + OUT_FILTERED);
+        console.log('  picked: ' + JSON.stringify(d.picked));
+        for (const q of d.queries.filter(q => !/^asg job \d+ quoted$/.test(q.label)))
+          console.log('  ' + (q.error ? 'REFUSED ' : 'ok      ') + q.label + '  rows=' + q.rows + ' ' + q.ms + 'ms' + (q.error ? '  ' + q.error.slice(0, 200) : ''));
+        const per = d.queries.filter(q => /^asg job \d+ quoted$/.test(q.label));
+        console.log('  per-project assignment reads: ' + per.length + ', refused ' + per.filter(q => q.error).length);
+        console.log('  simulated per-project Refresh: ' + JSON.stringify(d.simulatedRefresh));
+        console.log('  whole-list read today:         ' + JSON.stringify(d.wholeListRead));
+        res.writeHead(200, { 'Content-Type': 'text/plain' });
+        res.end('Captured. Written to ' + OUT_FILTERED + '\nYou can close this tab.');
+      } catch (e) {
+        console.error('capture failed:', e.message);
+        res.writeHead(500); res.end('capture failed: ' + e.message);
+      }
+    });
+    return;
+  }
   if (req.method === 'POST' && req.url === '/capture') {
     let body = '';
     req.on('data', c => { body += c; });

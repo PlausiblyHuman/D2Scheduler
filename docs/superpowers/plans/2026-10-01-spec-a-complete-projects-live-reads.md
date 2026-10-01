@@ -380,6 +380,12 @@ ok('includeComplete keeps it', M.toPlannerPayload(G2,{includeComplete:true}).job
   - `readLive({jobs, asgItems, taskItems, pageAll, chunk, headers}) -> Promise<{asg, tasks}>`, which reads each live job's assignments and that job's tasks (jobs in parallel; a job's tasks wait for its assignments) and concatenates them
   - `isComplete(status) -> boolean`
 - `chunk` and `headers` come from Task 4's outcome (default: whole chain, i.e. `chunk = Infinity`, no Prefer header).
+- **Task 4 outcome (captured 2026-10-01, `live-payloads-graph-filtered.json`): use the defaults.** Every
+  variant was accepted with no `Prefer` header: `fields/JobLookupId eq '<id>'` quoted or unquoted (34
+  of 34 projects), and the Tasks `or` chain in full (46 terms, 295 rows, ~1 s) or in chunks of 15
+  (twice as slow). Quoted full chain, no Prefer, `chunk = Infinity`. A simulated per-project Refresh
+  over all 34 live projects in parallel read the identical 1,019 assignments and 7,221 tasks in
+  **7.1 s against 16.3 s** for today's whole-list read, 0 errors.
 
 - [ ] **Step 1: Write the failing tests** in `complete.js`:
   - Node: `taskUrls(u, [], 46)` is `[]`. `taskUrls(u, [1,'2'], 46)` has one URL containing `AssignmentLookupId eq '1' or fields/AssignmentLookupId eq '2'`. With `chunk 15` and 46 ids it gives 4 URLs.

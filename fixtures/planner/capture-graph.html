@@ -15,7 +15,12 @@
 <p class="muted">Signs you in and reads Jobs, Assignments, Tasks and Work Calendar through
 Microsoft Graph, then writes them to a local fixture file. Read-only &mdash; it issues GETs
 only and writes nothing to SharePoint.</p>
-<button id="go" disabled>Sign in and capture</button>
+<button id="goFiltered" disabled>Capture per-project filtered reads</button>
+<button id="go" disabled style="background:#fff;color:#0B594B">Full capture (overwrites the demo fixture)</button>
+<p class="muted">The second button (Spec A, 2026-10-01) records how Graph answers a per-project
+<code>$filter</code> on the lookup ids, in every variant the planner might use, and times a per-project
+Refresh against today's whole-list read. It writes <code>live-payloads-graph-filtered.json</code> and leaves
+the full fixture alone. Read-only.</p>
 <pre id="log">Loading MSAL...</pre>
 
 <script src="/msal.js"></script>
@@ -55,13 +60,19 @@ function boot() {
   /* Runs on load, not on click: a sign-in comes back here via redirect and the
      result has to be collected before anything else happens. */
   pca.handleRedirectPromise().then(function (res) {
+    /* The sign-in redirect comes back to / and loses any query string, so which capture was
+       asked for is remembered in sessionStorage. Without this the filtered button would come
+       back from sign-in and run the FULL capture, overwriting live-payloads-graph.json. */
+    var intent = sessionStorage.getItem('captureIntent') || 'full';
+    sessionStorage.removeItem('captureIntent');
     if (res && res.account) {
       pca.setActiveAccount(res.account);
-      logEl.textContent = 'Signed in as ' + res.account.username + '. Capturing...';
-      capture();
+      logEl.textContent = 'Signed in as ' + res.account.username + '. Capturing (' + intent + ')...';
+      (intent === 'filtered' ? captureFiltered : capture)();
     } else {
       logEl.textContent = 'Ready. Click to sign in and capture.';
       document.getElementById('go').disabled = false;
+      document.getElementById('goFiltered').disabled = false;
     }
   }).catch(function (e) { log('ERROR on redirect: ' + e.message); });
 }
@@ -128,6 +139,124 @@ async function capture() {
   }
 }
 
-document.getElementById('go').addEventListener('click', capture);
+/* One GET, recorded rather than thrown: a refused variant is the evidence, not a failure. */
+async function probe(label, url, tok, prefer) {
+  var h = { Authorization: 'Bearer ' + tok };
+  if (prefer) h.Prefer = 'HonorNonIndexedQueriesWarningMayFailRandomly';
+  var t0 = performance.now(), rows = [], status = 0, error = null, pages = 0;
+  try {
+    while (url) {
+      var r = await fetch(url, { headers: h });
+      status = r.status; pages++;
+      if (!r.ok) { error = (await r.text()).slice(0, 600); break; }
+      var d = await r.json();
+      rows = rows.concat(d.value || []);
+      url = d['@odata.nextLink'] || null;
+    }
+  } catch (e) { error = String(e && e.message || e); }
+  var ms = Math.round(performance.now() - t0);
+  log('  ' + label + ': ' + status + ' rows=' + rows.length + ' ' + ms + 'ms' + (error ? ' ERROR ' + error.slice(0, 160) : ''));
+  return { label: label, prefer: !!prefer, status: status, error: error, rows: rows.length, ms: ms, pages: pages, data: rows };
+}
+
+async function captureFiltered() {
+  document.getElementById('go').disabled = true;
+  document.getElementById('goFiltered').disabled = true;
+  try {
+    var tok = await token();
+    if (!tok) return;
+    var site = await (await fetch('https://graph.microsoft.com/v1.0/sites/' + SITE_HOST + ':' + SITE_PATH,
+      { headers: { Authorization: 'Bearer ' + tok } })).json();
+    var base = 'https://graph.microsoft.com/v1.0/sites/' + site.id + '/lists/';
+    var items = function (k) { return base + LISTS[k] + '/items?$expand=fields&$top=500'; };
+    var f = function (k, expr) { return items(k) + '&$filter=' + encodeURIComponent(expr); };
+    var out = { capturedAt: new Date().toISOString(), siteId: site.id, site: site.webUrl, queries: [] };
+    var keep = function (q, withData) { var c = Object.assign({}, q); if (!withData) delete c.data; out.queries.push(c); return q; };
+
+    log('reading Jobs...');
+    out.jobs = (await probe('jobs all', items('jobs'), tok)).data;
+    var live = out.jobs.filter(function (j) { return String(j.fields.Status || '') !== 'Complete'; });
+    log('  live projects: ' + live.length + ' of ' + out.jobs.length);
+
+    log('Assignments per live project, quoted id, no Prefer...');
+    var perJob = [];
+    for (var i = 0; i < live.length; i++) {
+      var id = String(live[i].fields.id);
+      perJob.push(keep(await probe('asg job ' + id + ' quoted', f('asg', "fields/JobLookupId eq '" + id + "'"), tok), false));
+    }
+    var ok = perJob.filter(function (q) { return !q.error; });
+    var big = live[perJob.indexOf(ok.slice().sort(function (a, b) { return b.rows - a.rows; })[0])];
+    var small = live[perJob.indexOf(ok.filter(function (q) { return q.rows > 0 && q.rows < 46; })[0] || ok[ok.length - 1])];
+    var picks = [big, small].filter(function (j, n, a) { return j && a.indexOf(j) === n; });
+    out.picked = picks.map(function (j) { return { id: String(j.fields.id), jobno: j.fields.JobNumber }; });
+    log('picked: ' + out.picked.map(function (p) { return p.jobno + ' (' + p.id + ')'; }).join(', '));
+
+    out.asgByJob = {}; out.tasksByJob = {};
+    for (var p = 0; p < picks.length; p++) {
+      var jid = String(picks[p].fields.id);
+      log('variants for project ' + picks[p].fields.JobNumber + '...');
+      keep(await probe('asg job ' + jid + ' unquoted', f('asg', 'fields/JobLookupId eq ' + jid), tok), false);
+      keep(await probe('asg job ' + jid + ' quoted + Prefer', f('asg', "fields/JobLookupId eq '" + jid + "'"), tok, true), false);
+      var asg = keep(await probe('asg job ' + jid + ' quoted (kept)', f('asg', "fields/JobLookupId eq '" + jid + "'"), tok), true);
+      out.asgByJob[jid] = asg.data;
+      var ids = asg.data.map(function (a) { return String(a.fields.id); });
+      if (!ids.length) { log('  no assignments, tasks variants skipped'); continue; }
+      var chain = function (list, quoted) { return list.map(function (x) {
+        return 'fields/AssignmentLookupId eq ' + (quoted ? "'" + x + "'" : x); }).join(' or '); };
+      var full = keep(await probe('tasks job ' + jid + ' full chain ' + ids.length + ' quoted', f('tasks', chain(ids, true)), tok), true);
+      keep(await probe('tasks job ' + jid + ' full chain unquoted', f('tasks', chain(ids, false)), tok), false);
+      keep(await probe('tasks job ' + jid + ' full chain quoted + Prefer', f('tasks', chain(ids, true)), tok, true), false);
+      var chunked = [];
+      for (var c = 0; c < ids.length; c += 15) {
+        chunked.push(await probe('tasks job ' + jid + ' chunk ' + (c / 15 + 1), f('tasks', chain(ids.slice(c, c + 15), true)), tok));
+      }
+      out.queries.push({ label: 'tasks job ' + jid + ' chunks of 15', status: chunked.every(function (q) { return !q.error; }) ? 200 : 0,
+        error: chunked.map(function (q) { return q.error; }).filter(Boolean).join(' | ') || null,
+        rows: chunked.reduce(function (n, q) { return n + q.rows; }, 0), ms: chunked.reduce(function (n, q) { return n + q.ms; }, 0) });
+      out.tasksByJob[jid] = full.error ? [].concat.apply([], chunked.map(function (q) { return q.data; })) : full.data;
+    }
+
+    /* The new Refresh, simulated: every live project in parallel, its assignments then its
+       tasks (full quoted chain; chunks if the full chain was refused above). */
+    var useChunks = out.queries.some(function (q) { return /full chain \d+ quoted$/.test(q.label) && q.error; });
+    log('simulating the per-project Refresh over ' + live.length + ' projects in parallel (' + (useChunks ? 'chunks' : 'full chain') + ')...');
+    var t0 = performance.now(), errs = 0, nA = 0, nT = 0;
+    await Promise.all(live.map(async function (j) {
+      var a = await probe('sim asg ' + j.fields.id, f('asg', "fields/JobLookupId eq '" + j.fields.id + "'"), tok);
+      if (a.error) { errs++; return; }
+      nA += a.rows;
+      var ids2 = a.data.map(function (x) { return "fields/AssignmentLookupId eq '" + x.fields.id + "'"; });
+      for (var c2 = 0; c2 < ids2.length; c2 += (useChunks ? 15 : ids2.length)) {
+        var t = await probe('sim tasks ' + j.fields.id, f('tasks', ids2.slice(c2, c2 + (useChunks ? 15 : ids2.length)).join(' or ')), tok);
+        if (t.error) errs++; else nT += t.rows;
+      }
+    }));
+    out.simulatedRefresh = { projects: live.length, assignments: nA, tasks: nT, errors: errs, ms: Math.round(performance.now() - t0) };
+    log('  per-project: ' + JSON.stringify(out.simulatedRefresh));
+
+    log('timing today\'s whole-list read for comparison...');
+    var t1 = performance.now();
+    var wa = await probe('whole asg', items('asg'), tok), wt = await probe('whole tasks', items('tasks'), tok);
+    out.wholeListRead = { assignments: wa.rows, tasks: wt.rows, ms: Math.round(performance.now() - t1), asgMs: wa.ms, tasksMs: wt.ms };
+    log('  whole-list: ' + JSON.stringify(out.wholeListRead));
+
+    var post = await fetch('/capture-filtered', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(out) });
+    log(await post.text());
+  } catch (e) {
+    log('FAILED: ' + e.message);
+    document.getElementById('goFiltered').disabled = false;
+  }
+}
+
+document.getElementById('go').addEventListener('click', function () {
+  /* The full capture OVERWRITES live-payloads-graph.json, the demo fixture every harness reads.
+     Run against a tenant holding real projects it replaces the demo data with the client's. */
+  if (!confirm('This overwrites fixtures/planner/live-payloads-graph.json, the demo fixture the tests read, with whatever the tenant holds now. Continue?')) return;
+  sessionStorage.setItem('captureIntent', 'full'); capture();
+});
+document.getElementById('goFiltered').addEventListener('click', function () {
+  sessionStorage.setItem('captureIntent', 'filtered'); captureFiltered();
+});
 window.addEventListener('load', boot);
 </script>
