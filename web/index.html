@@ -1786,6 +1786,7 @@ function delJob(id){
    same word. "Commit" was developer vocabulary and meant nothing to a PM. */
 function activatePool(jobId){
   const j=S.jobs.find(x=>x.id===jobId); if(!j||frozen(j))return;
+  if(stopForUnsaved('Activate '+(j.jobno||j.name),'Activating a project'))return;
   /* Split by level. conflicts() returns hard errors AND advisory warnings, and
      lumping them made this dialog announce "13 unresolved conflicts" on a pool
      whose only findings were unassigned pseudo-trade rows and sign-offs nobody
@@ -1826,6 +1827,7 @@ function activatePool(jobId){
    compare-before-write; the calendar side lags, so the dialog says so. */
 function planPool(jobId){
   const j=S.jobs.find(x=>x.id===jobId); if(!j||frozen(j))return;
+  if(stopForUnsaved('Back to planning: '+(j.jobno||j.name),'Moving a project back to planning'))return;
   document.getElementById('dTitle').textContent='Back to planning: '+(j.jobno||j.name);
   document.getElementById('dBody').innerHTML=
     `<div class="hint" style="padding:0 0 11px">
@@ -1891,19 +1893,26 @@ function hasUnsaved(j){
   return divergedSecs(j).length>0||buildSignoffSet().some(same)||buildRejectionSet().some(same)
     ||buildJobStartChanges().some(same);
 }
+/* Activate, Back to planning, Mark complete and Reopen each write Jobs.Status and then reload
+   the whole schedule, which would throw away any change on screen not yet in SharePoint, on any
+   project. They stop and say so instead. Returns true when it stopped. */
+function stopForUnsaved(title,doing){
+  const unsaved=S.jobs.filter(hasUnsaved);
+  if(!unsaved.length)return false;
+  document.getElementById('dTitle').textContent=title;
+  document.getElementById('dBody').innerHTML=
+    `<div class="hint" style="padding:0 0 11px"><strong>Save first.</strong> There are changes on this screen
+     that are not in SharePoint yet (${unsaved.map(x=>esc(x.jobno)).join(', ')}). ${doing} reloads the
+     schedule, which would lose them. Press Save, then try again.</div>`;
+  document.getElementById('dFoot').innerHTML='<button class="btn" onclick="closeDrawer()">Close</button>';
+  document.getElementById('drawer').classList.add('open');
+  return true;
+}
 function completeProject(jobId){
   const j=S.jobs.find(x=>x.id===jobId); if(!j||!readyToComplete(j))return;
+  if(stopForUnsaved('Mark complete: '+(j.jobno||j.name),'Marking a project complete'))return;
   document.getElementById('dTitle').textContent='Mark complete: '+(j.jobno||j.name);
-  /* Any project, not just this one: completing reloads the whole schedule afterwards. */
-  const unsaved=S.jobs.filter(hasUnsaved);
-  if(unsaved.length){
-    document.getElementById('dBody').innerHTML=
-      `<div class="hint" style="padding:0 0 11px"><strong>Save first.</strong> There are changes on this screen
-       that are not in SharePoint yet (${unsaved.map(x=>esc(x.jobno)).join(', ')}). Marking a project complete
-       reloads the schedule, which would lose them. Press Save, then mark it complete.</div>`;
-    document.getElementById('dFoot').innerHTML='<button class="btn" onclick="closeDrawer()">Close</button>';
-  }else{
-    document.getElementById('dBody').innerHTML=
+  document.getElementById('dBody').innerHTML=
       `<div class="hint" style="padding:0 0 11px">
          This marks <strong>${esc(j.jobno)} ${esc(j.name)}</strong> complete. It leaves the Job Board,
          the daily dispatch, the summary emails and conflict alerts. Its entries on the shared calendar
@@ -1915,7 +1924,6 @@ function completeProject(jobId){
     document.getElementById('dFoot').innerHTML=
       `<button class="btn p" onclick="doCompleteProject('${jobId}')">Mark complete</button>
        <button class="btn" onclick="closeDrawer()">Cancel</button>`;
-  }
   document.getElementById('drawer').classList.add('open');
 }
 /* Sign-off is re-read before Complete is written: a sub-phase rejected or reopened elsewhere
@@ -1944,17 +1952,8 @@ async function doCompleteProject(jobId){
 }
 function reopenProject(jobno){
   const c=(S.completedJobs||[]).find(x=>String(x.jobno)===String(jobno)); if(!c)return;
+  if(stopForUnsaved('Reopen '+jobno,'Reopening a project'))return;
   document.getElementById('dTitle').textContent='Reopen '+jobno;
-  /* Reopening reloads the whole schedule, so unsaved work anywhere is a reason to stop. */
-  const unsaved=S.jobs.filter(hasUnsaved);
-  if(unsaved.length){
-    document.getElementById('dBody').innerHTML=`<div class="hint" style="padding:0 0 11px"><strong>Save first.</strong>
-      There are changes on this screen that are not in SharePoint yet (${unsaved.map(x=>esc(x.jobno)).join(', ')}).
-      Reopening reloads the schedule, which would lose them.</div>`;
-    document.getElementById('dFoot').innerHTML='<button class="btn" onclick="closeDrawer()">Close</button>';
-    document.getElementById('drawer').classList.add('open');
-    return;
-  }
   document.getElementById('dBody').innerHTML=
     `<div class="hint" style="padding:0 0 11px">
        This moves <strong>${esc(c.jobno)} ${esc(c.name)}</strong> from Complete back to Active. It returns

@@ -468,5 +468,31 @@ const jobsWith = (id, status, modified) => G.jobs.map(j => String(j.fields.id) =
     ok('R7: no error left behind', errs.length === 0 && !/couldn|failed/i.test((w.document.getElementById('dBody') || {}).textContent || ''));
   }
 
+  // Activate and Back to planning reload the whole schedule after writing, like Mark complete,
+  // so an unsaved change on ANY project stops them too (Shane, 2026-10-01).
+  {
+    const Z = String(G.jobs[2].fields.id);
+    const { w, net } = boot({ jobs: G.jobs.map(j => String(j.fields.id) === Z ? { ...j, fields: { ...j.fields, Status: 'Planned' } } : j) });
+    await sleep(300); await refresh(w);
+    const planned = w.S.jobs.find(j => j.status === 'Planned'), active = w.S.jobs.find(j => j.status === 'Active');
+    const other = w.S.jobs.find(j => j !== planned && j !== active);
+    const so = w.allSecs(other).find(x => x.s.base && !x.s.inst && !x.s.locked);
+    so.s.crewId = so.s.crewId === 'devon' ? 'saul' : 'devon'; w.touch(other);
+    net.patches.length = 0;
+    w.fn('activatePool')(planned.id); await sleep(50);
+    ok('Activate with an unsaved change anywhere asks to Save first', /Save first/.test(w.document.getElementById('dBody').textContent)
+      && !/Activate/.test(w.document.getElementById('dFoot').textContent));
+    w.closeDrawer();
+    w.fn('planPool')(active.id); await sleep(50);
+    ok('Back to planning with an unsaved change anywhere asks to Save first', /Save first/.test(w.document.getElementById('dBody').textContent)
+      && !/Back to planning/.test(w.document.getElementById('dFoot').textContent));
+    w.closeDrawer();
+    ok('neither wrote anything', net.patches.length === 0);
+    so.s.crewId = so.s.base.crewId; delete other.touchedAt;
+    w.fn('activatePool')(planned.id); await sleep(50);
+    ok('with nothing unsaved, Activate is offered as before', [...w.document.querySelectorAll('#dFoot button')].some(b => /Activate/.test(b.textContent)));
+    w.closeDrawer();
+  }
+
   process.exit(fail);
 })().catch(e => { console.log('FAIL · harness threw: ' + (e && e.stack || e)); process.exit(1); });
