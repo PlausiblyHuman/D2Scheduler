@@ -75,14 +75,15 @@ function boot(state) {
             return json(200, { value: byId ? rows.filter(r => String(r.fields.id) === byId[1]) : rows });
           }
           if (u.includes('/lists/' + L.asg + '/items')) {
-            const want = ids(/JobLookupId eq '?(\d+)'?/g);
-            return json(200, { value: state.ignoreFilters || !want.length ? G.asg : G.asg.filter(a => want.includes(String(a.fields.JobLookupId))) });
+            const want = ids(/JobLookupId eq '?(\d+)'?/g), ASG = state.asg || G.asg;
+            return json(200, { value: state.ignoreFilters || !want.length ? ASG : ASG.filter(a => want.includes(String(a.fields.JobLookupId))) });
           }
           if (u.includes('/lists/' + L.tasks + '/items')) {
             const want = ids(/AssignmentLookupId eq '?(\d+)'?/g);
             return json(200, { value: state.ignoreFilters || !want.length ? G.tasks : G.tasks.filter(t => want.includes(String(t.fields.AssignmentLookupId))) });
           }
           if (u.includes('/lists/' + L.cal + '/items')) return json(200, { value: G.cal });
+          if (u.includes('/lists/' + L.req + '/items')) return json(200, { value: state.req || [] });
         }
         if (/\/lists\/[^/]+\/items/.test(u)) return json(200, { value: [] });
         return json(404, {});
@@ -238,6 +239,92 @@ const jobsWith = (id, status, modified) => G.jobs.map(j => String(j.fields.id) =
     w.fn('openSavePreview')(); await sleep(50);
     await w.confirmSaveByPush(); await sleep(300);
     ok('without an id, Save falls back and still writes', net.patches.some(p => p.url.includes('/items/' + secA.s.base.id + '/') && p.body.Crew));
+  }
+
+  // ---------- Task 9: Ready to complete, Mark complete, Completed projects, Reopen ----------
+  {
+    const [X, Y, Z] = G.jobs.map(j => String(j.fields.id));
+    const jobNo = id => G.jobs.find(j => String(j.fields.id) === id).fields.JobNumber;
+    // X: every sub-phase signed, one of them N/A instead. Y: one sub-phase left unsigned.
+    // Z: all signed but Planned, so never offered.
+    const asgFor = (signAll, opts = {}) => G.asg.map(a => {
+      const f = { ...a.fields }, jid = String(f.JobLookupId);
+      if (signAll.includes(jid)) { f.InstallerSignOff = true; f.NotApplicable = false; }
+      return { ...a, fields: f };
+    }).map((a, i, arr) => {
+      const f = a.fields, mine = arr.filter(b => String(b.fields.JobLookupId) === String(f.JobLookupId));
+      if (opts.naFirst && opts.naFirst.includes(String(f.JobLookupId)) && mine[0] === a) { f.InstallerSignOff = false; f.NotApplicable = true; }
+      if (opts.leaveOne && opts.leaveOne.includes(String(f.JobLookupId)) && mine[1] === a) { f.InstallerSignOff = false; }
+      return a;
+    });
+    const state = {
+      jobs: G.jobs.map(j => String(j.fields.id) === Z ? { ...j, fields: { ...j.fields, Status: 'Planned' } } : j),
+      asg: asgFor([X, Y, Z], { naFirst: [X], leaveOne: [Y] })
+    };
+    const { w, errs, net } = boot(state);
+    await sleep(300); await refresh(w);
+    tab(w, 'jobs'); await sleep(50);
+    const rowOf = no => [...main(w).querySelectorAll('tbody tr')].find(tr => { const i = tr.querySelector('td input'); return i && i.value === no; });
+    const has = (no, re) => re.test(rowOf(no).textContent);
+    ok('a fully signed Active project is Ready to complete, N/A counting as done', has(jobNo(X), /Ready to complete/) && has(jobNo(X), /Mark complete/));
+    ok('one unsigned sub-phase keeps a project off the list', !has(jobNo(Y), /Ready to complete|Mark complete/));
+    ok('a Planned project is never offered', !has(jobNo(Z), /Ready to complete|Mark complete/));
+    const banner = () => (main(w).querySelector('[data-ready-banner]') || {}).textContent || '';
+    ok('the banner names the one ready project', banner().includes('1 project is ready to complete: ' + jobNo(X) + '.'), banner());
+
+    // Review Focus 1: Y's last sub-phase ticked here but not saved. It now reads as ready, but
+    // Mark complete must refuse: completing would discard the tick and close a project
+    // SharePoint still holds unsigned.
+    const jy = w.S.jobs.find(j => j.jobno === jobNo(Y));
+    const open = w.allSecs(jy).find(x => !x.s.inst && !x.s.skip);
+    w.sign(jy.id, open.gi, open.si, 'inst', true); await sleep(20);
+    tab(w, 'jobs'); await sleep(50);
+    ok('with that tick, the banner names both', banner().includes('2 projects are ready to complete: '), banner());
+    net.patches.length = 0;
+    w.fn('completeProject')(jy.id); await sleep(50);
+    ok('Mark complete with an unsaved change asks to Save first', /Save first/.test(w.document.getElementById('dBody').textContent));
+    ok('...and offers no way to go ahead', !/Mark complete/.test(w.document.getElementById('dFoot').textContent));
+    ok('...and writes nothing', net.patches.length === 0);
+    w.closeDrawer();
+
+    // Mark complete on X: one PATCH, Status Complete, then a Refresh that drops it.
+    const jx = w.S.jobs.find(j => j.jobno === jobNo(X));
+    w.fn('completeProject')(jx.id); await sleep(50);
+    const body = w.document.getElementById('dBody').textContent;
+    ok('the dialog says where the project goes and that it can be reopened',
+      /Job Board/.test(body) && /calendar/.test(body) && /04:30/.test(body) && /Completed projects/.test(body), body.slice(0, 160));
+    const go = [...w.document.querySelectorAll('#dFoot button')].find(b => /Mark complete/.test(b.textContent));
+    // SharePoint completes it as the PATCH lands, which is what the next Refresh will see.
+    const realFetch = w.fetch;
+    w.fetch = (u, o) => { if (o && o.method === 'PATCH') state.jobs = state.jobs.map(j => String(j.fields.id) === X ? { ...j, fields: { ...j.fields, Status: 'Complete', Modified: '2026-10-02T15:00:00Z' } } : j); return realFetch(u, o); };
+    go.click(); await sleep(900);
+    w.fetch = realFetch;
+    const jp = net.patches.filter(p => p.url.includes('/lists/' + w.D2_GRAPH.lists.jobs + '/'));
+    ok('Mark complete sends one PATCH, Status Complete, to that Jobs row',
+      jp.length === 1 && jp[0].body.Status === 'Complete' && jp[0].url.includes('/items/' + X + '/'), JSON.stringify(jp));
+    ok('...and the project leaves the planner', !w.S.jobs.some(j => j.jobno === jobNo(X)));
+    tab(w, 'jobs'); await sleep(50);
+    const done = main(w).querySelector('[data-completed]');
+    ok('Completed projects lists it', done && done.textContent.includes(jobNo(X)) && /Completed projects \(1\)/.test(done.textContent), done && done.textContent.slice(0, 120));
+
+    // A live mismatch: Y is put On Hold in SharePoint after loading. Nothing is written.
+    state.jobs = state.jobs.map(j => String(j.fields.id) === Y ? { ...j, fields: { ...j.fields, Status: 'On Hold' } } : j);
+    net.patches.length = 0;
+    const jy2 = w.S.jobs.find(j => j.jobno === jobNo(Y));
+    w.fn('doSetPoolStatus')(jy2.id, 'Active', 'Complete'); await sleep(300);
+    ok('a project no longer Active in SharePoint is not completed', net.patches.length === 0
+      && /already On Hold/.test(w.document.getElementById('dBody').textContent));
+    w.closeDrawer();
+
+    // Reopen from Completed projects: one PATCH back to Active.
+    net.patches.length = 0;
+    w.fn('reopenProject')(jobNo(X)); await sleep(50);
+    ok('Reopen asks first', /Reopen/.test(w.document.getElementById('dTitle').textContent));
+    const re = [...w.document.querySelectorAll('#dFoot button')].find(b => /^Reopen/.test(b.textContent.trim()));
+    re.click(); await sleep(900);
+    const rp = net.patches.filter(p => p.url.includes('/lists/' + w.D2_GRAPH.lists.jobs + '/'));
+    ok('Reopen sends one PATCH, Status Active, to that Jobs row', rp.length === 1 && rp[0].body.Status === 'Active' && rp[0].url.includes('/items/' + X + '/'), JSON.stringify(rp));
+    ok('Mark complete and Reopen raised no script error', errs.length === 0, errs.join(' / '));
   }
 
   process.exit(fail);

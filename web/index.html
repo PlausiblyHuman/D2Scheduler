@@ -55,6 +55,7 @@ input[type=checkbox]{width:auto;accent-color:var(--accent);cursor:pointer}
 .chip.jb.other{background:#e0e7ff;color:#3730a3;border-color:#c7d2fe}
 .chip.jb.local{background:#f1f5f9;color:#64748b;border-color:#e2e8f0}
 .chip.jb.edited{background:#fff7ed;color:#9a3412;border-color:#fed7aa}
+.chip.jb.ok{background:#e7f2ef;color:#0b594b;border-color:#b9d8d0}
 .muted{color:var(--muted)}.small{font-size:11.5px}
 .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
 /* timeline */
@@ -365,7 +366,8 @@ function jobBadge(j){
   const edited=j.touchedAt?'<span class="chip jb edited" title="Changed here since the last Refresh">edited here</span>':'';
   const building=j.building?'<span class="chip jb hold" title="Still being built in SharePoint, usually 10 to 20 minutes. Nothing on it can be changed until it finishes; Refresh then.">Building</span>':'';
   if(!j.status)return '<span class="chip jb local" title="Sketched here, not yet raised in SharePoint">Local only</span>'+building+edited;
-  if(j.status==='Active')return building+edited;
+  const ready=readyToComplete(j)?'<span class="chip jb ok" title="Every sub-phase is signed off or not applicable. Mark it complete on the Jobs tab.">Ready to complete</span>':'';
+  if(j.status==='Active')return building+ready+edited;
   const cls=j.status==='Planned'?'planned':j.status==='On Hold'?'hold':'other';
   return `<span class="chip jb ${cls}" title="Jobs.Status in SharePoint">${esc(j.status)}</span>`+building+edited;
 }
@@ -1294,7 +1296,26 @@ function vJobs(){
   const pms=[...new Set(S.jobs.map(j=>j.pm).filter(Boolean))].sort();
   const pmOn=UI.pmFilter&&pms.includes(UI.pmFilter)?UI.pmFilter:'';
   const shown=orderJobs(pmOn?S.jobs.filter(j=>j.pm===pmOn):S.jobs);
-  return pendingCard+`<div class="card"><h2>Jobs<span class="sp"></span>
+  /* Projects ready to complete, named here so nobody has to hunt for the chip. */
+  const ready=graphModeAvailable()?S.jobs.filter(readyToComplete).sort(cmpJobNo):[];
+  const readyBanner=ready.length?`<div class="card" data-ready-banner><div class="pad" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <span><b>${ready.length} project${ready.length===1?' is':'s are'} ready to complete: ${ready.map(j=>esc(j.jobno)).join(', ')}.</b>
+      Every sub-phase is signed off or not applicable. Use Mark complete on its row.</span></div></div>`:'';
+  /* Completed projects stay in SharePoint and are listed here from their Jobs rows alone:
+     their sub-phases are not read on Refresh. Newest first. */
+  const done=S.completedJobs||[];
+  const completedCard=done.length?`<details class="card" data-completed><summary style="padding:12px 16px;cursor:pointer"><b>Completed projects (${done.length})</b>
+      <span class="muted small">finished and out of the planner; reopen one to bring it back</span></summary>
+    <table><thead><tr><th style="width:92px">Job ID</th><th>Name</th><th style="width:150px">Project manager</th><th style="width:120px">Completed</th><th></th></tr></thead><tbody>
+    ${done.map(c=>`<tr data-completed-row="${esc(c.jobno)}">
+      <td class="mono small">${esc(c.jobno)}</td><td>${esc(c.name)}</td>
+      <td class="small">${c.pm?esc(c.pm):'<span class="muted">—</span>'}</td>
+      <td class="small muted">${c.completedOn?pretty(String(c.completedOn).slice(0,10)):''}</td>
+      <td style="text-align:right">${graphModeAvailable()
+        ?`<button class="btn sm" data-jobno="${esc(c.jobno)}" onclick="reopenProject(this.dataset.jobno)">Reopen</button>`:''}</td>
+      </tr>`).join('')}
+    </tbody></table></details>`:'';
+  return pendingCard+readyBanner+`<div class="card"><h2>Jobs<span class="sp"></span>
     ${S.jobs.length>1?jobSortControl():''}
     ${pms.length?`<select id="pmFilter" onchange="setPmFilter(this.value)" style="text-transform:none;font-weight:400">
       <option value="">All project managers</option>
@@ -1326,13 +1347,14 @@ function vJobs(){
       : j.status==='Planned'&&graphModeAvailable()
       ? `<button class="btn sm p" onclick="activatePool('${j.id}')">Activate</button>`
       : j.status==='Active'&&graphModeAvailable()
-      ? `<span class="muted">Active</span> <button class="btn sm" onclick="planPool('${j.id}')" title="Move this project back to Planned: out of the dispatch, the summaries and the alerts until it is activated again.">Back to planning</button>`
+      ? `<span class="muted">Active</span> <button class="btn sm" onclick="planPool('${j.id}')" title="Move this project back to Planned: out of the dispatch, the summaries and the alerts until it is activated again.">Back to planning</button>${readyToComplete(j)
+        ? ` <button class="btn sm p" onclick="completeProject('${j.id}')" title="Every sub-phase is signed off or not applicable.">Mark complete</button>`:''}`
       : `<span class="muted">${esc(j.status||'Active')}</span>`}</td>
     <td style="text-align:right">${poolHasBaseline(j)
       ? `<button class="btn sm" onclick="delJob('${j.id}')" title="Removes this pool from this screen only. It stays in SharePoint and comes back on the next Refresh.">Remove</button>`
       : `<button class="btn sm d" onclick="delJob('${j.id}')" title="This pool has never been saved to SharePoint. Deleting it here cannot be undone.">Delete</button>`}</td></tr>`;}).join('')}
   </tbody></table>
-  <div class="hint">New jobs are built from the template stored in SharePoint. Mark a sub-phase "not applicable" in its editor to skip it on one pool.</div></div>`;
+  <div class="hint">New jobs are built from the template stored in SharePoint. Mark a sub-phase "not applicable" in its editor to skip it on one pool.</div></div>`+completedCard;
 }
 function setPmFilter(name){UI.pmFilter=name||'';render();}
 
@@ -1803,20 +1825,25 @@ function planPool(jobId){
   document.getElementById('drawer').classList.add('open');
 }
 function doActivatePool(jobId){ return doSetPoolStatus(jobId,'Planned','Active'); }
-async function doSetPoolStatus(jobId,from,to){
+function doSetPoolStatus(jobId,from,to){
   const j=S.jobs.find(x=>x.id===jobId); if(!j)return;
+  return setStatusByJobNo(j.jobno,from,to);
+}
+/* Activate, Back to planning, Mark complete and Reopen all write Jobs.Status this one way.
+   By job number, because a completed project is no longer in S.jobs. */
+async function setStatusByJobNo(jobno,from,to){
   document.getElementById('dFoot').innerHTML='<span class="hint">'+(to==='Active'?'Activating…':'Saving…')+'</span>';
   try{
     const tok=await graphToken(), G=window.D2GraphWriteback;
     const siteId=(await graphSite(tok)).id, U=G.urls(siteId);
     const rows=await graphPageAll(U.items(D2_GRAPH.lists.jobs)+'?$expand=fields&$top=500',tok);
-    const row=rows.find(r=>String(r.fields.JobNumber)===String(j.jobno));
-    if(!row) throw new Error('That pool is not in SharePoint yet. Refresh and try again.');
+    const row=rows.find(r=>String(r.fields.JobNumber)===String(jobno));
+    if(!row) throw new Error('That project is not in SharePoint yet. Refresh and try again.');
     /* Compare-before-write for this one field: re-read Status immediately
        before changing it, so two people activating at once cannot both think
        they did it, and so a pool already put On Hold is not quietly reactivated. */
     if(row.fields.Status!==from)
-      throw new Error('This pool is already '+row.fields.Status+' in SharePoint. Nothing was changed.');
+      throw new Error('This project is already '+row.fields.Status+' in SharePoint. Nothing was changed.');
     const r=await fetch(U.fields(D2_GRAPH.lists.jobs,row.fields.id),
       {method:'PATCH',headers:G.headers(tok),body:JSON.stringify(G.statusBody(to))});
     if(!r.ok) throw new Error('SharePoint refused the change (HTTP '+r.status+').');
@@ -1826,6 +1853,66 @@ async function doSetPoolStatus(jobId,from,to){
     document.getElementById('dBody').innerHTML=graphErrorHTML(e,'');
     document.getElementById('dFoot').innerHTML='<button class="btn" onclick="closeDrawer()">Close</button>';
   }
+}
+
+/* ---- Completing a project (Spec A, decided 2026-09-28) ----
+   Offered only on an Active project whose every sub-phase is installer-signed or not
+   applicable. PM sign-off does not count: nothing reads it. A completed project stays in
+   SharePoint as Status = Complete and leaves the planner, the dispatch, the summaries, the
+   alerts and (at the 04:30 sweep) the calendar. It can be reopened. Warranty is not managed
+   here. */
+function readyToComplete(j){
+  if(!j||j.building||j.readOnly||j.status!=='Active'||!poolHasBaseline(j))return false;
+  const secs=allSecs(j);
+  return secs.length>0&&secs.every(({s})=>s.inst||s.skip);
+}
+/* Anything changed here on this project and not yet saved. Completing writes Status and
+   Refreshes, which would discard it, so Mark complete asks for a Save first. This is what stops
+   a last INST tick, made here and not saved, from completing a project SharePoint holds unsigned. */
+function hasUnsaved(j){
+  const same=p=>String(p.jobno)===String(j.jobno);
+  return divergedSecs(j).length>0||buildSignoffSet().some(same)||buildRejectionSet().some(same)
+    ||buildJobStartChanges().some(same);
+}
+function completeProject(jobId){
+  const j=S.jobs.find(x=>x.id===jobId); if(!j||!readyToComplete(j))return;
+  document.getElementById('dTitle').textContent='Mark complete: '+(j.jobno||j.name);
+  if(hasUnsaved(j)){
+    document.getElementById('dBody').innerHTML=
+      `<div class="hint" style="padding:0 0 11px"><strong>Save first.</strong> ${esc(j.jobno)} ${esc(j.name)} has
+       changes on this screen that are not in SharePoint yet. Marking it complete reloads the
+       schedule, which would lose them. Press Save, then mark it complete.</div>`;
+    document.getElementById('dFoot').innerHTML='<button class="btn" onclick="closeDrawer()">Close</button>';
+  }else{
+    document.getElementById('dBody').innerHTML=
+      `<div class="hint" style="padding:0 0 11px">
+         This marks <strong>${esc(j.jobno)} ${esc(j.name)}</strong> complete. It leaves the Job Board,
+         the daily dispatch, the summary emails and conflict alerts. Its entries on the shared calendar
+         are removed on the next full calendar sweep, at 04:30. Its record stays in SharePoint, and you
+         can reopen it from Completed projects on this tab.
+         <br><br><strong>This one writes straight away.</strong> Everything else you change on this
+         screen waits for Save.
+       </div>`;
+    document.getElementById('dFoot').innerHTML=
+      `<button class="btn p" onclick="doSetPoolStatus('${jobId}','Active','Complete')">Mark complete</button>
+       <button class="btn" onclick="closeDrawer()">Cancel</button>`;
+  }
+  document.getElementById('drawer').classList.add('open');
+}
+function reopenProject(jobno){
+  const c=(S.completedJobs||[]).find(x=>String(x.jobno)===String(jobno)); if(!c)return;
+  document.getElementById('dTitle').textContent='Reopen '+jobno;
+  document.getElementById('dBody').innerHTML=
+    `<div class="hint" style="padding:0 0 11px">
+       This moves <strong>${esc(c.jobno)} ${esc(c.name)}</strong> from Complete back to Active. It returns
+       to the Job Board, the daily dispatch, the summary emails and conflict alerts, and to the shared
+       calendar on its next sweep.
+       <br><br><strong>This one writes straight away.</strong>
+     </div>`;
+  document.getElementById('dFoot').innerHTML=
+    `<button class="btn p" data-jobno="${esc(c.jobno)}" onclick="setStatusByJobNo(this.dataset.jobno,'Complete','Active')">Reopen</button>
+     <button class="btn" onclick="closeDrawer()">Cancel</button>`;
+  document.getElementById('drawer').classList.add('open');
 }
 function setCrew(id,k,v){const c=crew(id);
   if(k==='members')c.members=v.split(',').map(x=>x.trim()).filter(Boolean);

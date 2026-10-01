@@ -53,5 +53,55 @@
   "label": "no fallback without an id",
   "find": "if(jobs.some(j=>!j||!j.spId)) return graphPageAll(items+'?$expand=fields&$top=500',tok);",
   "replace": "if(false) return null;"
+ },
+ {
+  "label": "N/A no longer counts as done",
+  "find": "return secs.length>0&&secs.every(({s})=>s.inst||s.skip);",
+  "replace": "return secs.length>0&&secs.every(({s})=>s.inst);"
+ },
+ {
+  "label": "Planned projects offered",
+  "find": "if(!j||j.building||j.readOnly||j.status!=='Active'||!poolHasBaseline(j))return false;",
+  "replace": "if(!j||j.building||j.readOnly||!poolHasBaseline(j))return false;"
+ },
+ {
+  "label": "unsigned sub-phases ignored",
+  "find": "return secs.length>0&&secs.every(({s})=>s.inst||s.skip);",
+  "replace": "return secs.length>0;"
+ },
+ {
+  "label": "unsaved sign-off not counted",
+  "find": "return divergedSecs(j).length>0||buildSignoffSet().some(same)||buildRejectionSet().some(same)",
+  "replace": "return divergedSecs(j).length>0||buildRejectionSet().some(same)"
+ },
+ {
+  "label": "Save-first guard removed",
+  "find": "  if(hasUnsaved(j)){\n    document.getElementById('dBody').innerHTML=\n      `<div class=\"hint\" style=\"padding:0 0 11px\"><strong>Save first.</strong>",
+  "replace": "  if(false){\n    document.getElementById('dBody').innerHTML=\n      `<div class=\"hint\" style=\"padding:0 0 11px\"><strong>Save first.</strong>"
+ },
+ {
+  "label": "Mark complete writes the wrong status",
+  "find": "onclick=\"doSetPoolStatus('${jobId}','Active','Complete')\">Mark complete</button>",
+  "replace": "onclick=\"doSetPoolStatus('${jobId}','Active','Planned')\">Mark complete</button>"
+ },
+ {
+  "label": "live Status not compared",
+  "find": "    if(row.fields.Status!==from)\n      throw new Error('This project is already '",
+  "replace": "    if(false)\n      throw new Error('This project is already '"
+ },
+ {
+  "label": "Reopen writes Complete",
+  "find": "onclick=\"setStatusByJobNo(this.dataset.jobno,'Complete','Active')\">Reopen</button>",
+  "replace": "onclick=\"setStatusByJobNo(this.dataset.jobno,'Complete','Complete')\">Reopen</button>"
+ },
+ {
+  "label": "banner missing",
+  "find": "  return pendingCard+readyBanner+`<div class=\"card\"><h2>Jobs",
+  "replace": "  return pendingCard+`<div class=\"card\"><h2>Jobs"
+ },
+ {
+  "label": "Completed list missing",
+  "find": "skip it on one pool.</div></div>`+completedCard;",
+  "replace": "skip it on one pool.</div></div>`;"
  }
 ]
