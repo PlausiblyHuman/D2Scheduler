@@ -2785,6 +2785,25 @@ Consequences, all observed rather than predicted:
   (Gunite/Trailov); job numbers carrying names (`25-2038 Becky`, `25-2040 Annecy - Vaillencourt -
   FP- Autocover`); `25=2029 White Heart`.
 
+**THE THROTTLING FAILED BUILDS, AND THE FAILURE EMAIL TOLD DON TO DELETE THEM (found 15:00 Central).**
+`D2 - New Pool`'s `Do_until_span_complete` (the work-day walk per sub-phase) had `limit
+{count 90, timeout PT1H}`. Under the throttling one iteration ran **5.6 hours**; the timeout ended
+the loop with the span unfinished, `Set_shortScheduledSubphase` recorded it as "before the 90-day
+search limit", and at the very end `Condition_short_scheduled` failed the whole build (request
+Failed, email "URGENT: Pool build INCOMPLETE" to the PM saying delete the project and re-enter it).
+**The build is in fact complete**: every sub-phase and task exists; one to three end a day short.
+`25-2020 Occhipinti` failed this way at 09:10; by 15:00 **11 of the 30 still running had already
+flagged a short sub-phase** and will fail the same way at the end (they cannot be changed in
+flight). Shane emailed Don at ~15:30 to ignore those emails and not delete or re-enter anything.
+**Fixed for new requests, 15:35 Central** (`flows/scripts/new_pool_span_fix.py`, applied by
+`2026-10-01-new-pool-span-fix.py`): timeout `P1D`, accurate wording ("built in full... correct
+that sub-phase's dates... do not delete or re-enter"), subject "Check dates on new project <no>" at
+Normal importance; request still ends Failed. **Owed: once the batch finishes, correct each failed
+project's short sub-phases (planner reset-from-start + Save) and set its request row to Done.**
+**Trigger concurrency control was deliberately NOT turned on**: Microsoft documents it as
+irreversible, and with it on only 10 + the parallel count can wait, so a 32-request burst could
+drop requests. Decide separately.
+
 **`az` had lost the D2 account entirely** (only Tennetech cached), so `az account set` cannot fix
 it; `az login --tenant f24d9b39-... --allow-no-subscriptions` with Shane picking
 `stratirus@d2pools.com`, then FlowAgent `reconnect`.
