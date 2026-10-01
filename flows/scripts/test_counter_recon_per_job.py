@@ -42,7 +42,11 @@ for disarm in (False, True):
     loop = cond['actions']['Condition_tasks_complete']['actions']['Apply_to_each_assignment']
     ok(f'{tag}: counts from this job only', loop['actions']['Filter_tasks']['inputs']['from'] == "@body('Get_job_tasks')?['value']")
     ok(f'{tag}: loop runs over this job', loop['foreach'] == "@body('Get_job_assignments')?['value']")
-    ok(f'{tag}: Terminate after the loop', A['Guard_capped']['runAfter'] == {'For_each_job': ['Succeeded']})
+    ok(f'{tag}: summary written even when a job fails or is capped',
+       A['Summarise']['runAfter'] == {'For_each_job': ['Succeeded', 'Failed']})
+    ok(f'{tag}: Terminate after the loop and after the summary', A['Guard_capped']['runAfter'] == {'Summarise': ['Succeeded']})
+    ok(f'{tag}: a failed job read still fails the run (not masked by the summary)',
+       "actions('For_each_job')?['status']" in json.dumps(A['Guard_capped']['expression']))
     repair = loop['actions']['Condition_drifted']['actions']['Repair_counters']
     ok(f'{tag}: disarm controls writes', (repair['type'] == 'Compose') == disarm)
     names = set(A)

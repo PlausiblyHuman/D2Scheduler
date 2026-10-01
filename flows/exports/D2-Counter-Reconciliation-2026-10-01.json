@@ -3,7 +3,7 @@
  "displayName": "D2 - Counter Reconciliation",
  "workflowEntityId": "291fa9d9-caaa-f111-aaac-6045bd0195dd",
  "state": "Started",
- "lastModifiedTime": "2026-10-01T14:48:14Z",
+ "lastModifiedTime": "2026-10-01T15:01:56Z",
  "connectionReferences": {
   "shared_sharepointonline": {
    "connectionName": "shared-sharepointonl-20b83f29-d689-437e-b1ff-930f7bf3fda4",
@@ -393,13 +393,13 @@
        "runStatus": "Failed",
        "runError": {
         "code": "ReadAtCap",
-        "message": "@{concat('A read returned its maximum for: ', join(variables('capped'), '; '), '. Those projects were not recounted. Every other project was checked and repaired.')}"
+        "message": "@{concat('Recount incomplete. Reads at their maximum: ', join(variables('capped'), '; '), '. Project loop status: ', actions('For_each_job')?['status'], '. Every other project was checked; Summarise lists what was repaired.')}"
        }
       }
      }
     },
     "runAfter": {
-     "For_each_job": [
+     "Summarise": [
       "Succeeded"
      ]
     },
@@ -407,18 +407,31 @@
      "actions": {}
     },
     "expression": {
-     "not": {
-      "empty": [
-       "@variables('capped')"
-      ]
-     }
+     "or": [
+      {
+       "not": {
+        "empty": [
+         "@variables('capped')"
+        ]
+       }
+      },
+      {
+       "not": {
+        "equals": [
+         "@actions('For_each_job')?['status']",
+         "Succeeded"
+        ]
+       }
+      }
+     ]
     },
     "type": "If"
    },
    "Summarise": {
     "runAfter": {
-     "Guard_capped": [
-      "Succeeded"
+     "For_each_job": [
+      "Succeeded",
+      "Failed"
      ]
     },
     "type": "Compose",

@@ -78,17 +78,21 @@ def build_actions(old, disarm=False):
                         'expression': {'greaterOrEquals': [asg_len, 500]},
                         'actions': {'Record_asg_capped': append_capped(JOBNO + ': assignments read returned 500')},
                         'else': {'actions': {}}}}}}}},
+        # Summarise runs even when the loop failed, so a bad night still records what it repaired;
+        # Guard_capped then fails the run, because a handled failure would otherwise read Succeeded.
         'Guard_capped': {
-            'runAfter': {'For_each_job': ['Succeeded']}, 'type': 'If',
-            'expression': {'not': {'empty': ["@variables('capped')"]}},
+            'runAfter': {'Summarise': ['Succeeded']}, 'type': 'If',
+            'expression': {'or': [{'not': {'empty': ["@variables('capped')"]}},
+                                  {'not': {'equals': ["@actions('For_each_job')?['status']", 'Succeeded']}}]},
             'actions': {'Terminate_read_at_cap': {'runAfter': {}, 'type': 'Terminate', 'inputs': {
                 'runStatus': 'Failed', 'runError': {
                     'code': 'ReadAtCap',
-                    'message': "@{concat('A read returned its maximum for: ', join(variables('capped'), '; '), "
-                               "'. Those projects were not recounted. Every other project was checked and repaired.')}"}}}},
+                    'message': "@{concat('Recount incomplete. Reads at their maximum: ', join(variables('capped'), '; '), "
+                               "'. Project loop status: ', actions('For_each_job')?['status'], "
+                               "'. Every other project was checked; Summarise lists what was repaired.')}"}}}},
             'else': {'actions': {}}},
         'Summarise': {
-            'runAfter': {'Guard_capped': ['Succeeded']}, 'type': 'Compose',
+            'runAfter': {'For_each_job': ['Succeeded', 'Failed']}, 'type': 'Compose',
             'inputs': {'jobsChecked': "@length(body('Get_live_jobs')?['value'])",
                        'tasksScanned': "@variables('tasks_scanned')",
                        'countersRepaired': "@length(variables('repaired'))",

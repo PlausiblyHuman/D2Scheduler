@@ -50,9 +50,15 @@ st, row = call('GET', f'{ORG}/api/data/v9.2/workflows({WF})?$select=clientdata,s
 assert row['name'] == NAME, row['name']
 cd = json.loads(row['clientdata'])
 A = cd['properties']['definition']['actions']
+LIVE_A = A
 if 'Get_all_tasks' not in A:
-    sys.exit('Already converted (no Get_all_tasks); nothing to do.')
-print(f"live: statecode {row['statecode']} modified {row['modifiedon']} top-level {sorted(A)}")
+    # Already converted: rebuild from the last pre-conversion export (the builder's input), so a
+    # builder fix can be re-applied and a half-finished apply (PATCH landed, PublishXml failed) completes.
+    exports = sorted((pathlib.Path(__file__).parents[1] / 'exports').glob('D2-Counter-Reconciliation-*.json'))
+    load = lambda p: json.loads(p.read_text(encoding='utf-8'))['definition']['actions']
+    A = load([p for p in exports if 'Get_all_tasks' in load(p)][-1])
+    print('live flow already converted; rebuilding from the pre-conversion export')
+print(f"live: statecode {row['statecode']} modified {row['modifiedon']} top-level {sorted(LIVE_A)}")
 
 if MODE == 'copy':
     d = json.loads(json.dumps(cd['properties']['definition']))
@@ -63,18 +69,21 @@ if MODE == 'copy':
     sys.exit(0)
 
 new_actions = build_actions(json.loads(json.dumps(A)), disarm=False)
+unchanged = new_actions == LIVE_A
 cd['properties']['definition']['actions'] = new_actions
 new = json.dumps(cd, ensure_ascii=True)
-print(f"new top-level {sorted(new_actions)} bytes {len(row['clientdata'])}->{len(new)}")
+print(f"new top-level {sorted(new_actions)} bytes {len(row['clientdata'])}->{len(new)} "
+      f"{'(live already matches; publish only)' if unchanged else '(changes the live definition)'}")
 if MODE != 'apply':
     print('dry run, nothing written'); sys.exit(0)
 
-st, _ = call('PATCH', f'{ORG}/api/data/v9.2/workflows({WF})', json.dumps({'clientdata': new}, ensure_ascii=True).encode('ascii'))
-print('PATCH', st)
+if not unchanged:
+    st, _ = call('PATCH', f'{ORG}/api/data/v9.2/workflows({WF})', json.dumps({'clientdata': new}, ensure_ascii=True).encode('ascii'))
+    print('PATCH', st)
 px = '<importexportxml><workflows><workflow>{' + WF + '}</workflow></workflows></importexportxml>'
 st, _ = call('POST', f'{ORG}/api/data/v9.2/PublishXml', json.dumps({'ParameterXml': px}).encode('ascii'))
 print('PublishXml', st)
 st, r2 = call('GET', f'{ORG}/api/data/v9.2/workflows({WF})?$select=clientdata,statecode,modifiedon')
 A2 = json.loads(r2['clientdata'])['properties']['definition']['actions']
-assert 'Get_live_jobs' in A2 and 'For_each_job' in A2 and 'Get_all_tasks' not in A2, sorted(A2)
+assert A2 == new_actions, 'published actions differ from what was built'
 print(f"published: statecode {r2['statecode']} modified {r2['modifiedon']} top-level {sorted(A2)}")
