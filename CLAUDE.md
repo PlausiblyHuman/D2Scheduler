@@ -2766,8 +2766,17 @@ assignment ids of concurrent builds INTERLEAVE, so a job's assignments are not a
 Consequences, all observed rather than predicted:
 
 - **Counter Reconciliation failed at 03:30 with `ReadAtCap`** (809 assignments, Tasks read at 5,000):
-  the scale-piece-1 guard working, three months before the December forecast. It will fail every
-  night until the Spec A per-project rewrite. Spec A moved to the front of the queue.
+  the scale-piece-1 guard working, three months before the December forecast. **FIXED THE SAME DAY,
+  14:48 Central (Spec A Part 1):** it now reads Jobs `Status ne 'Complete'`, then per job its
+  Assignments (`JobId eq <id>`) and its Tasks by an `or` chain of that job's assignment ids
+  (`flows/scripts/counter_recon_per_job.py`, applied by `2026-10-01-counter-recon-per-job.py`).
+  **A 46-term `AssignmentId eq ... or ...` chain is accepted by the connector `GetItems`**, proven on a
+  disarmed copy over 34 live projects (6,981 tasks, no capped reads). Terminate cannot sit in a loop,
+  so a capped per-job read appends to a `capped` array and `Guard_capped` fails the run after the
+  loop, having repaired every other job. Verified both ways on throwaway rows: a drifted Planned
+  project went 9/9 -> 1/2, a drifted `Complete` one stayed 9/9. Runs ~5 min under today's throttling.
+  **Accepted race:** it recounts a sub-phase New Pool is still filling (`0/0 -> 0/N`); New Pool's own
+  `Merge_task_total` normally overwrites it, and if not, the next night does.
 - **The 04:30 Calendar Sync full sweep removed all 46 events, correctly.** Don set `26- 2055` back
   to `Planned` at 15:55 Central on 09-30, leaving zero Active jobs. `Guard_in_scope_complete` stays
   quiet when there are no Active jobs, by design. Read the run's `Get_active_jobs` output before

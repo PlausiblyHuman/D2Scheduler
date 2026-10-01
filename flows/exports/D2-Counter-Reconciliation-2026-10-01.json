@@ -1,0 +1,435 @@
+{
+ "flowId": "e877197e-1ab6-8f74-49f2-9a12532e3b14",
+ "displayName": "D2 - Counter Reconciliation",
+ "workflowEntityId": "291fa9d9-caaa-f111-aaac-6045bd0195dd",
+ "state": "Started",
+ "lastModifiedTime": "2026-10-01T14:48:14Z",
+ "connectionReferences": {
+  "shared_sharepointonline": {
+   "connectionName": "shared-sharepointonl-20b83f29-d689-437e-b1ff-930f7bf3fda4",
+   "connectionReferenceLogicalName": "new_sharedsharepointonline_beb06",
+   "source": "Embedded",
+   "id": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+   "displayName": "SharePoint",
+   "iconUri": "https://static.powerapps.com/resource/ppcr/releases/v1.0.1827/1.0.1827.4913/sharepointonline/icon.png",
+   "brandColor": "",
+   "tier": "Standard",
+   "apiName": "sharepointonline",
+   "isProcessSimpleApiReferenceConversionAlreadyDone": false
+  }
+ },
+ "definition": {
+  "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+  "contentVersion": "undefined",
+  "parameters": {
+   "$authentication": {
+    "defaultValue": {},
+    "type": "SecureObject"
+   },
+   "$connections": {
+    "defaultValue": {},
+    "type": "Object"
+   }
+  },
+  "triggers": {
+   "Recurrence": {
+    "recurrence": {
+     "frequency": "Day",
+     "interval": 1,
+     "timeZone": "Central Standard Time",
+     "schedule": {
+      "hours": [
+       "3"
+      ],
+      "minutes": [
+       30
+      ]
+     },
+     "startTime": "2026-09-08T05:30:00"
+    },
+    "type": "Recurrence"
+   }
+  },
+  "actions": {
+   "Get_live_jobs": {
+    "runAfter": {},
+    "type": "OpenApiConnection",
+    "inputs": {
+     "host": {
+      "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+      "connectionName": "shared_sharepointonline",
+      "operationId": "GetItems"
+     },
+     "parameters": {
+      "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+      "table": "ee0ecabf-2f11-458d-a9ea-641f76d10cc3",
+      "$filter": "Status ne 'Complete'",
+      "$top": 500
+     }
+    }
+   },
+   "Init_repaired": {
+    "runAfter": {
+     "Get_live_jobs": [
+      "Succeeded"
+     ]
+    },
+    "type": "InitializeVariable",
+    "inputs": {
+     "variables": [
+      {
+       "name": "repaired",
+       "type": "array",
+       "value": []
+      }
+     ]
+    }
+   },
+   "Init_capped": {
+    "runAfter": {
+     "Init_repaired": [
+      "Succeeded"
+     ]
+    },
+    "type": "InitializeVariable",
+    "inputs": {
+     "variables": [
+      {
+       "name": "capped",
+       "type": "array",
+       "value": []
+      }
+     ]
+    }
+   },
+   "Init_tasks_scanned": {
+    "runAfter": {
+     "Init_capped": [
+      "Succeeded"
+     ]
+    },
+    "type": "InitializeVariable",
+    "inputs": {
+     "variables": [
+      {
+       "name": "tasks_scanned",
+       "type": "integer",
+       "value": 0
+      }
+     ]
+    }
+   },
+   "For_each_job": {
+    "foreach": "@body('Get_live_jobs')?['value']",
+    "actions": {
+     "Get_job_assignments": {
+      "runAfter": {},
+      "type": "OpenApiConnection",
+      "inputs": {
+       "host": {
+        "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+        "connectionName": "shared_sharepointonline",
+        "operationId": "GetItems"
+       },
+       "parameters": {
+        "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+        "table": "49ef7006-d3fe-40a7-a52f-c4c18545bd35",
+        "$filter": "JobId eq @{items('For_each_job')?['ID']}",
+        "$top": 500
+       }
+      }
+     },
+     "Select_task_clauses": {
+      "runAfter": {
+       "Get_job_assignments": [
+        "Succeeded"
+       ]
+      },
+      "type": "Select",
+      "inputs": {
+       "from": "@body('Get_job_assignments')?['value']",
+       "select": "@concat('AssignmentId eq ', string(item()?['ID']))"
+      }
+     },
+     "Condition_job_readable": {
+      "actions": {
+       "Get_job_tasks": {
+        "runAfter": {},
+        "type": "OpenApiConnection",
+        "inputs": {
+         "host": {
+          "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+          "connectionName": "shared_sharepointonline",
+          "operationId": "GetItems"
+         },
+         "parameters": {
+          "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+          "table": "22c45847-ff0d-417a-b53e-1ea018fbb6d3",
+          "$filter": "@{concat('(', join(body('Select_task_clauses'), ' or '), ')')}",
+          "$top": 5000
+         }
+        }
+       },
+       "Condition_tasks_complete": {
+        "actions": {
+         "Add_tasks_scanned": {
+          "runAfter": {},
+          "type": "IncrementVariable",
+          "inputs": {
+           "name": "tasks_scanned",
+           "value": "@length(body('Get_job_tasks')?['value'])"
+          }
+         },
+         "Apply_to_each_assignment": {
+          "foreach": "@body('Get_job_assignments')?['value']",
+          "actions": {
+           "Filter_tasks": {
+            "runAfter": {},
+            "type": "Query",
+            "inputs": {
+             "from": "@body('Get_job_tasks')?['value']",
+             "where": "@equals(item()?['Assignment']?['Id'], items('Apply_to_each_assignment')?['ID'])"
+            }
+           },
+           "Filter_done": {
+            "runAfter": {
+             "Filter_tasks": [
+              "Succeeded"
+             ]
+            },
+            "type": "Query",
+            "inputs": {
+             "from": "@body('Filter_tasks')",
+             "where": "@equals(item()?['Complete'], true)"
+            }
+           },
+           "Condition_drifted": {
+            "actions": {
+             "Repair_counters": {
+              "runAfter": {},
+              "type": "OpenApiConnection",
+              "inputs": {
+               "parameters": {
+                "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+                "parameters/method": "POST",
+                "parameters/uri": "_api/web/lists/GetByTitle('Assignments')/items(@{items('Apply_to_each_assignment')?['ID']})",
+                "parameters/headers": {
+                 "X-HTTP-Method": "MERGE",
+                 "If-Match": "*",
+                 "Content-Type": "application/json;odata=verbose",
+                 "Accept": "application/json;odata=verbose"
+                },
+                "parameters/body": "{\"__metadata\":{\"type\":\"SP.Data.AssignmentsListItem\"},\"TasksTotal\":@{length(body('Filter_tasks'))},\"TasksComplete\":@{length(body('Filter_done'))}}"
+               },
+               "host": {
+                "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                "operationId": "HttpRequest",
+                "connectionName": "shared_sharepointonline"
+               }
+              }
+             },
+             "Record_repair": {
+              "runAfter": {
+               "Repair_counters": [
+                "Succeeded"
+               ]
+              },
+              "type": "AppendToArrayVariable",
+              "inputs": {
+               "name": "repaired",
+               "value": "@{items('Apply_to_each_assignment')?['Title']}: @{int(coalesce(items('Apply_to_each_assignment')?['TasksComplete'], -1))}/@{int(coalesce(items('Apply_to_each_assignment')?['TasksTotal'], -1))} -> @{length(body('Filter_done'))}/@{length(body('Filter_tasks'))}"
+              }
+             }
+            },
+            "runAfter": {
+             "Filter_done": [
+              "Succeeded"
+             ]
+            },
+            "else": {
+             "actions": {}
+            },
+            "expression": {
+             "and": [
+              {
+               "greater": [
+                "@length(body('Filter_tasks'))",
+                0
+               ]
+              },
+              {
+               "or": [
+                {
+                 "not": {
+                  "equals": [
+                   "@length(body('Filter_tasks'))",
+                   "@int(coalesce(items('Apply_to_each_assignment')?['TasksTotal'], -1))"
+                  ]
+                 }
+                },
+                {
+                 "not": {
+                  "equals": [
+                   "@length(body('Filter_done'))",
+                   "@int(coalesce(items('Apply_to_each_assignment')?['TasksComplete'], -1))"
+                  ]
+                 }
+                }
+               ]
+              }
+             ]
+            },
+            "type": "If"
+           }
+          },
+          "runAfter": {
+           "Add_tasks_scanned": [
+            "Succeeded"
+           ]
+          },
+          "type": "Foreach",
+          "runtimeConfiguration": {
+           "concurrency": {
+            "repetitions": 1
+           }
+          }
+         }
+        },
+        "runAfter": {
+         "Get_job_tasks": [
+          "Succeeded"
+         ]
+        },
+        "else": {
+         "actions": {
+          "Record_tasks_capped": {
+           "runAfter": {},
+           "type": "AppendToArrayVariable",
+           "inputs": {
+            "name": "capped",
+            "value": "@{items('For_each_job')?['JobNumber']}: tasks read returned 5,000"
+           }
+          }
+         }
+        },
+        "expression": {
+         "less": [
+          "@length(body('Get_job_tasks')?['value'])",
+          5000
+         ]
+        },
+        "type": "If"
+       }
+      },
+      "runAfter": {
+       "Select_task_clauses": [
+        "Succeeded"
+       ]
+      },
+      "else": {
+       "actions": {
+        "Condition_assignments_capped": {
+         "actions": {
+          "Record_asg_capped": {
+           "runAfter": {},
+           "type": "AppendToArrayVariable",
+           "inputs": {
+            "name": "capped",
+            "value": "@{items('For_each_job')?['JobNumber']}: assignments read returned 500"
+           }
+          }
+         },
+         "runAfter": {},
+         "else": {
+          "actions": {}
+         },
+         "expression": {
+          "greaterOrEquals": [
+           "@length(body('Get_job_assignments')?['value'])",
+           500
+          ]
+         },
+         "type": "If"
+        }
+       }
+      },
+      "expression": {
+       "and": [
+        {
+         "greater": [
+          "@length(body('Get_job_assignments')?['value'])",
+          0
+         ]
+        },
+        {
+         "less": [
+          "@length(body('Get_job_assignments')?['value'])",
+          500
+         ]
+        }
+       ]
+      },
+      "type": "If"
+     }
+    },
+    "runAfter": {
+     "Init_tasks_scanned": [
+      "Succeeded"
+     ]
+    },
+    "type": "Foreach",
+    "runtimeConfiguration": {
+     "concurrency": {
+      "repetitions": 1
+     }
+    }
+   },
+   "Guard_capped": {
+    "actions": {
+     "Terminate_read_at_cap": {
+      "runAfter": {},
+      "type": "Terminate",
+      "inputs": {
+       "runStatus": "Failed",
+       "runError": {
+        "code": "ReadAtCap",
+        "message": "@{concat('A read returned its maximum for: ', join(variables('capped'), '; '), '. Those projects were not recounted. Every other project was checked and repaired.')}"
+       }
+      }
+     }
+    },
+    "runAfter": {
+     "For_each_job": [
+      "Succeeded"
+     ]
+    },
+    "else": {
+     "actions": {}
+    },
+    "expression": {
+     "not": {
+      "empty": [
+       "@variables('capped')"
+      ]
+     }
+    },
+    "type": "If"
+   },
+   "Summarise": {
+    "runAfter": {
+     "Guard_capped": [
+      "Succeeded"
+     ]
+    },
+    "type": "Compose",
+    "inputs": {
+     "jobsChecked": "@length(body('Get_live_jobs')?['value'])",
+     "tasksScanned": "@variables('tasks_scanned')",
+     "countersRepaired": "@length(variables('repaired'))",
+     "detail": "@variables('repaired')",
+     "capped": "@variables('capped')"
+    }
+   }
+  }
+ }
+}
