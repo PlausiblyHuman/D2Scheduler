@@ -1,0 +1,391 @@
+{
+ "flowId": "972c139d-e55f-6743-a76c-fbd2f08eeb45",
+ "displayName": "D2 - Conflict Flag",
+ "workflowEntityId": "f0dd9a1d-8bac-f111-aaab-002248043e80",
+ "state": "Started",
+ "lastModifiedTime": "2026-10-01T15:32:45Z",
+ "connectionReferences": {
+  "shared_sharepointonline": {
+   "connectionName": "shared-sharepointonl-20b83f29-d689-437e-b1ff-930f7bf3fda4",
+   "connectionReferenceLogicalName": "new_sharedsharepointonline_beb06",
+   "source": "Embedded",
+   "id": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+   "displayName": "SharePoint",
+   "iconUri": "https://static.powerapps.com/resource/ppcr/releases/v1.0.1827/1.0.1827.4913/sharepointonline/icon.png",
+   "brandColor": "",
+   "tier": "Standard",
+   "apiName": "sharepointonline",
+   "isProcessSimpleApiReferenceConversionAlreadyDone": false
+  }
+ },
+ "definition": {
+  "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+   "$connections": {
+    "defaultValue": {},
+    "type": "Object"
+   },
+   "$authentication": {
+    "defaultValue": {},
+    "type": "SecureObject"
+   }
+  },
+  "triggers": {
+   "Recurrence": {
+    "recurrence": {
+     "frequency": "Day",
+     "interval": 1,
+     "timeZone": "Central Standard Time",
+     "startTime": "2026-09-08T05:00:00",
+     "schedule": {
+      "hours": [
+       "5"
+      ],
+      "minutes": [
+       0
+      ]
+     }
+    },
+    "type": "Recurrence"
+   }
+  },
+  "actions": {
+   "Get_jobs": {
+    "runAfter": {},
+    "type": "OpenApiConnection",
+    "inputs": {
+     "parameters": {
+      "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+      "table": "ee0ecabf-2f11-458d-a9ea-641f76d10cc3",
+      "$top": 500
+     },
+     "host": {
+      "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+      "operationId": "GetItems",
+      "connectionName": "shared_sharepointonline"
+     }
+    }
+   },
+   "Get_crews": {
+    "runAfter": {
+     "Get_jobs": [
+      "Succeeded"
+     ]
+    },
+    "type": "OpenApiConnection",
+    "inputs": {
+     "parameters": {
+      "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+      "table": "45e9ff1f-bf36-4ab5-929d-25ab9a80d460",
+      "$filter": "Active eq 1 and Unlimited ne 1",
+      "$top": 100
+     },
+     "host": {
+      "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+      "operationId": "GetItems",
+      "connectionName": "shared_sharepointonline"
+     }
+    }
+   },
+   "Get_assignments": {
+    "runAfter": {
+     "Compose_live_job_clause": [
+      "Succeeded"
+     ]
+    },
+    "type": "OpenApiConnection",
+    "inputs": {
+     "parameters": {
+      "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+      "table": "49ef7006-d3fe-40a7-a52f-c4c18545bd35",
+      "$filter": "NotApplicable ne 1 and @{outputs('Compose_live_job_clause')}",
+      "$top": 5000
+     },
+     "host": {
+      "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+      "operationId": "GetItems",
+      "connectionName": "shared_sharepointonline"
+     }
+    }
+   },
+   "For_each_crew": {
+    "foreach": "@body('Get_crews')?['value']",
+    "actions": {
+     "Filter_crew_assignments": {
+      "runAfter": {},
+      "type": "Query",
+      "inputs": {
+       "from": "@body('Get_assignments')?['value']",
+       "where": "@equals(item()?['Crew']?['Value'], items('For_each_crew')?['CrewID'])"
+      }
+     },
+     "For_each_assignment": {
+      "foreach": "@body('Filter_crew_assignments')",
+      "actions": {
+       "Filter_diff_job_overlaps": {
+        "runAfter": {},
+        "type": "Query",
+        "inputs": {
+         "from": "@body('Filter_crew_assignments')",
+         "where": "@and(not(equals(item()?['Job']?['Id'], items('For_each_assignment')?['Job']?['Id'])), lessOrEquals(item()?['ScheduledStart'], items('For_each_assignment')?['ScheduledFinish']), greaterOrEquals(item()?['ScheduledFinish'], items('For_each_assignment')?['ScheduledStart']))"
+        }
+       },
+       "Condition_has_conflict": {
+        "actions": {
+         "Compose_other_job_id": {
+          "runAfter": {},
+          "type": "Compose",
+          "inputs": "@first(body('Filter_diff_job_overlaps'))?['Job']?['Id']"
+         },
+         "Filter_other_job": {
+          "runAfter": {
+           "Compose_other_job_id": [
+            "Succeeded"
+           ]
+          },
+          "type": "Query",
+          "inputs": {
+           "from": "@body('Get_jobs')?['value']",
+           "where": "@equals(item()?['ID'], outputs('Compose_other_job_id'))"
+          }
+         },
+         "Compose_overlap_start": {
+          "runAfter": {
+           "Filter_other_job": [
+            "Succeeded"
+           ]
+          },
+          "type": "Compose",
+          "inputs": "@if(greater(items('For_each_assignment')?['ScheduledStart'], first(body('Filter_diff_job_overlaps'))?['ScheduledStart']), items('For_each_assignment')?['ScheduledStart'], first(body('Filter_diff_job_overlaps'))?['ScheduledStart'])"
+         },
+         "Compose_overlap_end": {
+          "runAfter": {
+           "Compose_overlap_start": [
+            "Succeeded"
+           ]
+          },
+          "type": "Compose",
+          "inputs": "@if(less(items('For_each_assignment')?['ScheduledFinish'], first(body('Filter_diff_job_overlaps'))?['ScheduledFinish']), items('For_each_assignment')?['ScheduledFinish'], first(body('Filter_diff_job_overlaps'))?['ScheduledFinish'])"
+         },
+         "Compose_overlap_days": {
+          "runAfter": {
+           "Compose_overlap_end": [
+            "Succeeded"
+           ]
+          },
+          "type": "Compose",
+          "inputs": "@add(1, div(sub(ticks(outputs('Compose_overlap_end')), ticks(outputs('Compose_overlap_start'))), 864000000000))"
+         },
+         "Compose_conflict_text": {
+          "runAfter": {
+           "Compose_overlap_days": [
+            "Succeeded"
+           ]
+          },
+          "type": "Compose",
+          "inputs": "@concat(items('For_each_crew')?['CrewID'], ' also on ', coalesce(first(body('Filter_other_job'))?['JobNumber'], '?'), ' ', coalesce(first(body('Filter_other_job'))?['Title'], coalesce(first(body('Filter_diff_job_overlaps'))?['Job']?['Value'], '?')), ', ', string(outputs('Compose_overlap_days')), ' day(s) from ', formatDateTime(outputs('Compose_overlap_start'), 'yyyy-MM-dd'))"
+         },
+         "Condition_needs_update": {
+          "actions": {
+           "Send_conflict_set": {
+            "runAfter": {},
+            "type": "OpenApiConnection",
+            "inputs": {
+             "parameters": {
+              "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+              "parameters/method": "POST",
+              "parameters/uri": "_api/web/lists/GetByTitle('Assignments')/items(@{items('For_each_assignment')?['ID']})",
+              "parameters/headers": {
+               "X-HTTP-Method": "MERGE",
+               "If-Match": "*",
+               "Content-Type": "application/json;odata=verbose",
+               "Accept": "application/json;odata=verbose"
+              },
+              "parameters/body": "@{string(setProperty(json('{\"__metadata\":{\"type\":\"SP.Data.AssignmentsListItem\"}}'), 'ConflictWith', outputs('Compose_conflict_text')))}"
+             },
+             "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+              "operationId": "HttpRequest",
+              "connectionName": "shared_sharepointonline"
+             }
+            }
+           }
+          },
+          "runAfter": {
+           "Compose_conflict_text": [
+            "Succeeded"
+           ]
+          },
+          "else": {
+           "actions": {}
+          },
+          "expression": {
+           "not": {
+            "equals": [
+             "@outputs('Compose_conflict_text')",
+             "@coalesce(items('For_each_assignment')?['ConflictWith'], '')"
+            ]
+           }
+          },
+          "type": "If"
+         }
+        },
+        "runAfter": {
+         "Filter_diff_job_overlaps": [
+          "Succeeded"
+         ]
+        },
+        "else": {
+         "actions": {
+          "Condition_needs_clear": {
+           "actions": {
+            "Send_conflict_clear": {
+             "runAfter": {},
+             "type": "OpenApiConnection",
+             "inputs": {
+              "parameters": {
+               "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+               "parameters/method": "POST",
+               "parameters/uri": "_api/web/lists/GetByTitle('Assignments')/items(@{items('For_each_assignment')?['ID']})",
+               "parameters/headers": {
+                "X-HTTP-Method": "MERGE",
+                "If-Match": "*",
+                "Content-Type": "application/json;odata=verbose",
+                "Accept": "application/json;odata=verbose"
+               },
+               "parameters/body": "{\"__metadata\":{\"type\":\"SP.Data.AssignmentsListItem\"},\"ConflictWith\":\"\"}"
+              },
+              "host": {
+               "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+               "operationId": "HttpRequest",
+               "connectionName": "shared_sharepointonline"
+              }
+             }
+            }
+           },
+           "runAfter": {},
+           "else": {
+            "actions": {}
+           },
+           "expression": {
+            "not": {
+             "equals": [
+              "@coalesce(items('For_each_assignment')?['ConflictWith'], '')",
+              ""
+             ]
+            }
+           },
+           "type": "If"
+          }
+         }
+        },
+        "expression": {
+         "greater": [
+          "@length(body('Filter_diff_job_overlaps'))",
+          0
+         ]
+        },
+        "type": "If"
+       }
+      },
+      "runAfter": {
+       "Filter_crew_assignments": [
+        "Succeeded"
+       ]
+      },
+      "type": "Foreach",
+      "runtimeConfiguration": {
+       "concurrency": {
+        "repetitions": 1
+       }
+      }
+     }
+    },
+    "runAfter": {
+     "Guard_read_complete": [
+      "Succeeded"
+     ]
+    },
+    "type": "Foreach",
+    "runtimeConfiguration": {
+     "concurrency": {
+      "repetitions": 1
+     }
+    }
+   },
+   "Guard_read_complete": {
+    "actions": {
+     "Terminate_read_at_cap": {
+      "runAfter": {},
+      "type": "Terminate",
+      "inputs": {
+       "runStatus": "Failed",
+       "runError": {
+        "code": "ReadAtCap",
+        "message": "Assignments read returned 5,000 rows, the most one read can return, so some rows were probably not read. Stopped before writing any ConflictWith flag."
+       }
+      }
+     }
+    },
+    "runAfter": {
+     "Get_assignments": [
+      "Succeeded"
+     ]
+    },
+    "else": {
+     "actions": {}
+    },
+    "expression": {
+     "greaterOrEquals": [
+      "@length(outputs('Get_assignments')?['body/value'])",
+      5000
+     ]
+    },
+    "type": "If"
+   },
+   "Get_live_jobs": {
+    "runAfter": {
+     "Get_crews": [
+      "Succeeded"
+     ]
+    },
+    "type": "OpenApiConnection",
+    "inputs": {
+     "host": {
+      "connectionName": "shared_sharepointonline",
+      "operationId": "GetItems",
+      "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+     },
+     "parameters": {
+      "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+      "table": "ee0ecabf-2f11-458d-a9ea-641f76d10cc3",
+      "$filter": "Status ne 'Complete'",
+      "$top": 500
+     }
+    }
+   },
+   "Select_live_job_ids": {
+    "runAfter": {
+     "Get_live_jobs": [
+      "Succeeded"
+     ]
+    },
+    "type": "Select",
+    "inputs": {
+     "from": "@outputs('Get_live_jobs')?['body/value']",
+     "select": "@concat('JobId eq ', string(item()?['ID']))"
+    }
+   },
+   "Compose_live_job_clause": {
+    "runAfter": {
+     "Select_live_job_ids": [
+      "Succeeded"
+     ]
+    },
+    "type": "Compose",
+    "inputs": "@if(empty(body('Select_live_job_ids')), 'JobId eq -1', concat('(', join(body('Select_live_job_ids'), ' or '), ')'))"
+   }
+  }
+ }
+}

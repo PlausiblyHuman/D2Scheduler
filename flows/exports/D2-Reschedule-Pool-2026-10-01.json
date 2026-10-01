@@ -1,0 +1,1371 @@
+{
+ "flowId": "2f2cde97-e0fd-5c5c-934a-02f09a1d83a5",
+ "displayName": "D2 - Reschedule Pool",
+ "workflowEntityId": "210f1d70-e2ab-f111-aaab-6045bd0196b3",
+ "state": "Started",
+ "lastModifiedTime": "2026-10-01T15:32:59Z",
+ "connectionReferences": {
+  "shared_sharepointonline": {
+   "connectionName": "shared-sharepointonl-20b83f29-d689-437e-b1ff-930f7bf3fda4",
+   "connectionReferenceLogicalName": "new_sharedsharepointonline_beb06",
+   "source": "Embedded",
+   "id": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+   "displayName": "SharePoint",
+   "iconUri": "https://static.powerapps.com/resource/ppcr/releases/v1.0.1827/1.0.1827.4913/sharepointonline/icon.png",
+   "brandColor": "",
+   "tier": "Standard",
+   "apiName": "sharepointonline",
+   "isProcessSimpleApiReferenceConversionAlreadyDone": false
+  },
+  "shared_office365": {
+   "connectionName": "shared-office365-0bc14d33-bf94-4439-bdbc-d600759333d5",
+   "connectionReferenceLogicalName": "new_sharedoffice365_4d59e",
+   "source": "Embedded",
+   "id": "/providers/Microsoft.PowerApps/apis/shared_office365",
+   "displayName": "Office 365 Outlook",
+   "iconUri": "https://static.powerapps.com/resource/ppcr/releases/v1.0.1819/1.0.1819.4795/office365/icon.png",
+   "brandColor": "#0078D4",
+   "tier": "Standard",
+   "apiName": "office365",
+   "isProcessSimpleApiReferenceConversionAlreadyDone": false
+  }
+ },
+ "definition": {
+  "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+   "$connections": {
+    "defaultValue": {},
+    "type": "Object"
+   },
+   "$authentication": {
+    "defaultValue": {},
+    "type": "SecureObject"
+   }
+  },
+  "triggers": {
+   "When_an_item_is_created": {
+    "recurrence": {
+     "frequency": "Minute",
+     "interval": 1
+    },
+    "splitOn": "@triggerOutputs()?['body/value']",
+    "type": "OpenApiConnection",
+    "inputs": {
+     "host": {
+      "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+      "operationId": "GetOnNewItems",
+      "connectionName": "shared_sharepointonline"
+     },
+     "parameters": {
+      "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+      "table": "31ada231-3937-4d72-9abf-8677f07c3fea"
+     }
+    }
+   }
+  },
+  "actions": {
+   "Init_result": {
+    "runAfter": {},
+    "type": "InitializeVariable",
+    "inputs": {
+     "variables": [
+      {
+       "name": "result",
+       "type": "string",
+       "value": ""
+      }
+     ]
+    }
+   },
+   "Init_moved": {
+    "runAfter": {
+     "Init_result": [
+      "Succeeded"
+     ]
+    },
+    "type": "InitializeVariable",
+    "inputs": {
+     "variables": [
+      {
+       "name": "moved",
+       "type": "integer",
+       "value": 0
+      }
+     ]
+    }
+   },
+   "Init_skipped": {
+    "runAfter": {
+     "Init_moved": [
+      "Succeeded"
+     ]
+    },
+    "type": "InitializeVariable",
+    "inputs": {
+     "variables": [
+      {
+       "name": "skipped",
+       "type": "string",
+       "value": ""
+      }
+     ]
+    }
+   },
+   "Init_cursor": {
+    "runAfter": {
+     "Init_skipped": [
+      "Succeeded"
+     ]
+    },
+    "type": "InitializeVariable",
+    "inputs": {
+     "variables": [
+      {
+       "name": "cursor",
+       "type": "string",
+       "value": ""
+      }
+     ]
+    }
+   },
+   "Init_nonWork": {
+    "runAfter": {
+     "Init_cursor": [
+      "Succeeded"
+     ]
+    },
+    "type": "InitializeVariable",
+    "inputs": {
+     "variables": [
+      {
+       "name": "nonWork",
+       "type": "array",
+       "value": []
+      }
+     ]
+    }
+   },
+   "Init_failed": {
+    "runAfter": {
+     "Init_nonWork": [
+      "Succeeded"
+     ]
+    },
+    "type": "InitializeVariable",
+    "inputs": {
+     "variables": [
+      {
+       "name": "failed",
+       "type": "boolean",
+       "value": false
+      }
+     ]
+    }
+   },
+   "Init_daysTaken": {
+    "runAfter": {
+     "Init_failed": [
+      "Succeeded"
+     ]
+    },
+    "type": "InitializeVariable",
+    "inputs": {
+     "variables": [
+      {
+       "name": "daysTaken",
+       "type": "integer",
+       "value": 0
+      }
+     ]
+    }
+   },
+   "Init_spanStart": {
+    "runAfter": {
+     "Init_daysTaken": [
+      "Succeeded"
+     ]
+    },
+    "type": "InitializeVariable",
+    "inputs": {
+     "variables": [
+      {
+       "name": "spanStart",
+       "type": "string",
+       "value": ""
+      }
+     ]
+    }
+   },
+   "Init_spanFinish": {
+    "runAfter": {
+     "Init_spanStart": [
+      "Succeeded"
+     ]
+    },
+    "type": "InitializeVariable",
+    "inputs": {
+     "variables": [
+      {
+       "name": "spanFinish",
+       "type": "string",
+       "value": ""
+      }
+     ]
+    }
+   },
+   "Init_dayOffset": {
+    "runAfter": {
+     "Init_spanFinish": [
+      "Succeeded"
+     ]
+    },
+    "type": "InitializeVariable",
+    "inputs": {
+     "variables": [
+      {
+       "name": "dayOffset",
+       "type": "integer",
+       "value": 0
+      }
+     ]
+    }
+   },
+   "Init_poolFinish": {
+    "runAfter": {
+     "Init_dayOffset": [
+      "Succeeded"
+     ]
+    },
+    "type": "InitializeVariable",
+    "inputs": {
+     "variables": [
+      {
+       "name": "poolFinish",
+       "type": "string",
+       "value": ""
+      }
+     ]
+    }
+   },
+   "Init_pastCount": {
+    "runAfter": {
+     "Init_poolFinish": [
+      "Succeeded"
+     ]
+    },
+    "type": "InitializeVariable",
+    "inputs": {
+     "variables": [
+      {
+       "name": "pastCount",
+       "type": "integer",
+       "value": 0
+      }
+     ]
+    }
+   },
+   "Set_status_running": {
+    "runAfter": {
+     "Init_conflicts": [
+      "Succeeded"
+     ]
+    },
+    "type": "OpenApiConnection",
+    "inputs": {
+     "host": {
+      "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+      "operationId": "HttpRequest",
+      "connectionName": "shared_sharepointonline"
+     },
+     "parameters": {
+      "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+      "parameters/method": "POST",
+      "parameters/uri": "_api/web/lists/GetByTitle('Reschedule Requests')/items(@{triggerOutputs()?['body/ID']})",
+      "parameters/headers": {
+       "X-HTTP-Method": "MERGE",
+       "If-Match": "*",
+       "Content-Type": "application/json;odata=verbose",
+       "Accept": "application/json;odata=verbose"
+      },
+      "parameters/body": "{\"__metadata\":{\"type\":\"SP.Data.Reschedule_x0020_RequestsListItem\"},\"Status\":\"Running\"}"
+     }
+    }
+   },
+   "Scope_reflow": {
+    "actions": {
+     "Get_job": {
+      "runAfter": {},
+      "type": "OpenApiConnection",
+      "inputs": {
+       "host": {
+        "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+        "operationId": "GetItems",
+        "connectionName": "shared_sharepointonline"
+       },
+       "parameters": {
+        "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+        "table": "ee0ecabf-2f11-458d-a9ea-641f76d10cc3",
+        "$filter": "@{concat('JobNumber eq ''', triggerOutputs()?['body/JobNumber'], '''')}",
+        "$top": 2
+       }
+      }
+     },
+     "Condition_job_found": {
+      "actions": {
+       "Set_result_job_not_found": {
+        "runAfter": {},
+        "type": "SetVariable",
+        "inputs": {
+         "name": "result",
+         "value": "Failed: no job found for JobNumber '@{triggerOutputs()?['body/JobNumber']}' (expected exactly 1 match, found @{length(outputs('Get_job')?['body/value'])})."
+        }
+       },
+       "Set_failed_job_not_found": {
+        "runAfter": {
+         "Set_result_job_not_found": [
+          "Succeeded"
+         ]
+        },
+        "type": "SetVariable",
+        "inputs": {
+         "name": "failed",
+         "value": true
+        }
+       }
+      },
+      "runAfter": {
+       "Get_job": [
+        "Succeeded"
+       ]
+      },
+      "else": {
+       "actions": {
+        "Get_assignments": {
+         "runAfter": {},
+         "type": "OpenApiConnection",
+         "inputs": {
+          "host": {
+           "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+           "operationId": "GetItems",
+           "connectionName": "shared_sharepointonline"
+          },
+          "parameters": {
+           "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+           "table": "49ef7006-d3fe-40a7-a52f-c4c18545bd35",
+           "$filter": "@{concat('JobId eq ', string(first(outputs('Get_job')?['body/value'])?['ID']))}",
+           "$orderby": "Sequence asc",
+           "$top": 200
+          }
+         }
+        },
+        "Filter_from_sequence": {
+         "runAfter": {
+          "Get_assignments": [
+           "Succeeded"
+          ]
+         },
+         "type": "Query",
+         "inputs": {
+          "from": "@body('Get_assignments')?['value']",
+          "where": "@greaterOrEquals(item()?['Sequence'], triggerOutputs()?['body/FromSequence'])"
+         }
+        },
+        "Condition_sequence_exists": {
+         "actions": {
+          "Set_result_sequence_not_found": {
+           "runAfter": {},
+           "type": "SetVariable",
+           "inputs": {
+            "name": "result",
+            "value": "Failed: no sub-phase with Sequence @{triggerOutputs()?['body/FromSequence']} in job @{triggerOutputs()?['body/JobNumber']}."
+           }
+          },
+          "Set_failed_sequence_not_found": {
+           "runAfter": {
+            "Set_result_sequence_not_found": [
+             "Succeeded"
+            ]
+           },
+           "type": "SetVariable",
+           "inputs": {
+            "name": "failed",
+            "value": true
+           }
+          }
+         },
+         "runAfter": {
+          "Filter_from_sequence": [
+           "Succeeded"
+          ]
+         },
+         "else": {
+          "actions": {
+           "Get_work_calendar": {
+            "runAfter": {},
+            "type": "OpenApiConnection",
+            "inputs": {
+             "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+              "operationId": "GetItems",
+              "connectionName": "shared_sharepointonline"
+             },
+             "parameters": {
+              "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+              "table": "d36758cf-9d27-4342-84e4-817f8dcfa2ba",
+              "$top": 500
+             }
+            }
+           },
+           "Select_nonWork": {
+            "runAfter": {
+             "Get_work_calendar": [
+              "Succeeded"
+             ]
+            },
+            "type": "Select",
+            "inputs": {
+             "from": "@outputs('Get_work_calendar')?['body/value']",
+             "select": "@formatDateTime(item()?['Date'], 'yyyy-MM-dd')"
+            }
+           },
+           "Set_nonWork": {
+            "runAfter": {
+             "Select_nonWork": [
+              "Succeeded"
+             ]
+            },
+            "type": "SetVariable",
+            "inputs": {
+             "name": "nonWork",
+             "value": "@body('Select_nonWork')"
+            }
+           },
+           "Set_cursor": {
+            "runAfter": {
+             "Set_nonWork": [
+              "Succeeded"
+             ]
+            },
+            "type": "SetVariable",
+            "inputs": {
+             "name": "cursor",
+             "value": "@if(empty(coalesce(triggerOutputs()?['body/NewStartDate'], '')), formatDateTime(first(body('Filter_from_sequence'))?['ScheduledStart'], 'yyyy-MM-dd'), formatDateTime(triggerOutputs()?['body/NewStartDate'], 'yyyy-MM-dd'))"
+            }
+           },
+           "Apply_to_each_row": {
+            "foreach": "@body('Filter_from_sequence')",
+            "actions": {
+             "Condition_skip_row": {
+              "actions": {
+               "Condition_is_pinned": {
+                "actions": {
+                 "Compose_poolFinish_pinned": {
+                  "runAfter": {},
+                  "type": "Compose",
+                  "inputs": "@if(or(empty(variables('poolFinish')), greater(formatDateTime(item()?['ScheduledFinish'], 'yyyy-MM-dd'), variables('poolFinish'))), formatDateTime(item()?['ScheduledFinish'], 'yyyy-MM-dd'), variables('poolFinish'))"
+                 },
+                 "Set_poolFinish_pinned": {
+                  "runAfter": {
+                   "Compose_poolFinish_pinned": [
+                    "Succeeded"
+                   ]
+                  },
+                  "type": "SetVariable",
+                  "inputs": {
+                   "name": "poolFinish",
+                   "value": "@{outputs('Compose_poolFinish_pinned')}"
+                  }
+                 },
+                 "Condition_past_pinned": {
+                  "actions": {
+                   "Increment_pastCount_pinned": {
+                    "runAfter": {},
+                    "type": "IncrementVariable",
+                    "inputs": {
+                     "name": "pastCount",
+                     "value": 1
+                    }
+                   }
+                  },
+                  "runAfter": {
+                   "Set_poolFinish_pinned": [
+                    "Succeeded"
+                   ]
+                  },
+                  "else": {
+                   "actions": {}
+                  },
+                  "expression": {
+                   "equals": [
+                    "@less(formatDateTime(item()?['ScheduledStart'], 'yyyy-MM-dd'), formatDateTime(utcNow(), 'yyyy-MM-dd'))",
+                    true
+                   ]
+                  },
+                  "type": "If"
+                 },
+                 "Set_cursor_pinned": {
+                  "runAfter": {
+                   "Compose_cursor_now": [
+                    "Succeeded"
+                   ]
+                  },
+                  "type": "SetVariable",
+                  "inputs": {
+                   "name": "cursor",
+                   "value": "@{if(greater(outputs('Compose_pin_end'), outputs('Compose_cursor_now')), outputs('Compose_pin_end'), outputs('Compose_cursor_now'))}"
+                  }
+                 },
+                 "Compose_skipped_pinned": {
+                  "runAfter": {
+                   "Set_cursor_pinned": [
+                    "Succeeded"
+                   ]
+                  },
+                  "type": "Compose",
+                  "inputs": "@concat(variables('skipped'), if(equals(variables('skipped'), ''), '', '; '), item()?['Title'], ' (pinned)')"
+                 },
+                 "Set_skipped_pinned": {
+                  "runAfter": {
+                   "Compose_skipped_pinned": [
+                    "Succeeded"
+                   ]
+                  },
+                  "type": "SetVariable",
+                  "inputs": {
+                   "name": "skipped",
+                   "value": "@{outputs('Compose_skipped_pinned')}"
+                  }
+                 },
+                 "Compose_pin_end": {
+                  "runAfter": {
+                   "Condition_past_pinned": [
+                    "Succeeded"
+                   ]
+                  },
+                  "type": "Compose",
+                  "inputs": "@{formatDateTime(addDays(item()?['ScheduledFinish'], 1), 'yyyy-MM-dd')}"
+                 },
+                 "Compose_cursor_now": {
+                  "runAfter": {
+                   "Compose_pin_end": [
+                    "Succeeded"
+                   ]
+                  },
+                  "type": "Compose",
+                  "inputs": "@{variables('cursor')}"
+                 }
+                },
+                "runAfter": {},
+                "else": {
+                 "actions": {
+                  "Compose_skipped_no_duration": {
+                   "runAfter": {},
+                   "type": "Compose",
+                   "inputs": "@concat(variables('skipped'), if(equals(variables('skipped'), ''), '', '; '), item()?['Title'], ' (no duration)')"
+                  },
+                  "Set_skipped_no_duration": {
+                   "runAfter": {
+                    "Compose_skipped_no_duration": [
+                     "Succeeded"
+                    ]
+                   },
+                   "type": "SetVariable",
+                   "inputs": {
+                    "name": "skipped",
+                    "value": "@{outputs('Compose_skipped_no_duration')}"
+                   }
+                  }
+                 }
+                },
+                "expression": {
+                 "equals": [
+                  "@or(equals(item()?['Locked'], true), equals(item()?['InstallerSignOff'], true))",
+                  true
+                 ]
+                },
+                "type": "If"
+               }
+              },
+              "runAfter": {},
+              "else": {
+               "actions": {
+                "Reset_daysTaken": {
+                 "runAfter": {},
+                 "type": "SetVariable",
+                 "inputs": {
+                  "name": "daysTaken",
+                  "value": 0
+                 }
+                },
+                "Reset_spanStart": {
+                 "runAfter": {
+                  "Reset_daysTaken": [
+                   "Succeeded"
+                  ]
+                 },
+                 "type": "SetVariable",
+                 "inputs": {
+                  "name": "spanStart",
+                  "value": ""
+                 }
+                },
+                "Reset_spanFinish": {
+                 "runAfter": {
+                  "Reset_spanStart": [
+                   "Succeeded"
+                  ]
+                 },
+                 "type": "SetVariable",
+                 "inputs": {
+                  "name": "spanFinish",
+                  "value": ""
+                 }
+                },
+                "Reset_dayOffset": {
+                 "runAfter": {
+                  "Reset_spanFinish": [
+                   "Succeeded"
+                  ]
+                 },
+                 "type": "SetVariable",
+                 "inputs": {
+                  "name": "dayOffset",
+                  "value": -1
+                 }
+                },
+                "Do_until_span_complete": {
+                 "actions": {
+                  "Increment_dayOffset": {
+                   "runAfter": {},
+                   "type": "IncrementVariable",
+                   "inputs": {
+                    "name": "dayOffset",
+                    "value": 1
+                   }
+                  },
+                  "Compose_current_date": {
+                   "runAfter": {
+                    "Increment_dayOffset": [
+                     "Succeeded"
+                    ]
+                   },
+                   "type": "Compose",
+                   "inputs": "@formatDateTime(addDays(variables('cursor'), variables('dayOffset')), 'yyyy-MM-dd')"
+                  },
+                  "Condition_is_work_day": {
+                   "actions": {
+                    "Increment_daysTaken": {
+                     "runAfter": {},
+                     "type": "IncrementVariable",
+                     "inputs": {
+                      "name": "daysTaken",
+                      "value": 1
+                     }
+                    },
+                    "Condition_first_day": {
+                     "actions": {
+                      "Set_spanStart": {
+                       "runAfter": {},
+                       "type": "SetVariable",
+                       "inputs": {
+                        "name": "spanStart",
+                        "value": "@{outputs('Compose_current_date')}"
+                       }
+                      }
+                     },
+                     "runAfter": {
+                      "Increment_daysTaken": [
+                       "Succeeded"
+                      ]
+                     },
+                     "else": {
+                      "actions": {}
+                     },
+                     "expression": {
+                      "equals": [
+                       "@variables('daysTaken')",
+                       1
+                      ]
+                     },
+                     "type": "If"
+                    },
+                    "Set_spanFinish": {
+                     "runAfter": {
+                      "Condition_first_day": [
+                       "Succeeded"
+                      ]
+                     },
+                     "type": "SetVariable",
+                     "inputs": {
+                      "name": "spanFinish",
+                      "value": "@{outputs('Compose_current_date')}"
+                     }
+                    }
+                   },
+                   "runAfter": {
+                    "Compose_current_date": [
+                     "Succeeded"
+                    ]
+                   },
+                   "else": {
+                    "actions": {}
+                   },
+                   "expression": {
+                    "equals": [
+                     "@and(not(equals(dayOfWeek(outputs('Compose_current_date')), 0)), not(contains(variables('nonWork'), outputs('Compose_current_date'))))",
+                     true
+                    ]
+                   },
+                   "type": "If"
+                  }
+                 },
+                 "runAfter": {
+                  "Reset_dayOffset": [
+                   "Succeeded"
+                  ]
+                 },
+                 "expression": "@greaterOrEquals(variables('daysTaken'), int(items('Apply_to_each_row')?['DurationDays']))",
+                 "limit": {
+                  "count": 90,
+                  "timeout": "PT1H"
+                 },
+                 "type": "Until"
+                },
+                "Condition_span_incomplete": {
+                 "actions": {
+                  "Compose_skipped_incomplete": {
+                   "runAfter": {},
+                   "type": "Compose",
+                   "inputs": "@concat(variables('skipped'), if(equals(variables('skipped'), ''), '', '; '), item()?['Title'], ' (could not schedule)')"
+                  },
+                  "Set_skipped_incomplete": {
+                   "runAfter": {
+                    "Compose_skipped_incomplete": [
+                     "Succeeded"
+                    ]
+                   },
+                   "type": "SetVariable",
+                   "inputs": {
+                    "name": "skipped",
+                    "value": "@{outputs('Compose_skipped_incomplete')}"
+                   }
+                  }
+                 },
+                 "runAfter": {
+                  "Do_until_span_complete": [
+                   "Succeeded"
+                  ]
+                 },
+                 "else": {
+                  "actions": {
+                   "Condition_changed": {
+                    "actions": {
+                     "Merge_dates": {
+                      "runAfter": {},
+                      "type": "OpenApiConnection",
+                      "inputs": {
+                       "host": {
+                        "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                        "operationId": "HttpRequest",
+                        "connectionName": "shared_sharepointonline"
+                       },
+                       "parameters": {
+                        "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+                        "parameters/method": "POST",
+                        "parameters/uri": "_api/web/lists/GetByTitle('Assignments')/items(@{item()?['ID']})",
+                        "parameters/headers": {
+                         "X-HTTP-Method": "MERGE",
+                         "If-Match": "*",
+                         "Content-Type": "application/json;odata=verbose",
+                         "Accept": "application/json;odata=verbose"
+                        },
+                        "parameters/body": "{\"__metadata\":{\"type\":\"SP.Data.AssignmentsListItem\"},\"ScheduledStart\":\"@{variables('spanStart')}\",\"ScheduledFinish\":\"@{variables('spanFinish')}\",\"SuppressReconcileUntil\":\"@{addMinutes(utcNow(), 10)}\"}"
+                       }
+                      }
+                     },
+                     "Increment_moved": {
+                      "runAfter": {
+                       "Merge_dates": [
+                        "Succeeded"
+                       ]
+                      },
+                      "type": "IncrementVariable",
+                      "inputs": {
+                       "name": "moved",
+                       "value": 1
+                      }
+                     }
+                    },
+                    "runAfter": {},
+                    "else": {
+                     "actions": {}
+                    },
+                    "expression": {
+                     "equals": [
+                      "@or(not(equals(variables('spanStart'), formatDateTime(item()?['ScheduledStart'], 'yyyy-MM-dd'))), not(equals(variables('spanFinish'), formatDateTime(item()?['ScheduledFinish'], 'yyyy-MM-dd'))))",
+                      true
+                     ]
+                    },
+                    "type": "If"
+                   },
+                   "Compose_poolFinish_moved": {
+                    "runAfter": {
+                     "Condition_changed": [
+                      "Succeeded"
+                     ]
+                    },
+                    "type": "Compose",
+                    "inputs": "@if(or(empty(variables('poolFinish')), greater(variables('spanFinish'), variables('poolFinish'))), variables('spanFinish'), variables('poolFinish'))"
+                   },
+                   "Set_poolFinish_moved": {
+                    "runAfter": {
+                     "Compose_poolFinish_moved": [
+                      "Succeeded"
+                     ]
+                    },
+                    "type": "SetVariable",
+                    "inputs": {
+                     "name": "poolFinish",
+                     "value": "@{outputs('Compose_poolFinish_moved')}"
+                    }
+                   },
+                   "Condition_past_moved": {
+                    "actions": {
+                     "Increment_pastCount_moved": {
+                      "runAfter": {},
+                      "type": "IncrementVariable",
+                      "inputs": {
+                       "name": "pastCount",
+                       "value": 1
+                      }
+                     }
+                    },
+                    "runAfter": {
+                     "Set_poolFinish_moved": [
+                      "Succeeded"
+                     ]
+                    },
+                    "else": {
+                     "actions": {}
+                    },
+                    "expression": {
+                     "equals": [
+                      "@less(variables('spanStart'), formatDateTime(utcNow(), 'yyyy-MM-dd'))",
+                      true
+                     ]
+                    },
+                    "type": "If"
+                   },
+                   "Set_cursor_moved": {
+                    "runAfter": {
+                     "Condition_past_moved": [
+                      "Succeeded"
+                     ]
+                    },
+                    "type": "SetVariable",
+                    "inputs": {
+                     "name": "cursor",
+                     "value": "@{formatDateTime(addDays(variables('spanFinish'), 1), 'yyyy-MM-dd')}"
+                    }
+                   }
+                  }
+                 },
+                 "expression": {
+                  "not": [
+                   {
+                    "equals": [
+                     "@variables('daysTaken')",
+                     "@int(items('Apply_to_each_row')?['DurationDays'])"
+                    ]
+                   }
+                  ]
+                 },
+                 "type": "If"
+                }
+               }
+              },
+              "expression": {
+               "equals": [
+                "@or(equals(item()?['Locked'], true), equals(item()?['InstallerSignOff'], true), lessOrEquals(coalesce(item()?['DurationDays'], 0), 0))",
+                true
+               ]
+              },
+              "type": "If"
+             }
+            },
+            "runAfter": {
+             "Set_cursor": [
+              "Succeeded"
+             ]
+            },
+            "type": "Foreach",
+            "runtimeConfiguration": {
+             "concurrency": {
+              "repetitions": 1
+             }
+            }
+           },
+           "Get_all_assignments": {
+            "runAfter": {
+             "Compose_live_job_clause": [
+              "Succeeded"
+             ]
+            },
+            "type": "OpenApiConnection",
+            "inputs": {
+             "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+              "operationId": "GetItems",
+              "connectionName": "shared_sharepointonline"
+             },
+             "parameters": {
+              "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+              "table": "49ef7006-d3fe-40a7-a52f-c4c18545bd35",
+              "$filter": "NotApplicable ne 1 and @{outputs('Compose_live_job_clause')}",
+              "$top": 5000
+             }
+            }
+           },
+           "Get_conflict_crews": {
+            "runAfter": {
+             "Get_all_assignments": [
+              "Succeeded"
+             ]
+            },
+            "type": "OpenApiConnection",
+            "inputs": {
+             "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+              "operationId": "GetItems",
+              "connectionName": "shared_sharepointonline"
+             },
+             "parameters": {
+              "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+              "table": "45e9ff1f-bf36-4ab5-929d-25ab9a80d460",
+              "$filter": "Active eq 1 and Unlimited ne 1",
+              "$top": 100
+             }
+            }
+           },
+           "For_each_conflict_crew": {
+            "foreach": "@outputs('Get_conflict_crews')?['body/value']",
+            "actions": {
+             "Filter_job_rows_for_crew": {
+              "runAfter": {},
+              "type": "Query",
+              "inputs": {
+               "from": "@outputs('Get_all_assignments')?['body/value']",
+               "where": "@and(equals(item()?['Crew']?['Value'], items('For_each_conflict_crew')?['CrewID']), equals(item()?['Job']?['Id'], first(outputs('Get_job')?['body/value'])?['ID']))"
+              }
+             },
+             "Condition_job_uses_crew": {
+              "actions": {
+               "For_each_job_crew_row": {
+                "foreach": "@body('Filter_job_rows_for_crew')",
+                "actions": {
+                 "Filter_other_job_overlaps": {
+                  "runAfter": {},
+                  "type": "Query",
+                  "inputs": {
+                   "from": "@outputs('Get_all_assignments')?['body/value']",
+                   "where": "@and(not(equals(item()?['Job']?['Id'], first(outputs('Get_job')?['body/value'])?['ID'])), equals(item()?['Crew']?['Value'], items('For_each_conflict_crew')?['CrewID']), lessOrEquals(item()?['ScheduledStart'], items('For_each_job_crew_row')?['ScheduledFinish']), greaterOrEquals(item()?['ScheduledFinish'], items('For_each_job_crew_row')?['ScheduledStart']))"
+                  }
+                 },
+                 "Condition_has_cross_job_conflict": {
+                  "actions": {
+                   "Append_conflict_row": {
+                    "runAfter": {},
+                    "type": "AppendToArrayVariable",
+                    "inputs": {
+                     "name": "conflicts",
+                     "value": "@{concat('<tr><td>', items('For_each_conflict_crew')?['Title'], '</td><td>', items('For_each_job_crew_row')?['Title'], '</td><td>', items('For_each_job_crew_row')?['ScheduledStart'], ' to ', items('For_each_job_crew_row')?['ScheduledFinish'], '</td><td align=''center''>', string(length(body('Filter_other_job_overlaps'))), '</td><td>', first(body('Filter_other_job_overlaps'))?['Job']?['Value'], ' - ', first(body('Filter_other_job_overlaps'))?['Title'], '</td></tr>')}"
+                    }
+                   }
+                  },
+                  "runAfter": {
+                   "Filter_other_job_overlaps": [
+                    "Succeeded"
+                   ]
+                  },
+                  "else": {
+                   "actions": {}
+                  },
+                  "expression": {
+                   "greater": [
+                    "@length(body('Filter_other_job_overlaps'))",
+                    0
+                   ]
+                  },
+                  "type": "If"
+                 }
+                },
+                "runAfter": {},
+                "type": "Foreach",
+                "runtimeConfiguration": {
+                 "concurrency": {
+                  "repetitions": 1
+                 }
+                }
+               }
+              },
+              "runAfter": {
+               "Filter_job_rows_for_crew": [
+                "Succeeded"
+               ]
+              },
+              "else": {
+               "actions": {}
+              },
+              "expression": {
+               "greater": [
+                "@length(body('Filter_job_rows_for_crew'))",
+                0
+               ]
+              },
+              "type": "If"
+             }
+            },
+            "runAfter": {
+             "Get_conflict_crews": [
+              "Succeeded"
+             ]
+            },
+            "type": "Foreach",
+            "runtimeConfiguration": {
+             "concurrency": {
+              "repetitions": 1
+             }
+            }
+           },
+           "Compose_conflict_summary": {
+            "runAfter": {
+             "For_each_conflict_crew": [
+              "Succeeded"
+             ]
+            },
+            "type": "Compose",
+            "inputs": "@if(equals(length(variables('conflicts')), 0), '', concat('<h3>Crew conflicts detected: ', string(length(variables('conflicts'))), '</h3><table border=''1'' cellpadding=''6'' cellspacing=''0'' style=''border-collapse:collapse;font-size:13px''><tr style=''background:#f0f0f0''><th>Crew</th><th>Sub-phase</th><th>Dates</th><th>Overlaps</th><th>Conflicting job / sub-phase</th></tr>', join(variables('conflicts'), ''), '</table>'))"
+           },
+           "Get_live_jobs": {
+            "runAfter": {
+             "Apply_to_each_row": [
+              "Succeeded"
+             ]
+            },
+            "type": "OpenApiConnection",
+            "inputs": {
+             "host": {
+              "connectionName": "shared_sharepointonline",
+              "operationId": "GetItems",
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+             },
+             "parameters": {
+              "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+              "table": "ee0ecabf-2f11-458d-a9ea-641f76d10cc3",
+              "$filter": "Status ne 'Complete'",
+              "$top": 500
+             }
+            }
+           },
+           "Select_live_job_ids": {
+            "runAfter": {
+             "Get_live_jobs": [
+              "Succeeded"
+             ]
+            },
+            "type": "Select",
+            "inputs": {
+             "from": "@outputs('Get_live_jobs')?['body/value']",
+             "select": "@concat('JobId eq ', string(item()?['ID']))"
+            }
+           },
+           "Compose_live_job_clause": {
+            "runAfter": {
+             "Select_live_job_ids": [
+              "Succeeded"
+             ]
+            },
+            "type": "Compose",
+            "inputs": "@if(empty(body('Select_live_job_ids')), 'JobId eq -1', concat('(', join(body('Select_live_job_ids'), ' or '), ')'))"
+           }
+          }
+         },
+         "expression": {
+          "equals": [
+           "@length(body('Filter_from_sequence'))",
+           0
+          ]
+         },
+         "type": "If"
+        }
+       }
+      },
+      "expression": {
+       "not": [
+        {
+         "equals": [
+          "@length(outputs('Get_job')?['body/value'])",
+          1
+         ]
+        }
+       ]
+      },
+      "type": "If"
+     }
+    },
+    "runAfter": {
+     "Set_status_running": [
+      "Succeeded"
+     ]
+    },
+    "type": "Scope"
+   },
+   "Condition_reflow_outcome": {
+    "actions": {
+     "Set_status_failed_guard": {
+      "runAfter": {},
+      "type": "OpenApiConnection",
+      "inputs": {
+       "host": {
+        "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+        "operationId": "HttpRequest",
+        "connectionName": "shared_sharepointonline"
+       },
+       "parameters": {
+        "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+        "parameters/method": "POST",
+        "parameters/uri": "_api/web/lists/GetByTitle('Reschedule Requests')/items(@{triggerOutputs()?['body/ID']})",
+        "parameters/headers": {
+         "X-HTTP-Method": "MERGE",
+         "If-Match": "*",
+         "Content-Type": "application/json;odata=verbose",
+         "Accept": "application/json;odata=verbose"
+        },
+        "parameters/body": "{\"__metadata\":{\"type\":\"SP.Data.Reschedule_x0020_RequestsListItem\"},\"Status\":\"Failed\",\"Result\":\"@{variables('result')}\"}"
+       }
+      }
+     },
+     "Send_failure_email_guard": {
+      "runAfter": {
+       "Set_status_failed_guard": [
+        "Succeeded"
+       ]
+      },
+      "type": "OpenApiConnection",
+      "inputs": {
+       "host": {
+        "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+        "operationId": "SendEmailV2",
+        "connectionName": "shared_office365"
+       },
+       "parameters": {
+        "emailMessage/To": "@{if(not(empty(coalesce(first(coalesce(outputs('Get_job')?['body/value'], json('[]')))?['ProjectManager']?['Email'], ''))), first(coalesce(outputs('Get_job')?['body/value'], json('[]')))?['ProjectManager']?['Email'], if(not(empty(coalesce(triggerOutputs()?['body/Author']?['Email'], ''))), triggerOutputs()?['body/Author']?['Email'], 'stratirus@d2pools.com'))}",
+        "emailMessage/Subject": "Reschedule failed: @{triggerOutputs()?['body/JobNumber']}",
+        "emailMessage/Body": "<p>@{variables('result')}</p>",
+        "emailMessage/Importance": "High"
+       }
+      }
+     }
+    },
+    "runAfter": {
+     "Scope_reflow": [
+      "Succeeded"
+     ]
+    },
+    "else": {
+     "actions": {
+      "Compose_success_result": {
+       "runAfter": {},
+       "type": "Compose",
+       "inputs": "@concat('Reflow complete for ', triggerOutputs()?['body/JobNumber'], '. ', string(variables('moved')), ' sub-phase(s) moved. Skipped: ', if(equals(variables('skipped'), ''), 'none', variables('skipped')), '. New pool finish: ', if(equals(variables('poolFinish'), ''), 'unchanged', variables('poolFinish')), '. ', string(variables('pastCount')), ' sub-phase(s) now scheduled before today.', ' Crew conflicts: ', string(length(variables('conflicts'))), '.', outputs('Compose_conflict_summary'))"
+      },
+      "Set_status_done": {
+       "runAfter": {
+        "Compose_success_result": [
+         "Succeeded"
+        ]
+       },
+       "type": "OpenApiConnection",
+       "inputs": {
+        "host": {
+         "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+         "operationId": "HttpRequest",
+         "connectionName": "shared_sharepointonline"
+        },
+        "parameters": {
+         "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+         "parameters/method": "POST",
+         "parameters/uri": "_api/web/lists/GetByTitle('Reschedule Requests')/items(@{triggerOutputs()?['body/ID']})",
+         "parameters/headers": {
+          "X-HTTP-Method": "MERGE",
+          "If-Match": "*",
+          "Content-Type": "application/json;odata=verbose",
+          "Accept": "application/json;odata=verbose"
+         },
+         "parameters/body": "{\"__metadata\":{\"type\":\"SP.Data.Reschedule_x0020_RequestsListItem\"},\"Status\":\"Done\",\"Result\":\"@{outputs('Compose_success_result')}\"}"
+        }
+       }
+      },
+      "Send_completion_email": {
+       "runAfter": {
+        "Set_status_done": [
+         "Succeeded"
+        ]
+       },
+       "type": "OpenApiConnection",
+       "inputs": {
+        "host": {
+         "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+         "operationId": "SendEmailV2",
+         "connectionName": "shared_office365"
+        },
+        "parameters": {
+         "emailMessage/To": "@{if(not(empty(coalesce(first(coalesce(outputs('Get_job')?['body/value'], json('[]')))?['ProjectManager']?['Email'], ''))), first(coalesce(outputs('Get_job')?['body/value'], json('[]')))?['ProjectManager']?['Email'], if(not(empty(coalesce(triggerOutputs()?['body/Author']?['Email'], ''))), triggerOutputs()?['body/Author']?['Email'], 'stratirus@d2pools.com'))}",
+         "emailMessage/Subject": "Reschedule complete: @{triggerOutputs()?['body/JobNumber']}",
+         "emailMessage/Body": "<p>@{outputs('Compose_success_result')}</p>",
+         "emailMessage/Importance": "Normal"
+        }
+       }
+      },
+      "Condition_send_conflict_alert": {
+       "actions": {
+        "Send_conflict_alert_email": {
+         "runAfter": {},
+         "type": "OpenApiConnection",
+         "inputs": {
+          "host": {
+           "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+           "operationId": "SendEmailV2",
+           "connectionName": "shared_office365"
+          },
+          "parameters": {
+           "emailMessage/To": "@{if(not(empty(coalesce(first(outputs('Get_job')?['body/value'])?['ProjectManager']?['Email'], ''))), first(outputs('Get_job')?['body/value'])?['ProjectManager']?['Email'], if(not(empty(coalesce(triggerOutputs()?['body/Author']?['Email'], ''))), triggerOutputs()?['body/Author']?['Email'], 'stratirus@d2pools.com'))}",
+           "emailMessage/Subject": "@{if(empty(coalesce(first(outputs('Get_job')?['body/value'])?['ProjectManager']?['Email'], '')), '[no PM email] ', '')}ALERT: crew conflict after reschedule - @{triggerOutputs()?['body/JobNumber']}",
+           "emailMessage/Body": "<p>A reschedule of <strong>@{triggerOutputs()?['body/JobNumber']}</strong> found a crew conflict.</p>@{outputs('Compose_conflict_summary')}",
+           "emailMessage/Importance": "High"
+          }
+         }
+        }
+       },
+       "runAfter": {
+        "Set_status_done": [
+         "Succeeded"
+        ]
+       },
+       "else": {
+        "actions": {}
+       },
+       "expression": {
+        "equals": [
+         "@and(equals(first(outputs('Get_job')?['body/value'])?['Status']?['Value'], 'Active'), greater(length(variables('conflicts')), 0))",
+         true
+        ]
+       },
+       "type": "If"
+      }
+     }
+    },
+    "expression": {
+     "equals": [
+      "@variables('failed')",
+      true
+     ]
+    },
+    "type": "If"
+   },
+   "Handle_failure": {
+    "actions": {
+     "Compose_failure_message": {
+      "runAfter": {},
+      "type": "Compose",
+      "inputs": "@concat('Failed: unexpected error while reflowing job ', triggerOutputs()?['body/JobNumber'], '. ', string(variables('moved')), ' sub-phase(s) were already moved before the failure. To recover, submit a new Reschedule Requests row for the same job with FromSequence ', string(triggerOutputs()?['body/FromSequence']), ' - the walk is idempotent and safe to re-run from there. Check the flow run history for details.')"
+     },
+     "Set_status_failed_action": {
+      "runAfter": {
+       "Compose_failure_message": [
+        "Succeeded"
+       ]
+      },
+      "type": "OpenApiConnection",
+      "inputs": {
+       "host": {
+        "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+        "operationId": "HttpRequest",
+        "connectionName": "shared_sharepointonline"
+       },
+       "parameters": {
+        "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+        "parameters/method": "POST",
+        "parameters/uri": "_api/web/lists/GetByTitle('Reschedule Requests')/items(@{triggerOutputs()?['body/ID']})",
+        "parameters/headers": {
+         "X-HTTP-Method": "MERGE",
+         "If-Match": "*",
+         "Content-Type": "application/json;odata=verbose",
+         "Accept": "application/json;odata=verbose"
+        },
+        "parameters/body": "{\"__metadata\":{\"type\":\"SP.Data.Reschedule_x0020_RequestsListItem\"},\"Status\":\"Failed\",\"Result\":\"@{outputs('Compose_failure_message')}\"}"
+       }
+      }
+     },
+     "Send_failure_email_action": {
+      "runAfter": {
+       "Set_status_failed_action": [
+        "Succeeded"
+       ]
+      },
+      "type": "OpenApiConnection",
+      "inputs": {
+       "host": {
+        "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+        "operationId": "SendEmailV2",
+        "connectionName": "shared_office365"
+       },
+       "parameters": {
+        "emailMessage/To": "@{if(not(empty(coalesce(first(coalesce(outputs('Get_job')?['body/value'], json('[]')))?['ProjectManager']?['Email'], ''))), first(coalesce(outputs('Get_job')?['body/value'], json('[]')))?['ProjectManager']?['Email'], if(not(empty(coalesce(triggerOutputs()?['body/Author']?['Email'], ''))), triggerOutputs()?['body/Author']?['Email'], 'stratirus@d2pools.com'))}",
+        "emailMessage/Subject": "URGENT: Reschedule Pool failed: @{triggerOutputs()?['body/JobNumber']}",
+        "emailMessage/Body": "<p>@{outputs('Compose_failure_message')}</p>",
+        "emailMessage/Importance": "High"
+       }
+      }
+     },
+     "Terminate_failed_action": {
+      "runAfter": {
+       "Send_failure_email_action": [
+        "Succeeded"
+       ]
+      },
+      "type": "Terminate",
+      "inputs": {
+       "runStatus": "Failed"
+      }
+     }
+    },
+    "runAfter": {
+     "Scope_reflow": [
+      "Failed",
+      "TimedOut"
+     ]
+    },
+    "type": "Scope"
+   },
+   "Init_conflicts": {
+    "runAfter": {
+     "Init_pastCount": [
+      "Succeeded"
+     ]
+    },
+    "type": "InitializeVariable",
+    "inputs": {
+     "variables": [
+      {
+       "name": "conflicts",
+       "type": "array",
+       "value": []
+      }
+     ]
+    }
+   }
+  }
+ }
+}
