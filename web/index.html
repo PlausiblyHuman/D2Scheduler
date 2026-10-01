@@ -370,7 +370,7 @@ function jobBadge(j){
   return `<span class="chip jb ${cls}" title="Jobs.Status in SharePoint">${esc(j.status)}</span>`+building+edited;
 }
 function load(){
-  try{const raw=localStorage.getItem(KEY);if(raw){S=JSON.parse(raw);S.settings=S.settings||{};S.pendingCreates=S.pendingCreates||[];S.pendingComments=S.pendingComments||[];syncNonWork();return;}}catch(e){}
+  try{const raw=localStorage.getItem(KEY);if(raw){S=JSON.parse(raw);S.settings=S.settings||{};S.pendingCreates=S.pendingCreates||[];S.pendingComments=S.pendingComments||[];syncNonWork();sortJobsByNumber();return;}}catch(e){}
   S={crews:JSON.parse(JSON.stringify(SEED_CREWS)),template:mkTemplate(),jobs:[],settings:{},pendingCreates:[],pendingComments:[]};
   /* NO DEMO POOLS. Removed 2026-09-11.
      This used to seed Harrison Residence, Vasquez Pool & Spa and Bell Canyon
@@ -592,6 +592,33 @@ function jobStart(j){
   let a=j.start||null;
   allSecs(j).forEach(({s})=>{if(s.skip||!s.start)return;if(!a||s.start<a)a=s.start;});
   return a||todayStr();
+}
+
+/* Projects list in job-number order by default (asked for 2026-10-01). A job number is compared
+   by the numbers in it, in sequence, so 24-999 comes before 24-1999 (text order inverts them) and
+   a stray space or '=' changes nothing. A number with no digits sorts last; ties fall back to the
+   text. S.jobs itself is kept in this order, so every list that does not choose otherwise follows
+   it. The Board and the Jobs tab can show start-date order instead. Auto-Schedule keeps its own
+   order (earliest real work), which is a scheduling rule, not a display choice. */
+function jobNoKey(j){ return (String((j&&j.jobno)||'').match(/\d+/g)||[]).map(Number); }
+function cmpJobNo(a,b){
+  const x=jobNoKey(a), y=jobNoKey(b);
+  if(!x.length!==!y.length) return x.length?-1:1;
+  for(let i=0;i<Math.min(x.length,y.length);i++) if(x[i]!==y[i]) return x[i]-y[i];
+  return (x.length-y.length)||String(a.jobno||'').localeCompare(String(b.jobno||''));
+}
+function sortJobsByNumber(){ if(S&&Array.isArray(S.jobs)) S.jobs.sort(cmpJobNo); }
+function jobSortMode(){ return S.settings&&S.settings.jobSort==='start'?'start':'number'; }
+function orderJobs(list){
+  const l=list.slice();
+  return jobSortMode()==='start' ? l.sort((a,b)=>jobStart(a).localeCompare(jobStart(b))||cmpJobNo(a,b)) : l.sort(cmpJobNo);
+}
+function setJobSort(v){ S.settings=S.settings||{}; S.settings.jobSort=v==='start'?'start':'number'; save(); render(); }
+function jobSortControl(){
+  const m=jobSortMode();
+  return `<select id="jobSort" style="text-transform:none;font-weight:400" title="Order projects by" onchange="setJobSort(this.value)">
+        <option value="number"${m==='number'?' selected':''}>By job number</option>
+        <option value="start"${m==='start'?' selected':''}>By start date</option></select> `;
 }
 
 /* Dates-only reflow of ONE pool from ONE sub-phase forward.
@@ -984,13 +1011,14 @@ const legend=()=>`<div class="legend">${S.crews.map(c=>`<span><i style="backgrou
 function boardPick(){ return UI.boardJob&&S.jobs.some(j=>j.id===UI.boardJob)?UI.boardJob:''; }
 function boardJobs(withPick){
   const pick=withPick?boardPick():'', st=UI.boardStatus||'both';
-  return S.jobs.filter(j=>(!pick||j.id===pick)&&(st==='both'||(st==='planned'?j.status==='Planned':j.status!=='Planned')));
+  return orderJobs(S.jobs.filter(j=>(!pick||j.id===pick)&&(st==='both'||(st==='planned'?j.status==='Planned':j.status!=='Planned'))));
 }
 function boardControls(withPick){
   const pick=boardPick(), st=UI.boardStatus||'both', z=(S.settings&&ZOOM_PX[S.settings.zoom])?S.settings.zoom:'day';
   const sty='style="text-transform:none;font-weight:400"';
   return (withPick?`<select id="boardJob" ${sty} title="Show one project" onchange="UI.boardJob=this.value;render()"><option value="">All projects</option>${
       S.jobs.map(j=>`<option value="${j.id}"${pick===j.id?' selected':''}>${esc(j.jobno||'')} ${esc(j.name)}</option>`).join('')}</select> `:'')
+    +(withPick?jobSortControl():'')
     +`<select id="boardStatus" ${sty} title="Planned projects, live ones, or both" onchange="UI.boardStatus=this.value;render()">
         <option value="both"${st==='both'?' selected':''}>Planned and live</option>
         <option value="live"${st==='live'?' selected':''}>Live only</option>
@@ -1179,12 +1207,11 @@ function vSignoff(){
      that is no longer here (removed, or gone after a Refresh) shows all. */
   const pick=UI.signoffJob&&S.jobs.some(j=>j.id===UI.signoffJob)?UI.signoffJob:'';
   const list=pick?S.jobs.filter(j=>j.id===pick):S.jobs;
-  const byNo=(a,b)=>String(a.jobno||'').localeCompare(String(b.jobno||''));
   const bar=S.jobs.length>1?`<div class="card"><div class="pad" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
       <label for="soJob" class="small"><b>Show</b></label>
       <select id="soJob" onchange="UI.signoffJob=this.value;render()">
         <option value="">All jobs (${S.jobs.length})</option>
-        ${S.jobs.slice().sort(byNo).map(j=>`<option value="${esc(j.id)}"${j.id===pick?' selected':''}>${esc(j.jobno||'')} · ${esc(j.name)}</option>`).join('')}
+        ${S.jobs.slice().sort(cmpJobNo).map(j=>`<option value="${esc(j.id)}"${j.id===pick?' selected':''}>${esc(j.jobno||'')} · ${esc(j.name)}</option>`).join('')}
       </select></div></div>`:'';
   /* Every unresolved rejection, so nothing stalls unnoticed. Follows the job
      picker above. An entry whose installer has signed again is called out,
@@ -1266,8 +1293,9 @@ function vJobs(){
      PM who no longer has a job here is ignored rather than showing nothing. */
   const pms=[...new Set(S.jobs.map(j=>j.pm).filter(Boolean))].sort();
   const pmOn=UI.pmFilter&&pms.includes(UI.pmFilter)?UI.pmFilter:'';
-  const shown=pmOn?S.jobs.filter(j=>j.pm===pmOn):S.jobs;
+  const shown=orderJobs(pmOn?S.jobs.filter(j=>j.pm===pmOn):S.jobs);
   return pendingCard+`<div class="card"><h2>Jobs<span class="sp"></span>
+    ${S.jobs.length>1?jobSortControl():''}
     ${pms.length?`<select id="pmFilter" onchange="setPmFilter(this.value)" style="text-transform:none;font-weight:400">
       <option value="">All project managers</option>
       ${pms.map(n=>`<option value="${esc(n)}"${n===pmOn?' selected':''}>${esc(n)}</option>`).join('')}</select>`:''}
@@ -2052,6 +2080,8 @@ function importFromD2Payload(d,silent){
     // The people a job can be assigned to, for the + Job PM picker. Only the
     // Graph path supplies it; a file import leaves the last good list alone.
     if(Array.isArray(d.people)&&d.people.length)S.people=d.people;
+
+    sortJobsByNumber();
 
     // A Refresh re-centres the timeline and unfolds the board, but a PM who
     // filtered to their own jobs asked for that view and keeps it.

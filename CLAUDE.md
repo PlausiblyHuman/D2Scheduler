@@ -2794,6 +2794,24 @@ it; `az login --tenant f24d9b39-... --allow-no-subscriptions` with Shane picking
 token, then fetch each `outputsLink` with no auth. `.../actions/<name>/repetitions` works for an
 action one loop deep and **500s for one nested two loops deep** (`Create_task` in New Pool).
 
+## PROJECTS LIST IN JOB-NUMBER ORDER — asked for by Don, built 2026-10-01
+
+Don reads projects by job number, not by date. `S.jobs` is now kept sorted by `cmpJobNo` (on load
+and after every Refresh), so every list that does not choose otherwise follows it: Sign-Offs, the
+project pickers, and the Save, Activate and Refresh dialogs. **The Job Board and the Jobs tab** carry
+a `By job number / By start date` control (`#jobSort`, `S.settings.jobSort`, per browser like zoom).
+Unchanged on purpose: the Crew Board and Daily Dispatch (rows are crews), Schedule Check, the
+rejections card, and **Auto-Schedule, whose order of earliest real work is a scheduling rule**.
+
+**A job number is compared by the numbers in it, in sequence** (`jobNoKey`): `24-999` before
+`24-1999` (text order inverts them, which the Sign-Offs picker's old `localeCompare` did), and
+`26- 2055` / `25=2029 White Heart` sort by their numbers. A number with no digits sorts last.
+Pinned by `fixtures/planner/job-order.js` (14 assertions, 8 mutations red).
+
+**The shakedown needs a desktop-width window.** At headless Chrome's default width the name column
+(708px) is wider than the viewport, and the two today-anchor checks fail on an unchanged planner
+too. Launch with `--window-size=1600,1000`; it also needs `web/` served on port 8787.
+
 ## COMPLETING FINISHED PROJECTS — DECIDED 2026-09-28 by Shane (scale piece 5)
 
 **The value is `Complete`, not `Closed`.** This section first said `Closed`; the same day Shane

@@ -1,0 +1,10 @@
+[
+  {"label": "job numbers compared as text, not numbers", "find": "if(x[i]!==y[i]) return x[i]-y[i];", "replace": "if(x[i]!==y[i]) return String(x[i]).localeCompare(String(y[i]));"},
+  {"label": "import leaves SharePoint's order", "find": "S.people=d.people;\n\n    sortJobsByNumber();", "replace": "S.people=d.people;\n\n"},
+  {"label": "Board ignores the order choice", "find": "return orderJobs(S.jobs.filter(", "replace": "return (S.jobs.filter("},
+  {"label": "Jobs tab ignores the order choice", "find": "const shown=orderJobs(", "replace": "const shown=("},
+  {"label": "order choice not remembered", "find": "S.settings.jobSort=v==='start'?'start':'number'; save();", "replace": "UI.jobSortTmp=v; save();"},
+  {"label": "start-date order ignored", "find": "return jobSortMode()==='start' ?", "replace": "return false ?"},
+  {"label": "Sign-Offs picker back to text order", "find": ".sort(cmpJobNo).map(", "replace": ".sort((a,b)=>String(a.jobno||'').localeCompare(String(b.jobno||''))).map("},
+  {"label": "Board order control missing", "find": "+(withPick?jobSortControl():'')", "replace": ""}
+]
