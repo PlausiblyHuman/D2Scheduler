@@ -104,9 +104,19 @@
   // fails to match a number of the same value.
   function key(v) { return v == null ? null : String(v); }
 
-  function toPlannerPayload(graph) {
+  /* A project whose Jobs.Status is Complete has finished and left the planner (Spec A,
+     2026-09-28). It is listed in completedJobs for the Completed projects section and its job
+     number in completedJobNumbers, so the import can drop a copy still held in the browser. Pass
+     { includeComplete: true } to map one anyway, which is how a completed project is opened
+     read-only. */
+  function isComplete(status) { return String(status == null ? '' : status) === 'Complete'; }
+
+  function toPlannerPayload(graph, opts) {
     graph = graph || {};
-    const jobs = graph.jobs || [];
+    const includeComplete = !!(opts && opts.includeComplete);
+    const allJobs = graph.jobs || [];
+    const completedRows = allJobs.filter(j => isComplete(j.fields.Status));
+    const jobs = includeComplete ? allJobs : allJobs.filter(j => !isComplete(j.fields.Status));
     const asg = graph.asg || [];
     const tasks = graph.tasks || [];
     const cal = graph.cal || [];
@@ -163,7 +173,7 @@
     // does not error, it silently yields nothing. Every row on the tenant
     // today carries a parent, so these should be zero; a future null/blank
     // lookup should be visible rather than swallowed.
-    const orphanAsg = asg.filter(a => !jobs.some(j => key(j.fields.id) === key(a.fields.JobLookupId))).length;
+    const orphanAsg = asg.filter(a => !allJobs.some(j => key(j.fields.id) === key(a.fields.JobLookupId))).length;
     const orphanTask = tasks.filter(t => !asg.some(a => key(a.fields.id) === key(t.fields.AssignmentLookupId))).length;
     if (typeof console !== 'undefined' && console.warn) {
       if (orphanAsg) console.warn('graph-to-planner: ' + orphanAsg + ' assignment(s) joined to no job');
@@ -250,8 +260,19 @@
     };
     if (people.length) payload.people = people;
 
+    // Newest first by the Jobs row's Modified, which is when it was completed unless the
+    // row was edited afterwards (not done in normal use).
+    payload.completedJobs = completedRows.map(j => ({
+      id: Number(j.fields.id),
+      jobno: j.fields.JobNumber,
+      name: j.fields.Title,
+      pm: nameById.get(key(j.fields.ProjectManagerLookupId)) || '',
+      completedOn: j.fields.Modified == null ? null : String(j.fields.Modified)
+    })).sort((a, b) => String(b.completedOn || '').localeCompare(String(a.completedOn || '')));
+    payload.completedJobNumbers = completedRows.map(j => j.fields.JobNumber);
+
     return payload;
   }
 
-  return { toPlannerPayload };
+  return { toPlannerPayload, isComplete };
 });
