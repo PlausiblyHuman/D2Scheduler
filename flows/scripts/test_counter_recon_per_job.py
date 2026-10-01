@@ -1,0 +1,38 @@
+# Structural test for the per-live-job Counter Reconciliation definition.
+# Run: python flows/scripts/test_counter_recon_per_job.py   (exit 0 = all pass)
+import json, pathlib, sys
+sys.path.insert(0, str(pathlib.Path(__file__).parent))
+from counter_recon_per_job import build_actions, max_depth, terminates_in_loop
+
+EXP = sorted(pathlib.Path(__file__).parents[1].joinpath('exports').glob('D2-Counter-Reconciliation-*.json'))[-1]
+old = json.loads(EXP.read_text(encoding='utf-8'))['definition']['actions']
+fails = 0
+def ok(label, cond):
+    global fails
+    print(('PASS' if cond else 'FAIL') + ' · ' + label); fails += (not cond)
+
+for disarm in (False, True):
+    A = build_actions(json.loads(json.dumps(old)), disarm=disarm)
+    tag = 'disarmed' if disarm else 'live'
+    ok(f'{tag}: whole-list reads removed', not any(k in A for k in ('Get_all_tasks', 'Get_all_assignments', 'Guard_read_complete')))
+    ok(f'{tag}: live-job filter', A['Get_live_jobs']['inputs']['parameters']['$filter'] == "Status ne 'Complete'")
+    ok(f'{tag}: no Terminate inside a loop', not terminates_in_loop(A))
+    ok(f'{tag}: depth within 8', max_depth(A) <= 8)
+    ok(f'{tag}: variables initialised at top level only', all(a['type'] != 'InitializeVariable' for a in A['For_each_job']['actions'].values()))
+    job = A['For_each_job']
+    ok(f'{tag}: jobs one at a time', job['runtimeConfiguration']['concurrency']['repetitions'] == 1)
+    cond = job['actions']['Condition_job_readable']
+    ok(f'{tag}: empty job never sends an empty or-chain', 'greater' in json.dumps(cond['expression']) and 'Get_job_tasks' in cond['actions'])
+    tasks_q = cond['actions']['Get_job_tasks']['inputs']['parameters']['$filter']
+    ok(f'{tag}: tasks read by or-chain of this job', "join(body('Select_task_clauses'), ' or ')" in tasks_q)
+    loop = cond['actions']['Condition_tasks_complete']['actions']['Apply_to_each_assignment']
+    ok(f'{tag}: counts from this job only', loop['actions']['Filter_tasks']['inputs']['from'] == "@body('Get_job_tasks')?['value']")
+    ok(f'{tag}: loop runs over this job', loop['foreach'] == "@body('Get_job_assignments')?['value']")
+    ok(f'{tag}: Terminate after the loop', A['Guard_capped']['runAfter'] == {'For_each_job': ['Succeeded']})
+    repair = loop['actions']['Condition_drifted']['actions']['Repair_counters']
+    ok(f'{tag}: disarm controls writes', (repair['type'] == 'Compose') == disarm)
+    names = set(A)
+    for k, a in A.items():
+        for dep in a.get('runAfter', {}):
+            ok(f'{tag}: {k} runs after an action that exists', dep in names)
+sys.exit(1 if fails else 0)
