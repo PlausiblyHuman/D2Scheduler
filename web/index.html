@@ -1982,6 +1982,8 @@ function importFromD2Payload(d,silent){
       // the REST export carries the name without it.
       if(inj.pm!=null)j.pm=inj.pm;
       if(inj.pmId!=null)j.pmId=String(inj.pmId);
+      // The Jobs row's SharePoint id, so Save can read just this project's rows (Spec A).
+      if(inj.id!=null)j.spId=String(inj.id);
       const map=bySec(j);
       (inj.sections||[]).forEach(is=>{
         const s=map[is.num];
@@ -2338,7 +2340,11 @@ async function pushSignoffs(siteId,tok,liveById,pools){
      the counters are recounted from these after the ticks land. */
   let liveTaskById={}; const liveRowsByAsg={};
   if(wantTaskIds.size){
-    const trows=await graphPageAll(U.items(D2_GRAPH.lists.tasks)+'?$expand=fields&$top=999',tok);
+    /* Only the Tasks of the sub-phases in play, by an `or` chain of their ids (Spec A). */
+    const R=window.D2GraphToPlanner;
+    const parts=await Promise.all(R.taskUrls(U.items(D2_GRAPH.lists.tasks),Object.keys(sectionsById),Infinity)
+      .map(u=>graphPageAll(u,tok)));
+    const trows=[].concat(...parts);
     trows.forEach(r=>{
       const id=String(r.fields.id), asg=String(r.fields.AssignmentLookupId);
       if(wantTaskIds.has(id))liveTaskById[id]=r.fields;
@@ -2367,14 +2373,30 @@ async function pushSignoffs(siteId,tok,liveById,pools){
   return {sPlan,tPlan,sRes,tRes};
 }
 
-async function pushChangeSet(pools){
+/* The Assignments rows of the projects named, read fresh, one filtered read per project.
+   A project held from before Spec A has no spId until its next Refresh; then the whole list is
+   read as it always was, so a Save is never refused for want of an id. */
+async function readAsgForJobs(siteId,tok,jobnos){
+  const G=window.D2GraphWriteback, R=window.D2GraphToPlanner;
+  const items=G.urls(siteId).items(D2_GRAPH.lists.asg);
+  const jobs=[...new Set(jobnos.map(String))].map(no=>S.jobs.find(j=>String(j.jobno)===no));
+  if(jobs.some(j=>!j||!j.spId)) return graphPageAll(items+'?$expand=fields&$top=500',tok);
+  const parts=await Promise.all(jobs.map(j=>graphPageAll(R.asgUrl(items,j.spId),tok)
+    .then(rows=>rows.filter(r=>String(r.fields.JobLookupId)===String(j.spId)))));
+  return [].concat(...parts);
+}
+
+async function pushChangeSet(pools,alsoJobnos){
   const tok=await graphToken();
   const G=window.D2GraphWriteback, C=window.D2WritebackCore;
   const siteId=(await graphSite(tok)).id;
 
   /* Re-read the rows immediately before writing. Compare-before-write is only
-     as good as the freshness of THIS read, not of the last Refresh. */
-  const rows=await graphPageAll(G.urls(siteId).items(D2_GRAPH.lists.asg)+'?$expand=fields&$top=500',tok);
+     as good as the freshness of THIS read, not of the last Refresh. Only the
+     projects this Save touches are read: the edits here, plus the sign-off and
+     rejection passes that reuse this read. */
+  const jobnos=pools.map(p=>p.jobno).concat(alsoJobnos||[]);
+  const rows=jobnos.length?await readAsgForJobs(siteId,tok,jobnos):[];
   const liveById={};
   rows.forEach(r=>{liveById[String(r.fields.id)]=r.fields;});
 
@@ -2603,7 +2625,7 @@ async function confirmSaveByPush(){
   document.getElementById('dFoot').innerHTML='<span class="hint">Saving…</span>';
   let out=null,err=null;
   try{
-    out=await pushChangeSet(pools);
+    out=await pushChangeSet(pools,[...(PENDING_SIGNOFFS||[]),...(PENDING_REJECTIONS||[])].map(p=>p.jobno));
     /* Project start dates, on the Jobs list, one field with its own compare. */
     if(PENDING_JOBSTARTS&&PENDING_JOBSTARTS.length){
       try{ out.js=await pushJobStarts(out.siteId,out.tok,PENDING_JOBSTARTS); }

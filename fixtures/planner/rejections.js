@@ -454,7 +454,9 @@ const saveTests = async () => {
 
   // Send it through the real confirmSaveByPush, with only fetch stubbed.
   const G = win.D2_GRAPH;
-  const asgRow = (id, f) => ({ id: String(id), fields: Object.assign({ id: String(id) }, f) });
+  // JobLookupId as Graph returns it on every Assignments row: Save now reads a project's rows
+  // by it and keeps only the ones that belong to that project.
+  const asgRow = (id, f) => ({ id: String(id), fields: Object.assign({ id: String(id), JobLookupId: '19' }, f) });
   const liveAsg = [
     asgRow(10, { Title: 'D2-1042 · 5.3 Tile Installation', InstallerSignOff: true,
                  InstallerSignOffByLookupId: '14', SignOffNotes: 'signed on site', Rejected: false }),

@@ -197,5 +197,48 @@ const jobsWith = (id, status, modified) => G.jobs.map(j => String(j.fields.id) =
     ok('import raised no script error', errs.length === 0, errs.join(' / '));
   }
 
+  // ---------- Task 8: Save reads only the projects it writes ----------
+  {
+    const { w, errs, net } = boot({});
+    await sleep(300); await refresh(w);
+    const [A, B] = w.S.jobs;
+    ok('each project keeps its SharePoint id', w.S.jobs.every(j => j.spId && G.jobs.some(g => String(g.fields.id) === j.spId)));
+    // A crew change on A, and on B a ticked task (which makes Save read B's Tasks).
+    const secA = w.allSecs(A).find(x => x.s.base && !x.s.inst && !x.s.locked);
+    secA.s.crewId = secA.s.crewId === 'devon' ? 'saul' : 'devon'; w.touch(A);
+    const hitB = w.allSecs(B).find(x => x.s.base && !x.s.inst && !x.s.locked && x.s.tasks.some(t => !t.done && !t.na && t.spId));
+    w.editSec(B.id, hitB.gi, hitB.si);
+    w.fn('tick')(hitB.s.tasks.findIndex(t => !t.done && !t.na && t.spId), true);
+    w.closeDrawer();
+    net.gets.length = 0;
+    w.fn('openSavePreview')(); await sleep(50);
+    await w.confirmSaveByPush(); await sleep(300);
+    // The Save's own reads are the ones before the post-save Refresh begins (that Refresh reads every live project).
+    const firstRefresh = net.gets.findIndex(u => listOf(w, u) === 'cal');
+    const own = net.gets.slice(0, firstRefresh === -1 ? net.gets.length : firstRefresh).filter(u => ['asg', 'tasks'].includes(listOf(w, u))).map(decodeURIComponent);
+    ok('Save reads nothing whole', own.length > 0 && own.every(u => u.includes('$filter=')), own.filter(u => !u.includes('$filter=')).join(' '));
+    const asgJobs = own.filter(u => listOf(w, u) === 'asg').map(u => (u.match(/JobLookupId eq '(\d+)'/) || [])[1]);
+    ok('Save reads Assignments for exactly the projects it writes', JSON.stringify([...new Set(asgJobs)].sort()) === JSON.stringify([A.spId, B.spId].sort()), asgJobs.join(','));
+    const tIds = own.filter(u => listOf(w, u) === 'tasks').flatMap(u => [...u.matchAll(/AssignmentLookupId eq '(\d+)'/g)].map(m => m[1]));
+    ok('Save reads Tasks only for the ticked sub-phase', tIds.length > 0 && tIds.every(id => id === String(hitB.s.base.id)), tIds.join(','));
+    ok('the crew change was written', net.patches.some(p => p.url.includes('/items/' + secA.s.base.id + '/') && p.body.Crew));
+    ok('the tick was written', net.patches.some(p => p.url.includes('/lists/' + w.D2_GRAPH.lists.tasks + '/') && p.body.Complete === true));
+    ok('Save raised no script error', errs.length === 0, errs.join(' / '));
+  }
+
+  // A project held from before this change has no spId until the next Refresh. Save falls back
+  // to the whole-list read rather than refusing the write for want of an id.
+  {
+    const { w, net } = boot({});
+    await sleep(300); await refresh(w);
+    const A = w.S.jobs[0]; delete A.spId;
+    const secA = w.allSecs(A).find(x => x.s.base && !x.s.inst && !x.s.locked);
+    secA.s.crewId = secA.s.crewId === 'devon' ? 'saul' : 'devon'; w.touch(A);
+    net.gets.length = 0;
+    w.fn('openSavePreview')(); await sleep(50);
+    await w.confirmSaveByPush(); await sleep(300);
+    ok('without an id, Save falls back and still writes', net.patches.some(p => p.url.includes('/items/' + secA.s.base.id + '/') && p.body.Crew));
+  }
+
   process.exit(fail);
 })().catch(e => { console.log('FAIL · harness threw: ' + (e && e.stack || e)); process.exit(1); });

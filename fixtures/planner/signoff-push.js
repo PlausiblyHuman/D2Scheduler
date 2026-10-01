@@ -30,6 +30,8 @@ const inline = f => '<script>' + fs.readFileSync(path.join(WEB, f), 'utf8') + '<
 const html = fs.readFileSync(path.join(WEB, 'index.html'), 'utf8')
   .replace('<script src="writeback-core.js"></script>', inline('writeback-core.js'))
   .replace('<script src="graph-writeback.js"></script>', inline('graph-writeback.js'))
+  // Loaded as the real page loads it: Save builds its per-project reads with it (Spec A).
+  .replace('<script src="graph-to-planner.js"></script>', inline('graph-to-planner.js'))
   .replace('</body>', `<script>window.__x=()=>{window.S=S;window.allSecs=allSecs;window.D2_GRAPH=D2_GRAPH;
      window.importFromD2Payload=importFromD2Payload;window.sign=sign;window.openSavePreview=openSavePreview;
      window.confirmSaveByPush=confirmSaveByPush;window.editSec=editSec;window.toggleNA=toggleNA;};</script><script>__x();</script></body>`);
@@ -87,7 +89,8 @@ win.alert = () => {}; win.confirm = () => true;
      JSON.stringify(A.tasks[5]));
 
   // ---- what is live at Save time ----
-  const asgRow = (s, extra) => Object.assign({ id: String(s.base.id), Title: 'D2-1042 · ' + s.num + ' ' + s.name,
+  // JobLookupId as Graph returns it: Save reads a project's rows by it (Spec A).
+  const asgRow = (s, extra) => Object.assign({ id: String(s.base.id), JobLookupId: '19', Title: 'D2-1042 · ' + s.num + ' ' + s.name,
     Crew: 'devon', ScheduledStart: '2026-09-08T05:00:00Z', DurationDays: 2, Locked: false, NotApplicable: false,
     InstallerSignOff: false, PMSignOff: false }, extra);
   const live = {

@@ -28,5 +28,30 @@
   "label": "completed list not kept",
   "find": "if(Array.isArray(d.completedJobs)) S.completedJobs=d.completedJobs;",
   "replace": ""
+ },
+ {
+  "label": "Save reads Assignments whole again",
+  "find": "const rows=jobnos.length?await readAsgForJobs(siteId,tok,jobnos):[];",
+  "replace": "const rows=await graphPageAll(G.urls(siteId).items(D2_GRAPH.lists.asg)+'?$expand=fields&$top=500',tok);"
+ },
+ {
+  "label": "sign-off and rejection projects not read",
+  "find": "out=await pushChangeSet(pools,[...(PENDING_SIGNOFFS||[]),...(PENDING_REJECTIONS||[])].map(p=>p.jobno));",
+  "replace": "out=await pushChangeSet(pools,[]);"
+ },
+ {
+  "label": "Save reads Tasks whole again",
+  "find": "const parts=await Promise.all(R.taskUrls(U.items(D2_GRAPH.lists.tasks),Object.keys(sectionsById),Infinity)\n      .map(u=>graphPageAll(u,tok)));",
+  "replace": "const parts=[await graphPageAll(U.items(D2_GRAPH.lists.tasks)+'?$expand=fields&$top=999',tok)];"
+ },
+ {
+  "label": "SharePoint id not kept",
+  "find": "if(inj.id!=null)j.spId=String(inj.id);",
+  "replace": ""
+ },
+ {
+  "label": "no fallback without an id",
+  "find": "if(jobs.some(j=>!j||!j.spId)) return graphPageAll(items+'?$expand=fields&$top=500',tok);",
+  "replace": "if(false) return null;"
  }
 ]
