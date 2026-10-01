@@ -2812,6 +2812,35 @@ Pinned by `fixtures/planner/job-order.js` (14 assertions, 8 mutations red).
 (708px) is wider than the viewport, and the two today-anchor checks fail on an unchanged planner
 too. Launch with `--window-size=1600,1000`; it also needs `web/` served on port 8787.
 
+## SPEC A SHIPPED 2026-10-01 — completing projects, live-only reads (`deploy/2026-10-01b`)
+
+Plan `docs/superpowers/plans/2026-10-01-spec-a-complete-projects-live-reads.md`; every decision is
+in its ledger rulings. Tasks 1-10 built, independently reviewed (2 Critical, 5 Important, all
+fixed) and deployed. **Task 11's live check on a throwaway project is still owed**, once Don's 32
+builds finish (New Pool is throttled behind them).
+
+- **Flows:** Counter Reconciliation reads per live project (see the Don section above). Crew Trade
+  Check, Conflict Flag and Reschedule Pool's conflict sweep AND their Assignments read with a
+  `Get_live_jobs` / `Select_live_job_ids` / `Compose_live_job_clause` idiom on `Status ne 'Complete'`
+  (`flows/scripts/live_job_clause.py`). Each verified by a live run: 34 projects, 991 assignments,
+  none outside the live set.
+- **Graph filter shapes, captured 2026-10-01** (`fixtures/planner/live-payloads-graph-filtered.json`,
+  redacted): `$filter=fields/JobLookupId eq '<id>'` and an `or` chain of
+  `fields/AssignmentLookupId eq '<id>'` both work with **no `Prefer` header**; a 46-term chain is
+  proven and `TASK_CHAIN_MAX = 46` caps every chain. A per-project Refresh over 34 projects read the
+  same rows in **7.1 s against 16.3 s** for the whole lists.
+- **Planner:** Refresh and Save read only live projects (`readLive`, `asgUrl`, `taskUrls` in
+  `web/graph-to-planner.js`; `readAsgForJobs` in the planner). `graphPageAll` retries a 429/503
+  twice, honouring `Retry-After`. The planner keeps each project's SharePoint id as `j.spId`; Save
+  falls back to the whole-list read for a project without one (browser state from before).
+- **Jobs tab:** Ready to complete chip and banner, Mark complete (re-reads that project's sign-off
+  before writing), Completed projects with Open (read-only on the Board until the next Refresh) and
+  Reopen. `frozen(j)` = building or read-only gates every edit path and every Save set.
+- **Activate, Back to planning, Mark complete and Reopen all refuse with "Save first"** when anything
+  on screen is unsaved (`stopForUnsaved`), because each reloads the whole schedule after writing.
+  Activate and Back to planning gained this on Shane's call the same day.
+- **Not yet in the client guide**: Mark complete, Completed projects, the job-number order.
+
 ## COMPLETING FINISHED PROJECTS — DECIDED 2026-09-28 by Shane (scale piece 5)
 
 **The value is `Complete`, not `Closed`.** This section first said `Closed`; the same day Shane
