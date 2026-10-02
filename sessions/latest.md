@@ -1,60 +1,70 @@
-# 2026-09-28a: live check found the finish-date bug; the scale work began
+# 2026-10-01a: Spec A shipped; Don's 32-project load hit the scale limits
 
-**Session goal:** a signed-in pass over the 25 Sept features on the hosted planner, then the client
-guide. It turned into a live bug fix, and a scale package after Shane gave the real volume: about
-60 pools a year, about 20 live at once.
+**Session goal:** work the 2026-09-28 queue (04:30 Calendar Sync check, guide v9, Spec A). The
+morning check found Don had loaded 32 real projects at once the evening before, which moved Spec A
+to the front and turned the afternoon into handling what that load broke.
 
-**Time:** 12:27 to 20:21 local, 1.75 h billable by the hook clock (D2 bucket, 15-min idle rule). The
-wall clock was much longer, with long waits on flow builds and time away.
+**Time:** 08:39 to 19:10 local, 8.00 h billable (D2 bucket): 4.44 h hook clock + 3.50 h reviewed
+gap (gaps 1-6 worked; 30 min of the 15:53-18:58 gap worked, the rest away). Not posted.
+Tokens: 694 in / 148,210,993 cached / 2,680,516 cache-write / 312,435 out, 342 messages,
+claude-opus-5-5, subagents 4 (7,166,815).
+
+## What was found
+
+- **Don raised 32 New Pool Requests in ten seconds** (2026-09-30 19:56 Central). The builds ran
+  concurrently, throttled on D2 Bot's one request allowance, and were still running 20 hours later
+  (1 done, 1 failed, 30 running at 15:00).
+- **Counter Reconciliation failed at 03:30 with `ReadAtCap`** (Tasks read hit 5,000): the
+  scale-piece-1 guard working, three months before the forecast.
+- **The 04:30 Calendar Sync full sweep removed all 46 events, correctly**: Don had set `26- 2055`
+  back to Planned, so nothing was Active.
+- **New Pool's work-day loop timed out under the throttling** (`PT1H`; one iteration ran 5.6 h),
+  and the flow then failed complete builds and emailed Don "URGENT: Pool build INCOMPLETE ... delete
+  and re-enter". `25-2020 Occhipinti` failed; 11 more running builds had already flagged a short
+  sub-phase and will fail the same way. Every sub-phase exists in those projects; one to three end a
+  day short.
+- **`26-2055` and `26- 2055` share an address** (1587 Glenellen Way): almost certainly one job
+  entered twice.
+- `az` had lost the D2 account; one interactive `az login` restored it for the whole day.
 
 ## What shipped
 
 | Commit | Change |
 |---|---|
-| `0e3aeb2` | **Save sends `ScheduledFinish`** with every start or duration write. Before this, one inline days change left 43 of 46 rows finishing before they start in SharePoint, while the Board looked right. Reproduced live, fixed, redeployed (`deploy/2026-09-28`), verified 46 of 46 |
-| `118946c`, `288452a` | Save results name fields in words; Open schedule link in the accent colour. `deploy/2026-09-28b` |
-| `f68fe8c` | **Scale piece 1:** Calendar Sync reads up to 5,000 rows (was 500, which would have deleted real calendar events past about 11 live projects) with a guard that stops the 04:30 sweep rather than delete after a bad read; Crew Trade Check 1,000 to 5,000; guards on Counter Reconciliation, Crew Trade Check and Conflict Flag that fail before writing when a read comes back full. Verified both ways, including disarmed copies that tripped their guards |
-| (tenant) | **Scale piece 2:** six columns indexed. `Tasks.Assignment` and `Jobs.JobNumber` were already indexed |
-| `8f19288` | **Scale piece 3, measured:** the Board redraw is 2.4 s per click at 20 projects, set by row count (fixed table layout made no difference; folding phases took it to 0.25 s). Refresh about 19 s at 20 live projects. `save()` has no error handling and browser storage fills at about 90 projects |
-| `c582903` | The project-close decisions |
-| `67d0334`, `e5a3c7d` | **Spec A** (complete projects, read only live ones, Counter Reconciliation per project) and **Spec B** (Board speed) |
+| `4bea1cb`..`65687eb` | **Counter Reconciliation reads per live project** (Jobs `Status ne 'Complete'`, then per job its Assignments and an `or` chain of its Tasks). Disarmed copy over 34 projects, then verified both ways on throwaway rows; independent review, one Important fix (summary kept on a capped night). Live 14:48 and 15:01 |
+| `f1a161b` | **Crew Trade Check, Conflict Flag and Reschedule Pool skip Complete projects**, each verified by a live run (34 projects, 991 assignments, none outside the live set) |
+| `77a9173` | **Projects list in job-number order by default** (Don's request), Start date as an option on the Board and Jobs tab. Deployed `deploy/2026-10-01` |
+| `296bba4` | Graph filtered-read capture (redacted): `$filter` on lookup ids works with no `Prefer` header; per-project Refresh 7.1 s vs 16.3 s |
+| `8b97677`..`436fd94` | **Spec A planner work**: per-project Refresh and Save, Mark complete / Ready to complete / Completed projects / Open read-only / Reopen. Independent review: 2 Critical and 5 Important found and fixed. Activate and Back to planning now also stop with "Save first". Deployed `deploy/2026-10-01b` |
+| `e09cf49` | **New Pool**: loop timeout `PT1H` to `P1D`; the short-span message and subject now say the project was built in full and to correct dates, not delete it. Applies to new requests only |
+| `61a77f5` | Tabled "wait your turn" New Pool gate recorded in the Phase G backlog |
 
-Also verified live for the first time on the hosted planner: Refresh over Graph from a clean
-profile, `+ Job` with a picked PM and default crews off, the Building guard on a real half-built
-project, the inline controls, and reset from a new start writing `Jobs.StartDate`. `TEST-9700` was
-built for this (10m 30s) and deleted, with both request rows; the tenant is back to 2 jobs, 92
-assignments, 590 tasks, 46 calendar events. Guide Version 9 drafted with two new screenshots.
+Emails sent from Shane's mailbox to Don: the `26-2055` duplicate question, and a heads-up to ignore
+the "Pool build INCOMPLETE" emails and not delete or re-enter anything.
 
 ## Decisions made
 
-- Guide Version 9 approved as drafted.
-- Scale package before WP5, in the order: paging and guards, indexes, measure, then specs.
-- Projects are completed by a person, only when every sub-phase is signed or N/A; they stay in
-  place as `Status = Complete` (the existing, unused choice, confirmed by Shane); hidden from the
-  planner with a read-only Completed list; can be reopened. **Warranty is not managed in this tool.**
-- WP5 release goes through an immediate write with a conflict warning, like Activate (design
-  presented, spec not yet written).
-
-## Found
-
-- **D2's licence caps a connector read at 5,000 rows** (`InvalidPaginationPolicy` above that), so
-  paging cannot save a flow that reads a whole growing list.
-- `edit_flow` could not save Calendar Sync at all; the Dataverse `clientdata` + `PublishXml` route
-  worked for all four flows and showed the real error where `edit_flow` showed a misleading one.
-- The 26 Sept snapshot never ran because the first run lands on the slot after the start time. Not
-  a fault.
-- Dataverse for Teams is not an option: no API access, so the hosted planner could not reach it.
+- Spec A ahead of guide v9; the Counter Reconciliation rewrite shipped first, alone.
+- Job-number order is the default on the Board, Jobs tab, Sign-Offs, pickers and dialogs; Crew
+  Board, Dispatch, Schedule Check and Auto-Schedule keep their own order.
+- Activate and Back to planning get the same "Save first" guard as Mark complete and Reopen.
+- Trigger concurrency control on New Pool is not used (irreversible; a burst can drop requests).
+- The "wait your turn" gate is tabled: Don's batch is a one-time event, but other clients need it
+  before this solution is offered to them.
+- Wait for the batch to clear overnight, then repair the failed projects in the morning.
 
 ## Open questions / blocked on
 
-- **Guide Version 9 is not on the client page.** The publish was blocked by the permission check;
-  the file is ready. Shane pinned the page, which still pins Version 8.
-- Specs A and B await Shane's go-ahead to plan and build.
-- Activate and Back to planning have still not been exercised live.
-- Counter Reconciliation needs the Spec A rewrite before about December 2026.
-- Tomorrow's 04:30 Calendar Sync full sweep is the first run of its new full-sweep path.
+- 30 New Pool builds still running; about 12 will end Failed with a short sub-phase.
+- Don's answer on `26-2055` / `26- 2055`.
+- Spec A Task 11 live check (throwaway project) waits for New Pool to have capacity.
+- Guide v9 still unpublished; the guide does not yet cover Mark complete, Completed projects or
+  job-number order.
+- Minor review findings deferred (in the plan ledger): Open makes "Live as of" look fresher;
+  Rebuild-from-template and Set-all-durations still touch a read-only project locally; Jobs-tab
+  inputs on a read-only project not visibly disabled; duplicate completed numbers act on the first.
 
 ## Next action
 
-Check the 04:30 Calendar Sync run (succeeded, guard not tripped, still 46 events), publish guide
-Version 9 with Shane's approval, then plan and build Spec A.
+Check the batch finished and the 03:30 Counter Reconciliation run, then repair each failed
+project (planner reset-from-start + Save, request set to Done) and draft Don a "sorted" note.
