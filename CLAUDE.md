@@ -1496,9 +1496,9 @@ the same time, and a surprising row is not automatically a bug in this session's
 
 | List | Rows | GUID |
 |---|---|---|
-| Jobs | **2** as of 2026-09-25: `26- 2055` Gunite/Trailov (Active) and `26-2065` Brandon - Cross (Planned), both raised by Don. The four fictional demo pools (`D2-1042` to `D2-1045`) were deleted 2026-09-25 on Shane's instruction, through `Delete Pool Requests`, and their 184 calendar events cleared over Graph | `ee0ecabf-2f11-458d-a9ea-641f76d10cc3` |
-| Assignments | **92** (2 pools x 46, as of 2026-09-25) | `49ef7006-d3fe-40a7-a52f-c4c18545bd35` |
-| Tasks | **590** (2 pools x 295, as of 2026-09-25) | `22c45847-ff0d-417a-b53e-1ea018fbb6d3` |
+| Jobs | **34** as of 2026-10-03, all Planned, all raised by Don (two on 2026-09-22/24, 32 on 2026-09-30). Before that, **2** as of 2026-09-25: `26- 2055` Gunite/Trailov and `26-2065` Brandon - Cross. The four fictional demo pools (`D2-1042` to `D2-1045`) were deleted 2026-09-25 on Shane's instruction, through `Delete Pool Requests`, and their 184 calendar events cleared over Graph | `ee0ecabf-2f11-458d-a9ea-641f76d10cc3` |
+| Assignments | **1,564** (34 x 46, as of 2026-10-03) | `49ef7006-d3fe-40a7-a52f-c4c18545bd35` |
+| Tasks | **10,030** (34 x 295, as of 2026-10-03) | `22c45847-ff0d-417a-b53e-1ea018fbb6d3` |
 | Trades | 26 | `05038f7f-a6cb-4f57-b1a1-3ff9c7126ba5` |
 | Crews | 14 (subcontractor patch applied) | `45e9ff1f-bf36-4ab5-929d-25ab9a80d460` |
 | Crew-Trades | 51 | (see viewlsts.aspx) |
@@ -2799,18 +2799,60 @@ Consequences, all observed rather than predicted:
 the loop with the span unfinished, `Set_shortScheduledSubphase` recorded it as "before the 90-day
 search limit", and at the very end `Condition_short_scheduled` failed the whole build (request
 Failed, email "URGENT: Pool build INCOMPLETE" to the PM saying delete the project and re-enter it).
-**The build is in fact complete**: every sub-phase and task exists; one to three end a day short.
-`25-2020 Occhipinti` failed this way at 09:10; by 15:00 **11 of the 30 still running had already
+~~**The build is in fact complete**: every sub-phase and task exists; one to three end a day short.~~
+**WRONG, corrected 2026-10-03: the short sub-phase was never created at all.** See "28 SUB-PHASES
+WERE NEVER CREATED" below. `25-2020 Occhipinti` failed this way at 09:10; by 15:00 **11 of the 30 still running had already
 flagged a short sub-phase** and will fail the same way at the end (they cannot be changed in
 flight). Shane emailed Don at ~15:30 to ignore those emails and not delete or re-enter anything.
 **Fixed for new requests, 15:35 Central** (`flows/scripts/new_pool_span_fix.py`, applied by
 `2026-10-01-new-pool-span-fix.py`): timeout `P1D`, accurate wording ("built in full... correct
 that sub-phase's dates... do not delete or re-enter"), subject "Check dates on new project <no>" at
-Normal importance; request still ends Failed. **Owed: once the batch finishes, correct each failed
-project's short sub-phases (planner reset-from-start + Save) and set its request row to Done.**
+Normal importance; request still ends Failed. ~~**Owed: once the batch finishes, correct each failed
+project's short sub-phases (planner reset-from-start + Save) and set its request row to Done.**~~
+Done 2026-10-03, differently: see below.
 **Trigger concurrency control was deliberately NOT turned on**: Microsoft documents it as
 irreversible, and with it on only 10 + the parallel count can wait, so a 32-request burst could
 drop requests. Decide separately.
+
+**28 SUB-PHASES WERE NEVER CREATED, AND THE 10-01 READING OF THE FAILURE WAS WRONG. Found and
+repaired 2026-10-03.** All 32 builds finished by 10-02 17:38 UTC: 16 Done, **16 Failed, every one on
+the short-span path** (`Set_status_failed_span` + `Send_span_failure_email` + `Terminate_failed_span`).
+In `D2 - New Pool`, `Create_assignment`, its tasks, `Merge_task_total` and `Set_cursor_next` sat in the
+**else** branch of `Condition_span_incomplete`, so a short span skipped the sub-phase outright: no
+Assignment, no Tasks, and the cursor stayed put, so the next sub-phase took its place on the calendar.
+The 16 projects held 42 to 45 rows each, **28 sub-phases and 144 tasks missing**. The planner showed
+each gap as an undated row, which nothing flagged.
+
+How it was found: a planner change to treat a stale stored `ScheduledFinish` as a Save correction was
+built and tested first, then measured against live before deploy. It found **0 drifted rows in
+1,536**, because the "short" rows did not exist. That code was discarded. **Measure a fix against
+live data before deploying it**: the measurement is what showed the premise was wrong.
+
+Repair, all verified by reading the rows back:
+- **28 Assignments and 144 Tasks inserted** through a temporary request-trigger proxy (D2 Bot,
+  SharePoint REST, `odata=verbose`) using **the exact body `Create_assignment` and `Create_task`
+  send**, values from `Sub-phase Template` and `Task Template`, crew per the request's
+  `AssignDefaultCrews`. Each planned body was first cross-checked field by field against the row
+  New Pool wrote for the same sub-phase in a project that built: **0 differences**. Ids 2328-2355.
+- **Reflowed in the planner** (`reflowFrom` from each project's first inserted row; locked/signed
+  rows none) and **saved through the normal Save path**: 373 sub-phases, start + finish, suppression
+  stamped, 0 refused.
+- Read-back: **1,564 assignments, 46 in every one of 34 projects, 10,030 tasks = 34 x 295, 0
+  orphans**; every finish equals start + days on the work calendar; the sequence chain is unbroken in
+  all 34; nothing outside the 16 changed; no crew changed anywhere.
+- The 16 request rows set to **Done**, Result "Created <no>: 46 sub-phases, 295 tasks, <from> to
+  <to>. Sub-phase(s) <list> added on 2026-10-03." Proxy flow deleted afterwards.
+- Pre-existing and left alone: `26-2065`'s `Jobs.StartDate` is Sunday 2026-11-01 while its first
+  sub-phase starts Monday 11-02.
+
+**`D2 - New Pool` now always creates every sub-phase** (`flows/scripts/new_pool_always_create.py`,
+applied by `2026-10-03-new-pool-always-create.py`, test `test_new_pool_always_create.py`). The six
+actions run after the If on either branch. On a short span the row is written with the work days
+actually found as `DurationDays`, so start, duration and finish agree and the planner shows it as
+stored; with no day found the dates are written `null` (an empty string is rejected). The cursor goes
+through a new `Compose_cursor_next` (a SetVariable reading its own variable fails save). Every short
+sub-phase is listed (`AppendToStringVariable`), and the email says to set each back to its planned
+days in the planner. The request still ends Failed on a short span.
 
 **`az` had lost the D2 account entirely** (only Tennetech cached), so `az account set` cannot fix
 it; `az login --tenant f24d9b39-... --allow-no-subscriptions` with Shane picking

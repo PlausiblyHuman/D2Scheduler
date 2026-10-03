@@ -27,7 +27,8 @@ ok('the request still ends Failed', '"Status\\":\\"Failed\\"' in json.dumps(find
 ok('nothing else changed', json.dumps({k: v for k, v in before.items() if k not in ('Apply_to_each_subphase', 'Condition_short_scheduled')}, sort_keys=True)
    == json.dumps({k: v for k, v in A.items() if k not in ('Apply_to_each_subphase', 'Condition_short_scheduled')}, sort_keys=True))
 newest = load(EXPORTS[-1])
-if 'P1D' in json.dumps(newest):
+# Only while the newest export is still the 10-01 shape; new_pool_always_create (2026-10-03) supersedes it.
+if 'P1D' in json.dumps(newest) and 'else' in newest['Apply_to_each_subphase']['actions']['Condition_span_incomplete']:
     strip = lambda x: json.loads(json.dumps(x).replace('"authentication": "@parameters(\'$authentication\')", ', ''))
     ok('published flow equals what the builder produces (no drift)', strip(newest) == strip(A))
 sys.exit(1 if fails else 0)
