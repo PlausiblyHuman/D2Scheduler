@@ -2853,6 +2853,11 @@ stored; with no day found the dates are written `null` (an empty string is rejec
 through a new `Compose_cursor_next` (a SetVariable reading its own variable fails save). Every short
 sub-phase is listed (`AppendToStringVariable`), and the email says to set each back to its planned
 days in the planner. The request still ends Failed on a short span.
+**Verified live 2026-10-03 on the normal path** with a throwaway `TEST-9800` (PM D2 Bot, default crews
+off): Done in about 7 minutes, 46 sub-phases, 295 tasks, every finish equal to start + days, sequence
+chain unbroken. Removed through Delete Pool and both request rows deleted. The short path itself is
+covered offline only: the test renders the Create_assignment body for a full, short and empty span and
+parses each as JSON. A short span needs a timeout to occur, so it was not provoked live.
 
 **`az` had lost the D2 account entirely** (only Tennetech cached), so `az account set` cannot fix
 it; `az login --tenant f24d9b39-... --allow-no-subscriptions` with Shane picking
