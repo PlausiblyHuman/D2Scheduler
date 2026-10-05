@@ -3,7 +3,10 @@
  * Companion to capture-planner-screens.js, which does the tabs. This does the
  * things only reachable by clicking: the sub-phase panel, the Save preview, the
  * + Job form, the Activate dialog, the Auto-Schedule summary and its rules list,
- * and the Jobs tab with a Planned pool so Activate is visible at all.
+ * and the Jobs tab with a Planned pool so Activate is visible at all. Since
+ * 2026-10-05 also Schedule Check collapsed and opened, a Board row opened for
+ * editing, the ready-to-complete banner, Completed projects, and a completed
+ * project opened read only.
  *
  *   node tools/capture-planner-drawers.js <outputDir>
  *
@@ -117,6 +120,37 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
  await shotEl('#dBody .fld:last-child','autorules',600);
  await unclip(false);
  await ev("undoAutoSchedule();'ok'");
+
+ // Guide v9 states. Re-import first so the Save-preview edits above are gone.
+ await ev(`localStorage.clear();S.jobs=[];importFromD2Payload(${JSON.stringify(payload)},true);UI.chkOpen=false;TAB='board';render();'ok'`);
+ await ev(`document.querySelector('[data-t="board"]').click();'ok'`);await sleep(600);
+
+ // 7-8. Schedule Check, collapsed (the default) and opened.
+ await shotEl('#main details.chk','check-collapsed',120);
+ await ev("UI.chkOpen=true;render();'ok'");await sleep(400);
+ await shotEl('#main details.chk','check-expanded',620);
+ await ev("UI.chkOpen=false;render();'ok'");await sleep(300);
+
+ // 9. A Board row opened for editing: crew, days and start in place.
+ await ev(`(()=>{const tl=document.querySelector('#main .tl');
+   const tr=[...tl.querySelectorAll('tbody tr')].find(r=>r.querySelector('button[data-ic=crew]'));
+   const head=tl.querySelector('thead').getBoundingClientRect().height;
+   tl.scrollTop=Math.max(0,tr.offsetTop-head-60); tr.querySelector('button[data-ic=crew]').click();
+   document.activeElement&&document.activeElement.blur(); return 1;})()`);await sleep(300);
+ await shotEl('#main .tl','inline-edit',300);
+
+ // 10. Jobs tab: a fully signed Active project offered Mark complete, with Completed projects open.
+ await ev(`(()=>{S.completedJobs=[{id:99,jobno:'D2-0999',name:'Finished Residence',pm:'Cody Campbell',completedOn:'2026-09-30T15:00:00Z'}];
+   const j=S.jobs.find(x=>x.status==='Active');allSecs(j).forEach(({s})=>{s.inst=true;});TAB='jobs';render();
+   document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.t==='jobs'));
+   const d=document.querySelector('#main [data-completed]');if(d)d.open=true;return 1;})()`);await sleep(500);
+ await shotEl('#main [data-ready-banner]','ready-banner',160);
+ await shotEl('#main [data-completed]','completed',260);
+
+ // 11. A completed project opened read only on the Board.
+ await ev(`(()=>{const j=S.jobs[0];j.readOnly=true;UI.boardJob=j.id;TAB='board';render();
+   document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.t==='board'));return 1;})()`);await sleep(500);
+ await shotEl('#main .card','readonly',140);
 
  await c.send('Page.close').catch(()=>{});c.close();
 })().catch(e=>{console.error('ERR',e.message);process.exit(1)});
