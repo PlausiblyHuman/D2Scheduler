@@ -34,8 +34,8 @@ nav button.on{background:#fff;color:var(--navy);font-weight:600}
 .btn:disabled:hover{background:inherit}
 main{padding:12px 14px 60px}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;margin-bottom:12px;overflow:hidden}
-.card > h2{margin:0;font-size:12.5px;padding:9px 13px;border-bottom:1px solid var(--line);background:#fbf9f5;font-weight:600;font-family:Poppins,"Segoe UI",sans-serif;letter-spacing:.3px;text-transform:uppercase;color:var(--navy);display:flex;align-items:center;gap:8px}
-.card > h2 .sp{flex:1}
+.card > h2,.card > details > summary > h2{margin:0;font-size:12.5px;padding:9px 13px;border-bottom:1px solid var(--line);background:#fbf9f5;font-weight:600;font-family:Poppins,"Segoe UI",sans-serif;letter-spacing:.3px;text-transform:uppercase;color:var(--navy);display:flex;align-items:center;gap:8px}
+.card > h2 .sp,.card > details > summary > h2 .sp{flex:1}
 .pad{padding:13px}
 table{border-collapse:collapse;width:100%}
 th,td{text-align:left;padding:6px 9px;border-bottom:1px solid var(--line);vertical-align:middle}
@@ -132,6 +132,14 @@ tr.phrow .nm{background:#f8fafc;font-weight:650}
 .flag.err{background:#fef2f2;color:#7f1d1d}
 .flag.warn{background:#fffbeb;color:#78350f}
 .flag.ok{background:#f0fdf4;color:#14532d}
+details.chk>summary{list-style:none;cursor:pointer}
+details.chk>summary::-webkit-details-marker{display:none}
+details.chk>summary h2::before{content:"\25B8  ";color:var(--muted)}
+details.chk[open]>summary h2::before{content:"\25BE  "}
+.flag.grp .fix{font-size:11.5px;opacity:.85;margin-top:2px}
+.flag.grp .fix a{margin-left:8px;white-space:nowrap}
+.flag.grp details.all>summary{cursor:pointer;font-size:11px;margin-top:3px;opacity:.8}
+.flag-item{display:block;padding:3px 0 3px 12px;font-size:11.5px}
 .drawer{position:fixed;top:0;right:0;bottom:0;width:min(470px,100%);background:#fff;border-left:1px solid var(--line);box-shadow:-8px 0 30px rgba(0,0,0,.14);z-index:100;display:none;flex-direction:column}
 .drawer.open{display:flex}
 .drawer h3{margin:0;padding:11px 15px;border-bottom:1px solid var(--line);font-size:13.5px;display:flex;align-items:center;gap:8px;background:#fbf9f5}
@@ -817,14 +825,18 @@ function conflicts(){
          PM types into SharePoint, so it is the part that must be neutralised.
          Pinned by fixtures/planner/escaping.js. */
       const ref=`${esc(j.name)} › ${esc(s.num)} ${esc(s.name)}`;
-      if(!s.start){out.push({jobs:[j.jobno],lvl:'err',msg:`<b>${ref}</b> — not scheduled.`});return;}
+      /* kind, jobId and pos let checkGroups() fold the findings by root cause;
+         the Activate dialog and the counts read only jobs, lvl and msg. */
+      const at={kind:null,jobId:j.id,ref,pos:{gi,si}};
+      const add=(lvl,kind,msg,x)=>out.push(Object.assign({jobs:[j.jobno],lvl,msg},at,{kind},x||{}));
+      if(!s.start){add('err','unsched',`<b>${ref}</b> — not scheduled.`);return;}
       if(s.skill&&!s.crewId){const q=qualified(s.skill);
-        out.push({jobs:[j.jobno],lvl:'err',msg:`<b>${ref}</b> — no crew assigned${q.length?'':` and <u>no crew has the ${skillLabel(s.skill)} skill</u>`}.`});}
+        add('err','nocrew',`<b>${ref}</b> — no crew assigned${q.length?'':` and <u>no crew has the ${skillLabel(s.skill)} skill</u>`}.`);}
       if(s.skill&&s.crewId){const c=crew(s.crewId);
-        if(!c)out.push({jobs:[j.jobno],lvl:'err',msg:`<b>${ref}</b> — assigned crew no longer exists.`});
-        else if(!isQualified(c,s.skill))out.push({jobs:[j.jobno],lvl:'err',msg:`<b>${ref}</b> — ${esc(c.name)} is not qualified for ${skillLabel(s.skill)}.`});}
-      if(s.crewId==='unassigned')out.push({jobs:[j.jobno],lvl:'warn',msg:`<b>${ref}</b> — sitting in <b>Unassigned</b>. Give it Main Office, a Subcontractor, or a field crew.`});
-      if(prevEnd&&s.start<=prevEnd)out.push({jobs:[j.jobno],lvl:'err',msg:`<b>${ref}</b> — starts ${pretty(s.start)}, on or before the prior sub-phase ends (${pretty(prevEnd)}).`});
+        if(!c)add('err','gone',`<b>${ref}</b> — assigned crew no longer exists.`);
+        else if(!isQualified(c,s.skill))add('err','unqual',`<b>${ref}</b> — ${esc(c.name)} is not qualified for ${skillLabel(s.skill)}.`);}
+      if(s.crewId==='unassigned')add('warn','unassigned',`<b>${ref}</b> — sitting in <b>Unassigned</b>. Give it Main Office, a Subcontractor, or a field crew.`);
+      if(prevEnd&&s.start<=prevEnd)add('err','order',`<b>${ref}</b> — starts ${pretty(s.start)}, on or before the prior sub-phase ends (${pretty(prevEnd)}).`,{act:{jobId:j.id,gi,si}});
       const end=workSpan(s.start,s.days).pop();
       prevEnd=end;
       /* Installer sign-off only. `Assignments.PMSignOff` is written false once at
@@ -837,15 +849,13 @@ function conflicts(){
          downstream work starts on its original dates while the row in front of
          it visibly had not finished. Still a human decision, but one click from
          where the problem is already named. */
-      if(end<T&&!s.inst)out.push({jobs:[j.jobno],lvl:'warn',act:{jobId:j.id,gi,si},
-        msg:`<b>${ref}</b> — due to finish ${pretty(end)} and not signed off.`});
+      if(end<T&&!s.inst)add('warn','overdue',`<b>${ref}</b> — due to finish ${pretty(end)} and not signed off.`,{act:{jobId:j.id,gi,si},end});
       /* Warn, do not block. Don's rule is that every task is Done or N/A before a
          sign-off; enforcing that in the planner during the pilot would block PMs
          constantly, because task ticking is only just becoming possible here. So
          it is surfaced rather than prevented, and the count says how many. */
       if(s.inst){const tc=secCounts(s);const open=tc.n-(tc.done+tc.na);
-        if(open>0)out.push({jobs:[j.jobno],lvl:'warn',
-          msg:`<b>${ref}</b> — signed off with ${open} task${open===1?'':'s'} still unresolved.`});}
+        if(open>0)add('warn','opentasks',`<b>${ref}</b> — signed off with ${open} task${open===1?'':'s'} still unresolved.`);}
       const cc=s.crewId?crew(s.crewId):null;
       if(cc&&!cc.unlimited)workSpan(s.start,s.days).forEach(d=>{byDay[s.crewId]=byDay[s.crewId]||{};(byDay[s.crewId][d]=byDay[s.crewId][d]||[]).push({j,s});});
     });
@@ -856,7 +866,8 @@ function conflicts(){
       if(list.length<2)return;
       const k=list.map(x=>x.j.id+x.s.num).sort().join('|');
       if(seen.has(k))return;seen.add(k);
-      out.push({jobs:[...new Set(list.map(x=>x.j.jobno))],lvl:'err',msg:`<b>${crew(cid)?crew(cid).name:cid}</b> double-booked ${pretty(d)}: ${list.map(x=>esc(x.j.name)+' ('+esc(x.s.num)+' '+esc(x.s.name)+')').join(' vs ')}.`});
+      out.push({jobs:[...new Set(list.map(x=>x.j.jobno))],lvl:'err',kind:'double',crewId:cid,day:d,skills:list.map(x=>x.s.skill).filter(Boolean),
+        msg:`<b>${esc(crew(cid)?crew(cid).name:cid)}</b> double-booked ${pretty(d)}: ${list.map(x=>esc(x.j.name)+' ('+esc(x.s.num)+' '+esc(x.s.name)+')').join(' vs ')}.`});
     });
   });
   for(let a=0;a<S.crews.length;a++)for(let b=a+1;b<S.crews.length;b++){
@@ -872,7 +883,7 @@ function conflicts(){
     if(!both.length)continue;
     const da=byDay[A.id]||{},db=byDay[B.id]||{};
     const clash=Object.keys(da).filter(d=>db[d]).sort();
-    if(clash.length)out.push({lvl:'warn',msg:`<b>${both.join(', ')}</b> is on both ${A.name} and ${B.name}, and both crews work ${clash.length} of the same day(s) — first ${pretty(clash[0])}. Confirm these are different people.`});
+    if(clash.length)out.push({lvl:'warn',kind:'shared',msg:`<b>${esc(both.join(', '))}</b> is on both ${esc(A.name)} and ${esc(B.name)}, and both crews work ${clash.length} of the same day(s) — first ${pretty(clash[0])}. Confirm these are different people.`});
   }
   return out;
 }
@@ -1014,15 +1025,90 @@ function positionTimeline(){
   tl.scrollLeft=Math.max(0,t.getBoundingClientRect().height>0?t.offsetLeft-nmW-day*3:(+t.dataset.idx-3)*day);
   UI.tlScroll[TAB]={left:tl.scrollLeft,top:0};
 }
+/* SCHEDULE CHECK, FOLDED BY ROOT CAUSE. On 34 real projects the card listed
+   1,679 findings, nearly all of them a few causes repeated: a project started in
+   the past with nothing signed (one line per sub-phase), the same field-
+   supervision rows in Unassigned on every project, one crew holding a whole
+   trade. A project's findings of one kind stem from its FIRST one (everything
+   after a slipped sub-phase is late because of it), so each group names that
+   root and the fix for it, with every item one click further in. */
+function checkGroups(list){
+  const by=new Map();
+  list.forEach(x=>{
+    const kind=x.kind||'other';
+    const key=kind==='double'?'double|'+x.crewId:(kind==='unassigned'||kind==='shared'||!x.jobId)?kind:kind+'|'+x.jobId;
+    if(!by.has(key))by.set(key,{key,kind,lvl:x.lvl,jobId:kind==='double'||kind==='unassigned'?null:(x.jobId||null),crewId:x.crewId||null,items:[]});
+    const g=by.get(key); g.items.push(x); if(x.lvl==='err')g.lvl='err';
+  });
+  const groups=[...by.values()];
+  groups.forEach(g=>{g.root=g.items[0];Object.assign(g,checkText(g));});
+  return groups.sort((a,b)=>(a.lvl==='err'?0:1)-(b.lvl==='err'?0:1)||b.items.length-a.items.length);
+}
+function checkText(g){
+  const n=g.items.length, r=g.root, j=g.jobId?S.jobs.find(x=>x.id===g.jobId):null;
+  const pl=(k,one,many)=>k+' '+(k===1?one:many);
+  const proj=j?`<b>${esc(j.name)}</b> <span class="muted mono">${esc(j.jobno||'')}</span>`:'';
+  const sec=r.ref?r.ref.split(' › ').slice(1).join(' › '):'';   // ref is already escaped
+  const push=r.act?` <a href="#" data-act="push" onclick="slipFromToday('${r.act.jobId}',${r.act.gi},${r.act.si});return false">Push from here →</a>`:'';
+  const projs=new Set(g.items.flatMap(x=>x.jobs||[])).size;
+  switch(g.kind){
+    case 'overdue': return {
+      title:`${proj}: ${pl(n,'sub-phase is','sub-phases are')} past finish and not signed off, starting with <b>${sec}</b> (due ${pretty(r.end)}).`,
+      fix:`If the work is done, sign it off. If it slipped, push from the first one to move the rest of the project. <a href="#" data-act="signoffs" onclick="openSignoffs('${g.jobId}');return false">Open in Sign-Offs →</a>${push}`};
+    case 'order': return {
+      title:`${proj}: ${pl(n,'sub-phase starts','sub-phases start')} before the one ahead of it ends, first <b>${sec}</b>.`,
+      fix:`Push from the first one to put the rest back in order.${push}`};
+    case 'double': {
+      const c=crew(g.crewId), days=new Set(g.items.map(x=>x.day)).size;
+      const freq={}; g.items.forEach(x=>(x.skills||[]).forEach(k=>{freq[k]=(freq[k]||0)+1;}));
+      const sk=Object.keys(freq).sort((a,b)=>freq[b]-freq[a]).slice(0,3);
+      const withAlt=[],noAlt=[];
+      sk.forEach(k=>{const o=qualified(k).filter(q=>q.id!==g.crewId).map(q=>esc(q.name));
+        if(o.length)withAlt.push(`${skillLabel(k)}: ${o.join(', ')}`);else noAlt.push(skillLabel(k));});
+      return {
+        title:`<b>${esc(c?c.name:g.crewId)}</b> double-booked on ${pl(days,'day','days')} across ${pl(projs,'project','projects')}.`,
+        fix:withAlt.length
+          ?`Other crews holding the trade, ${withAlt.join('; ')}. Move some of this work to them, or stagger the projects' start dates.`
+          :noAlt.length?`No other crew holds ${noAlt.join(' or ')}, so stagger the projects' start dates.`
+          :`Move some of this work to another crew, or stagger the projects' start dates.`};
+    }
+    case 'unassigned': return {
+      title:`${pl(n,'sub-phase','sub-phases')} sitting in <b>Unassigned</b> across ${pl(projs,'project','projects')}.`,
+      fix:'Give each one Main Office, a Subcontractor or a field crew, on the row or in its panel.'};
+    case 'unsched': return {title:`${proj}: ${pl(n,'sub-phase is','sub-phases are')} not scheduled, first <b>${sec}</b>.`,
+      fix:'Give it a start on the row, or reset the project from a new start on the Jobs tab.'};
+    case 'nocrew': return {title:`${proj}: ${pl(n,'sub-phase has','sub-phases have')} no crew, first <b>${sec}</b>.`,fix:'Pick a crew on the row.'};
+    case 'unqual': return {title:`${proj}: ${pl(n,'sub-phase has','sub-phases have')} a crew not qualified for the trade, first <b>${sec}</b>.`,
+      fix:'Pick a crew from the Qualified list on the row.'};
+    case 'gone': return {title:`${proj}: ${pl(n,'sub-phase is','sub-phases are')} assigned to a crew that no longer exists, first <b>${sec}</b>.`,fix:'Pick a crew on the row.'};
+    case 'opentasks': return {title:`${proj}: ${pl(n,'sub-phase is','sub-phases are')} signed off with tasks still unresolved, first <b>${sec}</b>.`,
+      fix:'Mark the open tasks Done or N/A in the checklist.'};
+    case 'shared': return {title:n===1?r.msg:`${n} pairs of crews share a member on the same days.`,
+      fix:'Confirm these are different people, or correct the roster on the Crews tab.'};
+    default: return {title:r.msg,fix:''};
+  }
+}
+function openSignoffs(jobId){
+  UI.signoffJob=jobId; TAB='signoff';
+  document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.t==='signoff'));
+  render();
+}
+function chkToggle(el){(UI.chkGrp=UI.chkGrp||{})[el.dataset.key]=el.open;}
+/* Collapsed by default: the summary line carries the counts, and opening it is
+   remembered until the page is reloaded. */
 function flagsCard(){
-  const c=conflicts(),e=c.filter(x=>x.lvl==='err'),w=c.filter(x=>x.lvl==='warn');
-  const show=[...e,...w].slice(0,40);
-  return `<div class="card"><h2>Schedule Check<span class="sp"></span>
-    <span class="${e.length?'err-txt':'ok-txt'}">${e.length} error${e.length===1?'':'s'}</span>
-    <span class="muted small">· ${w.length} warning${w.length===1?'':'s'}</span></h2>
-    ${show.length?show.map(x=>`<span class="flag ${x.lvl}">${x.msg}${x.act?` <a href="#" onclick="slipFromToday('${x.act.jobId}',${x.act.gi},${x.act.si});return false">Push from here →</a>`:''}</span>`).join(''):
-      `<span class="flag ok">Every sub-phase has a qualified crew, no crew is double-booked, and all sub-phases run in order.</span>`}
-    ${c.length>40?`<span class="flag muted">…and ${c.length-40} more.</span>`:''}</div>`;
+  const c=conflicts(), e=c.filter(x=>x.lvl==='err').length, w=c.length-e, groups=checkGroups(c), CAP=200;
+  const head=`<summary><h2>Schedule Check<span class="sp"></span>${c.length
+      ?`<span class="${e?'err-txt':'ok-txt'}">${e} error${e===1?'':'s'}</span>
+        <span class="muted small">· ${w} warning${w===1?'':'s'} · ${groups.length} issue${groups.length===1?'':'s'}</span>`
+      :'<span class="ok-txt">All clear</span>'}</h2></summary>`;
+  const body=groups.length?groups.map(g=>{
+    const its=g.items, open=UI.chkGrp&&UI.chkGrp[g.key];
+    return `<div class="flag ${g.lvl} grp" data-kind="${g.kind}"><div>${g.title}</div>${g.fix?`<div class="fix">${g.fix}</div>`:''}${its.length>1
+      ?`<details class="all" data-key="${esc(g.key)}" ${open?'open':''} ontoggle="chkToggle(this)"><summary>Show all ${its.length}</summary>${
+          its.slice(0,CAP).map(x=>`<span class="flag-item">${x.msg}</span>`).join('')}${its.length>CAP?`<span class="flag-item muted">…and ${its.length-CAP} more.</span>`:''}</details>`:''}</div>`;
+  }).join(''):`<span class="flag ok">Every sub-phase has a qualified crew, no crew is double-booked, and all sub-phases run in order.</span>`;
+  return `<div class="card"><details class="chk" ${UI.chkOpen?'open':''} ontoggle="UI.chkOpen=this.open">${head}${body}</details></div>`;
 }
 const legend=()=>`<div class="legend">${S.crews.map(c=>`<span><i style="background:${crewColor(c.id)}"></i>${esc(c.name)} <span class="muted">(${sizeTxt(c)})</span></span>`).join('')}
   <span><i style="background:#94a3b8"></i>Office / sub — no crew</span><span class="muted">INST = installer sign-off · PM = project manager sign-off</span></div>`;

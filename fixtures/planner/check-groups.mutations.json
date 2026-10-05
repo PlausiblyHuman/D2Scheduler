@@ -1,0 +1,72 @@
+[
+ {
+  "label": "every finding its own group",
+  "find": "const key=kind==='double'?'double|'+x.crewId:(kind==='unassigned'||kind==='shared'||!x.jobId)?kind:kind+'|'+x.jobId;",
+  "replace": "const key=kind+'|'+x.jobId+'|'+(x.pos?x.pos.gi+'.'+x.pos.si:'')+'|'+(x.day||'');"
+ },
+ {
+  "label": "Unassigned grouped per project",
+  "find": "(kind==='unassigned'||kind==='shared'||!x.jobId)?kind:",
+  "replace": "(kind==='shared'||!x.jobId)?kind:"
+ },
+ {
+  "label": "root is the last finding, not the first",
+  "find": "groups.forEach(g=>{g.root=g.items[0];",
+  "replace": "groups.forEach(g=>{g.root=g.items[g.items.length-1];"
+ },
+ {
+  "label": "groups not sorted",
+  "find": "return groups.sort((a,b)=>(a.lvl==='err'?0:1)-(b.lvl==='err'?0:1)||b.items.length-a.items.length);",
+  "replace": "return groups;"
+ },
+ {
+  "label": "larger groups not first",
+  "find": "(a.lvl==='err'?0:1)-(b.lvl==='err'?0:1)||b.items.length-a.items.length",
+  "replace": "(a.lvl==='err'?0:1)-(b.lvl==='err'?0:1)||a.items.length-b.items.length"
+ },
+ {
+  "label": "card open by default",
+  "find": "<details class=\"chk\" ${UI.chkOpen?'open':''}",
+  "replace": "<details class=\"chk\" open"
+ },
+ {
+  "label": "opening the card not remembered",
+  "find": "ontoggle=\"UI.chkOpen=this.open\"",
+  "replace": "ontoggle=\"\""
+ },
+ {
+  "label": "double fix offers the booked crew itself",
+  "find": "qualified(k).filter(q=>q.id!==g.crewId)",
+  "replace": "qualified(k)"
+ },
+ {
+  "label": "double fix never says stagger when no crew has the trade",
+  "find": ":noAlt.length?`No other crew holds",
+  "replace": ":false?`No other crew holds"
+ },
+ {
+  "label": "crew name unescaped in a double-booking message",
+  "find": "<b>${esc(crew(cid)?crew(cid).name:cid)}</b> double-booked",
+  "replace": "<b>${crew(cid)?crew(cid).name:cid}</b> double-booked"
+ },
+ {
+  "label": "crew name unescaped in a double-booking group",
+  "find": "<b>${esc(c?c.name:g.crewId)}</b> double-booked on",
+  "replace": "<b>${c?c.name:g.crewId}</b> double-booked on"
+ },
+ {
+  "label": "Open in Sign-Offs ignores the project",
+  "find": "  UI.signoffJob=jobId; TAB='signoff';",
+  "replace": "  TAB='signoff';"
+ },
+ {
+  "label": "no Push from here on a group",
+  "find": "const push=r.act?",
+  "replace": "const push=false?"
+ },
+ {
+  "label": "no All clear when nothing is wrong",
+  "find": ":'<span class=\"ok-txt\">All clear</span>'}",
+  "replace": ":''}"
+ }
+]
