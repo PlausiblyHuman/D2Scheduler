@@ -2943,8 +2943,15 @@ too. Launch with `--window-size=1600,1000`; it also needs `web/` served on port 
 
 Plan `docs/superpowers/plans/2026-10-01-spec-a-complete-projects-live-reads.md`; every decision is
 in its ledger rulings. Tasks 1-10 built, independently reviewed (2 Critical, 5 Important, all
-fixed) and deployed. **Task 11's live check on a throwaway project is still owed**, once Don's 32
-builds finish (New Pool is throttled behind them).
+fixed) and deployed. **Task 11 VERIFIED LIVE 2026-10-05** on throwaway `TEST-9900` (Jobs 68, D2
+Bot, default crews off, New Pool 11 min), every step read back from SharePoint: 46 sign-offs saved
+with person 7 and time; Activate; Mark complete wrote `Status = Complete`, took it off the Board and
+into Completed projects; Open showed the read-only banner with 0 edit controls, all 108 sign-off
+boxes disabled and nothing in either Save set; Reopen wrote `Active` and put it back; a second
+Mark complete then Refresh made **34 Assignments and 34 Tasks reads, none naming it**. The Active
+window sat between Calendar Sync runs, so no event was written (0 `CalendarEventId`). Deleted
+through Delete Pool Requests with `OverrideSignedOff`, both request rows removed, tenant read back
+at 34 / 1,564 / 10,030.
 
 - **Flows:** Counter Reconciliation reads per live project (see the Don section above). Crew Trade
   Check, Conflict Flag and Reschedule Pool's conflict sweep AND their Assignments read with a
