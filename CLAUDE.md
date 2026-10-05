@@ -2868,6 +2868,59 @@ it; `az login --tenant f24d9b39-... --allow-no-subscriptions` with Shane picking
 token, then fetch each `outputsLink` with no auth. `.../actions/<name>/repetitions` works for an
 action one loop deep and **500s for one nested two loops deep** (`Create_task` in New Pool).
 
+## THE BOARD AT DON'S SCALE: click-to-edit rows and a grouped Schedule Check — 2026-10-05 (`deploy/2026-10-05`)
+
+**The WP3-B inline controls made every Board redraw cost 2.9 s on Don's 34 projects.** Every
+unsigned row drew a live crew `<select>` (with its options), a number input and a date input: 4,692
+controls and 23,503 options on 1,564 rows. `render()` runs on every tick, crew change and edit. The
+demo pools never showed it because most of their rows were signed and drew text. Rows now draw
+crew, days and start as buttons sized like the controls; clicking one runs `icOpen`, which swaps
+**that row's cell only** for the live controls and focuses (and `showPicker()`s) the one clicked.
+Any redraw closes it again. Measured in plain Chrome on the live state: **2.9 s → 0.52 s** all
+projects, 0.21 s → 0.07 s one project. The Board's axis now spans only `boardJobs(true)`, so one
+project no longer draws Don's 590 work days, and changing the picker or status filter forgets
+`UI.tlScroll[TAB]` (it is pixels on the old axis).
+
+**HOW IT WAS FOUND, and the trap in it.** The 9-28 spike timed the Board on the demo pools; nothing
+had timed it on real data. Bisected by parsing the same HTML into a `<template>` (0.57 s) versus a
+live element (51 s), then stripping one control type at a time. **The Playwright MCP browser
+inflates DOM work about 25×** (its DevTools instrumentation costs per node): it reported 68-83 s
+redraws and a 97 s Refresh that were 2.9 s and ~14 s in a plain browser. Two consequences:
+*benchmark in a plain headless Chrome over CDP*, never in the MCP browser; and *never call
+`browser_snapshot` or click through the MCP on the full Board*, because the snapshot it takes after
+each action blocks the page for 30 s+ and times the call out. Drive it with `browser_evaluate`.
+
+**Schedule Check is collapsed by default and grouped by root cause.** On Don's data it listed
+1,679 findings; it now shows one summary line (counts, issue count) and, opened, **37 lines**.
+`conflicts()` tags each finding with `kind`, `jobId`, `ref` and `pos` (and `act` on out-of-order
+rows); the Activate dialog and the counts still read only `jobs`, `lvl` and `msg`. `checkGroups()`
+folds them: per project for past-due (rooted at the earliest, since everything after it follows),
+out-of-order, unscheduled, no crew, not qualified, crew gone and open tasks; **per crew** for
+double-bookings, whose fix names the other crews holding the trades involved
+(`qualified(skill)` minus the booked crew, or "No other crew holds X, so stagger the start dates");
+**one line across projects** for Unassigned. Errors first, then larger groups. Past-due lines link
+to Sign-Offs on that project (`openSignoffs`) and to Push from here on the root row. The card is a
+`<details>`; `UI.chkOpen` and `UI.chkGrp` remember what is open until reload.
+
+**Three escaping gaps closed in passing, all crew names:** `skillLabel()` returned a pseudo-trade's
+bucket crew name raw into six HTML sites (now escapes at construction); the double-booking message
+and the shared-member message both painted crew and member names raw. A single-item group shows no
+"Show all", so the card never painted that message; `check-groups.js` asserts on `conflicts()`
+itself, because the Activate dialog prints it.
+
+**STALE MUTATION ANCHORS ARE SILENT UNTIL SWEPT.** Two `inline-edit.mutations.json` entries had
+not applied since Spec A changed `!j.building` to `!frozen(j)` on 10-01; `mutate.py` reports
+NOT-APPLIED but only when someone runs it. Those two rules were unguarded for four days.
+Re-anchored. **When a refactor touches a guarded line, re-run that harness's sweep.**
+
+Harnesses: `inline-edit.js` 49 assertions / 18 mutations, new `check-groups.js` 27 / 14, all red;
+full suite (26) and shakedown (48) green. `tools/capture-planner-drawers.js` now also captures
+Schedule Check collapsed and opened, an opened row, the ready banner, Completed projects and the
+read-only banner (the Completed projects figure clips its Open/Reopen buttons at 1,440 px).
+
+**Not yet in the client guide:** click-to-edit, the grouped Schedule Check, Mark complete,
+Completed projects, job-number order.
+
 ## PROJECTS LIST IN JOB-NUMBER ORDER — asked for by Don, built 2026-10-01
 
 Don reads projects by job number, not by date. `S.jobs` is now kept sorted by `cmpJobNo` (on load
