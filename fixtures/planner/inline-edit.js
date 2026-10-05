@@ -1,7 +1,7 @@
-/* WP3-B: edit in place on the Job Board. Every editable sub-phase row carries a
- * crew dropdown, a days input and a start date input, always visible, so a
- * simple change no longer needs the drawer. In the real page with MSAL and
- * fetch stubbed.
+/* WP3-B: edit in place on the Job Board. Every editable sub-phase row carries
+ * its crew, days and start, drawn closed (as buttons) and opened in place with
+ * one click, so a simple change no longer needs the drawer. In the real page
+ * with MSAL and fetch stubbed.
  *
  * The rules pinned here, each watched red under mutate.py:
  *   - a change to days or start reflows THAT project from THAT row, the same
@@ -13,6 +13,10 @@
  *   - the crew dropdown keeps the drawer's Qualified / Not qualified split and
  *     escapes crew names
  *   - an inline edit marks the project edited and counts on Save
+ *   - the Board draws NO live dropdown or input until a row is opened, and
+ *     opening one does not redraw the Board (speed: 1,564 live rows cost 2.9 s
+ *     a redraw on 34 projects, 0.5 s closed)
+ *   - the Board's timeline spans only the projects it shows
  */
 const fs = require('fs');
 const path = require('path');
@@ -40,7 +44,7 @@ function boot(state) {
     .replace('<script src="writeback-core.js"></script>', inline('writeback-core.js'))
     .replace('<script src="graph-writeback.js"></script>', inline('graph-writeback.js'))
     .replace('</body>', `<script>window.__x=()=>{window.S=S;window.getUI=()=>UI;window.D2_GRAPH=D2_GRAPH;window.render=render;window.crew=crew;window.allSecs=allSecs;
-       window.divergedSecs=divergedSecs;window.nextWork=nextWork;window.workSpan=workSpan;window.qualified=qualified;
+       window.divergedSecs=divergedSecs;window.nextWork=nextWork;window.workSpan=workSpan;window.qualified=qualified;window.pretty=pretty;window.jobSpan=jobSpan;window.axis=axis;window.boardJobs=boardJobs;
        window.openSavePreview=openSavePreview;window.confirmSaveByPush=confirmSaveByPush;};</script><script>__x();</script></body>`);
   const errs = [];
   const vc = new VirtualConsole(); vc.on('jsdomError', e => errs.push(e.message));
@@ -74,7 +78,12 @@ const change = (w, el, v) => { el.value = v; el.dispatchEvent(new w.Event('chang
 // The Board row for a section: the <tr> whose name span carries the sub-phase number in bold.
 const rowFor = (w, j, s) => [...main(w).querySelectorAll('#main tbody tr')].find(tr => {
   const t = tr.querySelector('.t.sec'); return t && t.getAttribute('onclick') && t.getAttribute('onclick').includes(`'${j.id}'`) && t.querySelector('b') && t.querySelector('b').textContent === s.num; });
-const ctl = (tr, kind) => tr && tr.querySelector(`[data-ic="${kind}"]`);
+/* A row's controls are closed (buttons) until one is clicked, which opens that
+   row in place. ctl() opens on demand so the assertions below test the live
+   controls; closed() reads the button without opening it. */
+const closed = (tr, kind) => { const el = tr && tr.querySelector(`[data-ic="${kind}"]`); return el && el.tagName === 'BUTTON' ? el : null; };
+const ctl = (tr, kind) => { const b = closed(tr, kind); if (b) b.click(); return tr && tr.querySelector(`[data-ic="${kind}"]`); };
+const liveControls = w => main(w).querySelectorAll('tbody select, tbody input[type=number], tbody input[type=date]').length;
 
 (async () => {
   const state = { req: [], patches: [] };
@@ -91,6 +100,46 @@ const ctl = (tr, kind) => tr && tr.querySelector(`[data-ic="${kind}"]`);
   const adjacent = rows.filter((o, i) => !o.s.locked && !o.s.inst && rows[i + 1] && !rows[i + 1].s.locked && !rows[i + 1].s.inst);
   const a = adjacent[0], b = adjacent[1], c = editable[editable.length - 1];
   const lockedRow = rows.find(o => o.s.locked || o.s.inst);
+
+  // ---------- closed until clicked (speed: a live <select> per row cost about a
+  // minute to draw on 34 projects; the Board must draw none until a row opens) ----------
+  {
+    ok('until a row is opened, the Board draws no dropdown, days or date input', liveControls(w) === 0, 'live=' + liveControls(w));
+    const tr = rowFor(w, j, a.s);
+    const cn = a.s.crewId ? w.crew(a.s.crewId).name : null;
+    ok('a closed row shows its crew as text', closed(tr, 'crew') && closed(tr, 'crew').textContent.trim() === (cn || '— Unassigned —'), closed(tr, 'crew') && closed(tr, 'crew').textContent);
+    ok('a closed row shows its days', closed(tr, 'days') && closed(tr, 'days').textContent.trim() === String(a.s.days));
+    ok('a closed row shows its start', closed(tr, 'start') && closed(tr, 'start').textContent.trim() === w.pretty(a.s.start), closed(tr, 'start') && closed(tr, 'start').textContent);
+    const other = [...main(w).querySelectorAll('#main tbody tr')].find(r => r !== tr && closed(r, 'crew'));
+    other.setAttribute('data-probe', '1');
+    closed(tr, 'crew').click();
+    const sel = tr.querySelector('select[data-ic="crew"]');
+    ok('clicking the crew opens that row in place, with the crew selected', !!sel && sel.value === (a.s.crewId || ''), sel && sel.value);
+    ok('and focuses the dropdown', !!sel && w.document.activeElement === sel);
+    ok('only that row opens', liveControls(w) === 3, 'live=' + liveControls(w));
+    ok('opening a row does not redraw the Board', other.isConnected && other.getAttribute('data-probe') === '1' && !!closed(other, 'crew'));
+    const tr2 = rowFor(w, j, b.s); closed(tr2, 'days').click();
+    ok('clicking days opens the days input focused', w.document.activeElement === tr2.querySelector('input[data-ic="days"]'));
+    w.render();
+    ok('a redraw closes every row again', liveControls(w) === 0, 'live=' + liveControls(w));
+    const probeCrew = w.S.crews.find(c => c.id === a.s.crewId) || w.S.crews[0];
+    const keepCrew = a.s.crewId, wasName = probeCrew.name; a.s.crewId = probeCrew.id; probeCrew.name = '</button><svg id="xss-probe">';
+    w.render();
+    ok('a hostile crew name is escaped on a closed row', !main(w).querySelector('#xss-probe') && closed(rowFor(w, j, a.s), 'crew').textContent.includes('<svg'));
+    probeCrew.name = wasName; a.s.crewId = keepCrew; w.render();
+  }
+
+  // ---------- the timeline spans only the projects shown ----------
+  {
+    const all = main(w).querySelectorAll('#main .tl th.dn').length;
+    w.getUI().boardJob = j.id; w.render();
+    const one = main(w).querySelectorAll('#main .tl th.dn').length;
+    const [js, je] = w.jobSpan(j);
+    const days = main(w).querySelectorAll('#main .tl th.dn');
+    ok('picking one project narrows the timeline to it', one > 0 && one < all, one + ' of ' + all);
+    ok('and the narrowed timeline still covers the project', days.length && w.axis(w.boardJobs(true)).days[0] <= js && w.axis(w.boardJobs(true)).days.slice(-1)[0] >= je);
+    w.getUI().boardJob = ''; w.render();
+  }
 
   // ---------- presence ----------
   {

@@ -1,12 +1,12 @@
 [
  {
   "label": "controls rendered on locked and signed rows too",
-  "find": "function inlineEditable(j,s){ return !j.building && !s.skip && !s.locked && !s.inst; }",
-  "replace": "function inlineEditable(j,s){ return !j.building && !s.skip; }"
+  "find": "function inlineEditable(j,s){ return !frozen(j) && !s.skip && !s.locked && !s.inst; }",
+  "replace": "function inlineEditable(j,s){ return !frozen(j) && !s.skip; }"
  },
  {
   "label": "controls rendered on a building project",
-  "find": "function inlineEditable(j,s){ return !j.building && !s.skip && !s.locked && !s.inst; }",
+  "find": "function inlineEditable(j,s){ return !frozen(j) && !s.skip && !s.locked && !s.inst; }",
   "replace": "function inlineEditable(j,s){ return !s.skip && !s.locked && !s.inst; }"
  },
  {
@@ -58,5 +58,35 @@
   "label": "Save sends no finish with a start or days change",
   "find": ",\n    finishFor:(st,d)=>workSpan(st,d).pop()});",
   "replace": "});"
+ },
+ {
+  "label": "every row drawn with live controls",
+  "find": "  if(!live){\n    const c=s.crewId",
+  "replace": "  if(false){\n    const c=s.crewId"
+ },
+ {
+  "label": "opening a row redraws the whole Board",
+  "find": "  box.innerHTML=inlineControls(j,gi,si,s,fin,true);",
+  "replace": "  render();"
+ },
+ {
+  "label": "the opened control is not focused",
+  "find": "  c.focus();\n",
+  "replace": "\n"
+ },
+ {
+  "label": "closed crew label unescaped",
+  "find": "${esc(c?c.name:'— Unassigned —')}</button>",
+  "replace": "${c?c.name:'— Unassigned —'}</button>"
+ },
+ {
+  "label": "Board timeline spans every project",
+  "find": "const shown=boardJobs(true), ax=axis(shown);",
+  "replace": "const shown=boardJobs(true), ax=axis();"
+ },
+ {
+  "label": "pseudo-trade label unescaped",
+  "find": "if(FIXED[id]){const c=fixedCrew(id);return esc(c?c.name:id);}",
+  "replace": "if(FIXED[id]){const c=fixedCrew(id);return c?c.name:id;}"
  }
 ]

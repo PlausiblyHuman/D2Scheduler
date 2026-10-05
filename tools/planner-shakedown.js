@@ -124,15 +124,16 @@ const ok=(label,cond,detail='')=>{console.log((cond?'PASS':'FAIL')+' · '+label+
  // days change reflows the rows below it; the dates column still lines up.
  const icRows=await ev("document.querySelectorAll('#main tbody tr .dt.ic-row').length");
  ok('editable rows carry the inline controls', icRows>50, icRows+' rows');
+ ok('the board draws no live dropdown or input until a row is opened', await ev("document.querySelectorAll('#main tbody select, #main tbody input[type=number], #main tbody input[type=date]').length")===0);
  ok('every inline row has all three controls', await ev("[...document.querySelectorAll('#main tbody tr .dt.ic-row')].every(d=>d.querySelector('[data-ic=crew]')&&d.querySelector('[data-ic=days]')&&d.querySelector('[data-ic=start]'))")===true);
  const moved=await ev(`(()=>{const j=S.jobs[0];const list=allSecs(j).filter(o=>o.s.base&&o.s.start&&!o.s.skip);
    const i=list.findIndex((o,k)=>!o.s.locked&&!o.s.inst&&list[k+1]&&!list[k+1].s.locked&&!list[k+1].s.inst);
    if(i<0)return null;const a=list[i],b=list[i+1];const before=b.s.start;
    const tr=[...document.querySelectorAll('#main tbody tr')].find(t=>{const x=t.querySelector('.t.sec');return x&&x.getAttribute('onclick').includes("'"+j.id+"'")&&x.querySelector('b').textContent===a.s.num;});
-   const inp=tr.querySelector('[data-ic=days]');inp.value=String(a.s.days+3);inp.dispatchEvent(new Event('change'));
+   tr.querySelector('button[data-ic=days]').click();const inp=tr.querySelector('input[data-ic=days]');inp.value=String(a.s.days+3);inp.dispatchEvent(new Event('change'));
    const after=b.s.start;inp.value=String(a.s.base.days);
    const tr2=[...document.querySelectorAll('#main tbody tr')].find(t=>{const x=t.querySelector('.t.sec');return x&&x.getAttribute('onclick').includes("'"+j.id+"'")&&x.querySelector('b').textContent===a.s.num;});
-   const inp2=tr2.querySelector('[data-ic=days]');inp2.value=String(a.s.base.days);inp2.dispatchEvent(new Event('change'));
+   tr2.querySelector('button[data-ic=days]').click();const inp2=tr2.querySelector('input[data-ic=days]');inp2.value=String(a.s.base.days);inp2.dispatchEvent(new Event('change'));
    return {before,after,days:a.s.days};})()`);
  ok('changing days on a row moves the next row', moved&&moved.after>moved.before, JSON.stringify(moved));
  // Live / Planned / Both and the project picker are on the board.

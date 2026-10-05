@@ -84,6 +84,14 @@ select.ic{max-width:118px}
 input.ic[type=number]{width:46px}
 input.ic[type=date]{width:116px}
 .dt .fin{white-space:nowrap;color:var(--muted)}
+/* A closed row's controls are buttons drawn to the live controls' widths, so
+   opening a row does not shift the column. */
+button.icv{cursor:pointer;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:0 0 auto}
+button.icv:hover{border-color:#94a3b8;background:#f8fafc}
+button.icv[data-ic=crew]{width:118px}
+button.icv[data-ic=crew]::after{content:" ▾";color:var(--muted)}
+button.icv[data-ic=days]{width:46px;text-align:right}
+button.icv[data-ic=start]{width:116px}
 .sg label{font-size:9.5px;text-transform:uppercase;letter-spacing:.3px;color:var(--muted);display:flex;align-items:center;gap:2px;font-weight:650;cursor:pointer}
 .sg label.on{color:var(--ok)}
 .wk{font-size:10px;color:var(--muted);text-align:center;border-left:1px solid var(--line);font-weight:600;white-space:nowrap;padding:3px 0!important}
@@ -250,10 +258,12 @@ const SKILLS = [
   {id:'materials',  label:'Material Runs'},
   {id:'poolschool', label:'Pool School'}
 ];
+/* Escaped here, at construction: a pseudo-trade's label is its bucket crew's
+   name, which is per-browser data, and every caller paints it into HTML. */
 function skillLabel(id){
   if(!id)return '—';
-  if(FIXED[id]){const c=fixedCrew(id);return c?c.name:id;}
-  return (SKILLS.find(s=>s.id===id)||{}).label || '—';
+  if(FIXED[id]){const c=fixedCrew(id);return esc(c?c.name:id);}
+  return esc((SKILLS.find(s=>s.id===id)||{}).label || '—');
 }
 const PALETTE=['#2563eb','#0891b2','#7c3aed','#db2777','#ea580c','#16a34a','#ca8a04','#475569','#be123c','#0d9488','#4338ca','#a16207'];
 const SEED_CREWS = [
@@ -868,9 +878,11 @@ function conflicts(){
 }
 
 /* ============================== axis ============================== */
-function axis(){
+/* The timeline spans the projects it is given: the Board passes only the ones
+   it shows, so picking one project no longer draws every project's 18 months. */
+function axis(jobs=S.jobs){
   let min=null,max=null;
-  S.jobs.forEach(j=>{
+  jobs.forEach(j=>{
     if(!min||j.start<min)min=j.start;
     const [a,b]=jobSpan(j);
     if(a&&(!min||a<min))min=a; if(b&&(!max||b>max))max=b;
@@ -1027,10 +1039,10 @@ function boardJobs(withPick){
 function boardControls(withPick){
   const pick=boardPick(), st=UI.boardStatus||'both', z=(S.settings&&ZOOM_PX[S.settings.zoom])?S.settings.zoom:'day';
   const sty='style="text-transform:none;font-weight:400"';
-  return (withPick?`<select id="boardJob" ${sty} title="Show one project" onchange="UI.boardJob=this.value;render()"><option value="">All projects</option>${
+  return (withPick?`<select id="boardJob" ${sty} title="Show one project" onchange="UI.boardJob=this.value;delete UI.tlScroll[TAB];render()"><option value="">All projects</option>${
       S.jobs.map(j=>`<option value="${j.id}"${pick===j.id?' selected':''}>${esc(j.jobno||'')} ${esc(j.name)}</option>`).join('')}</select> `:'')
     +(withPick?jobSortControl():'')
-    +`<select id="boardStatus" ${sty} title="Planned projects, live ones, or both" onchange="UI.boardStatus=this.value;render()">
+    +`<select id="boardStatus" ${sty} title="Planned projects, live ones, or both" onchange="UI.boardStatus=this.value;delete UI.tlScroll[TAB];render()">
         <option value="both"${st==='both'?' selected':''}>Planned and live</option>
         <option value="live"${st==='live'?' selected':''}>Live only</option>
         <option value="planned"${st==='planned'?' selected':''}>Planned only</option></select> `
@@ -1045,8 +1057,8 @@ function openSchedule(jobId){
   render();
 }
 function vBoard(){
-  const ax=axis();
-  const rows=boardJobs(true).map(j=>{
+  const shown=boardJobs(true), ax=axis(shown);
+  const rows=shown.map(j=>{
     const [js,je]=jobSpan(j);
     const jbar=(js&&ax.idx[js]!=null)
       ? bandRow(ax,ax.idx[js],Math.max(1,(ax.idx[je]??ax.idx[js])-ax.idx[js]+1),`<div class="jobbar" style="background:#94a3b8"></div>`)
@@ -1106,13 +1118,26 @@ function vBoard(){
     <span class="muted small" style="text-transform:none">Change crew, days or start on the row; days or start reflows the rest of that project. Click a name or bar for lock, N/A and the checklist</span></h2>
     ${legend()}<div class="tl"><table><thead>${headHTML(ax)}</thead><tbody>${rows||'<tr><td class="pad muted">No projects match.</td></tr>'}</tbody></table></div></div>`;
 }
-/* Edit in place. A sub-phase row carries its own crew dropdown, days input
-   and start date input, always visible, so a simple change no longer needs the
-   drawer. Locked, signed-off, N/A and still-building rows show text: the
+/* Edit in place. A sub-phase row carries its own crew, days and start,
+   opened with one click on the row (see inlineControls), so a simple change no
+   longer needs the drawer. Locked, signed-off, N/A and still-building rows show text: the
    drawer is the only way into those, on purpose. The crew list keeps the
    drawer's Qualified / Not qualified split. */
 function inlineEditable(j,s){ return !frozen(j) && !s.skip && !s.locked && !s.inst; }
-function inlineControls(j,gi,si,s,fin){
+/* CLOSED UNTIL CLICKED, for speed. A live <select> with its options, a number
+   input and a date input on every row cost about a minute to draw on 34 projects
+   (1,564 editable rows, 23,503 options), and the Board redraws on every tick.
+   So a row shows its crew, days and start as buttons that look like the
+   controls; clicking one opens THAT row in place (icOpen) and focuses the
+   control clicked, without redrawing the Board. Any redraw closes it again. */
+function inlineControls(j,gi,si,s,fin,live){
+  if(!live){
+    const c=s.crewId?crew(s.crewId):null, a=`this,'${j.id}',${gi},${si}`;
+    return `<button type="button" class="ic icv" data-ic="crew" title="Crew for this sub-phase. Click to change." onclick="icOpen(${a},'crew')">${esc(c?c.name:'— Unassigned —')}</button>`
+      +`<button type="button" class="ic icv" data-ic="days" title="Days. Click to change; changing it reflows the rest of this project." onclick="icOpen(${a},'days')">${s.days}</button>`
+      +`<button type="button" class="ic icv" data-ic="start" title="Start. Click to change; changing it reflows the rest of this project." onclick="icOpen(${a},'start')">${pretty(s.start)}</button>`
+      +`<span class="fin" title="Finish, from the start and the days">→ ${s.start?pretty(fin):'—'}</span>`;
+  }
   const cands=s.skill?qualified(s.skill):[],other=S.crews.filter(c=>!cands.includes(c));
   const opt=c=>`<option value="${c.id}"${s.crewId===c.id?' selected':''}>${esc(c.name)}</option>`;
   return `<select class="ic" data-ic="crew" title="Crew for this sub-phase" onchange="inlineSet('${j.id}',${gi},${si},'crew',this.value)">
@@ -1122,6 +1147,19 @@ function inlineControls(j,gi,si,s,fin){
     +`<input class="ic" type="number" min="1" data-ic="days" title="Days. Changing it reflows the rest of this project." value="${s.days}" onchange="inlineSet('${j.id}',${gi},${si},'days',this.value)">`
     +`<input class="ic" type="date" data-ic="start" title="Start. Changing it reflows the rest of this project." value="${s.start||''}" onchange="inlineSet('${j.id}',${gi},${si},'start',this.value)">`
     +`<span class="fin" title="Finish, from the start and the days">→ ${s.start?pretty(fin):'—'}</span>`;
+}
+function icOpen(el,jobId,gi,si,k){
+  const j=S.jobs.find(x=>x.id===jobId), s=j&&j.groups[gi]&&j.groups[gi].sections[si];
+  const box=el.closest('.ic-row');
+  if(!s||!box||!inlineEditable(j,s)){render();return;}
+  const fin=(s.start&&s.days>0)?workSpan(s.start,s.days).pop():null;
+  box.innerHTML=inlineControls(j,gi,si,s,fin,true);
+  const c=box.querySelector(`[data-ic="${k}"]`); if(!c)return;
+  c.focus();
+  // Open the list or calendar on the same click. Needs the click's user
+  // activation, and not every browser has it, so it is best effort.
+  if(k!=='days'&&typeof c.showPicker==='function'){try{c.showPicker();}catch(e){}}
+  else if(k==='days'&&c.select)c.select();
 }
 /* A days or start change reflows THIS project from THIS row, the same walk as
    the drawer's Save + reflow: locked and signed-off rows stay, N/A rows are
