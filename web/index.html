@@ -1631,7 +1631,7 @@ function commentsHTML(j,s){
     ${writable?`<textarea id="fComment" rows="3" style="width:100%;margin-top:6px;font:inherit" placeholder="Add a comment, or say what is missing before rejecting"></textarea>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
         <button class="btn" onclick="queueComment()">Add comment</button>
-        ${s.inst?`<button class="btn" onclick="queueReject()" title="Clears the installer sign-off and records why. Saved when you press Save at the top.">Reject sign-off</button>`:''}
+        ${s.inst&&s.base&&s.base.inst?`<button class="btn" onclick="queueReject()" title="Clears the installer sign-off and records why. Saved when you press Save at the top.">Reject sign-off</button>`:''}
         ${s.rejected?`<button class="btn" onclick="queueResolve()" title="Marks the rejection dealt with. Saved when you press Save at the top.">Mark resolved</button>`:''}
       </div>
       <div class="small muted" style="margin-top:4px">Comments are saved when you press Save at the top.</div>`
@@ -1662,6 +1662,11 @@ function queueComment(){
   queueEntry('comment',b);
 }
 function queueReject(){
+  /* Only a sign-off SharePoint holds can be rejected. On a tick made here and not yet saved,
+     the reject was refused at Save ("no longer signed off"), held the sign-off back with it, and
+     sat queued for good (2026-10-10). Untick Installer instead and use Add comment. */
+  const sb=cur().base;
+  if(!sb||!sb.inst){alert('This sign-off is not saved yet, so there is nothing to reject. Untick Installer instead, and use Add comment for the note.');return;}
   const b=commentBox();
   if(!b){alert('A reason is required to reject a sign-off. Say what is missing.');return;}
   /* Un-tick Installer on screen straight away so the checklist unlocks for the
@@ -2011,30 +2016,55 @@ function readyToComplete(j){
 }
 /* Anything changed here on this project and not yet saved. Completing writes Status and
    Refreshes, which would discard it, so Mark complete asks for a Save first. This is what stops
-   a last INST tick, made here and not saved, from completing a project SharePoint holds unsigned. */
-function hasUnsaved(j){
-  const same=p=>String(p.jobno)===String(j.jobno);
-  return divergedSecs(j).length>0||buildSignoffSet().some(same)||buildRejectionSet().some(same)
-    ||buildJobStartChanges().some(same);
+   a last INST tick, made here and not saved, from completing a project SharePoint holds unsigned.
+   Queued comments and rejections are deliberately NOT counted: they live in S.pendingComments,
+   keyed by row id, and survive the reload, so nothing on the queue is at risk. Counting them let
+   one refused entry, which stays queued by design, block every Activate on every project
+   (2026-10-10, 25-2004). Mark complete checks the queue of its own project separately. */
+function unsavedWhere(j){
+  const same=p=>String(p.jobno)===String(j.jobno), at=new Set();
+  divergedSecs(j).forEach(s=>at.add(s.num));
+  /* A queued reject rides the sign-off set as a bare `rejecting` flag so its ticks can go with
+     it. The flag alone is the queue again, not a change on screen, so only real sign-off or tick
+     changes count here. */
+  buildSignoffSet().filter(same).forEach(p=>p.sections.forEach(s=>{
+    if(s.inst||s.pm||(s.tasks&&s.tasks.length))at.add(s.num);
+  }));
+  const nums=[...at].sort((a,b)=>String(a).localeCompare(String(b),undefined,{numeric:true}));
+  if(buildJobStartChanges().some(same))nums.push('start date');
+  return nums;
+}
+function hasUnsaved(j){ return unsavedWhere(j).length>0; }
+/* Entries waiting in the comment queue for this project, by sub-phase. */
+function queuedOn(j){
+  const nums=new Set((S.pendingComments||[]).filter(e=>String(e.jobno)===String(j.jobno)).map(e=>e.num));
+  return [...nums].sort((a,b)=>String(a).localeCompare(String(b),undefined,{numeric:true}));
 }
 /* Activate, Back to planning, Mark complete and Reopen each write Jobs.Status and then reload
    the whole schedule, which would throw away any change on screen not yet in SharePoint, on any
-   project. They stop and say so instead. Returns true when it stopped. */
-function stopForUnsaved(title,doing){
-  const unsaved=S.jobs.filter(hasUnsaved);
-  if(!unsaved.length)return false;
+   project. They stop and say so instead, naming the project and sub-phase, so nobody has to hunt
+   for it. `completing` is the project Mark complete is about to close: completing it would drop
+   anything queued on it, so its queue stops it too. Returns true when it stopped. */
+function stopForUnsaved(title,doing,completing){
+  const unsaved=S.jobs.map(j=>({j,at:unsavedWhere(j)})).filter(x=>x.at.length);
+  const queued=completing?queuedOn(completing):[];
+  if(!unsaved.length&&!queued.length)return false;
+  const where=unsaved.map(x=>esc(x.j.jobno)+': '+x.at.map(esc).join(', ')).join('; ');
   document.getElementById('dTitle').textContent=title;
   document.getElementById('dBody').innerHTML=
-    `<div class="hint" style="padding:0 0 11px"><strong>Save first.</strong> There are changes on this screen
-     that are not in SharePoint yet (${unsaved.map(x=>esc(x.jobno)).join(', ')}). ${doing} reloads the
-     schedule, which would lose them. Press Save, then try again.</div>`;
+    (unsaved.length?`<div class="hint" style="padding:0 0 11px"><strong>Save first.</strong> There are changes on this screen
+     that are not in SharePoint yet (${where}). ${doing} reloads the
+     schedule, which would lose them. Press Save, then try again.</div>`:'')
+    +(queued.length?`<div class="hint" style="padding:0 0 11px"><strong>Save first.</strong> There are comments or rejections
+     on this project waiting for Save (sub-phase ${queued.map(esc).join(', ')}). Completing it would drop them.
+     Press Save, or remove them in that sub-phase's panel, then try again.</div>`:'');
   document.getElementById('dFoot').innerHTML='<button class="btn" onclick="closeDrawer()">Close</button>';
   document.getElementById('drawer').classList.add('open');
   return true;
 }
 function completeProject(jobId){
   const j=S.jobs.find(x=>x.id===jobId); if(!j||!readyToComplete(j))return;
-  if(stopForUnsaved('Mark complete: '+(j.jobno||j.name),'Marking a project complete'))return;
+  if(stopForUnsaved('Mark complete: '+(j.jobno||j.name),'Marking a project complete',j))return;
   document.getElementById('dTitle').textContent='Mark complete: '+(j.jobno||j.name);
   document.getElementById('dBody').innerHTML=
       `<div class="hint" style="padding:0 0 11px">

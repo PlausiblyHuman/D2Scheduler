@@ -2868,6 +2868,44 @@ it; `az login --tenant f24d9b39-... --allow-no-subscriptions` with Shane picking
 token, then fetch each `outputsLink` with no auth. `.../actions/<name>/repetitions` works for an
 action one loop deep and **500s for one nested two loops deep** (`Create_task` in New Pool).
 
+## ONE STUCK REJECT BLOCKED EVERY ACTIVATE — found and fixed 2026-10-11
+
+**Don, 2026-10-10 (email "Scheduler"):** no project would activate; every attempt said "Save
+first ... (25-2004)", and Save and Refresh did not clear it. His saves were landing (seven projects
+written that afternoon; 25-2004 signed 45 of 46 in one save). The 46th, **7.0 Warranty & 30-Day
+Follow-Up**, had never been written, and the Sign-off Comments list held no rows at all.
+
+**Cause, reproduced against the real page code word for word:** Installer ticked on screen on 7.0,
+not saved; **Reject sign-off was offered on that unsaved tick** and pressed with a note (Don wanted
+to leave warranty open with a note). At Save rejections go first, so it was refused `not-signed`,
+and the queued reject also held back the sign-off itself (`rejecting` suppresses the INST change).
+A refused entry stays queued by design, `S.pendingComments` survives Refresh, and `hasUnsaved`
+counted it, on **every** project, through `stopForUnsaved`. One entry, every Activate, forever.
+
+**A clean-profile Refresh on live data showed 0 unsaved projects** — measure that first next time
+someone reports a stuck guard: if clean is clean, the cause is that browser's `localStorage`.
+
+**Fixed (`fixtures/planner/save-first.js`, 9 mutations red):**
+- Reject is offered, and `queueReject` accepts, only where `s.base.inst` is true (SharePoint holds
+  the sign-off). On an unsaved tick: untick Installer and use Add comment.
+- `hasUnsaved` no longer counts the comment queue, nor a section in the sign-off set carrying only
+  the bare `rejecting` flag. The queue survives the reload Activate/Back to planning/Reopen do, so
+  nothing on it is at risk.
+- **Mark complete still stops for an entry queued on its own project** (`stopForUnsaved(...,j)`,
+  `queuedOn`): completing would drop it, since `buildRejectionSet` skips projects not on screen.
+- The guard names project and sub-phase, and "start date" (`unsavedWhere`).
+
+**Don's existing stuck entry stays in his browser** and is reported as refused on each Save until he
+removes it: sub-phase 7.0, Comments, "remove". It no longer blocks anything.
+
+**Guide v9 is deferred to the next big release (Shane, 2026-10-11).** Not yet documented for the
+client: click-to-edit, grouped Schedule Check, Mark complete, Completed projects, job-number order,
+and this change. Don's 2026-10-10 email also asks for: punch-list items, notes per checklist item,
+a new 6.4 Equipment Gas hook-up with renumbering, PM-addable trades, a Phase 10 Specialty structures,
+per-project optional sub-phases (fence type, auto cover), archive/warranty tagging, and deleting or
+renaming a project. Four revised template workbooks were attached (Gunite Rev3, Fiberglass,
+Open Structures, Enclosed Structures). None of it is scoped yet.
+
 ## THE BOARD AT DON'S SCALE: click-to-edit rows and a grouped Schedule Check — 2026-10-05 (`deploy/2026-10-05`)
 
 **The WP3-B inline controls made every Board redraw cost 2.9 s on Don's 34 projects.** Every
@@ -2972,7 +3010,8 @@ at 34 / 1,564 / 10,030.
   Reopen. `frozen(j)` = building or read-only gates every edit path and every Save set.
 - **Activate, Back to planning, Mark complete and Reopen all refuse with "Save first"** when anything
   on screen is unsaved (`stopForUnsaved`), because each reloads the whole schedule after writing.
-  Activate and Back to planning gained this on Shane's call the same day.
+  Activate and Back to planning gained this on Shane's call the same day. **Since 2026-10-11 the
+  comment queue is not "unsaved"** (it survives the reload); see "ONE STUCK REJECT" above.
 - **Not yet in the client guide**: Mark complete, Completed projects, the job-number order.
 
 ## COMPLETING FINISHED PROJECTS — DECIDED 2026-09-28 by Shane (scale piece 5)

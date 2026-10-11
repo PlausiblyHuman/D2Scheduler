@@ -138,7 +138,7 @@
     },
     {
       "label": "Reject is offered on an unsigned sub-phase",
-      "find": "        ${s.inst?`<button class=\"btn\" onclick=\"queueReject()\"",
+      "find": "        ${s.inst&&s.base&&s.base.inst?`<button class=\"btn\" onclick=\"queueReject()\"",
       "replace": "        ${true?`<button class=\"btn\" onclick=\"queueReject()\""
     },
     {
