@@ -360,7 +360,6 @@ function tplFromPayload(phases){
     sections:(p.sections||[]).map((s,k)=>({id:'s'+i+'_'+k,num:s.num,name:s.name,skill:s.skill||null,days:s.days||2,tasks:(s.tasks||[]).slice()}))}));
 }
 /* The Phase Template tab edits the Gunite template in place; make sure it is stored so edits persist. */
-function gunTpl(){S.templates=S.templates||{};if(!S.templates.Gunite)S.templates.Gunite=mkTemplate();return S.templates.Gunite;}
 function mkJobGroups(tpl){
   return tpl.map(g=>({tid:g.id,num:g.num,name:g.name,inst:false,pm:false,
     sections:g.sections.map(s=>({sid:s.id,num:s.num,name:s.name,skill:s.skill,days:s.days,
@@ -1537,37 +1536,25 @@ function vCrews(){
 }
 
 function vPhases(){
-  return `<div class="card"><h2>D2 Gunite Build Phases<span class="sp"></span>
-    <button class="btn sm" onclick="setAllDays()">Set all durations…</button>
-    <button class="btn sm p" onclick="addPhase()">+ Phase</button></h2>
-  <table><thead><tr><th style="width:60px">#</th><th>Sub-phase</th><th style="width:180px">Required trade</th>
-    <th style="width:70px">Days</th><th style="width:60px">Tasks</th><th style="width:120px"></th></tr></thead><tbody>
-  ${gunTpl().map((g,gi)=>`
-    <tr class="phrow"><td><b>${g.num}.0</b></td>
-      <td><input value="${esc(g.name)}" onchange="setGrp(${gi},'name',this.value)" style="width:100%;font-weight:650"></td>
-      <td colspan="2" class="small muted">parent phase — rolls up its sub-phases</td>
-      <td class="small muted">${g.sections.reduce((a,s)=>a+s.tasks.length,0)}</td>
-      <td style="text-align:right"><button class="btn sm" onclick="addSection(${gi})">+ Sub</button>
-        <button class="btn sm d" onclick="delGrp(${gi})">✕</button></td></tr>
-    ${g.sections.map((s,si)=>`<tr>
-      <td class="small muted" style="padding-left:20px">${s.num}</td>
-      <td><input value="${esc(s.name)}" onchange="setSec(${gi},${si},'name',this.value)" style="width:100%"></td>
-      <td><select onchange="setSec(${gi},${si},'skill',this.value)">
-        <option value="">— No trade set —</option>
-        <optgroup label="Assign straight to">
-          ${Object.keys(FIXED).map(k=>`<option value="${k}"${s.skill===k?' selected':''}>${skillLabel(k)}</option>`).join('')}
-        </optgroup>
-        <optgroup label="Field trade — matched to a qualified crew">
-          ${SKILLS.map(k=>`<option value="${k.id}"${s.skill===k.id?' selected':''}>${k.label}</option>`).join('')}
-        </optgroup></select></td>
-      <td><input type="number" min="1" value="${s.days}" onchange="setSec(${gi},${si},'days',this.value)"></td>
-      <td class="small muted">${s.tasks.length}</td>
-      <td style="text-align:right"><button class="btn sm" onclick="moveSec(${gi},${si},-1)">↑</button>
-        <button class="btn sm" onclick="moveSec(${gi},${si},1)">↓</button>
-        <button class="btn sm d" onclick="delSec(${gi},${si})">✕</button></td></tr>`).join('')}`).join('')}
+  const have=S.templates||{};
+  const type=UI.tplType==='Fiberglass'&&have.Fiberglass?'Fiberglass':'Gunite';
+  UI.tplType=type;
+  const tpl=templateFor(type);
+  const fromSp=!!have[type];
+  const sw=['Gunite','Fiberglass'].map(t=>`<button class="btn sm${t===type?' p':''}" onclick="UI.tplType='${t}';render()"${t!=='Gunite'&&!have[t]?' disabled title="Press Refresh to load the Fiberglass template from SharePoint"':''}>${t}</button>`).join(' ');
+  const secs=tpl.reduce((a,g)=>a+g.sections.length,0), tasks=tpl.reduce((a,g)=>a+g.sections.reduce((b,s)=>b+s.tasks.length,0),0);
+  return `<div class="card"><h2>Build phases<span class="sp"></span>${sw}</h2>
+  <table><thead><tr><th style="width:60px">#</th><th>Sub-phase</th><th style="width:180px">Required trade</th><th style="width:70px">Days</th><th style="width:60px">Tasks</th></tr></thead><tbody>
+  ${tpl.map(g=>`
+    <tr class="phrow"><td><b>${esc(g.num)}.0</b></td><td style="font-weight:650">${esc(g.name)}</td>
+      <td colspan="2" class="small muted">parent phase, rolls up its sub-phases</td>
+      <td class="small muted">${g.sections.reduce((a,s)=>a+s.tasks.length,0)}</td></tr>
+    ${g.sections.map(s=>`<tr><td class="small muted" style="padding-left:20px">${esc(s.num)}</td><td>${esc(s.name)}</td>
+      <td>${skillLabel(s.skill)}</td><td>${s.days}</td><td class="small muted">${s.tasks.length}</td></tr>`).join('')}`).join('')}
   </tbody></table>
-  <div class="hint">Imported from <b>MASTER TO COPY FROM D2 Gunite Build Phases.xlsx</b> — ${gunTpl().length} phases, ${gunTpl().reduce((a,g)=>a+g.sections.length,0)} sub-phases, ${gunTpl().reduce((a,g)=>a+g.sections.reduce((b,s)=>b+s.tasks.length,0),0)} checklist tasks. Every sub-phase starts at 2 days.</div>
-  <div class="pad"><button class="btn" onclick="applyTemplate()">Apply template to all jobs (clears crews, sign-offs, and checklists)</button></div></div>`;
+  <div class="hint">${fromSp
+    ?`From SharePoint, as of ${esc(freshStamp(S.templatesFrom))}: ${tpl.length} phases, ${secs} sub-phases, ${tasks} tasks. Every new ${esc(type)} project is built from this. Don and David change the templates in SharePoint; ask them for a permanent change.`
+    :`Built-in copy of the Gunite template: ${tpl.length} phases, ${secs} sub-phases, ${tasks} tasks. Press Refresh to load both templates from SharePoint.`}</div></div>`;
 }
 
 /* ============================== drawer ============================== */
@@ -2176,38 +2163,6 @@ function delCrew(id){
     if(hit)touch(j);
   });
   render();}
-function setGrp(gi,k,v){gunTpl()[gi][k]=v;save();}
-function setSec(gi,si,k,v){gunTpl()[gi].sections[si][k]= k==='days'?Math.max(1,+v||1):(k==='skill'?(v||null):v);save();}
-function moveSec(gi,si,d){const a=gunTpl()[gi].sections,n=si+d;if(n<0||n>=a.length)return;a.splice(n,0,a.splice(si,1)[0]);render();}
-function delSec(gi,si){
-  const s=gunTpl()[gi].sections[si];
-  if(!confirm('Remove '+s.num+' '+s.name+' from the template?'+String.fromCharCode(10,10)
-    +'This changes the template new pools are built from. Pools that already exist keep it.'))return;
-  gunTpl()[gi].sections.splice(si,1);render();
-}
-function delGrp(gi){if(!confirm('Delete this phase and all its sub-phases from the template?'))return;gunTpl().splice(gi,1);render();}
-function addSection(gi){const g=gunTpl()[gi];
-  g.sections.push({id:'s'+Math.random().toString(36).slice(2,7),num:g.num+'.'+(g.sections.length+1),name:'New Sub-Phase',skill:null,days:2,tasks:[]});render();}
-function addPhase(){gunTpl().push({id:'g'+Math.random().toString(36).slice(2,7),num:String(gunTpl().length),name:'New Phase',sections:[]});render();}
-function setAllDays(){
-  const pools=S.jobs.length;
-  const v=prompt('Set every sub-phase duration to how many work days?'+String.fromCharCode(10,10)
-    +'This overwrites the duration on EVERY sub-phase of '+pools+' pool'+(pools===1?'':'s')
-    +' on this screen, not just the template, and then reschedules them. Any real durations you have '
-    +'entered are lost, and pressing Save afterwards sends the new durations and dates to SharePoint. '
-    +'Press Refresh to get the live schedule back. Cancel unless you are setting up from scratch.','2');
-  if(v===null)return;const n=Math.max(1,+v||1);
-  gunTpl().forEach(g=>g.sections.forEach(s=>s.days=n));
-  S.jobs.forEach(j=>allSecs(j).forEach(({s})=>s.days=n));autoSchedule();render();}
-function applyTemplate(){
-  const pools=S.jobs.length;
-  if(!confirm('Rebuild all '+pools+' pool'+(pools===1?'':'s')+' from the template?'+String.fromCharCode(10,10)
-    +'Every crew assignment, sign-off and checklist tick on this screen is cleared and the pools are '
-    +'rescheduled from scratch. The rebuilt pools are no longer linked to SharePoint, so Save sends '
-    +'nothing for them and nothing there changes.'+String.fromCharCode(10,10)
-    +'Press Refresh to bring back the live schedule and link the pools again.'))return;
-  S.jobs.forEach(j=>j.groups=mkJobGroups(gunTpl()));autoSchedule();render();}
-
 /* ===================== import from the SharePoint site =====================
    Reads the payload produced by sharepoint/export-to-planner.js and MERGES it
    into whatever is already in this browser.

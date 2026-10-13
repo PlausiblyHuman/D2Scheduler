@@ -123,5 +123,23 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
     w.load();
     ok('a stored S.template becomes S.templates.Gunite and S.template is gone', w.S.templates && w.S.templates.Gunite && w.S.templates.Gunite[0].name === 'Edited locally' && !('template' in w.S));
   }
+  // ---- Phase Template tab: read-only, switch, hints
+  {
+    const { w, errs } = boot(); await wait(600);
+    const phases = () => { w.document.querySelector('#tabs button[data-t="phases"]').click(); return w.document.getElementById('main'); };
+    let m = phases();
+    ok('before any Refresh the tab shows the built-in Gunite copy and says so', /Built-in copy of the Gunite template/.test(m.textContent) && m.querySelectorAll('tbody tr').length === 46 + 8);
+    ok('the tab has no inputs, selects or edit buttons', m.querySelectorAll('input,select').length === 0 && !/Set all durations|Apply template|\+ Phase|\+ Sub/.test(m.textContent));
+    for (const fn of ['setGrp','setSec','moveSec','delSec','delGrp','addSection','addPhase','setAllDays','applyTemplate']) ok(fn + ' is gone', typeof w[fn] === 'undefined' && !new RegExp('function ' + fn + '\\(').test(fs.readFileSync(path.join(WEB, 'index.html'), 'utf8')));
+    await w.refreshLive(true); await wait(300);
+    m = phases();
+    ok('after Refresh the hint says from SharePoint and when', /From SharePoint, as of/.test(m.textContent));
+    const btn = [...m.querySelectorAll('button')].find(b => b.textContent.trim() === 'Fiberglass');
+    ok('a Fiberglass switch exists', !!btn);
+    btn.click(); m = w.document.getElementById('main');
+    ok('switching shows the 45 Fiberglass sub-phases under 10 phases', m.querySelectorAll('tbody tr').length === 45 + 10 && /Crane Set and Shell Placement/.test(m.textContent));
+    ok('the switch is remembered until reload', w.getUI().tplType === 'Fiberglass');
+    ok('no page errors', errs.length === 0, errs.join(' | '));
+  }
   process.exit(fails ? 1 : 0);
 })();

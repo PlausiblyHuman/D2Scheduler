@@ -8,5 +8,7 @@
  {"label": "import never stores templates", "find": "if(Object.keys(t).length){S.templates=t;S.templatesFrom=new Date().toISOString();}", "replace": "if(false){}"},
  {"label": "Fiberglass falls back to the Gunite template", "find": "return type==='Gunite'?mkTemplate():[];", "replace": "return mkTemplate();"},
  {"label": "chip never drawn", "find": "const bt=j.buildType==='Fiberglass'?", "replace": "const bt=false?"},
- {"label": "migration keeps S.template", "find": "delete S.template;}", "replace": "}"}
+ {"label": "migration keeps S.template", "find": "delete S.template;}", "replace": "}"},
+ {"label": "switch ignored", "find": "const type=UI.tplType==='Fiberglass'&&have.Fiberglass?'Fiberglass':'Gunite';", "replace": "const type='Gunite';"},
+ {"label": "hint lies about the source", "find": "?`From SharePoint, as of", "replace": "?`Built-in copy of the Gunite template, as of"}
 ]

@@ -11,6 +11,8 @@
  *    pools stay linked and Save DOES send the new durations -- and its prompt
  *    did not say so.
  *
+ * The template tab no longer edits anything (2026-10-13), so the two rebuild dialogs are gone.
+ *
  * Each assertion here pairs the claim with the behaviour it describes, so a
  * change to either one goes red.
  */
@@ -25,8 +27,7 @@ const ok = (l, c, d = '') => { console.log((c ? 'PASS' : 'FAIL') + ' · ' + l + 
 const html = fs.readFileSync(PLANNER, 'utf8').replace('</body>',
   `<script>window.__x=()=>{window.S=S;window.allSecs=allSecs;window.importFromD2=importFromD2;
     window.SEED_TEMPLATE=SEED_TEMPLATE;window.sgHTML=sgHTML;window.poolHasBaseline=poolHasBaseline;
-    window.buildChangeSet=buildChangeSet;window.buildSignoffSet=buildSignoffSet;
-    window.applyTemplate=applyTemplate;window.setAllDays=setAllDays;};</script><script>__x();</script></body>`);
+    window.buildChangeSet=buildChangeSet;window.buildSignoffSet=buildSignoffSet;};</script><script>__x();</script></body>`);
 const vc = new VirtualConsole(); vc.on('jsdomError', e => console.log('[jsdom]', e.message));
 const dom = new JSDOM(html, { runScripts: 'dangerously', pretendToBeVisual: true, url: 'http://localhost/', virtualConsole: vc });
 const win = dom.window;
@@ -86,35 +87,6 @@ const titles = markup => {
   ok('hosted claim holds: an INST tick on a linked pool is in the sign-off set',
      win.buildSignoffSet().some(p => p.sections.some(s => s.inst && s.inst.to === true)));
   sec.inst = false;
-
-  // ------------------------------------------- rebuild from template (unlinks)
-  let prompt = '';
-  win.confirm = m => { prompt = m; return true; };
-  win.applyTemplate();
-  j = S.jobs.find(x => x.jobno === 'D2-1042');
-  ok('rebuild: the dialog says Save sends nothing for rebuilt pools', /Save sends nothing for them/.test(prompt), prompt.replace(/\s+/g, ' ').slice(0, 160));
-  ok('rebuild: the dialog no longer claims the cleared crews go with a Save', !/cleared crews go with it/.test(prompt));
-  ok('rebuild claim holds: the pool has lost its baseline', win.poolHasBaseline(j) === false);
-  ok('rebuild claim holds: Save would send no scheduling change', win.buildChangeSet().length === 0);
-  ok('rebuild claim holds: Save would reopen no sign-off', win.buildSignoffSet().length === 0);
-
-  t = titles(win.sgHTML(j.id, 0, 0, { inst: false, pm: false }));
-  ok('hosted, unlinked pool: the tooltip says a tick is not saved', /not in SharePoint yet/.test(t.inst), t.inst);
-
-  j = await load();
-  ok('rebuild dialog: Refresh does link the pool again', win.poolHasBaseline(j) === true);
-  ok('...with sign-offs back as SharePoint holds them', win.allSecs(j).filter(x => x.s.inst).length === 3);
-
-  // ------------------------------------ set all durations (stays linked, sends)
-  let asked = '';
-  win.prompt = m => { asked = m; return '5'; };
-  win.setAllDays();
-  ok('set-all-durations: the prompt says Save sends the new durations', /Save afterwards sends the new durations/.test(asked), asked.replace(/\s+/g, ' ').slice(0, 200));
-  ok('set-all-durations: the prompt names Refresh as the way back', /Refresh/.test(asked));
-  const cs = win.buildChangeSet();
-  ok('set-all-durations claim holds: Save would send DurationDays',
-     cs.length === 1 && cs[0].sections.some(s => s.fields.DurationDays && s.fields.DurationDays.to === 5),
-     cs.length + ' pool(s)');
 
   // ------------------------------- delete a crew (stays linked, sends) -------
   j = await load();
