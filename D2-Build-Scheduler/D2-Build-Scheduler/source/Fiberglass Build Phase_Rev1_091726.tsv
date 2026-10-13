@@ -1,0 +1,306 @@
+Task Name	Phase	Section	Row Type
+PHASE 0. PRE CONSTRUCTION/SALES	Phase 0	PHASE 0. PRE CONSTRUCTION/SALES	Phase
+0.0 Sales to Production Handoff	Phase 0	0.0 Sales to Production Handoff	Section
+Contract review	Phase 0	0.0 Sales to Production Handoff	Task
+Signed	Phase 0	0.0 Sales to Production Handoff	Task
+Change orders process	Phase 0	0.0 Sales to Production Handoff	Task
+Draw schedule	Phase 0	0.0 Sales to Production Handoff	Task
+Design verification	Phase 0	0.0 Sales to Production Handoff	Task
+Approved Construction Plans	Phase 0	0.0 Sales to Production Handoff	Task
+Approved Plan View	Phase 0	0.0 Sales to Production Handoff	Task
+Verify Revision Number - Most Updated	Phase 0	0.0 Sales to Production Handoff	Task
+Pool Shell Manufacturer, Model, and Color Verified	Phase 0	0.0 Sales to Production Handoff	Task
+Spa Shell Manufacturer, Model, and Color Verified (if applicable)	Phase 0	0.0 Sales to Production Handoff	Task
+Feature locations (tanning ledge, bench, steps, spa)	Phase 0	0.0 Sales to Production Handoff	Task
+Equipment specifications approved	Phase 0	0.0 Sales to Production Handoff	Task
+Material Selections Approved (coping, decking, tile)	Phase 0	0.0 Sales to Production Handoff	Task
+0.1 Procurement Planning	Phase 0	0.1 Procurement Planning	Section
+Shell ordered from manufacturer	Phase 0	0.1 Procurement Planning	Task
+Shell production lead time and delivery date confirmed	Phase 0	0.1 Procurement Planning	Task
+Pool package pump(s)	Phase 0	0.1 Procurement Planning	Task
+Filter	Phase 0	0.1 Procurement Planning	Task
+Heater (yes or no)	Phase 0	0.1 Procurement Planning	Task
+Salt or chlorine chlorinator (one or the other)	Phase 0	0.1 Procurement Planning	Task
+Automation (yes or no)	Phase 0	0.1 Procurement Planning	Task
+Valves - 2 way and 3 way	Phase 0	0.1 Procurement Planning	Task
+Actuators if automated	Phase 0	0.1 Procurement Planning	Task
+Lights	Phase 0	0.1 Procurement Planning	Task
+Transformer (yes or no)	Phase 0	0.1 Procurement Planning	Task
+Jbox (yes or no)	Phase 0	0.1 Procurement Planning	Task
+Autofill (yes or no)	Phase 0	0.1 Procurement Planning	Task
+Coping/decking materials ordered	Phase 0	0.1 Procurement Planning	Task
+Crane/rigging service scheduled	Phase 0	0.1 Procurement Planning	Task
+PHASE 1. PRECONSTRUCTION BACK OFFICE ADMIN	Phase 1	PHASE 1. PRECONSTRUCTION BACK OFFICE ADMIN	Phase
+1.0 Pre-Construction Back Office Admin	Phase 1	1.0 Pre-Construction Back Office Admin	Section
+Permit application submitted	Phase 1	1.0 Pre-Construction Back Office Admin	Task
+Permit approved	Phase 1	1.0 Pre-Construction Back Office Admin	Task
+HOA approval (if applicable)	Phase 1	1.0 Pre-Construction Back Office Admin	Task
+Utility locate requested (call 811)	Phase 1	1.0 Pre-Construction Back Office Admin	Task
+PortaPotty Ordered	Phase 1	1.0 Pre-Construction Back Office Admin	Task
+Delivered	Phase 1	1.0 Pre-Construction Back Office Admin	Task
+D2 Pool Sign in the Yard	Phase 1	1.0 Pre-Construction Back Office Admin	Task
+Construction Tote for supplies onsite - all mechanical instruction books for Pool School	Phase 1	1.0 Pre-Construction Back Office Admin	Task
+1.1 Pre-Construction Verification - HANDOVER FROM OFFICE TO FIELD PM	Phase 1	1.1 Pre-Construction Verification - HANDOVER FROM OFFICE TO FIELD PM	Section
+Contract scope review	Phase 1	1.1 Pre-Construction Verification - HANDOVER FROM OFFICE TO FIELD PM	Task
+Verify Auto Cover YES/NO	Phase 1	1.1 Pre-Construction Verification - HANDOVER FROM OFFICE TO FIELD PM	Task
+Plan revision verification	Phase 1	1.1 Pre-Construction Verification - HANDOVER FROM OFFICE TO FIELD PM	Task
+Easement review	Phase 1	1.1 Pre-Construction Verification - HANDOVER FROM OFFICE TO FIELD PM	Task
+Property access review	Phase 1	1.1 Pre-Construction Verification - HANDOVER FROM OFFICE TO FIELD PM	Task
+PreCon Meeting PM and Dig Team>digsheet/plan view	Phase 1	1.1 Pre-Construction Verification - HANDOVER FROM OFFICE TO FIELD PM	Task
+Crane access route to backyard verified	Phase 1	1.1 Pre-Construction Verification - HANDOVER FROM OFFICE TO FIELD PM	Task
+Shell delivery date confirmed with manufacturer/hauler	Phase 1	1.1 Pre-Construction Verification - HANDOVER FROM OFFICE TO FIELD PM	Task
+1.2 Site Preparation	Phase 1	1.2 Site Preparation	Section
+Construction Entrance and Curb Protection	Phase 1	1.2 Site Preparation	Task
+Identify Site Obstacles	Phase 1	1.2 Site Preparation	Task
+Site Prep and Demo (existing fence etc)	Phase 1	1.2 Site Preparation	Task
+Security Fence	Phase 1	1.2 Site Preparation	Task
+Silt Fence Contractor Hired	Phase 1	1.2 Site Preparation	Task
+Silt Fence installed	Phase 1	1.2 Site Preparation	Task
+Landscaping protection	Phase 1	1.2 Site Preparation	Task
+Staging area designation	Phase 1	1.2 Site Preparation	Task
+Material delivery planning	Phase 1	1.2 Site Preparation	Task
+Contractor for Dig	Phase 1	1.2 Site Preparation	Task
+Equipment Rental for Dig	Phase 1	1.2 Site Preparation	Task
+Neighbor notification as needed	Phase 1	1.2 Site Preparation	Task
+Overhead obstruction check for crane (power lines, trees)	Phase 1	1.2 Site Preparation	Task
+1.3 Order/Procure Site Materials	Phase 1	1.3 Order/Procure Site Materials	Section
+Crushed stone/gravel base material	Phase 1	1.3 Order/Procure Site Materials	Task
+Backfill material (per shell manufacturer spec - crushed stone or flowable fill)	Phase 1	1.3 Order/Procure Site Materials	Task
+Plumbing materials	Phase 1	1.3 Order/Procure Site Materials	Task
+Skimmers	Phase 1	1.3 Order/Procure Site Materials	Task
+Return fittings	Phase 1	1.3 Order/Procure Site Materials	Task
+Spa fittings	Phase 1	1.3 Order/Procure Site Materials	Task
+Main drains	Phase 1	1.3 Order/Procure Site Materials	Task
+Conduit	Phase 1	1.3 Order/Procure Site Materials	Task
+1.4 Pool Layout	Phase 1	1.4 Pool Layout	Section
+Benchmark establishment	Phase 1	1.4 Pool Layout	Task
+Stake Perimeter (per shell footprint plus working clearance)	Phase 1	1.4 Pool Layout	Task
+House-to-pool measurements	Phase 1	1.4 Pool Layout	Task
+Setback verification	Phase 1	1.4 Pool Layout	Task
+Elevation verification	Phase 1	1.4 Pool Layout	Task
+Feature layout (spa, tanning ledge, water features)	Phase 1	1.4 Pool Layout	Task
+Auto Cover Layout	Phase 1	1.4 Pool Layout	Task
+Equipment location confirmation	Phase 1	1.4 Pool Layout	Task
+Crane placement/swing radius confirmed	Phase 1	1.4 Pool Layout	Task
+1.5 Pre-Dig Quality Check	Phase 1	1.5 Pre-Dig Quality Check	Section
+Layout sign-off	Phase 1	1.5 Pre-Dig Quality Check	Task
+Dig depth calculations (shell depth plus base material thickness)	Phase 1	1.5 Pre-Dig Quality Check	Task
+Soil condition review	Phase 1	1.5 Pre-Dig Quality Check	Task
+Overdig requirements (shell width plus working space, typically 12-18" per side)	Phase 1	1.5 Pre-Dig Quality Check	Task
+Dewatering/high water table assessment	Phase 1	1.5 Pre-Dig Quality Check	Task
+Hauloff Coordination	Phase 1	1.5 Pre-Dig Quality Check	Task
+1.6 Excavation Operations	Phase 1	1.6 Excavation Operations	Section
+Dig supervision	Phase 1	1.6 Excavation Operations	Task
+Excavate Shell footprint plus overdig	Phase 1	1.6 Excavation Operations	Task
+Excavate Spa	Phase 1	1.6 Excavation Operations	Task
+Excavate Plumbing and Electrical trenches	Phase 1	1.6 Excavation Operations	Task
+Verify hole dimensions match shell shop drawing	Phase 1	1.6 Excavation Operations	Task
+Deep-end depth verification	Phase 1	1.6 Excavation Operations	Task
+Equipment Pad Verification	Phase 1	1.6 Excavation Operations	Task
+1.7 Post-Excavation Review	Phase 1	1.7 Post-Excavation Review	Section
+Excavation dimension check against shell shop drawing	Phase 1	1.7 Post-Excavation Review	Task
+Soil stability inspection	Phase 1	1.7 Post-Excavation Review	Task
+Soil pile management	Phase 1	1.7 Post-Excavation Review	Task
+Haul-off verification	Phase 1	1.7 Post-Excavation Review	Task
+Excavation Images obtained	Phase 1	1.7 Post-Excavation Review	Task
+Excavation acceptance sign-off by PM	Phase 1	1.7 Post-Excavation Review	Task
+PHASE 2. BASE PREPARATION AND SHELL SET	Phase 2	PHASE 2. BASE PREPARATION AND SHELL SET	Phase
+2.1 Base Preparation	Phase 2	2.1 Base Preparation	Section
+Install crushed stone/gravel base (per shell manufacturer spec, typically 4-6 in)	Phase 2	2.1 Base Preparation	Task
+Compact and level base	Phase 2	2.1 Base Preparation	Task
+Screed/template base to shell contour	Phase 2	2.1 Base Preparation	Task
+Base elevation verification (laser level)	Phase 2	2.1 Base Preparation	Task
+Plumbing stub-out locations marked prior to shell set	Phase 2	2.1 Base Preparation	Task
+2.2 Shell Delivery and Inspection	Phase 2	2.2 Shell Delivery and Inspection	Section
+Shell delivered to site	Phase 2	2.2 Shell Delivery and Inspection	Task
+Shell inspected for shipping damage/cracks	Phase 2	2.2 Shell Delivery and Inspection	Task
+Gelcoat finish inspected	Phase 2	2.2 Shell Delivery and Inspection	Task
+Fitting locations verified against plan	Phase 2	2.2 Shell Delivery and Inspection	Task
+Shell serial number/model verified against order	Phase 2	2.2 Shell Delivery and Inspection	Task
+2.3 Crane Set and Shell Placement	Phase 2	2.3 Crane Set and Shell Placement	Section
+Crane staged and rigged	Phase 2	2.3 Crane Set and Shell Placement	Task
+Shell lifted and set into excavation	Phase 2	2.3 Crane Set and Shell Placement	Task
+Shell leveled (side-to-side and end-to-end)	Phase 2	2.3 Crane Set and Shell Placement	Task
+Shell plumbed and squared to layout stakes	Phase 2	2.3 Crane Set and Shell Placement	Task
+Elevation/height above grade verified	Phase 2	2.3 Crane Set and Shell Placement	Task
+Shell braced at walls, steps, and benches per manufacturer spec	Phase 2	2.3 Crane Set and Shell Placement	Task
+PHASE 3. PLUMBING ROUGH-IN	Phase 3	PHASE 3. PLUMBING AND ELECTRICAL ROUGH-IN	Phase
+3.1 Hydraulic Design Verification	Phase 3	3.1 Hydraulic Design Verification	Section
+Plumbing plan reviewed against shell fitting locations	Phase 3	3.1 Hydraulic Design Verification	Task
+Pipe sizing verified	Phase 3	3.1 Hydraulic Design Verification	Task
+3.2 Plumbing Installation	Phase 3	3.2 Plumbing Installation	Section
+Skimmer line connected	Phase 3	3.2 Plumbing Installation	Task
+Return lines connected	Phase 3	3.2 Plumbing Installation	Task
+Main drain line connected	Phase 3	3.2 Plumbing Installation	Task
+Spa lines connected (if applicable)	Phase 3	3.2 Plumbing Installation	Task
+Auto cover lines installed (if applicable)	Phase 3	3.2 Plumbing Installation	Task
+Water feature lines installed	Phase 3	3.2 Plumbing Installation	Task
+3.3 Plumbing Pressure Testing	Phase 3	3.3 Plumbing Pressure Testing	Section
+Pressure test all lines	Phase 3	3.3 Plumbing Pressure Testing	Task
+Leak inspection	Phase 3	3.3 Plumbing Pressure Testing	Task
+Repair and retest as needed	Phase 3	3.3 Plumbing Pressure Testing	Task
+PHASE 4. Electrical ROUGH-IN AND TRIM OUT 	Phase 4	PHASE 4. ELECTRICAL ROUGH-IN	Phase
+4.1 Electrical Rough-In	Phase 3	3.4 Electrical Rough-In	Section
+Bonding wire attached to shell bonding studs	Phase 3	3.4 Electrical Rough-In	Task
+Conduit run to equipment pad	Phase 3	3.4 Electrical Rough-In	Task
+Light niche wiring (if applicable)	Phase 3	3.4 Electrical Rough-In	Task
+4.2 Bonding Grid Completion	Phase 3	3.5 Bonding Grid Completion	Section
+Equipotential bonding grid installed around perimeter	Phase 3	3.5 Bonding Grid Completion	Task
+Bonding continuity tested	Phase 3	3.5 Bonding Grid Completion	Task
+4.3 Equipment Pad Preparation	Phase 3	3.6 Equipment Pad Preparation	Section
+Equipment pad base/slab poured or set	Phase 3	3.6 Equipment Pad Preparation	Task
+Conduit stubbed to pad	Phase 3	3.6 Equipment Pad Preparation	Task
+4.4 Rough Inspection Preparation	Phase 3	3.7 Rough Inspection Preparation	Section
+Municipal rough plumbing/electrical inspection scheduled	Phase 3	3.7 Rough Inspection Preparation	Task
+Rough inspection passed	Phase 3	3.7 Rough Inspection Preparation	Task
+PHASE 5. BACKFILL AND WATER FILL	Phase 4	PHASE 4. BACKFILL AND WATER FILL	Phase
+5.1 Pre-Backfill Readiness Review	Phase 4	4.1 Pre-Backfill Readiness Review	Section
+Bracing verified secure	Phase 4	4.1 Pre-Backfill Readiness Review	Task
+Plumbing pressure test confirmed passed	Phase 4	4.1 Pre-Backfill Readiness Review	Task
+Backfill material staged (crushed stone or flowable fill per manufacturer spec)	Phase 4	4.1 Pre-Backfill Readiness Review	Task
+Water source/fill hose staged	Phase 4	4.1 Pre-Backfill Readiness Review	Task
+Crew pre-backfill meeting onsite	Phase 4	4.1 Pre-Backfill Readiness Review	Task
+5.2 Simultaneous Backfill and Water Fill	Phase 4	4.2 Simultaneous Backfill and Water Fill	Section
+Begin filling shell with water (initial few inches)	Phase 4	4.2 Simultaneous Backfill and Water Fill	Task
+Begin backfilling in lifts, alternating with rising water level	Phase 4	4.2 Simultaneous Backfill and Water Fill	Task
+Compact backfill in lifts (hand tamp near walls; no heavy equipment against shell)	Phase 4	4.2 Simultaneous Backfill and Water Fill	Task
+Monitor shell walls for movement/distortion throughout process	Phase 4	4.2 Simultaneous Backfill and Water Fill	Task
+Continue matched lifts until backfill reaches grade and water reaches skimmer level	Phase 4	4.2 Simultaneous Backfill and Water Fill	Task
+5.3 Post-Backfill Inspection	Phase 4	4.3 Post-Backfill Inspection	Section
+Verify shell walls are straight and true (no bowing)	Phase 4	4.3 Post-Backfill Inspection	Task
+Verify water level stable (leak check)	Phase 4	4.3 Post-Backfill Inspection	Task
+Backfill compaction verification	Phase 4	4.3 Post-Backfill Inspection	Task
+Photo documentation	Phase 4	4.3 Post-Backfill Inspection	Task
+PHASE 6. COPING AND DECKING 	Phase 5	PHASE 5. DECKING AND COPING	Phase
+6.1 Bond Beam/Collar Preparation	Phase 5	5.1 Bond Beam/Collar Preparation	Section
+Concrete collar/bond beam formed around shell perimeter (if required by design)	Phase 5	5.1 Bond Beam/Collar Preparation	Task
+Rebar placed in collar (if applicable)	Phase 5	5.1 Bond Beam/Collar Preparation	Task
+Collar poured	Phase 5	5.1 Bond Beam/Collar Preparation	Task
+6.2 Coping Installation	Phase 5	5.2 Coping Installation	Section
+Pattern/material selected and approved by customer	Phase 5	5.2 Coping Installation	Task
+Coping substrate prepared	Phase 5	5.2 Coping Installation	Task
+Coping set	Phase 5	5.2 Coping Installation	Task
+Coping grouted and sealed	Phase 5	5.2 Coping Installation	Task
+6.3 Tile Installation	Phase 5	5.3 Tile Installation	Section
+Waterline tile substrate prep (if applicable)	Phase 5	5.3 Tile Installation	Task
+Tile set	Phase 5	5.3 Tile Installation	Task
+Tile grouted	Phase 5	5.3 Tile Installation	Task
+6.4 Deck Preparation	Phase 5	5.4 Deck Preparation	Section
+Subgrade preparation	Phase 5	5.4 Deck Preparation	Task
+Compaction testing	Phase 5	5.4 Deck Preparation	Task
+Form setup	Phase 5	5.4 Deck Preparation	Task
+Drain installation	Phase 5	5.4 Deck Preparation	Task
+6.5 Deck Placement	Phase 5	5.5 Deck Placement	Section
+Concrete placement	Phase 5	5.5 Deck Placement	Task
+Paver installation	Phase 5	5.5 Deck Placement	Task
+Paver Edge Placed	Phase 5	5.5 Deck Placement	Task
+Decorative finish application	Phase 5	5.5 Deck Placement	Task
+Expansion joint installation	Phase 5	5.5 Deck Placement	Task
+6.6 Drainage Verification	Phase 5	5.6 Drainage Verification	Section
+Deck slope testing	Phase 5	5.6 Drainage Verification	Task
+Area drain testing	Phase 5	5.6 Drainage Verification	Task
+Equipment pad drainage review	Phase 5	5.6 Drainage Verification	Task
+6.7 Hardscape Final QC	Phase 5	5.7 Hardscape Final QC	Section
+Surface consistency review	Phase 5	5.7 Hardscape Final QC	Task
+Joint inspection	Phase 5	5.7 Hardscape Final QC	Task
+Trip hazard inspection	Phase 5	5.7 Hardscape Final QC	Task
+Finish approval	Phase 5	5.7 Hardscape Final QC	Task
+PHASE 7. EQUIPMENT INSTALLATION	Phase 6	PHASE 6. EQUIPMENT INSTALLATION	Phase
+7.1 Equipment Plumbing	Phase 6	6.1 Equipment Plumbing	Section
+Review Operation and Layout of Equipment with Installation Team	Phase 6	6.1 Equipment Plumbing	Task
+Manifold assembly	Phase 6	6.1 Equipment Plumbing	Task
+Valve installation	Phase 6	6.1 Equipment Plumbing	Task
+Check valve installation	Phase 6	6.1 Equipment Plumbing	Task
+Flow verification	Phase 6	6.1 Equipment Plumbing	Task
+Water Feature verification	Phase 6	6.1 Equipment Plumbing	Task
+Auto Leveler and Pool Drain verification	Phase 6	6.1 Equipment Plumbing	Task
+7.2 Equipment Installation	Phase 6	6.2 Equipment Installation	Section
+Pump installation	Phase 6	6.2 Equipment Installation	Task
+Filter installation	Phase 6	6.2 Equipment Installation	Task
+Heater installation	Phase 6	6.2 Equipment Installation	Task
+Chiller Installation	Phase 6	6.2 Equipment Installation	Task
+Automation installation	Phase 6	6.2 Equipment Installation	Task
+Sanitizer installation	Phase 6	6.2 Equipment Installation	Task
+7.3 Equipment Electrical	Phase 6	6.3 Equipment Electrical	Section
+Breaker installation	Phase 6	6.3 Equipment Electrical	Task
+Automation wiring	Phase 6	6.3 Equipment Electrical	Task
+Bonding completion	Phase 6	6.3 Equipment Electrical	Task
+GFCI verification	Phase 6	6.3 Equipment Electrical	Task
+Auto Cover Switch	Phase 6	6.3 Equipment Electrical	Task
+PHASE 7. STARTUP AND TRIM OUT	Phase 7	PHASE 7. STARTUP AND TRIM OUT	Phase
+7.1 Startup Preparation	Phase 7	7.1 Startup Preparation	Section
+Surface cleaning	Phase 7	7.1 Startup Preparation	Task
+Order Water Truck/Water delivery	Phase 7	7.1 Startup Preparation	Task
+Startup planning	Phase 7	7.1 Startup Preparation	Task
+Automation Programming	Phase 7	7.1 Startup Preparation	Task
+7.2 Startup Procedures	Phase 7	7.2 Startup Procedures	Section
+Initial equipment startup	Phase 7	7.2 Startup Procedures	Task
+Leak Inspection	Phase 7	7.2 Startup Procedures	Task
+Auto Cover Installed	Phase 7	7.2 Startup Procedures	Task
+Lights Pulled In	Phase 7	7.2 Startup Procedures	Task
+Flow balancing	Phase 7	7.2 Startup Procedures	Task
+Valve adjustment	Phase 7	7.2 Startup Procedures	Task
+Automation programming	Phase 7	7.2 Startup Procedures	Task
+7.3 Water Chemistry Startup	Phase 7	7.3 Water Chemistry Startup	Section
+Initial testing	Phase 7	7.3 Water Chemistry Startup	Task
+Chemical balancing	Phase 7	7.3 Water Chemistry Startup	Task
+Brushing schedule	Phase 7	7.3 Water Chemistry Startup	Task
+Startup log creation	Phase 7	7.3 Water Chemistry Startup	Task
+Salt or Chlorinate Pool per startup schedule	Phase 7	7.3 Water Chemistry Startup	Task
+7.4 Trim Out	Phase 7	7.4 Trim Out	Section
+Main Drain	Phase 7	7.4 Trim Out	Task
+Bubblers	Phase 7	7.4 Trim Out	Task
+Returns	Phase 7	7.4 Trim Out	Task
+Spa Jets	Phase 7	7.4 Trim Out	Task
+Skimmers	Phase 7	7.4 Trim Out	Task
+Water Features (deck jets/waterfalls/spillovers)	Phase 7	7.4 Trim Out	Task
+PHASE 8. SITE RESTORATION AND FINAL GRADE	Phase 8	PHASE 8. SITE RESTORATION AND FINAL GRADE	Phase
+8.1 Construction Cleanup	Phase 8	8.1 Construction Cleanup	Section
+Remove excess materials and construction debris	Phase 8	8.1 Construction Cleanup	Task
+Equipment and tool demobilization	Phase 8	8.1 Construction Cleanup	Task
+Dumpster removal	Phase 8	8.1 Construction Cleanup	Task
+PortaPotty removal	Phase 8	8.1 Construction Cleanup	Task
+Site debris haul-off	Phase 8	8.1 Construction Cleanup	Task
+8.2 Rough Grade	Phase 8	8.2 Rough Grade	Section
+Set grading elevations	Phase 8	8.2 Rough Grade	Task
+Rough grade perimeter for positive drainage	Phase 8	8.2 Rough Grade	Task
+Verify rough grade/drainage away from structures	Phase 8	8.2 Rough Grade	Task
+8.3 Final Grade	Phase 8	8.3 Final Grade	Section
+Fine grade and topsoil placement	Phase 8	8.3 Final Grade	Task
+Remove rock and debris from grade	Phase 8	8.3 Final Grade	Task
+Final grade inspection and approval	Phase 8	8.3 Final Grade	Task
+8.4 Seed and Straw/ Sod 	Phase 8	8.4 Seed and Straw/Sod	Section
+Seed application	Phase 8	8.4 Seed and Straw	Task
+Straw/mulch application for erosion control	Phase 8	8.4 Seed and Straw	Task
+Erosion control blanket on slopes (as needed)	Phase 8	8.4 Seed and Straw	Task
+Silt fence removal (post-stabilization)	Phase 8	8.4 Seed and Straw	Task
+8.5 Landscaping Restoration	Phase 8	8.5 Landscaping Restoration	Section
+Sod installation (alternate/supplemental to seed)	Phase 8	8.5 Landscaping Restoration	Task
+Irrigation repair/reconnection	Phase 8	8.5 Landscaping Restoration	Task
+Landscaping protection removal	Phase 8	8.5 Landscaping Restoration	Task
+Plant, shrub, and sprinkler head replacement as needed	Phase 8	8.5 Landscaping Restoration	Task
+Fence Pool safety Barrior 		8.5 Fence/ Pool Safety Barrior 	Task
+Pool, Door and Window Alarms 	Phase 8	8.5 Pool, Door and Window Alarms	Task
+8.6 Final Site Walk-Through	Phase 8	8.6 Final Site Walk-Through	Section
+Site cleanliness inspection	Phase 8	8.6 Final Site Walk-Through	Task
+Grading and drainage sign-off	Phase 8	8.6 Final Site Walk-Through	Task
+Customer yard walk-through	Phase 8	8.6 Final Site Walk-Through	Task
+Ability to add multipal single line items to the schedule
+PHASE 9. POST CONSTRUCTION COMPLETION PHASE	Phase 9	PHASE 9. POST CONSTRUCTION COMPLETION PHASE	Phase
+9.0 Client Orientation	Phase 9	9.0 Client Orientation	Section
+Equipment training	Phase 9	9.0 Client Orientation	Task
+Automation training	Phase 9	9.0 Client Orientation	Task
+Maintenance education	Phase 9	9.0 Client Orientation	Task
+Warranty Submission	Phase 9	9.0 Client Orientation	Task
+Documentation handoff	Phase 9	9.0 Client Orientation	Task
+Punch-list completion	Phase 9	9.0 Client Orientation	Task
+Final inspection	Phase 9	9.0 Client Orientation	Task
+Photo documentation	Phase 9	9.0 Client Orientation	Task
+Warranty registration	Phase 9	9.0 Client Orientation	Task
+Customer Pool School	Phase 9	9.0 Client Orientation	Task
+9.1 Warranty & 30-Day Follow-Up	Phase 9	9.1 Warranty & 30-Day Follow-Up	Section
+7-day startup review	Phase 9	9.1 Warranty & 30-Day Follow-Up	Task
+30-day chemistry review	Phase 9	9.1 Warranty & 30-Day Follow-Up	Task
+Warranty inspection	Phase 9	9.1 Warranty & 30-Day Follow-Up	Task
+Customer satisfaction survey	Phase 9	9.1 Warranty & 30-Day Follow-Up	Task
+Service department handoff	Phase 9	9.1 Warranty & 30-Day Follow-Up	Task
