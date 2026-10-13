@@ -48,14 +48,23 @@ A = cd['properties']['definition']['actions']
 print(f"live: statecode {row['statecode']} modified {row['modifiedon']} Compose_build_type present: {'Compose_build_type' in A['Scope_provision_job']['actions']}")
 before = json.dumps(A, sort_keys=True)
 apply(A)
-if json.dumps(A, sort_keys=True) == before:
+already = json.dumps(A, sort_keys=True) == before
+if already:
     print('live already matches; publish only')
 new = json.dumps(cd, ensure_ascii=True)
 print(f"Compose_build_type present: {'Compose_build_type' in A['Scope_provision_job']['actions']} bytes {len(row['clientdata'])}->{len(new)}")
 if MODE != 'apply':
     print('dry run, nothing written'); sys.exit(0)
 
-pathlib.Path('flows/exports/D2-New-Pool-pre-build-type-backup.json').write_text(row['clientdata'], encoding='utf-8')
+BACKUP = pathlib.Path(__file__).resolve().parents[1] / 'exports' / 'backups' / 'D2-New-Pool-pre-build-type.json'
+if already:
+    print('no backup: live already matches')
+elif BACKUP.exists():
+    print('backup exists, left untouched:', BACKUP)
+else:
+    BACKUP.parent.mkdir(parents=True, exist_ok=True)
+    BACKUP.write_text(row['clientdata'], encoding='utf-8')
+    print('backup written:', BACKUP)
 st, _ = call('PATCH', f'{ORG}/api/data/v9.2/workflows({WF})', json.dumps({'clientdata': new}, ensure_ascii=True).encode('ascii'))
 print('PATCH', st)
 px = '<importexportxml><workflows><workflow>{' + WF + '}</workflow></workflows></importexportxml>'

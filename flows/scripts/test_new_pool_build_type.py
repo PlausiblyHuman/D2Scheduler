@@ -35,6 +35,8 @@ ok('the Create_job body is valid JSON with BuildType beside Status', rendered['B
 for name in ('Compose_build_type', 'Compose_result'):
     ok(f'{name}: quotes balanced', json.dumps(find(A, name)['inputs']).count("'") % 2 == 0)
 ok('the definition is ASCII-safe when dumped', json.dumps(A, ensure_ascii=True).isascii())
+drv = pathlib.Path(__file__).with_name('2026-10-13-new-pool-build-type.py').read_text(encoding='utf-8')
+ok('the driver backup lives outside the exports glob', "'backups'" in drv and 'exports/D2-New-Pool-' not in drv)
 newest = load(EXPORTS[-1])
 if 'Compose_build_type' in json.dumps(newest):
     strip = lambda x: json.loads(json.dumps(x).replace('"authentication": "@parameters(\'$authentication\')", ', ''))
