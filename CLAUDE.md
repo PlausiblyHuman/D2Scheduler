@@ -8,7 +8,10 @@ Durable orientation for any Claude session working in this repo.
 
 Pool construction scheduling and field sign-off system for D2 Pools. SharePoint Lists + Power Automate + Teams + a Power Apps canvas app for crew-lead task-tick, running on D2's existing M365 subscription with **no premium connectors and no Dataverse** — but see the licensing note below: the canvas app does require Business Basic seats for the ~10 field crew leads, so "zero incremental licensing" is **not** accurate and must not be repeated to the client. Replaces a browser-based prototype (`web/index.html` as of 2026-09-11; originally shipped as `D2-Build-Scheduler/D2-Build-Scheduler/app/pool-scheduler.html`, note the doubled directory) originally built by Ryan Meyer under his Tennetech brand; Stratirus took over full delivery ownership.
 
-Client-facing name: **D2 Build Scheduler**.
+Client-facing name: **D2 Build Scheduler**. Internal codename: **Batterboard** (decided
+2026-10-13): the SharePoint-based build D2 runs today, as distinct from **Plumbline**, the
+standalone product built from its behaviour in `C:\src\Plumbline`. The codename is internal
+only; the client keeps hearing D2 Build Scheduler.
 
 Site URL: `https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler` (site created 2026-08-22; lists NOT yet provisioned — see Known bugs).
 
