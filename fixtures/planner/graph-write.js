@@ -113,9 +113,11 @@ ok('two matching rows are ambiguous and resolve to nothing rather than the first
      b.StartDate === '2026-10-05', b.StartDate);
   ok('Status and Result are never set -- they are flow-owned',
      !('Status' in b) && !('Result' in b), Object.keys(b).join(','));
-  ok('the body carries exactly the seven writable columns and nothing else',
+  ok('createBody sends BuildType, Gunite when absent',
+     b.BuildType === 'Gunite' && G.createBody({ jobno: 'D2-1046', name: 'X', start: '2026-10-05', buildType: 'Fiberglass' }, '13').BuildType === 'Fiberglass');
+  ok('the body carries exactly the eight writable columns and nothing else',
      Object.keys(b).sort().join(',') ===
-     'Address,AssignDefaultCrews,City,JobNumber,ProjectManagerLookupId,StartDate,Title',
+     'Address,AssignDefaultCrews,BuildType,City,JobNumber,ProjectManagerLookupId,StartDate,Title',
      Object.keys(b).join(','));
 }
 {

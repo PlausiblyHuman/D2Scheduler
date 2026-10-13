@@ -221,6 +221,8 @@
         jobno: String(c.jobno).trim(), name: c.name, addr: c.addr || '',
         city: c.city || '', start: day(c.start),
         assignDefaultCrews: !!c.assignDefaultCrews,
+        // Choice columns validate nothing on a REST write; normalise here.
+        buildType: c.buildType === 'Fiberglass' ? 'Fiberglass' : 'Gunite',
         // The PM picked on + Job, as a site-user id. Null means "whoever is
         // signed in when Save runs", resolved by the caller.
         pmId: c.pmId == null || c.pmId === '' ? null : String(c.pmId)

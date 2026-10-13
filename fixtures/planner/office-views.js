@@ -80,7 +80,7 @@ function boot() {
         if (u.includes('User Information List')) return json(200, { value: UIL });
         if (opts && opts.method === 'POST') { net.posts.push({ url: u, body: JSON.parse(opts.body) }); return json(201, {}); }
         const L = w.D2_GRAPH && w.D2_GRAPH.lists;
-        if (L) for (const k of ['jobs', 'asg', 'tasks', 'cal']) if (u.includes('/lists/' + L[k] + '/items')) return json(200, { value: G[k] });
+        if (L) for (const k of Object.keys(L)) if (u.includes('/lists/' + L[k] + '/items')) return json(200, { value: G[k] || [] });
         if (/\/lists\/[^/]+\/items/.test(u)) return json(200, { value: [] });
         return json(404, {});
       };

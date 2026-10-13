@@ -312,7 +312,7 @@ function runApply(src, cs, store, cfg = {}) {
         if (createFailJobnos.has(body.JobNumber)) return { ok: false, status: 500, text: async () => 'simulated create failure' };
         if (!createSilentDropJobnos.has(body.JobNumber)) {
           const row = { Id: 900 + requestsStore.length, Title: body.Title, JobNumber: body.JobNumber,
-            StartDate: body.StartDate, ProjectManagerId: body.ProjectManagerId, AssignDefaultCrews: body.AssignDefaultCrews };
+            StartDate: body.StartDate, ProjectManagerId: body.ProjectManagerId, AssignDefaultCrews: body.AssignDefaultCrews, BuildType: body.BuildType };
           // Simulates a write landing with one or more fields corrupted or
           // ignored -- the exact "200/201 and does nothing (to THIS field)"
           // signature, narrowed to specific columns rather than the whole row.

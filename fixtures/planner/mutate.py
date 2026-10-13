@@ -78,6 +78,9 @@ def sweep(harness, source, mutations):
 
 MUTATIONS = {
     "web/writeback-core.js": [
+        {"label": "planCreates stops normalising buildType",
+         "find": "buildType: c.buildType === 'Fiberglass' ? 'Fiberglass' : 'Gunite',",
+         "replace": "buildType: c.buildType,"},
         {"label": "allowlist check removed",
          "find": "if (ALLOWLIST.indexOf(col) === -1 || !FIELD_DEFS[col]) {",
          "replace": "if (false) {"},
@@ -116,6 +119,9 @@ MUTATIONS = {
          "replace": "if (opts.finishFor) {"},
     ],
     "web/graph-writeback.js": [
+        {"label": "createBody drops BuildType",
+         "find": "      BuildType: create.buildType === 'Fiberglass' ? 'Fiberglass' : 'Gunite'",
+         "replace": "      /* mutated */"},
         {"label": "suppression stamp dropped from the PATCH body",
          "find": "    b.SuppressReconcileUntil = write.suppressUntil;",
          "replace": "    /* mutated */"},

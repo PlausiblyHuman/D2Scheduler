@@ -132,7 +132,9 @@
          REST item-creation on this tenant is already known to bypass
          required-field validation. If this arrives falsy, all 46 sub-phases
          land `unassigned` and the tool looks broken rather than configured. */
-      AssignDefaultCrews: !!create.assignDefaultCrews
+      AssignDefaultCrews: !!create.assignDefaultCrews,
+      // Required Choice, default Gunite on the list; sent explicitly for the same reason AssignDefaultCrews is.
+      BuildType: create.buildType === 'Fiberglass' ? 'Fiberglass' : 'Gunite'
       /* Status and Result are deliberately absent. Both are flow-owned, both
          are hidden from the New form, and Status defaults to Requested. */
     };

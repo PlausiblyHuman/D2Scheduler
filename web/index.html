@@ -1412,11 +1412,12 @@ function vJobs(){
   const pend=S.pendingCreates||[];
   const pendingCard=pend.length?`<div class="card"><h2>Pending Pool Requests<span class="sp"></span>
       <span class="muted small" style="text-transform:none">Queued here — pushed to SharePoint by Save</span></h2>
-    <table><thead><tr><th style="width:92px">Job ID</th><th>Name</th><th style="width:140px">Project manager</th><th>Address</th><th style="width:100px">Start</th>
+    <table><thead><tr><th style="width:92px">Job ID</th><th>Name</th><th style="width:90px">Type</th><th style="width:140px">Project manager</th><th>Address</th><th style="width:100px">Start</th>
       <th style="width:100px">Crews</th><th style="width:230px">Status</th><th></th></tr></thead><tbody>
     ${pend.map(c=>`<tr>
       <td class="mono small">${esc(c.jobno)}</td>
       <td>${esc(c.name)}</td>
+      <td class="small">${esc(c.buildType||'Gunite')}</td>
       <td class="small">${c.pmName?esc(c.pmName):'<span class="muted">You</span>'}</td>
       <td class="small muted">${esc([c.addr,c.city].filter(Boolean).join(', '))}</td>
       <td class="small muted">${pretty(c.start)}</td>
@@ -1798,18 +1799,36 @@ function doResetStart(jobId,date){
    builds sub-phases now -- this only collects what New Pool Requests needs
    and queues it. See confirmNewPoolRequest, buildPendingCreates and the Save
    preview (openSavePreview, further below). */
+function tplCounts(type){
+  const t=S.templates&&S.templates[type];
+  if(!t)return null;
+  const secs=t.reduce((n,g)=>n+g.sections.length,0), tasks=t.reduce((n,g)=>n+g.sections.reduce((m,s)=>m+s.tasks.length,0),0);
+  return {secs,tasks};
+}
+function ncTypeCopy(type){
+  const c=tplCounts(type);
+  return c?`builds the ${c.secs} sub-phases and ${c.tasks} tasks of the ${esc(type)} template`:`builds the sub-phases and tasks of the ${esc(type)} template`;
+}
+function ncTypeChanged(){
+  const t=(document.querySelector('input[name=ncType]:checked')||{}).value||'Gunite';
+  const el=document.getElementById('ncTypeCopy'); if(el)el.innerHTML=ncTypeCopy(t);
+  const c=tplCounts(t), u=document.getElementById('ncUnassignedCopy');
+  if(u)u.textContent=c?`Unchecked leaves all ${c.secs} sub-phases`:'Unchecked leaves every sub-phase';
+}
 function addJob(){
   document.getElementById('dTitle').textContent='Request a new pool';
   document.getElementById('dBody').innerHTML=`
     <div class="hint" style="padding:0 0 11px">
-      This raises a row in SharePoint's <b>New Pool Requests</b> list — <b>D2 - New Pool</b> builds
-      the 46 sub-phases and 295 tasks from the template. The last measured run took
+      This raises a row in SharePoint's <b>New Pool Requests</b> list. <b>D2 - New Pool</b> <span id="ncTypeCopy">${ncTypeCopy('Gunite')}</span>. The last measured run took
       <b>16 and a half minutes</b>, and stalled for six of them: allow <b>10–20 minutes</b>.
       The request sits at <span class="mono">Building</span> the whole time
       and looks stuck, but is not. Use <b>Refresh</b> once it finishes to pull the pool in here.
     </div>
     <div class="fld"><label>Job number</label><input id="ncJobNo" value="${esc(nextJobNo())}"></div>
     <div class="fld"><label>Pool / job name</label><input id="ncName" placeholder="e.g. Reyes Residence"></div>
+    <div class="fld"><label>Build type</label>
+      <label style="margin-right:14px"><input type="radio" name="ncType" value="Gunite" checked onchange="ncTypeChanged()"> Gunite</label>
+      <label><input type="radio" name="ncType" value="Fiberglass" onchange="ncTypeChanged()"> Fiberglass</label></div>
     ${newJobPmField()}
     <div class="fld"><label>Street address</label><input id="ncAddr" placeholder="Street"></div>
     <div class="row">
@@ -1819,7 +1838,7 @@ function addJob(){
     <div class="fld"><label><input type="checkbox" id="ncAssignCrews" checked> Assign default crews</label>
       <div class="hint" style="padding:4px 0 0">Checked pulls each sub-phase's default crew from the
       template (rule 1 is checked nightly by D2 - Crew Trade Check either way, never enforced at
-      creation). Unchecked leaves all 46 sub-phases <span class="mono">unassigned</span> for a PM to
+      creation). <span id="ncUnassignedCopy">${tplCounts('Gunite')?'Unchecked leaves all '+tplCounts('Gunite').secs+' sub-phases':'Unchecked leaves every sub-phase'}</span> <span class="mono">unassigned</span> for a PM to
       allocate by hand.</div></div>`;
   document.getElementById('dFoot').innerHTML=
     `<button class="btn p" id="ncSubmit" onclick="confirmNewPoolRequest()">Queue request</button>
@@ -1858,6 +1877,7 @@ function confirmNewPoolRequest(){
   const city=document.getElementById('ncCity').value.trim();
   const start=document.getElementById('ncStart').value;
   const assignDefaultCrews=document.getElementById('ncAssignCrews').checked;
+  const buildType=(document.querySelector('input[name=ncType]:checked')||{}).value==='Fiberglass'?'Fiberglass':'Gunite';
   // Blank means "whoever is signed in when Save runs", resolved in pushCreates.
   const pmSel=document.getElementById('ncPm');
   const pmId=pmSel&&pmSel.value?pmSel.value:null;
@@ -1867,7 +1887,7 @@ function confirmNewPoolRequest(){
   if(S.jobs.some(j=>String(j.jobno)===jobno)||S.pendingCreates.some(c=>c.jobno===jobno)){
     alert(jobno+' is already in use here — pick a different job number.');return;}
   S.pendingCreates.push({id:'pc'+Math.random().toString(36).slice(2,8),
-    jobno,name,addr,city,start,assignDefaultCrews,pmId,pmName,queuedAt:new Date().toISOString(),requestedAt:null});
+    jobno,name,addr,city,start,assignDefaultCrews,buildType,pmId,pmName,queuedAt:new Date().toISOString(),requestedAt:null});
   closeDrawer();
   TAB='jobs';
   document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.t==='jobs'));
@@ -2465,7 +2485,11 @@ function buildJobStartChanges(){
 function buildPendingCreates(){
   return (S.pendingCreates||[]).filter(c=>!c.requestedAt)
     .map(c=>({jobno:c.jobno,name:c.name,addr:c.addr||'',city:c.city||'',start:c.start,
-      assignDefaultCrews:!!c.assignDefaultCrews}));
+      assignDefaultCrews:!!c.assignDefaultCrews,
+      buildType:c.buildType==='Fiberglass'?'Fiberglass':'Gunite',
+      // The PM picked on + Job. These two were dropped here until 2026-10-13, so Save always
+      // sent the signed-in user whatever the form said.
+      pmId:c.pmId==null||c.pmId===''?null:String(c.pmId), pmName:c.pmName||''}));
 }
 /* ---------------------------- pushing to SharePoint ----------------------------
    Save has two endings. When this page can reach Graph it pushes directly; from

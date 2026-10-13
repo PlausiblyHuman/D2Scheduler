@@ -317,7 +317,8 @@
       // real pool has been built so far) when a change-set omits the field
       // entirely -- an older planner build that predates this checkbox still
       // produces a valid create. Only an explicit `false` turns it off.
-      assignDefaultCrews: c.assignDefaultCrews === false ? false : true
+      assignDefaultCrews: c.assignDefaultCrews === false ? false : true,
+      buildType: c.buildType === 'Fiberglass' ? 'Fiberglass' : 'Gunite'
     });
   });
   const creates = [...createsByJobno.values()];
@@ -580,7 +581,8 @@
             // 46 sub-phases land `unassigned` with no error anywhere, which
             // reads as the tool being broken, not as a setting. Sending it
             // explicitly means the question never comes up.
-            AssignDefaultCrews: !!c.assignDefaultCrews
+            AssignDefaultCrews: !!c.assignDefaultCrews,
+            BuildType: c.buildType
           })
         });
         if (!r.ok) throw new Error(r.status + ' ' + (await r.text()).slice(0, 300));
@@ -612,13 +614,13 @@
     // and StartDate -- a create that landed with the right name and date but
     // a blank ProjectManager used to verify as clean. ----
     if (createdOk.length) {
-      const afterRequests = await all("/_api/web/lists/GetByTitle('New Pool Requests')/items?$select=Id,Title,JobNumber,StartDate,ProjectManagerId,AssignDefaultCrews&$top=2000");
+      const afterRequests = await all("/_api/web/lists/GetByTitle('New Pool Requests')/items?$select=Id,Title,JobNumber,StartDate,ProjectManagerId,AssignDefaultCrews,BuildType&$top=2000");
       const byJobno = new Map(afterRequests.map(r => [String(r.JobNumber), r]));
       createVerifyMismatch = createdOk.filter(c => {
         const r = byJobno.get(c.jobno);
         if (!r) return true;
         return r.Title !== c.name || day(r.StartDate) !== c.start ||
-          r.ProjectManagerId !== pmId || !!r.AssignDefaultCrews !== !!c.assignDefaultCrews;
+          r.ProjectManagerId !== pmId || !!r.AssignDefaultCrews !== !!c.assignDefaultCrews || r.BuildType !== c.buildType;
       });
     }
   } catch (e) {

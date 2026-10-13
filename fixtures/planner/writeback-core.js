@@ -203,6 +203,11 @@ ok('titleMatches rejects the same sub-phase number on a different job',
   const r2 = C.planCreates([{ jobno: 'D2-1098', name: 'Y', start: '2026-10-01', pmId: '' }], [], []);
   ok('no PM picked stays null, so Save falls back to the signed-in person', r2.creates[0].pmId === null,
      JSON.stringify(r2.creates[0]));
+  const r3 = C.planCreates([{ jobno: 'D2-1097', name: 'Z', start: '2026-10-01', buildType: 'Fiberglass' },
+                            { jobno: 'D2-1096', name: 'W', start: '2026-10-01' },
+                            { jobno: 'D2-1095', name: 'V', start: '2026-10-01', buildType: 'Carbon' }], [], []);
+  ok('buildType survives planning, defaults to Gunite, and an unknown value normalises to Gunite',
+     r3.creates.map(c => c.buildType).join() === 'Fiberglass,Gunite,Gunite', JSON.stringify(r3.creates.map(c => c.buildType)));
 }
 
 
