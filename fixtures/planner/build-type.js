@@ -104,6 +104,21 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
     ok('jobBadge draws a Fiberglass chip only for Fiberglass', /Fiberglass/.test(w.jobBadge(fj)) && !/Fiberglass/.test(w.jobBadge(w.S.jobs.find(j => j.buildType === 'Gunite'))));
     w.document.querySelector('#tabs button[data-t="crews"]').click();
     ok('Skill Coverage lists sub-phases from both templates, labelled', /Gunite:.*Fiberglass:/s.test(w.document.getElementById('main').textContent));
+    // re-layout: a Gunite-laid Fiberglass project is rebuilt on the next import
+    {
+      const j2 = w.S.jobs.find(j => j.jobno === 'TEST-9901');
+      j2.groups = w.mkJobGroups(w.templateFor('Gunite')); j2.buildType = 'Gunite';
+      alerts.length = 0;
+      w.importFromD2Payload(Object.assign({}, base, { jobs: base.jobs.concat([fibJob]) }), true);
+      const rj = w.S.jobs.find(j => j.jobno === 'TEST-9901');
+      ok('a Fiberglass project laid out from Gunite is rebuilt: 45 sub-phases including 2.3', rj.buildType === 'Fiberglass' && rj.groups.flatMap(g => g.sections).length === 45 && rj.groups.flatMap(g => g.sections).some(s => s.num === '2.3'));
+      ok('no unmatched alert after the re-layout', !alerts.some(a => /matched nothing/.test(a)), alerts.join(' | '));
+      rj.groups = [];
+      alerts.length = 0;
+      w.importFromD2Payload(Object.assign({}, base, { jobs: base.jobs.concat([fibJob]) }), true);
+      const ej = w.S.jobs.find(j => j.jobno === 'TEST-9901');
+      ok('a Fiberglass project with an empty layout gets 45 sub-phases', ej.groups.flatMap(g => g.sections).length === 45);
+    }
     ok('no page errors', errs.length === 0, errs.join(' | '));
   }
   {
@@ -121,7 +136,14 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
     const T = w.mkTemplate(); T[0].name = 'Edited locally';
     w.localStorage.setItem('poolsched.v6', JSON.stringify({ crews: [], template: T, jobs: [], settings: {}, pendingCreates: [], pendingComments: [] }));
     w.load();
-    ok('a stored S.template becomes S.templates.Gunite and S.template is gone', w.S.templates && w.S.templates.Gunite && w.S.templates.Gunite[0].name === 'Edited locally' && !('template' in w.S));
+    ok('a stored S.template is discarded, not migrated', !('template' in w.S) && !(w.S.templates && w.S.templates.Gunite));
+    ok('templateFor(Gunite) is the built-in after the discard', w.templateFor('Gunite')[0].name === w.mkTemplate()[0].name && w.templateFor('Gunite')[0].name !== 'Edited locally');
+    w.document.querySelector('#tabs button[data-t="phases"]').click();
+    const txt = w.document.getElementById('main').textContent;
+    ok('the phases tab says Built-in copy and never Invalid Date', /Built-in copy/.test(txt) && !/Invalid Date/.test(txt));
+    w.S.templates = { Gunite: w.mkTemplate() }; delete w.S.templatesFrom; w.render();
+    const txt2 = w.document.getElementById('main').textContent;
+    ok('a template without a timestamp is not labelled as from SharePoint', /Built-in copy/.test(txt2) && !/From SharePoint/.test(txt2));
   }
   // ---- Phase Template tab: read-only, switch, hints
   {

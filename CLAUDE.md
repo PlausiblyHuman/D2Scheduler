@@ -153,7 +153,7 @@ closed there.
 **Additional rules confirmed by David/Don:**
 
 - **Internet connection required.** No offline mode. Mobile devices and laptops always online.
-- **Task-level ticks required** — Don wants each of the ~6 tasks per sub-phase individually ticked. the template's tasks per pool preserved (295 for Gunite, 248 for Fiberglass).
+- **Task-level ticks required** — Don wants each of the ~6 tasks per sub-phase individually ticked. The template's tasks per pool preserved (295 for Gunite, 248 for Fiberglass).
 - **Weekly + daily PDFs by email** are acceptable for ownership visibility (no Power BI dashboards needed).
 - **Four subcontractor crews** (George, Armondo, STL Shotcrete, Brothers) modeled as `Unlimited = Yes` capacity-exempt buckets. No roster, no M365 seat, cannot be double-booked.
 - **Sign-off happens on connected devices** — David confirmed no signal-required scenarios.

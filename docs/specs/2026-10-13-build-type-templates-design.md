@@ -69,7 +69,7 @@ Phase, Section, Row Type; the other columns were empty). 45 sub-phases, 248 task
    | 0.1 Procurement Planning, 1.3 Order/Procure Site Materials | Main Office (exception: plainly office work) |
    | 2.1, 2.2, 2.3, 5.1, 5.2, 5.3, 7.4, 7.7, 8.1 to 8.6 | none: Unassigned |
 
-   29 by name, 2 by exception, 14 Unassigned. Don adjusts in the planner as he schedules; 8.3
+   29 by name, 2 by exception, 20 Unassigned (the 14 Fiberglass-only rows plus the 6 whose Gunite match is itself Unassigned). Don adjusts in the planner as he schedules; 8.3
    Final Grade is the likely first adjustment (the `finishgrade` trade exists).
 8. **Sequence** is the position in the template, 1 to 45, which is what the live Gunite rows
    carry (1 to 46, from `tools/template-seed.json`; the phase-hundreds scheme in
@@ -259,7 +259,7 @@ body.
   the "46 sub-phases" claims at lines 233, 1167 and 1533 become "per the project's build type".
 - Guide v9 list: choose Gunite or Fiberglass on `+ Job`; the Phase Template tab shows SharePoint's
   templates and no longer edits anything.
-- For Don: the four Startup numbers that changed, and the 14 Unassigned sub-phases.
+- For Don: the four Startup numbers that changed, and the 20 Unassigned sub-phases.
 
 ## 9. Size
 

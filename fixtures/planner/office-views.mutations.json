@@ -1,8 +1,8 @@
 [
  {
   "label": "PM filter ignored",
-  "find": "const shown=pmOn?S.jobs.filter(j=>j.pm===pmOn):S.jobs;",
-  "replace": "const shown=S.jobs;"
+  "find": "const shown=orderJobs(pmOn?S.jobs.filter(j=>j.pm===pmOn):S.jobs);",
+  "replace": "const shown=orderJobs(S.jobs);"
  },
  {
   "label": "filters wiped by Refresh",

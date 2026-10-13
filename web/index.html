@@ -359,7 +359,6 @@ function tplFromPayload(phases){
   return (phases||[]).map((p,i)=>({id:'g'+i,num:String(p.num),name:p.name||'',
     sections:(p.sections||[]).map((s,k)=>({id:'s'+i+'_'+k,num:s.num,name:s.name,skill:s.skill||null,days:s.days||2,tasks:(s.tasks||[]).slice()}))}));
 }
-/* The Phase Template tab edits the Gunite template in place; make sure it is stored so edits persist. */
 function mkJobGroups(tpl){
   return tpl.map(g=>({tid:g.id,num:g.num,name:g.name,inst:false,pm:false,
     sections:g.sections.map(s=>({sid:s.id,num:s.num,name:s.name,skill:s.skill,days:s.days,
@@ -406,7 +405,7 @@ function jobBadge(j){
   return bt+`<span class="chip jb ${cls}" title="Jobs.Status in SharePoint">${esc(j.status)}</span>`+building+edited;
 }
 function load(){
-  try{const raw=localStorage.getItem(KEY);if(raw){S=JSON.parse(raw);S.settings=S.settings||{};S.pendingCreates=S.pendingCreates||[];S.pendingComments=S.pendingComments||[];if(S.template){S.templates=S.templates||{};if(!S.templates.Gunite)S.templates.Gunite=S.template;delete S.template;} S.templates=S.templates||{};syncNonWork();sortJobsByNumber();return;}}catch(e){}
+  try{const raw=localStorage.getItem(KEY);if(raw){S=JSON.parse(raw);S.settings=S.settings||{};S.pendingCreates=S.pendingCreates||[];S.pendingComments=S.pendingComments||[];if(S.template){delete S.template;/* the per-browser copy was never authoritative; a Refresh loads the real templates */} S.templates=S.templates||{};syncNonWork();sortJobsByNumber();return;}}catch(e){}
   S={crews:JSON.parse(JSON.stringify(SEED_CREWS)),templates:{},jobs:[],settings:{},pendingCreates:[],pendingComments:[]};
   /* NO DEMO POOLS. Removed 2026-09-11.
      This used to seed Harrison Residence, Vasquez Pool & Spa and Bell Canyon
@@ -1528,11 +1527,11 @@ function vCrews(){
   ${SKILLS.map(s=>{const q=qualified(s.id);
     const T=S.templates&&Object.keys(S.templates).length?S.templates:{Gunite:templateFor('Gunite')};
     const usedBy=Object.entries(T).map(([t,tpl])=>[t,tpl.flatMap(g=>g.sections.filter(x=>x.skill===s.id).map(x=>x.num))]).filter(([,a])=>a.length);
-    const used=usedBy.map(([t,a])=>(Object.keys(T).length>1?esc(t)+': ':'')+a.join(', '));
+    const used=usedBy.map(([t,a])=>(Object.keys(T).length>1?esc(t)+': ':'')+a.map(esc).join(', '));
     return `<tr><td>${s.label}</td>
       <td>${q.length?q.map(c=>`<span class="chip" style="background:${crewColor(c.id)};color:#fff">${esc(c.name)}</span>`).join(' '):'<span class="err-txt">none</span>'}</td>
       <td class="small ${used.length?'muted':'err-txt'}">${used.length?used.join(' · '):'not mapped to any sub-phase yet'}</td></tr>`;}).join('')}
-  </tbody></table><div class="hint">A skill with no sub-phase is a trade you have crews for but no place in the build template — set it on the Phase Template tab.</div></div>`;
+  </tbody></table><div class="hint">A skill with no sub-phase is a trade you have crews for but no place in the build template — the trade is set on the sub-phase template in SharePoint, which Don and David maintain.</div></div>`;
 }
 
 function vPhases(){
@@ -1540,7 +1539,7 @@ function vPhases(){
   const type=UI.tplType==='Fiberglass'&&have.Fiberglass?'Fiberglass':'Gunite';
   UI.tplType=type;
   const tpl=templateFor(type);
-  const fromSp=!!have[type];
+  const fromSp=!!(have[type]&&S.templatesFrom);
   const sw=['Gunite','Fiberglass'].map(t=>`<button class="btn sm${t===type?' p':''}" onclick="UI.tplType='${t}';render()"${t!=='Gunite'&&!have[t]?' disabled title="Press Refresh to load the Fiberglass template from SharePoint"':''}>${t}</button>`).join(' ');
   const secs=tpl.reduce((a,g)=>a+g.sections.length,0), tasks=tpl.reduce((a,g)=>a+g.sections.reduce((b,s)=>b+s.tasks.length,0),0);
   return `<div class="card"><h2>Build phases<span class="sp"></span>${sw}</h2>
@@ -2259,7 +2258,13 @@ function importFromD2Payload(d,silent){
         if(inj.city!=null)j.city=inj.city;
         if(inj.start)j.start=inj.start;
         if(inj.status)j.status=inj.status;
-        j.buildType=inj.buildType==='Fiberglass'?'Fiberglass':(j.buildType||'Gunite');
+        /* A tab left open from before the deploy may hold a Fiberglass project laid out from the
+           Gunite template, and a project imported before its template was loaded has no layout at
+           all. Both are rebuilt from the right template on the next Refresh; the overlay below then
+           re-applies crews, dates and ticks by number. */
+        const bt=inj.buildType==='Fiberglass'?'Fiberglass':'Gunite';
+        if((bt!==(j.buildType||'Gunite')||!j.groups||!j.groups.length)&&S.templates&&S.templates[bt])j.groups=mkJobGroups(templateFor(bt));
+        j.buildType=bt;
       }
       /* Still being built by D2 - New Pool. Read off New Pool Requests on the
          Graph path; the REST export does not carry it, so it reads false. */

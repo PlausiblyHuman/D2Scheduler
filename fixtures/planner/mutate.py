@@ -123,7 +123,7 @@ MUTATIONS = {
          "find": "      BuildType: create.buildType === 'Fiberglass' ? 'Fiberglass' : 'Gunite'",
          "replace": "      /* mutated */"},
         {"label": "suppression stamp dropped from the PATCH body",
-         "find": "    b.SuppressReconcileUntil = write.suppressUntil;",
+         "find": "    if (write.suppressUntil) b.SuppressReconcileUntil = write.suppressUntil;",
          "replace": "    /* mutated */"},
         {"label": "empty-UPN guard removed from site-user resolution",
          "find": "    if (!want) return { id: null, matches: [], ambiguous: false };",
