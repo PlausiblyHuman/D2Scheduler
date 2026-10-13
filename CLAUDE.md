@@ -230,8 +230,8 @@ closed there.
 
 **RESOLVED 2026-09-08: new pools now originate in SharePoint, not the browser tool.** A PM
 adds a row to **New Pool Requests** (job number, name, address, start date, project manager) and
-**`D2 - New Pool`** reads the 46-row **Sub-phase Template** and 295-row **Task Template** and
-generates the whole pool directly into Lists, with no browser-tool JSON export anywhere in the
+**`D2 - New Pool`** reads the **Sub-phase Template** and **Task Template** rows of the project's
+build type and generates the whole pool directly into Lists, with no browser-tool JSON export anywhere in the
 path. The browser tool remains the visual planner and the only Gantt (it is still where a PM
 lays out crew sequencing by eye), but it is no longer where a pool is *born*. See **How to run
 it** and the NEXT SESSION section for the flow and list details.
@@ -1164,8 +1164,8 @@ What it does NOT release, because the reason was never "it is production":
   returns 200/201/204 and does nothing, or renders blank, or matches no rows. That is a property
   of SharePoint and Power Automate, not of who is watching. Read the shape off a real payload,
   and verify by opening the result.
-- **Expensive-to-recreate data stays protected.** The 46-row Sub-phase Template, the 295-row Task
-  Template and the Work Calendar are hand-built or seeded once. Losing them costs real time, not
+- **Expensive-to-recreate data stays protected.** The Sub-phase Template and Task Template (the
+  sub-phases of each build type) and the Work Calendar are hand-built or seeded once. Losing them costs real time, not
   reputation.
 - **Batching canvas deploys stays**, for a different reason: every deploy costs Shane a manual
   Studio save. That is his time, not tenant risk.
@@ -1499,17 +1499,17 @@ the same time, and a surprising row is not automatically a bug in this session's
 
 | List | Rows | GUID |
 |---|---|---|
-| Jobs | **34** as of 2026-10-03, all Planned, all raised by Don (two on 2026-09-22/24, 32 on 2026-09-30). Before that, **2** as of 2026-09-25: `26- 2055` Gunite/Trailov and `26-2065` Brandon - Cross. The four fictional demo pools (`D2-1042` to `D2-1045`) were deleted 2026-09-25 on Shane's instruction, through `Delete Pool Requests`, and their 184 calendar events cleared over Graph | `ee0ecabf-2f11-458d-a9ea-641f76d10cc3` |
+| Jobs | **34** as of 2026-10-03 (all stamped `BuildType` Gunite 2026-10-13; the column is required, default Gunite), all Planned, all raised by Don (two on 2026-09-22/24, 32 on 2026-09-30). Before that, **2** as of 2026-09-25: `26- 2055` Gunite/Trailov and `26-2065` Brandon - Cross. The four fictional demo pools (`D2-1042` to `D2-1045`) were deleted 2026-09-25 on Shane's instruction, through `Delete Pool Requests`, and their 184 calendar events cleared over Graph | `ee0ecabf-2f11-458d-a9ea-641f76d10cc3` |
 | Assignments | **1,564** (34 x 46, as of 2026-10-03) | `49ef7006-d3fe-40a7-a52f-c4c18545bd35` |
 | Tasks | **10,030** (34 x 295, as of 2026-10-03) | `22c45847-ff0d-417a-b53e-1ea018fbb6d3` |
 | Trades | 26 | `05038f7f-a6cb-4f57-b1a1-3ff9c7126ba5` |
 | Crews | 14 (subcontractor patch applied) | `45e9ff1f-bf36-4ab5-929d-25ab9a80d460` |
 | Crew-Trades | 51 | (see viewlsts.aspx) |
 | Work Calendar | **210** (175 Sundays + 35 holidays, 2026-08-30 to 2029-12-30) | (see viewlsts.aspx) |
-| New Pool Requests | **6** as of 2026-09-25: four `Done` rows for the deleted demo pools (13, 14, 15, 17) and Don's two (22, 24). The rehearsal row for `TEST-9600` was removed. This is a client-facing operational log, not a place for test litter | `13331a5e-ea8e-4ab2-9276-db5b4f4d46bf` |
+| New Pool Requests | `BuildType` added and the 38 existing rows stamped Gunite 2026-10-13. **6** as of 2026-09-25: four `Done` rows for the deleted demo pools (13, 14, 15, 17) and Don's two (22, 24). The rehearsal row for `TEST-9600` was removed. This is a client-facing operational log, not a place for test litter | `13331a5e-ea8e-4ab2-9276-db5b4f4d46bf` |
 | Delete Pool Requests | **4** as of 2026-09-25: the four `Done` rows that removed the demo pools (22 to 25). The rehearsal row was removed | `b1ea3db6-7870-4648-80c2-7fe8414ecfd7` |
-| Sub-phase Template | 46 (one row per sub-phase; read by `D2 - New Pool`) | `453e7cd5-f84a-4e2a-9372-73f26019e3f0` |
-| Task Template | 295 (one row per task across the 46 sub-phases) | `61824add-8eaa-4b1b-aed7-a202204bf9f5` |
+| Sub-phase Template | **91** as of 2026-10-13: 46 Gunite + 45 Fiberglass (one row per sub-phase; read by `D2 - New Pool` and the planner, filtered on `BuildType`). `Sequence` runs 1..46 and 1..45 within a type; `PhaseName` carries the phase heading | `453e7cd5-f84a-4e2a-9372-73f26019e3f0` |
+| Task Template | **543** as of 2026-10-13: 295 Gunite + 248 Fiberglass (one row per task, `BuildType` on every row) | `61824add-8eaa-4b1b-aed7-a202204bf9f5` |
 | Reschedule Requests | **3** (the 2026-09-10 demo-pool reflows, all `Done` -- legitimate history, not test litter) | `31ada231-3937-4d72-9abf-8677f07c3fea` |
 
 **Flow status (table originally closed out Phase B on 2026-09-05; rows 6 onward are later
@@ -1530,7 +1530,7 @@ covers two flows, the daily and weekly summaries.):**
 | 6 | Task Tick Batch | Started | **NEW 2026-09-07, verified end to end.** `D2 - Task Tick Batch`, flowId `1a825a83-492a-d47a-0fc0-ec5ef7d43594` (Dataverse workflowid `e8843056-53aa-f111-aaab-6045bd0196b3`). PowerAppV2 trigger `(AssignmentID, TaskUpdates, TasksTotal, TasksComplete, SignedByEmail)`. Resolves the site user once via `ensureuser`, MERGEs each task from a comma-separated `taskId:flag` list, then MERGEs the assignment counters. **This exists because Patch() does not work from the canvas app — see the Patch entry under Known bugs.** |
 | 7 | Counter Reconciliation | Started | **NEW 2026-09-07, verified.** `D2 - Counter Reconciliation`, flowId `e877197e-1ab6-8f74-49f2-9a12532e3b14` (Dataverse workflowid `291fa9d9-caaa-f111-aaac-6045bd0195dd`). Nightly 05:30 Central, an hour ahead of the daily summary so Don's compliance figures are always computed from repaired counters. Recomputes `TasksTotal`/`TasksComplete` from the Tasks list and MERGEs **only rows that drifted**, so a clean night writes nothing. First run repaired 6 rows; the immediate second run repaired 0. |
 | 8 | Reopen Sign-off | Started | **Built 2026-09-07, verified.** `D2 - Reopen Sign-off`, flowId `d7bad02d-cbdf-f8e6-c385-9ff41bac3776` (Dataverse workflowid `0f850a63-beaa-f111-aaac-6045bd0195dd`). PowerAppV2 trigger. Clears `InstallerSignOff` and appends who reopened, when, who had signed, and an optional reason to `SignOffNotes`. Was already live but had never been added to this table. |
-| 9 | New Pool | Started | **NEW 2026-09-08, verified.** `D2 - New Pool`, flowId `02905018-4f41-e05a-d140-74e2afc82052` (Dataverse workflowid `d782ee70-2fab-f111-aaab-6045bd0196b3`). Triggered by a new row in **New Pool Requests** (`ProjectManager` is a required field on that list). Reads the 46-row **Sub-phase Template** and 295-row **Task Template** and generates a full pool: one Job, 46 Assignments, ~295 Tasks. See Known bugs and gotchas for the platform constraints found building it. |
+| 9 | New Pool | Started | **NEW 2026-09-08, verified.** `D2 - New Pool`, flowId `02905018-4f41-e05a-d140-74e2afc82052` (Dataverse workflowid `d782ee70-2fab-f111-aaab-6045bd0196b3`). Triggered by a new row in **New Pool Requests** (`ProjectManager` is a required field on that list). Reads the **Sub-phase Template** and **Task Template** rows whose `BuildType` matches the request (Gunite 46 sub-phases / 295 tasks, Fiberglass 45 / 248) and generates a full pool: one Job (carrying `BuildType`), one Assignment per sub-phase, one Task per task row. Changed 2026-10-13, see "BUILD TYPES". See Known bugs and gotchas for the platform constraints found building it. |
 | 10 | Delete Pool | Started | **NEW 2026-09-08, verified.** `D2 - Delete Pool`, flowId `995099f4-76e6-8bc0-89ef-9fd3557138ce` (Dataverse workflowid `83064f1f-47ab-f111-aaac-6045bd0195dd`). Triggered by a new row in **Delete Pool Requests**. Removes a pool's Tasks, Assignments and Job. |
 | 11 | Reschedule Pool | Started | **Cursor fix applied and verified both directions 2026-09-15b — a pinned row can no longer drag the reflow cursor backwards; see business rule 3.** **NEW 2026-09-09, verified.** `D2 - Reschedule Pool`, flowId `2f2cde97-e0fd-5c5c-934a-02f09a1d83a5` (Dataverse workflowid `210f1d70-e2ab-f111-aaab-6045bd0196b3`). Triggered by a new row in **Reschedule Requests**. Walks a job's assignments from a given `Sequence` forward, recomputing working-day spans, skipping rows that are `Locked` or already signed off. See **Staging / integration contracts** for the `Planned`/`Locked`/`SuppressReconcileUntil` mechanics and Known bugs and gotchas for the platform constraints found building it. **Hardened the same day in the final whole-branch review:** the reflow-walk `Foreach` now carries `concurrency: {repetitions: 1}` like every other variable-mutating loop in this flow (it always ran sequentially; this closes the gap between "does" and "is guaranteed to"); the mid-run failure email now names how many sub-phases already moved and says to re-raise the same request from the same `FromSequence` (the walk is idempotent); and `Send_completion_email`, `Send_failure_email_guard` and `Send_failure_email_action` all gained the PM -> requester -> `stratirus@d2pools.com` fallback that `Send_conflict_alert_email` already had, so a blank `Author.Email` (plausible per the UPN-vs-`mail` note above) can no longer produce a silent `400 To Field cannot be null or empty` on the very email meant to explain a failure. |
 
@@ -2908,6 +2908,94 @@ a new 6.4 Equipment Gas hook-up with renumbering, PM-addable trades, a Phase 10 
 per-project optional sub-phases (fence type, auto cover), archive/warranty tagging, and deleting or
 renaming a project. Four revised template workbooks were attached (Gunite Rev3, Fiberglass,
 Open Structures, Enclosed Structures). None of it is scoped yet.
+
+**Guide v9 also gains two items from 2026-10-13:**
+- `+ Job` asks for a build type, Gunite or Fiberglass (Gunite preselected), and the project lays out from that type's phases.
+- The Phase Template tab ("Build phases") shows SharePoint's templates for both types and edits nothing; template changes are made in the SharePoint lists.
+
+## BUILD TYPES: GUNITE AND FIBERGLASS TEMPLATES, 2026-10-13 (`deploy/2026-10-13`)
+
+**Found.** The planner and `D2 - New Pool` assumed one template (46 sub-phases, 295 tasks). Fiberglass
+pools follow a different build (45 sub-phases, 248 tasks), so every project was laid out as Gunite.
+Spec: `docs/specs/2026-10-13-build-type-templates-design.md`.
+
+**SharePoint (provisioned and read back live).**
+- `BuildType` Choice [Gunite, Fiberglass], required, default Gunite, on **Jobs, New Pool Requests,
+  Sub-phase Template, Task Template**. `PhaseName` (Text) on Sub-phase Template. Views `Gunite` and
+  `Fiberglass` on both template lists. Scripts: `sharepoint/provision-build-type.js`,
+  `sharepoint/stamp-build-type.js`, `sharepoint/seed-templates.js` (per type; `window.D2_SEED_FILE`,
+  `window.D2_SEED_UPLOAD`).
+- Existing rows stamped Gunite: Jobs 34, New Pool Requests 38, Sub-phase Template 46, Task Template 295.
+- Fiberglass seeded: 45 sub-phases, 248 tasks. Read-back: Sub-phase Template 46 + 45 = 91, Task
+  Template 295 + 248 = 543, no blank `BuildType` anywhere, every Fiberglass task on a Fiberglass
+  parent, `Sequence` 1..45.
+- **Live `Sequence` is the position 1..46 / 1..45.** The phase-hundreds scheme in
+  `sub-phase-template.csv` was never seeded; do not assume it.
+- Seed files come from `tools/gen-template-seed.py --template ... --build-type ...`
+  (`tools/template-seed.json`, `tools/template-seed-fiberglass.json`). The Fiberglass template is
+  built by `tools/fiberglass-template.py` from `D2-Build-Scheduler/D2-Build-Scheduler/source/Fiberglass Build Phase_Rev1_091726.tsv`.
+- **Fiberglass decisions (spec section 2):** the two Phase 7s are merged into 7.1 to 7.7, so the four
+  Startup sub-phases are renumbered 7.4 to 7.7 (were 7.1 to 7.4); phase names come from the heading
+  rows; the punch-list note row is dropped; text is verbatim including "Barrior"; durations 2; crews
+  by the name table. **20 of 45 sub-phases are Unassigned**: 14 Fiberglass-only, and 6 whose Gunite
+  match is itself Unassigned.
+
+**`D2 - New Pool`** (flowId `02905018-4f41-e05a-d140-74e2afc82052`, pushed 2026-10-13 20:56Z by
+`flows/scripts/2026-10-13-new-pool-build-type.py`; builder `new_pool_build_type.py`, test
+`test_new_pool_build_type.py`; export `flows/exports/D2-New-Pool-2026-10-13.json`; backup
+`flows/exports/backups/D2-New-Pool-pre-build-type.json`).
+- `Compose_build_type` = `coalesce(triggerOutputs()?['body/BuildType']?['Value'], 'Gunite')`. **The
+  trigger delivers the Choice as an object with `Value`**, confirmed by three builds.
+- Both template reads filter `BuildType eq '<type>'`. Task cap raised to 1000.
+- `Condition_read_at_cap`: sub-phases >= 100 or tasks >= 1000 marks the request Failed with a
+  `ReadAtCap` result and terminates **before** `Create_job`, so a truncated read never makes a partial pool.
+- `BuildType` is written on the Job; the result email names the type.
+- **A REST item create that omits `BuildType` gets the list default, Gunite** (seen on request 61 and
+  on the Job the old flow wrote). Any writer other than the new flow must set it.
+
+**Throwaway builds:** TEST-9902 (old flow, column present) 46/295; TEST-9903 (new flow, Gunite)
+46/295 "(Gunite)"; TEST-9904 (Gunite after the Fiberglass seed) 46/295; **TEST-9901 (Fiberglass)
+FAILED**: `Create_task` returned 400 Invalid JSON on the title `Overdig requirements (shell width plus
+working space, typically 12-18" per side)`. The flow's JSON body templates never escaped quotes. The
+loop continued: 45 sub-phases and 247 tasks created, and the failure message named the last
+sub-phase (9.1) rather than the short one (1.5). **Pre-existing defect, surfaced by Fiberglass data.**
+A second change (`flows/scripts/new_pool_escape_strings.py`, its test, driver
+`2026-10-13-new-pool-escape-strings.py`) escapes backslash then quote in the six interpolated strings
+of the three create bodies and rewords the failure message. **Its push to the tenant is pending on
+Shane**, after which TEST-9901 is rebuilt. `JobNumber` remains unescaped (follow-up). Remove the
+TEST-990x rows before the pilot.
+
+**Planner (`web/index.html`).**
+- `+ Job` has a Gunite / Fiberglass radio (Gunite preselected); the request row carries `BuildType` on
+  both write paths. The chosen PM now reaches Save (`buildPendingCreates` used to drop `pmId`/`pmName`).
+- Refresh reads the two template lists and Trades (`D2_GRAPH.lists` `spt`, `tpt`, `trades`) and keeps
+  `S.templates` by type with `S.templatesFrom`. `S.template` is retired (a stored copy migrates to
+  `S.templates.Gunite`).
+- Each project carries `buildType` and lays out from `templateFor(type)`: `[]` for a type with no
+  template, **never Gunite as a fallback**. Fiberglass shows a chip via `jobBadge`.
+- **The Phase Template tab ("Build phases") is read-only**: it shows SharePoint's templates with a
+  Gunite / Fiberglass switch. The nine edit functions and the two rebuild buttons are gone; template
+  changes are made in the SharePoint lists. Skill Coverage counts both templates.
+
+**Request-shape traps learned live.** A verbose-OData MERGE on a **field** needs
+`__metadata: {type: 'SP.FieldChoice'}`. Item MERGEs go as `application/json;odata=nometadata` because
+the entity type differs per list. SharePoint throttled one of 390 parallel MERGEs with a 503 (a retry
+was clean). Chrome will not let the SharePoint page POST to `http://localhost`, so large page results
+come back in window-stored slices or a gzip+base64 body read with the page-text tool.
+
+**Tests.** Harness `fixtures/planner/build-type.js` (30+ assertions) with `build-type.mutations.json`;
+`graph-read.g2p-mutations.json`; `build-type-scripts.js`; `merge-capture.test.js`. Fixtures gained
+`spt`/`tpt`/`trades` on both paths (`capture-graph.js --merge`, `merge-capture.js`,
+`sharepoint/capture-template-lists.js`). **All four New Pool structural tests
+(`flows/scripts/test_new_pool_*.py`) compare against the first export containing their own change, not
+the newest**, because the newest-export rule broke the 10-03 test the moment a later change was exported.
+
+**How to verify.** Read both template lists grouped by `BuildType` (expect 46/295 and 45/248, no blank
+type). Raise a Fiberglass request and check the Job's `BuildType`, the assignment and task counts, and
+the type named in the result email. In the planner, add a Fiberglass job and confirm the chip and the
+45 sub-phases. The shakedown passes 48/48 **only with a wide headless window**:
+`chrome --headless=new --remote-debugging-port=9222 --user-data-dir=<throwaway> --window-size=1600,1000`;
+at the default 800x600 two Board-centring checks fail on any version.
 
 ## THE BOARD AT DON'S SCALE: click-to-edit rows and a grouped Schedule Check — 2026-10-05 (`deploy/2026-10-05`)
 
@@ -5540,7 +5628,7 @@ Migration session: see `sessions/2026-08-24-migration-from-scratchpad.md` for th
 
 ## Non-goals
 
-- **Not a general scheduling engine.** Purpose-built for D2's pool construction workflow (46 sub-phases, 295 tasks, specific crew qualifications).
+- **Not a general scheduling engine.** Purpose-built for D2's pool construction workflow (the sub-phases and tasks of each build type, specific crew qualifications).
 - **Not offline-capable.** David confirmed internet required. If that ever changes, upgrade path is Dataverse (see Rev D §14 extension paths).
 - **Not Dataverse.** Dataverse migration is either-or with the Lists path per Rev D §14, not a stepping stone. Named triggers only.
 - **Not a replacement for the browser tool.** The HTML tool remains the PM's planner. Lists holds execution state.
