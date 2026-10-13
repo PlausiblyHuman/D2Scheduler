@@ -31,7 +31,7 @@
     for (const r of rows) {
       const body = {};
       if (!r.BuildType) body.BuildType = 'Gunite';
-      if (l === 'Sub-phase Template' && !r.PhaseName && phaseByNum[r.SubPhaseNumber]) body.PhaseName = phaseByNum[r.SubPhaseNumber];
+      if (l === 'Sub-phase Template' && (r.BuildType || 'Gunite') === 'Gunite' && !r.PhaseName && phaseByNum[r.SubPhaseNumber]) body.PhaseName = phaseByNum[r.SubPhaseNumber];
       if (!Object.keys(body).length) continue;
       if (outOfTime()) { report.remaining[l]++; continue; }
       if (await merge(l, r.Id, body)) { if (body.BuildType) report.stamped[l]++; if (body.PhaseName) report.phaseNamed++; }
