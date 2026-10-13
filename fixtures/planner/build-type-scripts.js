@@ -20,6 +20,11 @@ function stub(state) {
     if (/\/items\?\$select=Id,BuildType/.test(u) || /\/items\?\$select=Id,SubPhaseNumber,BuildType,PhaseName/.test(u)) return json({ value: state.rows });
     if (/\/items\(\d+\)$/.test(u) && m === 'POST') return json({});
     if (/SiteAssets\/template-seed\.json/.test(u)) return json(state.seed);
+    if (/\/SiteAssets\/[^/?]+\.json/.test(u)) return json(state.seed);
+    if (/Sub-phase%20Template'\)\/items\?\$select=Id,SubPhaseNumber,BuildType/.test(u)) return json({ value: state.sub || [] });
+    if (/Task%20Template'\)\/items\?\$select=Id,SubPhaseId,Sequence/.test(u)) return json({ value: state.tasks || [] });
+    if (/Trades'\)\/items/.test(u)) return json({ value: [{ Id: 7, TradeCode: 'demolition' }] });
+    if (m === 'POST' && /\/items$/.test(u)) return json({ d: { Id: 100 + state.n++ } });
     return json({ value: [] });
   };
   return { fetch, calls };
@@ -60,5 +65,20 @@ const xmlOf = c => c.body && c.body.parameters ? c.body.parameters.SchemaXml : '
   ok('PhaseName comes from the seed by SubPhaseNumber', merges.some(c => c.body.PhaseName === 'Pre Construction/Sales'));
   ok('a Fiberglass row is never given a Gunite PhaseName', !merges.some(c => /items\(3\)$/.test(c.u)));
   ok('report counts blanks remaining after the pass', r.report && r.report.blanks && typeof r.report.blanks.Jobs === 'number');
+  // ---- seed by build type
+  const fib = { buildType: 'Fiberglass', subphases: [
+    { num: '1.2', name: 'Site Preparation', phaseName: 'Preconstruction Back Office Admin', tradeCode: 'demolition', defaultCrew: 'campos', days: 2, seq: 1, tasks: ['A', 'B'] },
+    { num: '2.3', name: 'Crane Set and Shell Placement', phaseName: 'Base Preparation and Shell Set', tradeCode: null, defaultCrew: 'unassigned', days: 2, seq: 2, tasks: ['C'] } ] };
+  r = await runScript('seed-templates.js', { seed: fib, sub: [{ Id: 5, SubPhaseNumber: '1.2', BuildType: 'Gunite' }], tasks: [], n: 0, seedFile: 'template-seed-fiberglass.json' });
+  const subPosts = r.calls.filter(c => c.m === 'POST' && /Sub-phase%20Template'\)\/items$/.test(c.u));
+  ok('a Gunite 1.2 does not satisfy a Fiberglass 1.2: both Fiberglass sub-phases are created', subPosts.length === 2);
+  ok('sub-phase bodies carry BuildType and PhaseName', subPosts.every(c => c.body.BuildType === 'Fiberglass' && c.body.PhaseName));
+  ok('TradeId resolved by TradeCode, absent when there is no trade', subPosts[0].body.TradeId === 7 && !('TradeId' in subPosts[1].body));
+  const taskPosts = r.calls.filter(c => c.m === 'POST' && /Task%20Template'\)\/items$/.test(c.u));
+  ok('three tasks created, each with BuildType and its parent id', taskPosts.length === 3 && taskPosts.every(c => c.body.BuildType === 'Fiberglass' && c.body.SubPhaseId >= 100));
+  ok('report says remaining 0', r.report.remaining === 0 && r.report.subCreated === 2 && r.report.taskCreated === 3);
+  r = await runScript('seed-templates.js', { seed: fib, sub: [{ Id: 5, SubPhaseNumber: '1.2', BuildType: 'Fiberglass' }, { Id: 6, SubPhaseNumber: '2.3', BuildType: 'Fiberglass' }], tasks: [{ Id: 1, SubPhaseId: 5, Sequence: 1 }, { Id: 2, SubPhaseId: 5, Sequence: 2 }, { Id: 3, SubPhaseId: 6, Sequence: 1 }], n: 0, seedFile: 'template-seed-fiberglass.json' });
+  ok('second run creates nothing', !r.calls.some(c => c.m === 'POST' && /\/items$/.test(c.u)));
+  ok('the seed file name is taken from window.D2_SEED_FILE', r.calls.some(c => /SiteAssets\/template-seed-fiberglass\.json/.test(c.u)));
   process.exit(fails ? 1 : 0);
 })();
