@@ -57,7 +57,7 @@ The four load-bearing invariants (enforced by the design, not by a database prim
    form will still accept a carpentry crew on a plumbing sub-phase and the flag appears the next
    morning. **`TradeMismatch` GAINED A VIEW 2026-09-15** (`Trade Mismatch` on Assignments, in
    `provision-views.js`, linked from the home page), so the enforcement is no longer invisible; before
-   that the flag was written and read by nobody. And it covers only the 22 of 46 sub-phases that carry
+   that the flag was written and read by nobody. And it covers only the 22 of 46 (Gunite) sub-phases that carry
    a trade at all. Everything below about
    how the check was lost, why a column validation formula cannot do this, and why a null `Trade`
    must be a PASS remains accurate and is why the flow had to be the answer.
@@ -153,7 +153,7 @@ closed there.
 **Additional rules confirmed by David/Don:**
 
 - **Internet connection required.** No offline mode. Mobile devices and laptops always online.
-- **Task-level ticks required** — Don wants each of the ~6 tasks per sub-phase individually ticked. 295 tasks per pool preserved.
+- **Task-level ticks required** — Don wants each of the ~6 tasks per sub-phase individually ticked. the template's tasks per pool preserved (295 for Gunite, 248 for Fiberglass).
 - **Weekly + daily PDFs by email** are acceptable for ownership visibility (no Power BI dashboards needed).
 - **Four subcontractor crews** (George, Armondo, STL Shotcrete, Brothers) modeled as `Unlimited = Yes` capacity-exempt buckets. No roster, no M365 seat, cannot be double-booked.
 - **Sign-off happens on connected devices** — David confirmed no signal-required scenarios.
@@ -1506,7 +1506,7 @@ the same time, and a surprising row is not automatically a bug in this session's
 | Crews | 14 (subcontractor patch applied) | `45e9ff1f-bf36-4ab5-929d-25ab9a80d460` |
 | Crew-Trades | 51 | (see viewlsts.aspx) |
 | Work Calendar | **210** (175 Sundays + 35 holidays, 2026-08-30 to 2029-12-30) | (see viewlsts.aspx) |
-| New Pool Requests | `BuildType` added and the 38 existing rows stamped Gunite 2026-10-13. **6** as of 2026-09-25: four `Done` rows for the deleted demo pools (13, 14, 15, 17) and Don's two (22, 24). The rehearsal row for `TEST-9600` was removed. This is a client-facing operational log, not a place for test litter | `13331a5e-ea8e-4ab2-9276-db5b4f4d46bf` |
+| New Pool Requests | **38** as of 2026-10-13, all stamped `BuildType` Gunite when the column was added. Earlier, **6** as of 2026-09-25: four `Done` rows for the deleted demo pools (13, 14, 15, 17) and Don's two (22, 24). The rehearsal row for `TEST-9600` was removed. This is a client-facing operational log, not a place for test litter | `13331a5e-ea8e-4ab2-9276-db5b4f4d46bf` |
 | Delete Pool Requests | **4** as of 2026-09-25: the four `Done` rows that removed the demo pools (22 to 25). The rehearsal row was removed | `b1ea3db6-7870-4648-80c2-7fe8414ecfd7` |
 | Sub-phase Template | **91** as of 2026-10-13: 46 Gunite + 45 Fiberglass (one row per sub-phase; read by `D2 - New Pool` and the planner, filtered on `BuildType`). `Sequence` runs 1..46 and 1..45 within a type; `PhaseName` carries the phase heading | `453e7cd5-f84a-4e2a-9372-73f26019e3f0` |
 | Task Template | **543** as of 2026-10-13: 295 Gunite + 248 Fiberglass (one row per task, `BuildType` on every row) | `61824add-8eaa-4b1b-aed7-a202204bf9f5` |
@@ -1597,7 +1597,7 @@ Operations`, trade Dig / Excavation) to crew `brothers`, which holds only `pebbl
 one row flagged with the right message, 65 others untouched; reverting to `harrison` cleared it. Test
 it that way or not at all.
 
-**WHAT IT DOES NOT COVER, and this is load-bearing: only 22 of the 46 sub-phases per pool carry a
+**WHAT IT DOES NOT COVER, and this is load-bearing: only 22 of the 46 (Gunite) sub-phases per pool carry a
 trade at all.** The other 24 ride the pseudo-trades `@office`, `@sub` and `@unassigned`, which
 `gen-template-seed.py` resolves to **no `Trade` lookup**, so they are routed to a bucket crew by
 design. **A null `Trade` is therefore a PASS, not a violation** — a check that fired on them would
@@ -2907,7 +2907,7 @@ and this change. Don's 2026-10-10 email also asks for: punch-list items, notes p
 a new 6.4 Equipment Gas hook-up with renumbering, PM-addable trades, a Phase 10 Specialty structures,
 per-project optional sub-phases (fence type, auto cover), archive/warranty tagging, and deleting or
 renaming a project. Four revised template workbooks were attached (Gunite Rev3, Fiberglass,
-Open Structures, Enclosed Structures). None of it is scoped yet.
+Open Structures, Enclosed Structures). None of the rest is scoped yet (Fiberglass is delivered, see "BUILD TYPES").
 
 **Guide v9 also gains two items from 2026-10-13:**
 - `+ Job` asks for a build type, Gunite or Fiberglass (Gunite preselected), and the project lays out from that type's phases.
@@ -2981,7 +2981,7 @@ TEST-990x rows before the pilot.
 `__metadata: {type: 'SP.FieldChoice'}`. Item MERGEs go as `application/json;odata=nometadata` because
 the entity type differs per list. SharePoint throttled one of 390 parallel MERGEs with a 503 (a retry
 was clean). Chrome will not let the SharePoint page POST to `http://localhost`, so large page results
-come back in window-stored slices or a gzip+base64 body read with the page-text tool.
+come back in window-stored slices or a gzip+base64 body read back through the browser automation page text.
 
 **Tests.** Harness `fixtures/planner/build-type.js` (30+ assertions) with `build-type.mutations.json`;
 `graph-read.g2p-mutations.json`; `build-type-scripts.js`; `merge-capture.test.js`. Fixtures gained
