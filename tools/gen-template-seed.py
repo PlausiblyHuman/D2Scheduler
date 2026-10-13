@@ -18,18 +18,22 @@ TradeCode live on the Crews and Trades rows themselves and must be resolved
 by joining on Id. CREW_FIELD/TRADE_FIELD below name those raw id columns; the
 join to the string code happens explicitly, not via a flat dict key.
 """
-import io, json, collections
+import argparse, io, json, collections
 
+ap = argparse.ArgumentParser(description=__doc__)
+ap.add_argument('--template', help='template JSON in SEED_TEMPLATE shape; default: SEED_TEMPLATE inside web/index.html')
+ap.add_argument('--build-type', default='Gunite', choices=['Gunite', 'Fiberglass'])
+ap.add_argument('--live', default='tools/live-crews.json')
+ap.add_argument('--out', help='default tools/template-seed.json for Gunite, tools/template-seed-fiberglass.json otherwise')
+args = ap.parse_args()
 TOOL = 'web/index.html'
-LIVE = 'tools/live-crews.json'
-OUT  = 'tools/template-seed.json'
+LIVE = args.live
+OUT  = args.out or ('tools/template-seed.json' if args.build_type == 'Gunite' else 'tools/template-seed-fiberglass.json')
 
 CREW_FIELD  = 'CrewId'    # Crew-Trades' raw lookup id -> Crews.Id
 TRADE_FIELD = 'TradeId'   # Crew-Trades' raw lookup id -> Trades.Id
 
-src = io.open(TOOL, encoding='utf-8', errors='replace').read()
-
-def extract_array(marker):
+def extract_array(src, marker):
     i = src.index(marker); j = src.index('[', i); d = 0
     for k in range(j, len(src)):
         if src[k] == '[': d += 1
@@ -38,12 +42,17 @@ def extract_array(marker):
             if d == 0: return src[j:k + 1]
     raise ValueError(marker)
 
-TPL = json.loads(extract_array('SEED_TEMPLATE'))
+if args.template:
+    TPL = json.load(io.open(args.template, encoding='utf-8'))
+else:
+    src = io.open(TOOL, encoding='utf-8', errors='replace').read()
+    TPL = json.loads(extract_array(src, 'SEED_TEMPLATE'))
 # `days` may be absent (defaults to 2) but a present-and-null value is a
 # template defect, so it is passed through as-is to be caught by validation
 # rather than silently becoming 2.
 SECTIONS = [(s['num'], s['name'], s.get('skill'),
-             s['days'] if 'days' in s else 2, s.get('tasks', []))
+             s['days'] if 'days' in s else 2, s.get('tasks', []),
+             ph['num'], ph['name'])
             for ph in TPL for s in ph['sections']]
 
 live = json.load(io.open(LIVE, encoding='utf-8'))
@@ -74,7 +83,7 @@ PSEUDO = {'@office': 'office', '@sub': 'subcon', '@unassigned': 'unassigned'}
 
 load = collections.Counter()
 subphases = []
-for seq, (num, name, skill, days, tasks) in enumerate(SECTIONS, start=1):
+for seq, (num, name, skill, days, tasks, phase_num, phase_name) in enumerate(SECTIONS, start=1):
     if skill in PSEUDO:
         crew, trade_code, cands = PSEUDO[skill], None, []
     else:
@@ -90,12 +99,14 @@ for seq, (num, name, skill, days, tasks) in enumerate(SECTIONS, start=1):
     # Store the RAW duration. Do not clamp here: clamping before validation
     # makes the `days < 1` gate below unreachable, so a bad template duration
     # would be silently coerced instead of refused.
-    subphases.append({'num': num, 'name': name, 'skill': skill, 'tradeCode': trade_code,
+    subphases.append({'num': num, 'name': name, 'phaseNum': phase_num, 'phaseName': phase_name, 'skill': skill, 'tradeCode': trade_code,
                       'defaultCrew': crew, 'days': days, 'seq': seq,
                       'candidates': cands, 'tasks': tasks})
 
 errs = []
 for s in subphases:
+    if not s.get('phaseName'):
+        errs.append('NO PHASE NAME on %s' % s['num'])
     if s['defaultCrew'] not in crews:
         errs.append('UNKNOWN CREW %s on %s' % (s['defaultCrew'], s['num']))
     if not isinstance(s['days'], int) or s['days'] < 1:
@@ -112,7 +123,7 @@ if errs:
     for e in errs[:20]: print('   ', e)
     raise SystemExit(1)
 
-out = {'subphases': subphases,
+out = {'buildType': args.build_type, 'subphases': subphases,
        'counts': {'subphases': len(subphases), 'tasks': sum(len(s['tasks']) for s in subphases)}}
 io.open(OUT, 'w', encoding='utf-8').write(json.dumps(out, indent=2, ensure_ascii=False))
 

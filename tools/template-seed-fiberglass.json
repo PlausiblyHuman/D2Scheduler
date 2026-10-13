@@ -1,0 +1,941 @@
+{
+  "buildType": "Fiberglass",
+  "subphases": [
+    {
+      "num": "0.0",
+      "name": "Sales to Production Handoff",
+      "phaseNum": "0",
+      "phaseName": "Pre Construction/Sales",
+      "skill": "@office",
+      "tradeCode": null,
+      "defaultCrew": "office",
+      "days": 2,
+      "seq": 1,
+      "candidates": [],
+      "tasks": [
+        "Contract review",
+        "Signed",
+        "Change orders process",
+        "Draw schedule",
+        "Design verification",
+        "Approved Construction Plans",
+        "Approved Plan View",
+        "Verify Revision Number - Most Updated",
+        "Pool Shell Manufacturer, Model, and Color Verified",
+        "Spa Shell Manufacturer, Model, and Color Verified (if applicable)",
+        "Feature locations (tanning ledge, bench, steps, spa)",
+        "Equipment specifications approved",
+        "Material Selections Approved (coping, decking, tile)"
+      ]
+    },
+    {
+      "num": "0.1",
+      "name": "Procurement Planning",
+      "phaseNum": "0",
+      "phaseName": "Pre Construction/Sales",
+      "skill": "@office",
+      "tradeCode": null,
+      "defaultCrew": "office",
+      "days": 2,
+      "seq": 2,
+      "candidates": [],
+      "tasks": [
+        "Shell ordered from manufacturer",
+        "Shell production lead time and delivery date confirmed",
+        "Pool package pump(s)",
+        "Filter",
+        "Heater (yes or no)",
+        "Salt or chlorine chlorinator (one or the other)",
+        "Automation (yes or no)",
+        "Valves - 2 way and 3 way",
+        "Actuators if automated",
+        "Lights",
+        "Transformer (yes or no)",
+        "Jbox (yes or no)",
+        "Autofill (yes or no)",
+        "Coping/decking materials ordered",
+        "Crane/rigging service scheduled"
+      ]
+    },
+    {
+      "num": "1.0",
+      "name": "Pre-Construction Back Office Admin",
+      "phaseNum": "1",
+      "phaseName": "Preconstruction Back Office Admin",
+      "skill": "@office",
+      "tradeCode": null,
+      "defaultCrew": "office",
+      "days": 2,
+      "seq": 3,
+      "candidates": [],
+      "tasks": [
+        "Permit application submitted",
+        "Permit approved",
+        "HOA approval (if applicable)",
+        "Utility locate requested (call 811)",
+        "PortaPotty Ordered",
+        "Delivered",
+        "D2 Pool Sign in the Yard",
+        "Construction Tote for supplies onsite - all mechanical instruction books for Pool School"
+      ]
+    },
+    {
+      "num": "1.1",
+      "name": "Pre-Construction Verification - HANDOVER FROM OFFICE TO FIELD PM",
+      "phaseNum": "1",
+      "phaseName": "Preconstruction Back Office Admin",
+      "skill": "@office",
+      "tradeCode": null,
+      "defaultCrew": "office",
+      "days": 2,
+      "seq": 4,
+      "candidates": [],
+      "tasks": [
+        "Contract scope review",
+        "Verify Auto Cover YES/NO",
+        "Plan revision verification",
+        "Easement review",
+        "Property access review",
+        "PreCon Meeting PM and Dig Team>digsheet/plan view",
+        "Crane access route to backyard verified",
+        "Shell delivery date confirmed with manufacturer/hauler"
+      ]
+    },
+    {
+      "num": "1.2",
+      "name": "Site Preparation",
+      "phaseNum": "1",
+      "phaseName": "Preconstruction Back Office Admin",
+      "skill": "demolition",
+      "tradeCode": "demolition",
+      "defaultCrew": "campos",
+      "days": 2,
+      "seq": 5,
+      "candidates": [
+        "campos"
+      ],
+      "tasks": [
+        "Construction Entrance and Curb Protection",
+        "Identify Site Obstacles",
+        "Site Prep and Demo (existing fence etc)",
+        "Security Fence",
+        "Silt Fence Contractor Hired",
+        "Silt Fence installed",
+        "Landscaping protection",
+        "Staging area designation",
+        "Material delivery planning",
+        "Contractor for Dig",
+        "Equipment Rental for Dig",
+        "Neighbor notification as needed",
+        "Overhead obstruction check for crane (power lines, trees)"
+      ]
+    },
+    {
+      "num": "1.3",
+      "name": "Order/Procure Site Materials",
+      "phaseNum": "1",
+      "phaseName": "Preconstruction Back Office Admin",
+      "skill": "@office",
+      "tradeCode": null,
+      "defaultCrew": "office",
+      "days": 2,
+      "seq": 6,
+      "candidates": [],
+      "tasks": [
+        "Crushed stone/gravel base material",
+        "Backfill material (per shell manufacturer spec - crushed stone or flowable fill)",
+        "Plumbing materials",
+        "Skimmers",
+        "Return fittings",
+        "Spa fittings",
+        "Main drains",
+        "Conduit"
+      ]
+    },
+    {
+      "num": "1.4",
+      "name": "Pool Layout",
+      "phaseNum": "1",
+      "phaseName": "Preconstruction Back Office Admin",
+      "skill": "dig",
+      "tradeCode": "dig",
+      "defaultCrew": "guillermo",
+      "days": 2,
+      "seq": 7,
+      "candidates": [
+        "guillermo",
+        "harrison",
+        "saul",
+        "stl"
+      ],
+      "tasks": [
+        "Benchmark establishment",
+        "Stake Perimeter (per shell footprint plus working clearance)",
+        "House-to-pool measurements",
+        "Setback verification",
+        "Elevation verification",
+        "Feature layout (spa, tanning ledge, water features)",
+        "Auto Cover Layout",
+        "Equipment location confirmation",
+        "Crane placement/swing radius confirmed"
+      ]
+    },
+    {
+      "num": "1.5",
+      "name": "Pre-Dig Quality Check",
+      "phaseNum": "1",
+      "phaseName": "Preconstruction Back Office Admin",
+      "skill": "@unassigned",
+      "tradeCode": null,
+      "defaultCrew": "unassigned",
+      "days": 2,
+      "seq": 8,
+      "candidates": [],
+      "tasks": [
+        "Layout sign-off",
+        "Dig depth calculations (shell depth plus base material thickness)",
+        "Soil condition review",
+        "Overdig requirements (shell width plus working space, typically 12-18\" per side)",
+        "Dewatering/high water table assessment",
+        "Hauloff Coordination"
+      ]
+    },
+    {
+      "num": "1.6",
+      "name": "Excavation Operations",
+      "phaseNum": "1",
+      "phaseName": "Preconstruction Back Office Admin",
+      "skill": "dig",
+      "tradeCode": "dig",
+      "defaultCrew": "harrison",
+      "days": 2,
+      "seq": 9,
+      "candidates": [
+        "guillermo",
+        "harrison",
+        "saul",
+        "stl"
+      ],
+      "tasks": [
+        "Dig supervision",
+        "Excavate Shell footprint plus overdig",
+        "Excavate Spa",
+        "Excavate Plumbing and Electrical trenches",
+        "Verify hole dimensions match shell shop drawing",
+        "Deep-end depth verification",
+        "Equipment Pad Verification"
+      ]
+    },
+    {
+      "num": "1.7",
+      "name": "Post-Excavation Review",
+      "phaseNum": "1",
+      "phaseName": "Preconstruction Back Office Admin",
+      "skill": "@unassigned",
+      "tradeCode": null,
+      "defaultCrew": "unassigned",
+      "days": 2,
+      "seq": 10,
+      "candidates": [],
+      "tasks": [
+        "Excavation dimension check against shell shop drawing",
+        "Soil stability inspection",
+        "Soil pile management",
+        "Haul-off verification",
+        "Excavation Images obtained",
+        "Excavation acceptance sign-off by PM"
+      ]
+    },
+    {
+      "num": "2.1",
+      "name": "Base Preparation",
+      "phaseNum": "2",
+      "phaseName": "Base Preparation and Shell Set",
+      "skill": "@unassigned",
+      "tradeCode": null,
+      "defaultCrew": "unassigned",
+      "days": 2,
+      "seq": 11,
+      "candidates": [],
+      "tasks": [
+        "Install crushed stone/gravel base (per shell manufacturer spec, typically 4-6 in)",
+        "Compact and level base",
+        "Screed/template base to shell contour",
+        "Base elevation verification (laser level)",
+        "Plumbing stub-out locations marked prior to shell set"
+      ]
+    },
+    {
+      "num": "2.2",
+      "name": "Shell Delivery and Inspection",
+      "phaseNum": "2",
+      "phaseName": "Base Preparation and Shell Set",
+      "skill": "@unassigned",
+      "tradeCode": null,
+      "defaultCrew": "unassigned",
+      "days": 2,
+      "seq": 12,
+      "candidates": [],
+      "tasks": [
+        "Shell delivered to site",
+        "Shell inspected for shipping damage/cracks",
+        "Gelcoat finish inspected",
+        "Fitting locations verified against plan",
+        "Shell serial number/model verified against order"
+      ]
+    },
+    {
+      "num": "2.3",
+      "name": "Crane Set and Shell Placement",
+      "phaseNum": "2",
+      "phaseName": "Base Preparation and Shell Set",
+      "skill": "@unassigned",
+      "tradeCode": null,
+      "defaultCrew": "unassigned",
+      "days": 2,
+      "seq": 13,
+      "candidates": [],
+      "tasks": [
+        "Crane staged and rigged",
+        "Shell lifted and set into excavation",
+        "Shell leveled (side-to-side and end-to-end)",
+        "Shell plumbed and squared to layout stakes",
+        "Elevation/height above grade verified",
+        "Shell braced at walls, steps, and benches per manufacturer spec"
+      ]
+    },
+    {
+      "num": "3.1",
+      "name": "Hydraulic Design Verification",
+      "phaseNum": "3",
+      "phaseName": "Plumbing Rough-In",
+      "skill": "@office",
+      "tradeCode": null,
+      "defaultCrew": "office",
+      "days": 2,
+      "seq": 14,
+      "candidates": [],
+      "tasks": [
+        "Plumbing plan reviewed against shell fitting locations",
+        "Pipe sizing verified"
+      ]
+    },
+    {
+      "num": "3.2",
+      "name": "Plumbing Installation",
+      "phaseNum": "3",
+      "phaseName": "Plumbing Rough-In",
+      "skill": "plumbing",
+      "tradeCode": "plumbing",
+      "defaultCrew": "harrison",
+      "days": 2,
+      "seq": 15,
+      "candidates": [
+        "harrison",
+        "stl"
+      ],
+      "tasks": [
+        "Skimmer line connected",
+        "Return lines connected",
+        "Main drain line connected",
+        "Spa lines connected (if applicable)",
+        "Auto cover lines installed (if applicable)",
+        "Water feature lines installed"
+      ]
+    },
+    {
+      "num": "3.3",
+      "name": "Plumbing Pressure Testing",
+      "phaseNum": "3",
+      "phaseName": "Plumbing Rough-In",
+      "skill": "plumbing",
+      "tradeCode": "plumbing",
+      "defaultCrew": "harrison",
+      "days": 2,
+      "seq": 16,
+      "candidates": [
+        "harrison",
+        "stl"
+      ],
+      "tasks": [
+        "Pressure test all lines",
+        "Leak inspection",
+        "Repair and retest as needed"
+      ]
+    },
+    {
+      "num": "4.1",
+      "name": "Electrical Rough-In",
+      "phaseNum": "4",
+      "phaseName": "Electrical Rough-In",
+      "skill": "@sub",
+      "tradeCode": null,
+      "defaultCrew": "subcon",
+      "days": 2,
+      "seq": 17,
+      "candidates": [],
+      "tasks": [
+        "Bonding wire attached to shell bonding studs",
+        "Conduit run to equipment pad",
+        "Light niche wiring (if applicable)"
+      ]
+    },
+    {
+      "num": "4.2",
+      "name": "Bonding Grid Completion",
+      "phaseNum": "4",
+      "phaseName": "Electrical Rough-In",
+      "skill": "@sub",
+      "tradeCode": null,
+      "defaultCrew": "subcon",
+      "days": 2,
+      "seq": 18,
+      "candidates": [],
+      "tasks": [
+        "Equipotential bonding grid installed around perimeter",
+        "Bonding continuity tested"
+      ]
+    },
+    {
+      "num": "4.3",
+      "name": "Equipment Pad Preparation",
+      "phaseNum": "4",
+      "phaseName": "Electrical Rough-In",
+      "skill": "gas",
+      "tradeCode": "gas",
+      "defaultCrew": "saul",
+      "days": 2,
+      "seq": 19,
+      "candidates": [
+        "saul"
+      ],
+      "tasks": [
+        "Equipment pad base/slab poured or set",
+        "Conduit stubbed to pad"
+      ]
+    },
+    {
+      "num": "4.4",
+      "name": "Rough Inspection Preparation",
+      "phaseNum": "4",
+      "phaseName": "Electrical Rough-In",
+      "skill": "@unassigned",
+      "tradeCode": null,
+      "defaultCrew": "unassigned",
+      "days": 2,
+      "seq": 20,
+      "candidates": [],
+      "tasks": [
+        "Municipal rough plumbing/electrical inspection scheduled",
+        "Rough inspection passed"
+      ]
+    },
+    {
+      "num": "5.1",
+      "name": "Pre-Backfill Readiness Review",
+      "phaseNum": "5",
+      "phaseName": "Backfill and Water Fill",
+      "skill": "@unassigned",
+      "tradeCode": null,
+      "defaultCrew": "unassigned",
+      "days": 2,
+      "seq": 21,
+      "candidates": [],
+      "tasks": [
+        "Bracing verified secure",
+        "Plumbing pressure test confirmed passed",
+        "Backfill material staged (crushed stone or flowable fill per manufacturer spec)",
+        "Water source/fill hose staged",
+        "Crew pre-backfill meeting onsite"
+      ]
+    },
+    {
+      "num": "5.2",
+      "name": "Simultaneous Backfill and Water Fill",
+      "phaseNum": "5",
+      "phaseName": "Backfill and Water Fill",
+      "skill": "@unassigned",
+      "tradeCode": null,
+      "defaultCrew": "unassigned",
+      "days": 2,
+      "seq": 22,
+      "candidates": [],
+      "tasks": [
+        "Begin filling shell with water (initial few inches)",
+        "Begin backfilling in lifts, alternating with rising water level",
+        "Compact backfill in lifts (hand tamp near walls; no heavy equipment against shell)",
+        "Monitor shell walls for movement/distortion throughout process",
+        "Continue matched lifts until backfill reaches grade and water reaches skimmer level"
+      ]
+    },
+    {
+      "num": "5.3",
+      "name": "Post-Backfill Inspection",
+      "phaseNum": "5",
+      "phaseName": "Backfill and Water Fill",
+      "skill": "@unassigned",
+      "tradeCode": null,
+      "defaultCrew": "unassigned",
+      "days": 2,
+      "seq": 23,
+      "candidates": [],
+      "tasks": [
+        "Verify shell walls are straight and true (no bowing)",
+        "Verify water level stable (leak check)",
+        "Backfill compaction verification",
+        "Photo documentation"
+      ]
+    },
+    {
+      "num": "6.1",
+      "name": "Bond Beam/Collar Preparation",
+      "phaseNum": "6",
+      "phaseName": "Coping and Decking",
+      "skill": "rebar",
+      "tradeCode": "rebar",
+      "defaultCrew": "harrison",
+      "days": 2,
+      "seq": 24,
+      "candidates": [
+        "harrison",
+        "stl"
+      ],
+      "tasks": [
+        "Concrete collar/bond beam formed around shell perimeter (if required by design)",
+        "Rebar placed in collar (if applicable)",
+        "Collar poured"
+      ]
+    },
+    {
+      "num": "6.2",
+      "name": "Coping Installation",
+      "phaseNum": "6",
+      "phaseName": "Coping and Decking",
+      "skill": "coping",
+      "tradeCode": "coping",
+      "defaultCrew": "cirilo",
+      "days": 2,
+      "seq": 25,
+      "candidates": [
+        "armondo",
+        "cirilo",
+        "guillermo"
+      ],
+      "tasks": [
+        "Pattern/material selected and approved by customer",
+        "Coping substrate prepared",
+        "Coping set",
+        "Coping grouted and sealed"
+      ]
+    },
+    {
+      "num": "6.3",
+      "name": "Tile Installation",
+      "phaseNum": "6",
+      "phaseName": "Coping and Decking",
+      "skill": "tile",
+      "tradeCode": "tile",
+      "defaultCrew": "cirilo",
+      "days": 2,
+      "seq": 26,
+      "candidates": [
+        "cirilo",
+        "guillermo"
+      ],
+      "tasks": [
+        "Waterline tile substrate prep (if applicable)",
+        "Tile set",
+        "Tile grouted"
+      ]
+    },
+    {
+      "num": "6.4",
+      "name": "Deck Preparation",
+      "phaseNum": "6",
+      "phaseName": "Coping and Decking",
+      "skill": "finishgrade",
+      "tradeCode": "finishgrade",
+      "defaultCrew": "guillermo",
+      "days": 2,
+      "seq": 27,
+      "candidates": [
+        "guillermo",
+        "saul"
+      ],
+      "tasks": [
+        "Subgrade preparation",
+        "Compaction testing",
+        "Form setup",
+        "Drain installation"
+      ]
+    },
+    {
+      "num": "6.5",
+      "name": "Deck Placement",
+      "phaseNum": "6",
+      "phaseName": "Coping and Decking",
+      "skill": "hardscape",
+      "tradeCode": "hardscape",
+      "defaultCrew": "antonio",
+      "days": 2,
+      "seq": 28,
+      "candidates": [
+        "antonio",
+        "armondo",
+        "campos",
+        "cirilo",
+        "devon",
+        "guillermo"
+      ],
+      "tasks": [
+        "Concrete placement",
+        "Paver installation",
+        "Paver Edge Placed",
+        "Decorative finish application",
+        "Expansion joint installation"
+      ]
+    },
+    {
+      "num": "6.6",
+      "name": "Drainage Verification",
+      "phaseNum": "6",
+      "phaseName": "Coping and Decking",
+      "skill": "drainage",
+      "tradeCode": "drainage",
+      "defaultCrew": "devon",
+      "days": 2,
+      "seq": 29,
+      "candidates": [
+        "cirilo",
+        "devon",
+        "guillermo"
+      ],
+      "tasks": [
+        "Deck slope testing",
+        "Area drain testing",
+        "Equipment pad drainage review"
+      ]
+    },
+    {
+      "num": "6.7",
+      "name": "Hardscape Final QC",
+      "phaseNum": "6",
+      "phaseName": "Coping and Decking",
+      "skill": "@unassigned",
+      "tradeCode": null,
+      "defaultCrew": "unassigned",
+      "days": 2,
+      "seq": 30,
+      "candidates": [],
+      "tasks": [
+        "Surface consistency review",
+        "Joint inspection",
+        "Trip hazard inspection",
+        "Finish approval"
+      ]
+    },
+    {
+      "num": "7.1",
+      "name": "Equipment Plumbing",
+      "phaseNum": "7",
+      "phaseName": "Equipment Installation, Startup and Trim Out",
+      "skill": "plumbing",
+      "tradeCode": "plumbing",
+      "defaultCrew": "harrison",
+      "days": 2,
+      "seq": 31,
+      "candidates": [
+        "harrison",
+        "stl"
+      ],
+      "tasks": [
+        "Review Operation and Layout of Equipment with Installation Team",
+        "Manifold assembly",
+        "Valve installation",
+        "Check valve installation",
+        "Flow verification",
+        "Water Feature verification",
+        "Auto Leveler and Pool Drain verification"
+      ]
+    },
+    {
+      "num": "7.2",
+      "name": "Equipment Installation",
+      "phaseNum": "7",
+      "phaseName": "Equipment Installation, Startup and Trim Out",
+      "skill": "plumbing",
+      "tradeCode": "plumbing",
+      "defaultCrew": "harrison",
+      "days": 2,
+      "seq": 32,
+      "candidates": [
+        "harrison",
+        "stl"
+      ],
+      "tasks": [
+        "Pump installation",
+        "Filter installation",
+        "Heater installation",
+        "Chiller Installation",
+        "Automation installation",
+        "Sanitizer installation"
+      ]
+    },
+    {
+      "num": "7.3",
+      "name": "Equipment Electrical",
+      "phaseNum": "7",
+      "phaseName": "Equipment Installation, Startup and Trim Out",
+      "skill": "automation",
+      "tradeCode": "automation",
+      "defaultCrew": "harrison",
+      "days": 2,
+      "seq": 33,
+      "candidates": [
+        "harrison"
+      ],
+      "tasks": [
+        "Breaker installation",
+        "Automation wiring",
+        "Bonding completion",
+        "GFCI verification",
+        "Auto Cover Switch"
+      ]
+    },
+    {
+      "num": "7.4",
+      "name": "Startup Preparation",
+      "phaseNum": "7",
+      "phaseName": "Equipment Installation, Startup and Trim Out",
+      "skill": "@unassigned",
+      "tradeCode": null,
+      "defaultCrew": "unassigned",
+      "days": 2,
+      "seq": 34,
+      "candidates": [],
+      "tasks": [
+        "Surface cleaning",
+        "Order Water Truck/Water delivery",
+        "Startup planning",
+        "Automation Programming"
+      ]
+    },
+    {
+      "num": "7.5",
+      "name": "Startup Procedures",
+      "phaseNum": "7",
+      "phaseName": "Equipment Installation, Startup and Trim Out",
+      "skill": "@unassigned",
+      "tradeCode": null,
+      "defaultCrew": "unassigned",
+      "days": 2,
+      "seq": 35,
+      "candidates": [],
+      "tasks": [
+        "Initial equipment startup",
+        "Leak Inspection",
+        "Auto Cover Installed",
+        "Lights Pulled In",
+        "Flow balancing",
+        "Valve adjustment",
+        "Automation programming"
+      ]
+    },
+    {
+      "num": "7.6",
+      "name": "Water Chemistry Startup",
+      "phaseNum": "7",
+      "phaseName": "Equipment Installation, Startup and Trim Out",
+      "skill": "@unassigned",
+      "tradeCode": null,
+      "defaultCrew": "unassigned",
+      "days": 2,
+      "seq": 36,
+      "candidates": [],
+      "tasks": [
+        "Initial testing",
+        "Chemical balancing",
+        "Brushing schedule",
+        "Startup log creation",
+        "Salt or Chlorinate Pool per startup schedule"
+      ]
+    },
+    {
+      "num": "7.7",
+      "name": "Trim Out",
+      "phaseNum": "7",
+      "phaseName": "Equipment Installation, Startup and Trim Out",
+      "skill": "@unassigned",
+      "tradeCode": null,
+      "defaultCrew": "unassigned",
+      "days": 2,
+      "seq": 37,
+      "candidates": [],
+      "tasks": [
+        "Main Drain",
+        "Bubblers",
+        "Returns",
+        "Spa Jets",
+        "Skimmers",
+        "Water Features (deck jets/waterfalls/spillovers)"
+      ]
+    },
+    {
+      "num": "8.1",
+      "name": "Construction Cleanup",
+      "phaseNum": "8",
+      "phaseName": "Site Restoration and Final Grade",
+      "skill": "@unassigned",
+      "tradeCode": null,
+      "defaultCrew": "unassigned",
+      "days": 2,
+      "seq": 38,
+      "candidates": [],
+      "tasks": [
+        "Remove excess materials and construction debris",
+        "Equipment and tool demobilization",
+        "Dumpster removal",
+        "PortaPotty removal",
+        "Site debris haul-off"
+      ]
+    },
+    {
+      "num": "8.2",
+      "name": "Rough Grade",
+      "phaseNum": "8",
+      "phaseName": "Site Restoration and Final Grade",
+      "skill": "@unassigned",
+      "tradeCode": null,
+      "defaultCrew": "unassigned",
+      "days": 2,
+      "seq": 39,
+      "candidates": [],
+      "tasks": [
+        "Set grading elevations",
+        "Rough grade perimeter for positive drainage",
+        "Verify rough grade/drainage away from structures"
+      ]
+    },
+    {
+      "num": "8.3",
+      "name": "Final Grade",
+      "phaseNum": "8",
+      "phaseName": "Site Restoration and Final Grade",
+      "skill": "@unassigned",
+      "tradeCode": null,
+      "defaultCrew": "unassigned",
+      "days": 2,
+      "seq": 40,
+      "candidates": [],
+      "tasks": [
+        "Fine grade and topsoil placement",
+        "Remove rock and debris from grade",
+        "Final grade inspection and approval"
+      ]
+    },
+    {
+      "num": "8.4",
+      "name": "Seed and Straw/ Sod",
+      "phaseNum": "8",
+      "phaseName": "Site Restoration and Final Grade",
+      "skill": "@unassigned",
+      "tradeCode": null,
+      "defaultCrew": "unassigned",
+      "days": 2,
+      "seq": 41,
+      "candidates": [],
+      "tasks": [
+        "Seed application",
+        "Straw/mulch application for erosion control",
+        "Erosion control blanket on slopes (as needed)",
+        "Silt fence removal (post-stabilization)"
+      ]
+    },
+    {
+      "num": "8.5",
+      "name": "Landscaping Restoration",
+      "phaseNum": "8",
+      "phaseName": "Site Restoration and Final Grade",
+      "skill": "@unassigned",
+      "tradeCode": null,
+      "defaultCrew": "unassigned",
+      "days": 2,
+      "seq": 42,
+      "candidates": [],
+      "tasks": [
+        "Sod installation (alternate/supplemental to seed)",
+        "Irrigation repair/reconnection",
+        "Landscaping protection removal",
+        "Plant, shrub, and sprinkler head replacement as needed",
+        "Fence Pool safety Barrior",
+        "Pool, Door and Window Alarms"
+      ]
+    },
+    {
+      "num": "8.6",
+      "name": "Final Site Walk-Through",
+      "phaseNum": "8",
+      "phaseName": "Site Restoration and Final Grade",
+      "skill": "@unassigned",
+      "tradeCode": null,
+      "defaultCrew": "unassigned",
+      "days": 2,
+      "seq": 43,
+      "candidates": [],
+      "tasks": [
+        "Site cleanliness inspection",
+        "Grading and drainage sign-off",
+        "Customer yard walk-through"
+      ]
+    },
+    {
+      "num": "9.0",
+      "name": "Client Orientation",
+      "phaseNum": "9",
+      "phaseName": "Post Construction Completion Phase",
+      "skill": "poolschool",
+      "tradeCode": "poolschool",
+      "defaultCrew": "harrison",
+      "days": 2,
+      "seq": 44,
+      "candidates": [
+        "harrison"
+      ],
+      "tasks": [
+        "Equipment training",
+        "Automation training",
+        "Maintenance education",
+        "Warranty Submission",
+        "Documentation handoff",
+        "Punch-list completion",
+        "Final inspection",
+        "Photo documentation",
+        "Warranty registration",
+        "Customer Pool School"
+      ]
+    },
+    {
+      "num": "9.1",
+      "name": "Warranty & 30-Day Follow-Up",
+      "phaseNum": "9",
+      "phaseName": "Post Construction Completion Phase",
+      "skill": "@office",
+      "tradeCode": null,
+      "defaultCrew": "office",
+      "days": 2,
+      "seq": 45,
+      "candidates": [],
+      "tasks": [
+        "7-day startup review",
+        "30-day chemistry review",
+        "Warranty inspection",
+        "Customer satisfaction survey",
+        "Service department handoff"
+      ]
+    }
+  ],
+  "counts": {
+    "subphases": 45,
+    "tasks": 248
+  }
+}

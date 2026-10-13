@@ -1,0 +1,183 @@
+{
+ "capturedAt": "2026-09-07",
+ "capturedFrom": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+ "note": "Crew-Trades.CrewId and .TradeId are plain integer lookup ids (SharePoint omits the expanded lookup object 'Crew'/'Trade' when the query carries no $expand, leaving only the raw <Field>Id integer). CrewId joins to Crews.Id; TradeId joins to Trades.Id. Neither is CrewID or TradeCode directly -- those string codes live on the Crews and Trades rows themselves and must be resolved via this join.",
+ "crews": [
+  {
+   "Id": 5,
+   "Title": "Devon Crew +3",
+   "CrewID": "devon",
+   "Unlimited": false,
+   "Active": true
+  },
+  {
+   "Id": 7,
+   "Title": "Campos +2",
+   "CrewID": "campos",
+   "Unlimited": false,
+   "Active": true
+  },
+  {
+   "Id": 10,
+   "Title": "Subcontractor",
+   "CrewID": "subcon",
+   "Unlimited": true,
+   "Active": true
+  },
+  {
+   "Id": 13,
+   "Title": "Unassigned",
+   "CrewID": "unassigned",
+   "Unlimited": true,
+   "Active": true
+  },
+  {
+   "Id": 14,
+   "Title": "Main Office",
+   "CrewID": "office",
+   "Unlimited": true,
+   "Active": true
+  }
+ ],
+ "trades": [
+  {
+   "Id": 1,
+   "Title": "Shotcrete / Gunite",
+   "TradeCode": "shotcrete"
+  },
+  {
+   "Id": 2,
+   "Title": "Drainage",
+   "TradeCode": "drainage"
+  },
+  {
+   "Id": 3,
+   "Title": "Dig / Excavation",
+   "TradeCode": "dig"
+  },
+  {
+   "Id": 4,
+   "Title": "Finish Grade",
+   "TradeCode": "finishgrade"
+  },
+  {
+   "Id": 5,
+   "Title": "Grading",
+   "TradeCode": "grade"
+  },
+  {
+   "Id": 6,
+   "Title": "Demolition",
+   "TradeCode": "demolition"
+  },
+  {
+   "Id": 7,
+   "Title": "Steel / Rebar",
+   "TradeCode": "rebar"
+  },
+  {
+   "Id": 8,
+   "Title": "Forms",
+   "TradeCode": "form"
+  },
+  {
+   "Id": 9,
+   "Title": "Gas Lines",
+   "TradeCode": "gas"
+  },
+  {
+   "Id": 10,
+   "Title": "Plumbing",
+   "TradeCode": "plumbing"
+  },
+  {
+   "Id": 11,
+   "Title": "Hardscape",
+   "TradeCode": "hardscape"
+  },
+  {
+   "Id": 12,
+   "Title": "Automation",
+   "TradeCode": "automation"
+  },
+  {
+   "Id": 13,
+   "Title": "Retaining Walls",
+   "TradeCode": "walls"
+  },
+  {
+   "Id": 14,
+   "Title": "Pavers",
+   "TradeCode": "pavers"
+  },
+  {
+   "Id": 15,
+   "Title": "CMU Block",
+   "TradeCode": "cmu"
+  },
+  {
+   "Id": 16,
+   "Title": "Water Line Install",
+   "TradeCode": "waterline"
+  },
+  {
+   "Id": 17,
+   "Title": "Plaster",
+   "TradeCode": "plaster"
+  },
+  {
+   "Id": 18,
+   "Title": "Coping",
+   "TradeCode": "coping"
+  },
+  {
+   "Id": 19,
+   "Title": "Waterline Tile",
+   "TradeCode": "tile"
+  },
+  {
+   "Id": 20,
+   "Title": "Landscaping",
+   "TradeCode": "landscaping"
+  },
+  {
+   "Id": 21,
+   "Title": "Sealant",
+   "TradeCode": "sealant"
+  },
+  {
+   "Id": 22,
+   "Title": "Veneer / Stone",
+   "TradeCode": "veneer"
+  },
+  {
+   "Id": 23,
+   "Title": "Pebbletech",
+   "TradeCode": "pebbletech"
+  },
+  {
+   "Id": 24,
+   "Title": "Brick / Masonry",
+   "TradeCode": "masonry"
+  },
+  {
+   "Id": 25,
+   "Title": "Material Runs",
+   "TradeCode": "materials"
+  },
+  {
+   "Id": 26,
+   "Title": "Pool School",
+   "TradeCode": "poolschool"
+  }
+ ],
+ "crewTrades": [
+  {
+   "Id": 29,
+   "Title": "campos-demolition",
+   "CrewId": 7,
+   "TradeId": 6
+  }
+ ],
+ "crewTradesCount": 1
+}

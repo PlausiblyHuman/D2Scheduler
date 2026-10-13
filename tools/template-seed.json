@@ -1,8 +1,11 @@
 {
+  "buildType": "Gunite",
   "subphases": [
     {
       "num": "0.0",
       "name": "Sales to Production Handoff",
+      "phaseNum": "0",
+      "phaseName": "Pre Construction/Sales",
       "skill": "@office",
       "tradeCode": null,
       "defaultCrew": "office",
@@ -32,6 +35,8 @@
     {
       "num": "1.0",
       "name": "Pre-Construction Back Office Admin",
+      "phaseNum": "1",
+      "phaseName": "Preconstruction Back Office Admin",
       "skill": "@office",
       "tradeCode": null,
       "defaultCrew": "office",
@@ -63,6 +68,8 @@
     {
       "num": "1.1",
       "name": "Pre-Construction Verification - HANDOVER FROM OFFICE TO FIELD PM",
+      "phaseNum": "1",
+      "phaseName": "Preconstruction Back Office Admin",
       "skill": "@office",
       "tradeCode": null,
       "defaultCrew": "office",
@@ -85,6 +92,8 @@
     {
       "num": "1.2",
       "name": "Site Preparation",
+      "phaseNum": "1",
+      "phaseName": "Preconstruction Back Office Admin",
       "skill": "demolition",
       "tradeCode": "demolition",
       "defaultCrew": "campos",
@@ -108,6 +117,8 @@
     {
       "num": "1.3",
       "name": "Pool Layout",
+      "phaseNum": "1",
+      "phaseName": "Preconstruction Back Office Admin",
       "skill": "dig",
       "tradeCode": "dig",
       "defaultCrew": "guillermo",
@@ -133,6 +144,8 @@
     {
       "num": "1.4",
       "name": "Pre-Dig Quality Check",
+      "phaseNum": "1",
+      "phaseName": "Preconstruction Back Office Admin",
       "skill": "@unassigned",
       "tradeCode": null,
       "defaultCrew": "unassigned",
@@ -152,6 +165,8 @@
     {
       "num": "1.5",
       "name": "Excavation Operations",
+      "phaseNum": "1",
+      "phaseName": "Preconstruction Back Office Admin",
       "skill": "dig",
       "tradeCode": "dig",
       "defaultCrew": "harrison",
@@ -180,6 +195,8 @@
     {
       "num": "1.6",
       "name": "Post-Excavation Review",
+      "phaseNum": "1",
+      "phaseName": "Preconstruction Back Office Admin",
       "skill": "@unassigned",
       "tradeCode": null,
       "defaultCrew": "unassigned",
@@ -200,6 +217,8 @@
     {
       "num": "2.1",
       "name": "Engineering Review by PM",
+      "phaseNum": "2",
+      "phaseName": "Engineering",
       "skill": "@office",
       "tradeCode": null,
       "defaultCrew": "office",
@@ -218,6 +237,8 @@
     {
       "num": "2.2",
       "name": "Steel Installation and Forms",
+      "phaseNum": "2",
+      "phaseName": "Engineering",
       "skill": "rebar",
       "tradeCode": "rebar",
       "defaultCrew": "harrison",
@@ -240,6 +261,8 @@
     {
       "num": "2.3",
       "name": "Bond Beam Preparation",
+      "phaseNum": "2",
+      "phaseName": "Engineering",
       "skill": "rebar",
       "tradeCode": "rebar",
       "defaultCrew": "harrison",
@@ -262,6 +285,8 @@
     {
       "num": "2.4",
       "name": "Bonding System Installation",
+      "phaseNum": "2",
+      "phaseName": "Engineering",
       "skill": "@sub",
       "tradeCode": null,
       "defaultCrew": "subcon",
@@ -278,6 +303,8 @@
     {
       "num": "2.5",
       "name": "Steel QC Inspection Municipal Inspection",
+      "phaseNum": "2",
+      "phaseName": "Engineering",
       "skill": "@sub",
       "tradeCode": null,
       "defaultCrew": "subcon",
@@ -297,6 +324,8 @@
     {
       "num": "2.6",
       "name": "Pre-Gunite Structural Inspection",
+      "phaseNum": "2",
+      "phaseName": "Engineering",
       "skill": "@sub",
       "tradeCode": null,
       "defaultCrew": "subcon",
@@ -313,6 +342,8 @@
     {
       "num": "3.1",
       "name": "Hydraulic Design Verification",
+      "phaseNum": "3",
+      "phaseName": "Site Prep",
       "skill": "@office",
       "tradeCode": null,
       "defaultCrew": "office",
@@ -332,6 +363,8 @@
     {
       "num": "3.2",
       "name": "Underground Plumbing Installation",
+      "phaseNum": "3",
+      "phaseName": "Site Prep",
       "skill": "plumbing",
       "tradeCode": "plumbing",
       "defaultCrew": "harrison",
@@ -354,6 +387,8 @@
     {
       "num": "3.3",
       "name": "Plumbing Pressure Testing",
+      "phaseNum": "3",
+      "phaseName": "Site Prep",
       "skill": "plumbing",
       "tradeCode": "plumbing",
       "defaultCrew": "harrison",
@@ -376,6 +411,8 @@
     {
       "num": "3.4",
       "name": "Electrical Rough-In",
+      "phaseNum": "3",
+      "phaseName": "Site Prep",
       "skill": "@sub",
       "tradeCode": null,
       "defaultCrew": "subcon",
@@ -395,6 +432,8 @@
     {
       "num": "3.5",
       "name": "Bonding Grid Completion",
+      "phaseNum": "3",
+      "phaseName": "Site Prep",
       "skill": "@sub",
       "tradeCode": null,
       "defaultCrew": "subcon",
@@ -411,6 +450,8 @@
     {
       "num": "3.6",
       "name": "Equipment Pad Preparation",
+      "phaseNum": "3",
+      "phaseName": "Site Prep",
       "skill": "gas",
       "tradeCode": "gas",
       "defaultCrew": "saul",
@@ -432,6 +473,8 @@
     {
       "num": "3.7",
       "name": "Rough Inspection Preparation",
+      "phaseNum": "3",
+      "phaseName": "Site Prep",
       "skill": "@unassigned",
       "tradeCode": null,
       "defaultCrew": "unassigned",
@@ -448,6 +491,8 @@
     {
       "num": "4.1",
       "name": "Pre-Shoot Readiness Review",
+      "phaseNum": "4",
+      "phaseName": "Gunite And Shotcrete",
       "skill": "@unassigned",
       "tradeCode": null,
       "defaultCrew": "unassigned",
@@ -467,6 +512,8 @@
     {
       "num": "4.2",
       "name": "Crew Pre-Shoot Meeting",
+      "phaseNum": "4",
+      "phaseName": "Gunite And Shotcrete",
       "skill": "@unassigned",
       "tradeCode": null,
       "defaultCrew": "unassigned",
@@ -483,6 +530,8 @@
     {
       "num": "4.3",
       "name": "Shotcrete Placement",
+      "phaseNum": "4",
+      "phaseName": "Gunite And Shotcrete",
       "skill": "shotcrete",
       "tradeCode": "shotcrete",
       "defaultCrew": "stl",
@@ -504,6 +553,8 @@
     {
       "num": "4.4",
       "name": "Real-Time QC Monitoring",
+      "phaseNum": "4",
+      "phaseName": "Gunite And Shotcrete",
       "skill": "@unassigned",
       "tradeCode": null,
       "defaultCrew": "unassigned",
@@ -520,6 +571,8 @@
     {
       "num": "4.5",
       "name": "Shaping & Finishing",
+      "phaseNum": "4",
+      "phaseName": "Gunite And Shotcrete",
       "skill": "shotcrete",
       "tradeCode": "shotcrete",
       "defaultCrew": "stl",
@@ -538,6 +591,8 @@
     {
       "num": "4.6",
       "name": "Post-Shoot Inspection",
+      "phaseNum": "4",
+      "phaseName": "Gunite And Shotcrete",
       "skill": "@unassigned",
       "tradeCode": null,
       "defaultCrew": "unassigned",
@@ -555,6 +610,8 @@
     {
       "num": "4.7",
       "name": "Curing Program",
+      "phaseNum": "4",
+      "phaseName": "Gunite And Shotcrete",
       "skill": "@unassigned",
       "tradeCode": null,
       "defaultCrew": "unassigned",
@@ -572,6 +629,8 @@
     {
       "num": "5.1",
       "name": "Material Verification",
+      "phaseNum": "5",
+      "phaseName": "Preconstruction Material",
       "skill": "@office",
       "tradeCode": null,
       "defaultCrew": "office",
@@ -589,6 +648,8 @@
     {
       "num": "5.2",
       "name": "Waterproofing & Surface Prep",
+      "phaseNum": "5",
+      "phaseName": "Preconstruction Material",
       "skill": "sealant",
       "tradeCode": "sealant",
       "defaultCrew": "antonio",
@@ -607,6 +668,8 @@
     {
       "num": "5.3",
       "name": "Tile Installation",
+      "phaseNum": "5",
+      "phaseName": "Preconstruction Material",
       "skill": "tile",
       "tradeCode": "tile",
       "defaultCrew": "cirilo",
@@ -628,6 +691,8 @@
     {
       "num": "5.4",
       "name": "Coping Installation",
+      "phaseNum": "5",
+      "phaseName": "Preconstruction Material",
       "skill": "coping",
       "tradeCode": "coping",
       "defaultCrew": "cirilo",
@@ -651,6 +716,8 @@
     {
       "num": "5.5",
       "name": "Deck Preparation",
+      "phaseNum": "5",
+      "phaseName": "Preconstruction Material",
       "skill": "finishgrade",
       "tradeCode": "finishgrade",
       "defaultCrew": "guillermo",
@@ -670,6 +737,8 @@
     {
       "num": "5.6",
       "name": "Deck Placement",
+      "phaseNum": "5",
+      "phaseName": "Preconstruction Material",
       "skill": "hardscape",
       "tradeCode": "hardscape",
       "defaultCrew": "devon",
@@ -695,6 +764,8 @@
     {
       "num": "5.7",
       "name": "Drainage Verification",
+      "phaseNum": "5",
+      "phaseName": "Preconstruction Material",
       "skill": "drainage",
       "tradeCode": "drainage",
       "defaultCrew": "devon",
@@ -715,6 +786,8 @@
     {
       "num": "5.8",
       "name": "Hardscape Final QC",
+      "phaseNum": "5",
+      "phaseName": "Preconstruction Material",
       "skill": "@unassigned",
       "tradeCode": null,
       "defaultCrew": "unassigned",
@@ -731,6 +804,8 @@
     {
       "num": "6.1",
       "name": "Equipment Installation",
+      "phaseNum": "6",
+      "phaseName": "Construction Equipment Installation",
       "skill": "plumbing",
       "tradeCode": "plumbing",
       "defaultCrew": "harrison",
@@ -752,6 +827,8 @@
     {
       "num": "6.2",
       "name": "Equipment Plumbing",
+      "phaseNum": "6",
+      "phaseName": "Construction Equipment Installation",
       "skill": "plumbing",
       "tradeCode": "plumbing",
       "defaultCrew": "harrison",
@@ -773,6 +850,8 @@
     {
       "num": "6.3",
       "name": "Equipment Electrical",
+      "phaseNum": "6",
+      "phaseName": "Construction Equipment Installation",
       "skill": "automation",
       "tradeCode": "automation",
       "defaultCrew": "harrison",
@@ -792,6 +871,8 @@
     {
       "num": "6.4",
       "name": "Interior Finish Preparation",
+      "phaseNum": "6",
+      "phaseName": "Construction Equipment Installation",
       "skill": "plaster",
       "tradeCode": "plaster",
       "defaultCrew": "brothers",
@@ -812,6 +893,8 @@
     {
       "num": "6.5",
       "name": "Interior Finish & Fill",
+      "phaseNum": "6",
+      "phaseName": "Construction Equipment Installation",
       "skill": "pebbletech",
       "tradeCode": "pebbletech",
       "defaultCrew": "brothers",
@@ -831,6 +914,8 @@
     {
       "num": "6.6",
       "name": "Startup Procedures",
+      "phaseNum": "6",
+      "phaseName": "Construction Equipment Installation",
       "skill": "@unassigned",
       "tradeCode": null,
       "defaultCrew": "unassigned",
@@ -850,6 +935,8 @@
     {
       "num": "6.7",
       "name": "Water Chemistry Startup",
+      "phaseNum": "6",
+      "phaseName": "Construction Equipment Installation",
       "skill": "@unassigned",
       "tradeCode": null,
       "defaultCrew": "unassigned",
@@ -866,6 +953,8 @@
     {
       "num": "6.8",
       "name": "Client Orientation",
+      "phaseNum": "6",
+      "phaseName": "Construction Equipment Installation",
       "skill": "poolschool",
       "tradeCode": "poolschool",
       "defaultCrew": "harrison",
@@ -885,6 +974,8 @@
     {
       "num": "6.9",
       "name": "Final Project Closeout",
+      "phaseNum": "6",
+      "phaseName": "Construction Equipment Installation",
       "skill": "@office",
       "tradeCode": null,
       "defaultCrew": "office",
@@ -902,6 +993,8 @@
     {
       "num": "7.0",
       "name": "Warranty & 30-Day Follow-Up",
+      "phaseNum": "7",
+      "phaseName": "Post Constuction Completion Phase",
       "skill": "@office",
       "tradeCode": null,
       "defaultCrew": "office",
