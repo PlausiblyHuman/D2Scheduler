@@ -45,13 +45,23 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
 (async () => {
   const { w, errs, net } = boot(); await wait(600);
   await w.refreshLive(true); await wait(300);
+  // ---- the copy with templates loaded (tplCounts non-null branch)
+  const copyOf = id => (w.document.getElementById(id) || { textContent: '' }).textContent;
+  w.S.templates = { Gunite: w.mkTemplate(), Fiberglass: [{ num: '0', name: 'x', sections: [{ num: '0.0', name: 'a', skill: null, days: 2, tasks: ['t1', 't2'] }] }] };
+  w.addJob();
+  ok('with templates loaded the Gunite copy carries 46 sub-phases and 295 tasks', /46 sub-phases and 295 tasks/.test(copyOf('ncTypeCopy')), copyOf('ncTypeCopy'));
+  const fr = w.document.querySelectorAll('input[name=ncType]')[1]; fr.checked = true; fr.dispatchEvent(new w.Event('change'));
+  ok('switching to Fiberglass shows the template counts', /1 sub-phases and 2 tasks/.test(copyOf('ncTypeCopy')) && /Fiberglass/.test(copyOf('ncTypeCopy')), copyOf('ncTypeCopy'));
+  ok('the unassigned copy follows the choice', /Unchecked leaves all 1 sub-phases/.test(copyOf('ncUnassignedCopy')), copyOf('ncUnassignedCopy'));
+  delete w.S.templates;
   // ---- + Job carries the type
   w.addJob();
   const radios = [...w.document.querySelectorAll('input[name=ncType]')];
   ok('+ Job offers Gunite and Fiberglass, Gunite preselected', radios.map(r => r.value).join() === 'Gunite,Fiberglass' && radios[0].checked);
   ok('the form copy no longer hard-codes 46 and 295', !/46 sub-phases|295 tasks/.test(w.document.getElementById('dBody').textContent));
+  ok('the copy before the change names Gunite, not Fiberglass', /Gunite/.test(copyOf('ncTypeCopy')) && !/Fiberglass/.test(copyOf('ncTypeCopy')), copyOf('ncTypeCopy'));
   radios[1].checked = true; radios[1].dispatchEvent(new w.Event('change'));
-  ok('the copy follows the choice', /Fiberglass/.test(w.document.getElementById('dBody').textContent));
+  ok('the copy follows the choice', /Fiberglass/.test(copyOf('ncTypeCopy')), copyOf('ncTypeCopy'));
   w.document.getElementById('ncJobNo').value = 'TEST-9950'; w.document.getElementById('ncName').value = 'Fibre Test';
   const pm = w.document.getElementById('ncPm'); if (pm) pm.value = '16';
   w.confirmNewPoolRequest();

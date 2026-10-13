@@ -1,6 +1,7 @@
 [
- { "label": "buildType dropped in buildPendingCreates", "find": "      buildType:c.buildType==='Fiberglass'?'Fiberglass':'Gunite',\n", "replace": "" },
- { "label": "PM dropped again in buildPendingCreates", "find": "pmId:c.pmId==null||c.pmId===''?null:String(c.pmId), pmName:c.pmName||''", "replace": "pmId:null, pmName:''" },
- { "label": "confirm ignores the radio", "find": "value==='Fiberglass'?'Fiberglass':'Gunite';", "replace": "value==='Fiberglass'?'Gunite':'Gunite';" },
- { "label": "pending card hides the type", "find": "<td class=\"small\">${esc(c.buildType||'Gunite')}</td>", "replace": "<td class=\"small\"></td>" }
+ {"label": "buildType dropped in buildPendingCreates", "find": "      buildType:c.buildType==='Fiberglass'?'Fiberglass':'Gunite',\n", "replace": ""},
+ {"label": "PM dropped again in buildPendingCreates", "find": "pmId:c.pmId==null||c.pmId===''?null:String(c.pmId), pmName:c.pmName||''", "replace": "pmId:null, pmName:''"},
+ {"label": "confirm ignores the radio", "find": "value==='Fiberglass'?'Fiberglass':'Gunite';", "replace": "value==='Fiberglass'?'Gunite':'Gunite';"},
+ {"label": "ncTypeChanged does nothing", "find": "  const t=(document.querySelector('input[name=ncType]:checked')||{}).value||'Gunite';\n  const el=", "replace": "  return;\n  const el="},
+ {"label": "pending card hides the type", "find": "<td class=\"small\">${esc(c.buildType||'Gunite')}</td>", "replace": "<td class=\"small\"></td>"}
 ]
