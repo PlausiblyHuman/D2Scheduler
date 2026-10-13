@@ -1,0 +1,4 @@
+[
+ { "label": "buildType never normalised", "find": "buildType: normType(jf.BuildType),", "replace": "buildType: jf.BuildType,"},
+ { "label": "templates dropped from the payload", "find": "templates: templatesFrom(graph.spt, graph.tpt, graph.trades),", "replace": ""}
+]

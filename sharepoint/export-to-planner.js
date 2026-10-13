@@ -48,6 +48,35 @@
   const site = 'https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler';
   const H = { Accept: 'application/json;odata=nometadata' };
 
+  /* Build type and templates. The two helpers below mirror normType and templatesFrom in
+     web/graph-to-planner.js, written against the REST field names (r.Id, r.TradeId,
+     r.SubPhaseId) rather than Graph's fields.id and *LookupId. Keep them textually parallel:
+     fixtures/planner/graph-read.js holds the two payloads equal. */
+  const TYPES = ['Gunite', 'Fiberglass'];
+  function normType(v) {
+    const s = String(v == null ? '' : v).trim().toLowerCase();
+    return TYPES.find(t => t.toLowerCase() === s) || 'Gunite';
+  }
+  const PSEUDO_BY_CREW = { office: '@office', subcon: '@sub', unassigned: '@unassigned' };
+  function templatesFrom(sptRows, tptRows, tradeRows) {
+    const tradeCode = new Map((tradeRows || []).map(t => [String(t.Id), t.TradeCode || null]));
+    const tasksBySub = new Map();
+    (tptRows || []).forEach(t => { const k = String(t.SubPhaseId); if (!tasksBySub.has(k)) tasksBySub.set(k, []); tasksBySub.get(k).push(t); });
+    const out = {};
+    (sptRows || []).slice().sort((a, b) => (a.Sequence || 0) - (b.Sequence || 0)).forEach(r => {
+      const type = normType(r.BuildType);
+      const phases = out[type] = out[type] || [];
+      const pnum = String(r.SubPhaseNumber || '').split('.')[0];
+      let ph = phases.find(p => p.num === pnum);
+      if (!ph) { ph = { num: pnum, name: r.PhaseName || '', sections: [] }; phases.push(ph); }
+      const skill = r.TradeId != null ? (tradeCode.get(String(r.TradeId)) || null)
+                  : (PSEUDO_BY_CREW[String(r.DefaultCrew || '').trim().toLowerCase()] || null);
+      ph.sections.push({ num: r.SubPhaseNumber, name: r.Title, skill, days: Number(r.DurationDays) || 2,
+        tasks: (tasksBySub.get(String(r.Id)) || []).slice().sort((x, y) => (x.Sequence || 0) - (y.Sequence || 0)).map(t => t.Title) });
+    });
+    return out;
+  }
+
   // Page through a list rather than trusting a single $top. Tasks is 885 rows
   // today and grows by 295 per pool, so this WILL exceed a default page.
   async function all(path) {
@@ -63,9 +92,9 @@
   }
 
   const T0 = Date.now();
-  const [jobs, asg, tasks, cal] = await Promise.all([
+  const [jobs, asg, tasks, cal, spt, tpt, trades] = await Promise.all([
     all("/_api/web/lists/GetByTitle('Jobs')/items"
-      + "?$select=Id,Title,JobNumber,Address,City,StartDate,Status,ProjectManager/Title"
+      + "?$select=Id,Title,JobNumber,Address,City,StartDate,Status,BuildType,ProjectManager/Title"
       + "&$expand=ProjectManager&$top=500"),
     all("/_api/web/lists/GetByTitle('Assignments')/items"
       + "?$select=Id,JobId,SubPhaseNumber,SubPhaseName,Sequence,Crew,ScheduledStart,"
@@ -74,7 +103,10 @@
     all("/_api/web/lists/GetByTitle('Tasks')/items"
       + "?$select=Id,AssignmentId,Sequence,Title,Complete,NotApplicable,Note&$top=5000&$orderby=Id"),
     all("/_api/web/lists/GetByTitle('Work Calendar')/items"
-      + "?$select=Id,Title,Date&$top=1000&$orderby=Id")
+      + "?$select=Id,Title,Date&$top=1000&$orderby=Id"),
+    all("/_api/web/lists/GetByTitle('Sub-phase%20Template')/items?$select=Id,Title,SubPhaseNumber,Sequence,TradeId,DefaultCrew,DurationDays,BuildType,PhaseName&$top=500&$orderby=Id"),
+    all("/_api/web/lists/GetByTitle('Task%20Template')/items?$select=Id,Title,SubPhaseId,Sequence,BuildType&$top=2000&$orderby=Id"),
+    all("/_api/web/lists/GetByTitle('Trades')/items?$select=Id,TradeCode&$top=200")
   ]);
 
   // SharePoint stores these DateOnly columns at site-local midnight, so the date
@@ -106,6 +138,7 @@
     // schedule SharePoint actually built. Sundays are in here as well as being
     // computed, which is harmless and keeps this a faithful mirror of the list.
     nonWork: [...new Set(cal.map(c => day(c.Date)).filter(Boolean))].sort(),
+    templates: templatesFrom(spt, tpt, trades),
     jobs: jobs.map(j => ({
       id: j.Id,
       jobno: j.JobNumber,
@@ -114,6 +147,7 @@
       city: j.City || '',
       start: day(j.StartDate),
       status: j.Status || '',
+      buildType: normType(j.BuildType),
       pm: (j.ProjectManager && j.ProjectManager.Title) || '',
       sections: (asgByJob.get(j.Id) || [])
         .sort((a, b) => (a.Sequence || 0) - (b.Sequence || 0))

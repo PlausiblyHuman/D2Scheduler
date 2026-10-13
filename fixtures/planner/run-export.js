@@ -20,7 +20,10 @@ function runExport(live) {
       /GetByTitle\('Tasks'\)/.test(url) ? live.tasks :
       // NEW: the export reads the Work Calendar as of Task 2. The list title has a
       // space, so it may arrive percent-encoded depending on how the URL was built.
-      /GetByTitle\('Work(%20| )Calendar'\)/.test(url) ? (live.cal || []) : null;
+      /GetByTitle\('Work(%20| )Calendar'\)/.test(url) ? (live.cal || []) :
+      /GetByTitle\('Sub-phase(%20| )Template'\)/.test(url) ? (live.spt || []) :
+      /GetByTitle\('Task(%20| )Template'\)/.test(url) ? (live.tpt || []) :
+      /GetByTitle\('Trades'\)/.test(url) ? (live.trades || []) : null;
 
     const sandbox = {
       console: { log: () => {}, warn: () => {} },

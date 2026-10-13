@@ -111,6 +111,35 @@
      read-only. */
   function isComplete(status) { return String(status == null ? '' : status) === 'Complete'; }
 
+  const TYPES = ['Gunite', 'Fiberglass'];
+  function normType(v) {
+    const s = String(v == null ? '' : v).trim().toLowerCase();
+    return TYPES.find(t => t.toLowerCase() === s) || 'Gunite';
+  }
+  const PSEUDO_BY_CREW = { office: '@office', subcon: '@sub', unassigned: '@unassigned' };
+  /* Both templates in the planner's phase/section/task shape. Phases are the integer part of
+     SubPhaseNumber, named from PhaseName; sections in Sequence order; tasks hang off the
+     SubPhase lookup. A type with no rows is left out, so a failed read never produces an
+     empty template that lays a project out as nothing. */
+  function templatesFrom(sptRows, tptRows, tradeRows) {
+    const tradeCode = new Map((tradeRows || []).map(t => [key(t.fields.id), t.fields.TradeCode || null]));
+    const tasksBySub = new Map();
+    (tptRows || []).forEach(t => { const k = key(t.fields.SubPhaseLookupId); if (!tasksBySub.has(k)) tasksBySub.set(k, []); tasksBySub.get(k).push(t); });
+    const out = {};
+    (sptRows || []).slice().sort((a, b) => (a.fields.Sequence || 0) - (b.fields.Sequence || 0)).forEach(r => {
+      const f = r.fields, type = normType(f.BuildType);
+      const phases = out[type] = out[type] || [];
+      const pnum = String(f.SubPhaseNumber || '').split('.')[0];
+      let ph = phases.find(p => p.num === pnum);
+      if (!ph) { ph = { num: pnum, name: f.PhaseName || '', sections: [] }; phases.push(ph); }
+      const skill = f.TradeLookupId != null ? (tradeCode.get(key(f.TradeLookupId)) || null)
+                  : (PSEUDO_BY_CREW[String(f.DefaultCrew || '').trim().toLowerCase()] || null);
+      ph.sections.push({ num: f.SubPhaseNumber, name: f.Title, skill, days: Number(f.DurationDays) || 2,
+        tasks: (tasksBySub.get(key(f.id)) || []).slice().sort((x, y) => (x.fields.Sequence || 0) - (y.fields.Sequence || 0)).map(t => t.fields.Title) });
+    });
+    return out;
+  }
+
   function toPlannerPayload(graph, opts) {
     graph = graph || {};
     const includeComplete = !!(opts && opts.includeComplete);
@@ -198,6 +227,7 @@
       exported: new Date().toISOString().slice(0, 10),
       site: graph.site || SITE_DEFAULT,
       nonWork: [...new Set(cal.map(c => day(c.fields.Date)).filter(Boolean))].sort(),
+      templates: templatesFrom(graph.spt, graph.tpt, graph.trades),
       jobs: jobs.map(j => {
         const jf = j.fields;
         const jobId = key(jf.id);
@@ -209,6 +239,7 @@
           city: jf.City || '',
           start: day(jf.StartDate),
           status: jf.Status || '',
+          buildType: normType(jf.BuildType),
           // See the file header: Graph returns only ProjectManagerLookupId;
           // the name comes from graph.users when the caller read it.
           pm: nameById.get(key(jf.ProjectManagerLookupId)) || '',
@@ -321,5 +352,5 @@
     return { asg: [].concat(...results.map(r => r.asg)), tasks: [].concat(...results.map(r => r.tasks)) };
   }
 
-  return { toPlannerPayload, isComplete, asgUrl, taskUrls, readLive, TASK_CHAIN_MAX };
+  return { toPlannerPayload, normType, templatesFrom, isComplete, asgUrl, taskUrls, readLive, TASK_CHAIN_MAX };
 });

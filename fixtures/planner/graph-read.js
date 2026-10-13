@@ -272,6 +272,27 @@ const totalNa = p => p.jobs.reduce((n, j) => n + j.sections.reduce((m, s) => m +
   const movedSigned = after.filter((s, i) => s.inst && (s.crewId + '|' + s.start + '|' + s.inst) !== before[i]).length;
   ok('Auto-Schedule left signed work alone (Graph path)', movedSigned === 0, movedSigned + ' moved');
 
+  /* ---- templates and build type (2026-10-13) ---- */
+  {
+    const T = graphPayload.templates;
+    ok('Graph payload carries templates for both types', T && Array.isArray(T.Gunite) && Array.isArray(T.Fiberglass));
+    const gs = T.Gunite.flatMap(p => p.sections), fsx = T.Fiberglass.flatMap(p => p.sections);
+    ok('Gunite template is the live 46 with 295 tasks', gs.length === 46 && gs.reduce((n, s) => n + s.tasks.length, 0) === 295);
+    ok('Fiberglass template is 45 with 248 tasks', fsx.length === 45 && fsx.reduce((n, s) => n + s.tasks.length, 0) === 248);
+    ok('phases are grouped by the integer part of the number, in order', T.Fiberglass.map(p => p.num).join() === '0,1,2,3,4,5,6,7,8,9');
+    ok('phase names come from PhaseName', T.Fiberglass[2].name === 'Base Preparation and Shell Set');
+    ok('sections are in Sequence order', fsx.map(s => s.num).slice(0, 3).join() === '0.0,0.1,1.0');
+    ok('skill is the TradeCode through the Trade lookup', gs.find(s => s.num === '1.2').skill === 'demolition');
+    ok('a row with no trade and DefaultCrew office is @office', gs.find(s => s.num === '0.0').skill === '@office');
+    ok('subcon -> @sub, unassigned -> @unassigned', gs.find(s => s.num === '2.4').skill === '@sub' && gs.find(s => s.num === '1.4').skill === '@unassigned');
+    ok('days come from DurationDays', gs.every(s => s.days >= 1));
+    ok('every live job carries buildType Gunite', graphPayload.jobs.every(j => j.buildType === 'Gunite'));
+    const M = require(path.join(ROOT, 'web/graph-to-planner.js'));
+    ok('normType folds case and space, defaults to Gunite', M.normType(' fiberglass ') === 'Fiberglass' && M.normType('GUNITE') === 'Gunite' && M.normType(undefined) === 'Gunite' && M.normType('Carbon') === 'Gunite');
+    ok('a template read with no rows yields no key, not an empty array', !('Carbon' in T));
+    ok('REST payload carries the same templates and types', JSON.stringify(restPayload.templates) === JSON.stringify(T) && restPayload.jobs.every(j => j.buildType === 'Gunite'));
+  }
+
   console.log('\n' + (fail ? 'FAILURES ABOVE' : 'REST and Graph agree: ' + restPayload.jobs.length +
     ' pools, ' + totalTasks(restPayload) + ' tasks, ' + totalDone(restPayload) + ' ticks, ' +
     restPayload.nonWork.length + ' non-work days -- and the Graph payload imports identically.'));
