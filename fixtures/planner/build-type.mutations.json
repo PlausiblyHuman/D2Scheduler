@@ -3,5 +3,10 @@
  {"label": "PM dropped again in buildPendingCreates", "find": "pmId:c.pmId==null||c.pmId===''?null:String(c.pmId), pmName:c.pmName||''", "replace": "pmId:null, pmName:''"},
  {"label": "confirm ignores the radio", "find": "value==='Fiberglass'?'Fiberglass':'Gunite';", "replace": "value==='Fiberglass'?'Gunite':'Gunite';"},
  {"label": "ncTypeChanged does nothing", "find": "  const t=(document.querySelector('input[name=ncType]:checked')||{}).value||'Gunite';\n  const el=", "replace": "  return;\n  const el="},
- {"label": "pending card hides the type", "find": "<td class=\"small\">${esc(c.buildType||'Gunite')}</td>", "replace": "<td class=\"small\"></td>"}
+ {"label": "pending card hides the type", "find": "<td class=\"small\">${esc(c.buildType||'Gunite')}</td>", "replace": "<td class=\"small\"></td>"},
+ {"label": "newJob ignores the type", "find": "groups:mkJobGroups(templateFor(buildType))", "replace": "groups:mkJobGroups(templateFor('Gunite'))"},
+ {"label": "import never stores templates", "find": "if(Object.keys(t).length){S.templates=t;S.templatesFrom=new Date().toISOString();}", "replace": "if(false){}"},
+ {"label": "Fiberglass falls back to the Gunite template", "find": "return type==='Gunite'?mkTemplate():[];", "replace": "return mkTemplate();"},
+ {"label": "chip never drawn", "find": "const bt=j.buildType==='Fiberglass'?", "replace": "const bt=false?"},
+ {"label": "migration keeps S.template", "find": "delete S.template;}", "replace": "}"}
 ]

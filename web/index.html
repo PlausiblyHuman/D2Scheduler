@@ -55,6 +55,7 @@ input[type=checkbox]{width:auto;accent-color:var(--accent);cursor:pointer}
 .chip.jb.other{background:#e0e7ff;color:#3730a3;border-color:#c7d2fe}
 .chip.jb.local{background:#f1f5f9;color:#64748b;border-color:#e2e8f0}
 .chip.jb.edited{background:#fff7ed;color:#9a3412;border-color:#fed7aa}
+.chip.jb.type{background:#0B594B;color:#fff}
 .chip.jb.ok{background:#e7f2ef;color:#0b594b;border-color:#b9d8d0}
 .muted{color:var(--muted)}.small{font-size:11.5px}
 .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
@@ -347,6 +348,19 @@ function mkTemplate(){
     sections:p.sections.map((s,k)=>({id:'s'+i+'_'+k, num:s.num, name:s.name, skill:s.skill||null, days:s.days||2, tasks:s.tasks.slice()}))
   }));
 }
+function templateFor(type){
+  type=type==='Fiberglass'?'Fiberglass':'Gunite';
+  const t=(S&&S.templates)||{};
+  if(t[type])return t[type];
+  return type==='Gunite'?mkTemplate():[];
+}
+/* Templates read from SharePoint arrive without ids; assign them the way mkTemplate does. */
+function tplFromPayload(phases){
+  return (phases||[]).map((p,i)=>({id:'g'+i,num:String(p.num),name:p.name||'',
+    sections:(p.sections||[]).map((s,k)=>({id:'s'+i+'_'+k,num:s.num,name:s.name,skill:s.skill||null,days:s.days||2,tasks:(s.tasks||[]).slice()}))}));
+}
+/* The Phase Template tab edits the Gunite template in place; make sure it is stored so edits persist. */
+function gunTpl(){S.templates=S.templates||{};if(!S.templates.Gunite)S.templates.Gunite=mkTemplate();return S.templates.Gunite;}
 function mkJobGroups(tpl){
   return tpl.map(g=>({tid:g.id,num:g.num,name:g.name,inst:false,pm:false,
     sections:g.sections.map(s=>({sid:s.id,num:s.num,name:s.name,skill:s.skill,days:s.days,
@@ -368,11 +382,12 @@ function nextJobNo(){
   const n=nums.length?Math.max(...nums):1000;
   return 'D2-'+(n+1);
 }
-function newJob(name,addr,city,state,zip,start){
+function newJob(name,addr,city,state,zip,start,buildType){
   return {id:'j'+Math.random().toString(36).slice(2,8),jobno:nextJobNo(),
     name,addr,city:city||'',state:state||'',zip:zip||'',start,
     status:null,          // null = exists only in this browser, never raised in SharePoint
-    groups:mkJobGroups(S?S.template:mkTemplate())};
+    buildType:buildType==='Fiberglass'?'Fiberglass':'Gunite',
+    groups:mkJobGroups(templateFor(buildType))};
 }
 const fullAddr=j=>[j.addr,j.city,[j.state,j.zip].filter(Boolean).join(' ')].filter(Boolean).join(', ');
 /* A pool's state, from `Jobs.Status` on the SharePoint side. Planned and On Hold
@@ -381,18 +396,19 @@ const fullAddr=j=>[j.addr,j.city,[j.state,j.zip].filter(Boolean).join(' ')].filt
    why the reflow's own conflict sweep is tenant-wide too. Only the label was
    missing, not the behaviour. */
 function jobBadge(j){
-  if(j.readOnly)return '<span class="chip jb hold" title="Completed. Opened from Completed projects for reference; nothing on it can be changed. The next Refresh puts it away.">Completed, read only</span>';
+  const bt=j.buildType==='Fiberglass'?'<span class="chip jb type" title="Built from the Fiberglass template">Fiberglass</span>':'';
+  if(j.readOnly)return bt+'<span class="chip jb hold" title="Completed. Opened from Completed projects for reference; nothing on it can be changed. The next Refresh puts it away.">Completed, read only</span>';
   const edited=j.touchedAt?'<span class="chip jb edited" title="Changed here since the last Refresh">edited here</span>':'';
   const building=j.building?'<span class="chip jb hold" title="Still being built in SharePoint, usually 10 to 20 minutes. Nothing on it can be changed until it finishes; Refresh then.">Building</span>':'';
-  if(!j.status)return '<span class="chip jb local" title="Sketched here, not yet raised in SharePoint">Local only</span>'+building+edited;
+  if(!j.status)return bt+'<span class="chip jb local" title="Sketched here, not yet raised in SharePoint">Local only</span>'+building+edited;
   const ready=readyToComplete(j)?'<span class="chip jb ok" title="Every sub-phase is signed off or not applicable. Mark it complete on the Jobs tab.">Ready to complete</span>':'';
-  if(j.status==='Active')return building+ready+edited;
+  if(j.status==='Active')return bt+building+ready+edited;
   const cls=j.status==='Planned'?'planned':j.status==='On Hold'?'hold':'other';
-  return `<span class="chip jb ${cls}" title="Jobs.Status in SharePoint">${esc(j.status)}</span>`+building+edited;
+  return bt+`<span class="chip jb ${cls}" title="Jobs.Status in SharePoint">${esc(j.status)}</span>`+building+edited;
 }
 function load(){
-  try{const raw=localStorage.getItem(KEY);if(raw){S=JSON.parse(raw);S.settings=S.settings||{};S.pendingCreates=S.pendingCreates||[];S.pendingComments=S.pendingComments||[];syncNonWork();sortJobsByNumber();return;}}catch(e){}
-  S={crews:JSON.parse(JSON.stringify(SEED_CREWS)),template:mkTemplate(),jobs:[],settings:{},pendingCreates:[],pendingComments:[]};
+  try{const raw=localStorage.getItem(KEY);if(raw){S=JSON.parse(raw);S.settings=S.settings||{};S.pendingCreates=S.pendingCreates||[];S.pendingComments=S.pendingComments||[];if(S.template){S.templates=S.templates||{};if(!S.templates.Gunite)S.templates.Gunite=S.template;delete S.template;} S.templates=S.templates||{};syncNonWork();sortJobsByNumber();return;}}catch(e){}
+  S={crews:JSON.parse(JSON.stringify(SEED_CREWS)),templates:{},jobs:[],settings:{},pendingCreates:[],pendingComments:[]};
   /* NO DEMO POOLS. Removed 2026-09-11.
      This used to seed Harrison Residence, Vasquez Pool & Spa and Bell Canyon
      Remodel, three fictional California pools invented before this tool was
@@ -1511,10 +1527,12 @@ function vCrews(){
   </tbody></table></div>
   <div class="card"><h2>Skill Coverage</h2><table><thead><tr><th style="width:160px">Skill</th><th>Qualified crews</th><th style="width:230px">Sub-phases needing it</th></tr></thead><tbody>
   ${SKILLS.map(s=>{const q=qualified(s.id);
-    const used=S.template.flatMap(g=>g.sections.filter(x=>x.skill===s.id).map(x=>x.num));
+    const T=S.templates&&Object.keys(S.templates).length?S.templates:{Gunite:templateFor('Gunite')};
+    const usedBy=Object.entries(T).map(([t,tpl])=>[t,tpl.flatMap(g=>g.sections.filter(x=>x.skill===s.id).map(x=>x.num))]).filter(([,a])=>a.length);
+    const used=usedBy.map(([t,a])=>(Object.keys(T).length>1?esc(t)+': ':'')+a.join(', '));
     return `<tr><td>${s.label}</td>
       <td>${q.length?q.map(c=>`<span class="chip" style="background:${crewColor(c.id)};color:#fff">${esc(c.name)}</span>`).join(' '):'<span class="err-txt">none</span>'}</td>
-      <td class="small ${used.length?'muted':'err-txt'}">${used.length?used.join(', '):'not mapped to any sub-phase yet'}</td></tr>`;}).join('')}
+      <td class="small ${used.length?'muted':'err-txt'}">${used.length?used.join(' · '):'not mapped to any sub-phase yet'}</td></tr>`;}).join('')}
   </tbody></table><div class="hint">A skill with no sub-phase is a trade you have crews for but no place in the build template — set it on the Phase Template tab.</div></div>`;
 }
 
@@ -1524,7 +1542,7 @@ function vPhases(){
     <button class="btn sm p" onclick="addPhase()">+ Phase</button></h2>
   <table><thead><tr><th style="width:60px">#</th><th>Sub-phase</th><th style="width:180px">Required trade</th>
     <th style="width:70px">Days</th><th style="width:60px">Tasks</th><th style="width:120px"></th></tr></thead><tbody>
-  ${S.template.map((g,gi)=>`
+  ${gunTpl().map((g,gi)=>`
     <tr class="phrow"><td><b>${g.num}.0</b></td>
       <td><input value="${esc(g.name)}" onchange="setGrp(${gi},'name',this.value)" style="width:100%;font-weight:650"></td>
       <td colspan="2" class="small muted">parent phase — rolls up its sub-phases</td>
@@ -1548,7 +1566,7 @@ function vPhases(){
         <button class="btn sm" onclick="moveSec(${gi},${si},1)">↓</button>
         <button class="btn sm d" onclick="delSec(${gi},${si})">✕</button></td></tr>`).join('')}`).join('')}
   </tbody></table>
-  <div class="hint">Imported from <b>MASTER TO COPY FROM D2 Gunite Build Phases.xlsx</b> — ${S.template.length} phases, ${S.template.reduce((a,g)=>a+g.sections.length,0)} sub-phases, ${S.template.reduce((a,g)=>a+g.sections.reduce((b,s)=>b+s.tasks.length,0),0)} checklist tasks. Every sub-phase starts at 2 days.</div>
+  <div class="hint">Imported from <b>MASTER TO COPY FROM D2 Gunite Build Phases.xlsx</b> — ${gunTpl().length} phases, ${gunTpl().reduce((a,g)=>a+g.sections.length,0)} sub-phases, ${gunTpl().reduce((a,g)=>a+g.sections.reduce((b,s)=>b+s.tasks.length,0),0)} checklist tasks. Every sub-phase starts at 2 days.</div>
   <div class="pad"><button class="btn" onclick="applyTemplate()">Apply template to all jobs (clears crews, sign-offs, and checklists)</button></div></div>`;
 }
 
@@ -2158,19 +2176,19 @@ function delCrew(id){
     if(hit)touch(j);
   });
   render();}
-function setGrp(gi,k,v){S.template[gi][k]=v;save();}
-function setSec(gi,si,k,v){S.template[gi].sections[si][k]= k==='days'?Math.max(1,+v||1):(k==='skill'?(v||null):v);save();}
-function moveSec(gi,si,d){const a=S.template[gi].sections,n=si+d;if(n<0||n>=a.length)return;a.splice(n,0,a.splice(si,1)[0]);render();}
+function setGrp(gi,k,v){gunTpl()[gi][k]=v;save();}
+function setSec(gi,si,k,v){gunTpl()[gi].sections[si][k]= k==='days'?Math.max(1,+v||1):(k==='skill'?(v||null):v);save();}
+function moveSec(gi,si,d){const a=gunTpl()[gi].sections,n=si+d;if(n<0||n>=a.length)return;a.splice(n,0,a.splice(si,1)[0]);render();}
 function delSec(gi,si){
-  const s=S.template[gi].sections[si];
+  const s=gunTpl()[gi].sections[si];
   if(!confirm('Remove '+s.num+' '+s.name+' from the template?'+String.fromCharCode(10,10)
     +'This changes the template new pools are built from. Pools that already exist keep it.'))return;
-  S.template[gi].sections.splice(si,1);render();
+  gunTpl()[gi].sections.splice(si,1);render();
 }
-function delGrp(gi){if(!confirm('Delete this phase and all its sub-phases from the template?'))return;S.template.splice(gi,1);render();}
-function addSection(gi){const g=S.template[gi];
+function delGrp(gi){if(!confirm('Delete this phase and all its sub-phases from the template?'))return;gunTpl().splice(gi,1);render();}
+function addSection(gi){const g=gunTpl()[gi];
   g.sections.push({id:'s'+Math.random().toString(36).slice(2,7),num:g.num+'.'+(g.sections.length+1),name:'New Sub-Phase',skill:null,days:2,tasks:[]});render();}
-function addPhase(){S.template.push({id:'g'+Math.random().toString(36).slice(2,7),num:String(S.template.length),name:'New Phase',sections:[]});render();}
+function addPhase(){gunTpl().push({id:'g'+Math.random().toString(36).slice(2,7),num:String(gunTpl().length),name:'New Phase',sections:[]});render();}
 function setAllDays(){
   const pools=S.jobs.length;
   const v=prompt('Set every sub-phase duration to how many work days?'+String.fromCharCode(10,10)
@@ -2179,7 +2197,7 @@ function setAllDays(){
     +'entered are lost, and pressing Save afterwards sends the new durations and dates to SharePoint. '
     +'Press Refresh to get the live schedule back. Cancel unless you are setting up from scratch.','2');
   if(v===null)return;const n=Math.max(1,+v||1);
-  S.template.forEach(g=>g.sections.forEach(s=>s.days=n));
+  gunTpl().forEach(g=>g.sections.forEach(s=>s.days=n));
   S.jobs.forEach(j=>allSecs(j).forEach(({s})=>s.days=n));autoSchedule();render();}
 function applyTemplate(){
   const pools=S.jobs.length;
@@ -2188,7 +2206,7 @@ function applyTemplate(){
     +'rescheduled from scratch. The rebuilt pools are no longer linked to SharePoint, so Save sends '
     +'nothing for them and nothing there changes.'+String.fromCharCode(10,10)
     +'Press Refresh to bring back the live schedule and link the pools again.'))return;
-  S.jobs.forEach(j=>j.groups=mkJobGroups(S.template));autoSchedule();render();}
+  S.jobs.forEach(j=>j.groups=mkJobGroups(gunTpl()));autoSchedule();render();}
 
 /* ===================== import from the SharePoint site =====================
    Reads the payload produced by sharepoint/export-to-planner.js and MERGES it
@@ -2228,6 +2246,7 @@ function importFromD2Payload(d,silent){
     if(!d||d.kind!=='d2-sharepoint-export'||!Array.isArray(d.jobs)){
       alert('That is not a schedule export.\n\nUse Refresh with the file downloaded from the site.');return;}
 
+    if(d.templates&&typeof d.templates==='object'){const t={};Object.keys(d.templates).forEach(k=>{if(Array.isArray(d.templates[k])&&d.templates[k].length)t[k]=tplFromPayload(d.templates[k]);});if(Object.keys(t).length){S.templates=t;S.templatesFrom=new Date().toISOString();}}
     const bySec=j=>{const m={};allSecs(j).forEach(({s})=>m[s.num]=s);return m;};
     let added=0,updated=0,secs=0,unmatched=[];
     const plan=d.jobs.map(inj=>{
@@ -2277,7 +2296,7 @@ function importFromD2Payload(d,silent){
     plan.forEach(({inj,existing})=>{
       let j=existing;
       if(!j){
-        j=newJob(inj.name||'Pool',inj.addr||'',inj.city||'',inj.state||'',inj.zip||'',inj.start||todayStr());
+        j=newJob(inj.name||'Pool',inj.addr||'',inj.city||'',inj.state||'',inj.zip||'',inj.start||todayStr(),inj.buildType);
         j.jobno=inj.jobno; j.status=inj.status||'Active'; S.jobs.push(j);
       }else{
         if(inj.name)j.name=inj.name;
@@ -2285,6 +2304,7 @@ function importFromD2Payload(d,silent){
         if(inj.city!=null)j.city=inj.city;
         if(inj.start)j.start=inj.start;
         if(inj.status)j.status=inj.status;
+        j.buildType=inj.buildType==='Fiberglass'?'Fiberglass':(j.buildType||'Gunite');
       }
       /* Still being built by D2 - New Pool. Read off New Pool Requests on the
          Graph path; the REST export does not carry it, so it reads false. */
@@ -3187,7 +3207,9 @@ const D2_GRAPH={
     cal:'d36758cf-9d27-4342-84e4-817f8dcfa2ba',
     // Written by + Job, and read on Refresh so a project whose request is
     // still Requested or Building is marked and closed to edits (j.building).
-    req:'13331a5e-ea8e-4ab2-9276-db5b4f4d46bf'
+    req:'13331a5e-ea8e-4ab2-9276-db5b4f4d46bf',
+    // Templates and the Trades lookup, read whole on Refresh (2026-10-13); same GUIDs as capture-graph.js.
+    spt:'453e7cd5-f84a-4e2a-9372-73f26019e3f0', tpt:'61824add-8eaa-4b1b-aed7-a202204bf9f5', trades:'05038f7f-a6cb-4f57-b1a1-3ff9c7126ba5'
   }
 };
 function graphModeAvailable(){

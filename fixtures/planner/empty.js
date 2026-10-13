@@ -20,7 +20,7 @@ let fail = 0;
 const ok = (l, c, d = '') => { console.log((c ? 'PASS' : 'FAIL') + ' · ' + l + (d ? '  [' + d + ']' : '')); if (!c) fail = 1; };
 
 const html = fs.readFileSync(PLANNER, 'utf8').replace('</body>',
-  `<script>window.__x=()=>{window.S=S;window.autoSchedule=autoSchedule;};</script><script>__x();</script></body>`);
+  `<script>window.__x=()=>{window.S=S;window.autoSchedule=autoSchedule;window.templateFor=templateFor;};</script><script>__x();</script></body>`);
 const errs = [];
 const vc = new VirtualConsole(); vc.on('jsdomError', e => errs.push(e.message));
 const dom = new JSDOM(html, { runScripts: 'dangerously', pretendToBeVisual: true, url: 'http://localhost/', virtualConsole: vc });
@@ -36,7 +36,7 @@ setTimeout(() => {
      S ? 'jobs=' + S.jobs.length : '-');
   ok('crews seeded', !!S && Array.isArray(S.crews) && S.crews.length > 0,
      S ? 'crews=' + S.crews.length : '-');
-  const subPhases = S && S.template ? S.template.reduce((n, g) => n + g.sections.length, 0) : 0;
+  const subPhases = (typeof w.templateFor === 'function' ? w.templateFor('Gunite') : []).reduce((n, g) => n + g.sections.length, 0);
   ok('phase template loaded', subPhases > 0, 'sub-phases=' + subPhases);
 
   ok('Refresh button present', !!w.document.getElementById('d2Btn'));

@@ -17,7 +17,7 @@ function boot() {
     .replace('<script src="graph-to-planner.js"></script>', inline('graph-to-planner.js'))
     .replace('<script src="writeback-core.js"></script>', inline('writeback-core.js'))
     .replace('<script src="graph-writeback.js"></script>', inline('graph-writeback.js'))
-    .replace('</body>', `<script>window.__x=()=>{window.S=S;window.getUI=()=>UI;window.D2_GRAPH=D2_GRAPH;window.addJob=addJob;
+    .replace('</body>', `<script>window.__x=()=>{Object.defineProperty(window,'S',{get:()=>S,configurable:true});window.getUI=()=>UI;window.D2_GRAPH=D2_GRAPH;window.addJob=addJob;
       window.confirmNewPoolRequest=confirmNewPoolRequest;window.buildPendingCreates=buildPendingCreates;window.pushCreates=pushCreates;
       window.render=render;window.refreshLive=refreshLive;window.importFromD2Payload=importFromD2Payload;window.save=save;window.load=load;
       window.templateFor=typeof templateFor==='function'?templateFor:null;window.jobBadge=jobBadge;window.mkTemplate=mkTemplate;};</script><script>__x();</script></body>`);
@@ -81,5 +81,47 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   const post = net.posts.find(p => p.body && p.body.fields && p.body.fields.JobNumber === 'TEST-9950');
   ok('the New Pool Requests POST carries BuildType and the chosen PM', post && post.body.fields.BuildType === 'Fiberglass' && post.body.fields.ProjectManagerLookupId === '16');
   ok('no page errors', errs.length === 0, errs.join(' | '));
+
+  // ---- templates from SharePoint, layout by type, chip, migration, fallback
+  {
+    const { w, alerts, errs } = boot(); await wait(600);
+    ok('a never-refreshed browser has the built-in Gunite template and nothing else', w.templateFor('Gunite').length > 0 && w.templateFor('Fiberglass').length === 0 && !w.S.template);
+    await w.refreshLive(true); await wait(300);
+    ok('Refresh stores both templates and the time', w.S.templates && w.S.templates.Gunite && w.S.templates.Fiberglass && typeof w.S.templatesFrom === 'string');
+    ok('live jobs carry buildType Gunite', w.S.jobs.length > 0 && w.S.jobs.every(j => j.buildType === 'Gunite'));
+    const F = w.S.templates.Fiberglass;
+    const fsecs = F.flatMap(p => p.sections);
+    const fibJob = { id: 999, jobno: 'TEST-9901', name: 'Fibre', addr: '', city: '', start: '2026-11-02', status: 'Planned', buildType: 'Fiberglass', pm: '', pmId: null,
+      sections: fsecs.map((s, i) => ({ id: 5000 + i, seq: i + 1, num: s.num, name: s.name, crewId: null, start: null, finish: null, days: 2, skip: false, locked: false, inst: false, pm: false, tasks: s.tasks.map((t, k) => ({ id: 9000 + i * 20 + k, seq: k + 1, title: t, done: false, na: false, note: '' })) })) };
+    const base = w.D2GraphToPlanner.toPlannerPayload(Object.assign({}, G, { users: [] }));
+    alerts.length = 0;
+    w.importFromD2Payload(Object.assign({}, base, { jobs: base.jobs.concat([fibJob]) }), true);
+    const fj = w.S.jobs.find(j => j.jobno === 'TEST-9901');
+    ok('the Fiberglass project exists with its type', fj && fj.buildType === 'Fiberglass');
+    ok('it is laid out from the Fiberglass template: 45 sub-phases including 2.3', fj && fj.groups.flatMap(g => g.sections).length === 45 && fj.groups.flatMap(g => g.sections).some(s => s.num === '2.3'));
+    ok('no unmatched alert for it', !alerts.some(a => /matched nothing/.test(a)), alerts.join(' | '));
+    ok('a Gunite job is still 46', w.S.jobs.find(j => j.buildType === 'Gunite').groups.flatMap(g => g.sections).length === 46);
+    ok('jobBadge draws a Fiberglass chip only for Fiberglass', /Fiberglass/.test(w.jobBadge(fj)) && !/Fiberglass/.test(w.jobBadge(w.S.jobs.find(j => j.buildType === 'Gunite'))));
+    w.document.querySelector('#tabs button[data-t="crews"]').click();
+    ok('Skill Coverage lists sub-phases from both templates, labelled', /Gunite:.*Fiberglass:/s.test(w.document.getElementById('main').textContent));
+    ok('no page errors', errs.length === 0, errs.join(' | '));
+  }
+  {
+    const { w, alerts, errs } = boot(); await wait(600);
+    const old = { kind: 'd2-sharepoint-export', exported: '2026-10-01', jobs: [{ jobno: 'TEST-9901', name: 'Fibre', start: '2026-11-02', status: 'Planned', buildType: 'Fiberglass', sections: [{ num: '2.3', name: 'Crane Set and Shell Placement', crewId: null, start: null, days: 2, tasks: [] }] }] };
+    alerts.length = 0; let threw = null;
+    try { w.importFromD2Payload(old, true); } catch (e) { threw = e; }
+    ok('an export without templates does not throw', !threw, threw && threw.message);
+    const fj = w.S.jobs.find(j => j.jobno === 'TEST-9901');
+    ok('the Fiberglass job has no Gunite layout and its section is reported unmatched', fj && fj.groups.length === 0 && alerts.some(a => /matched nothing/.test(a)));
+    ok('no page errors', errs.length === 0, errs.join(' | '));
+  }
+  {
+    const { w } = boot(); await wait(600);
+    const T = w.mkTemplate(); T[0].name = 'Edited locally';
+    w.localStorage.setItem('poolsched.v6', JSON.stringify({ crews: [], template: T, jobs: [], settings: {}, pendingCreates: [], pendingComments: [] }));
+    w.load();
+    ok('a stored S.template becomes S.templates.Gunite and S.template is gone', w.S.templates && w.S.templates.Gunite && w.S.templates.Gunite[0].name === 'Edited locally' && !('template' in w.S));
+  }
   process.exit(fails ? 1 : 0);
 })();

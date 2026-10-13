@@ -20,6 +20,7 @@ const win = dom.window;
 (async () => {
 await new Promise(r => setTimeout(r, 400));
 const S = win.S;
+const TPL = win.templateFor("Gunite");
 if (!S) { console.log('FAIL: state not loaded'); process.exit(2); }
 
 // The planner no longer seeds demo pools (removed 2026-09-11 -- they were three
@@ -40,9 +41,9 @@ if (S.jobs.length === 0) {
 const results = [];
 const check = (label, cond, detail='') => { results.push({label, pass: !!cond, detail}); console.log((cond?'PASS':'FAIL')+' · '+label+(detail?'  ['+detail+']':'')); };
 
-console.log(`\nSeed: ${S.jobs.length} jobs, ${S.crews.length} crews, ${S.template.length} phases`);
-const totalSubs = S.template.reduce((n,g)=>n+g.sections.length,0);
-const totalTasks = S.template.reduce((n,g)=>n+g.sections.reduce((m,s)=>m+s.tasks.length,0),0);
+console.log(`\nSeed: ${S.jobs.length} jobs, ${S.crews.length} crews, ${TPL.length} phases`);
+const totalSubs = TPL.reduce((n,g)=>n+g.sections.length,0);
+const totalTasks = TPL.reduce((n,g)=>n+g.sections.reduce((m,s)=>m+s.tasks.length,0),0);
 console.log(`Template: ${totalSubs} sub-phases, ${totalTasks} tasks\n`);
 
 // 1) No Sunday in any scheduled span
@@ -140,7 +141,7 @@ console.log(`Template: ${totalSubs} sub-phases, ${totalTasks} tasks\n`);
 // 10) Trade-tagged sub-phases must have qualified crew
 {
   const orph=[];
-  S.template.forEach(g=>g.sections.forEach(s=>{
+  TPL.forEach(g=>g.sections.forEach(s=>{
     if(!s.skill||win.FIXED[s.skill])return;
     if(S.crews.filter(c=>c.skills.includes(s.skill)).length===0)orph.push(`${s.num} ${s.name} (${s.skill})`);
   }));
@@ -148,7 +149,7 @@ console.log(`Template: ${totalSubs} sub-phases, ${totalTasks} tasks\n`);
 }
 // 11) Every declared trade used
 {
-  const inU=new Set(); S.template.forEach(g=>g.sections.forEach(s=>{if(s.skill)inU.add(s.skill);}));
+  const inU=new Set(); TPL.forEach(g=>g.sections.forEach(s=>{if(s.skill)inU.add(s.skill);}));
   const decl=new Set(); S.crews.forEach(c=>c.skills.forEach(k=>decl.add(k)));
   const un=[...decl].filter(k=>!inU.has(k));
   check('Every declared trade used by a sub-phase', un.length===0, un.length?`${un.length} unmapped: ${un.slice(0,6).join(', ')}`:'all used');
@@ -162,7 +163,7 @@ console.log(`Template: ${totalSubs} sub-phases, ${totalTasks} tasks\n`);
   check('All assigned crewIds resolve', !bad, bad||'all resolve');
 }
 // 13) README counts
-check('Template phase count = 8', S.template.length===8, `actual: ${S.template.length}`);
+check('Template phase count = 8', TPL.length===8, `actual: ${TPL.length}`);
 check('Template sub-phase count = 46', totalSubs===46, `actual: ${totalSubs}`);
 check('Template task count = 295', totalTasks===295, `actual: ${totalTasks}`);
 check('Crew count = 14', S.crews.length===14, `actual: ${S.crews.length}`);
