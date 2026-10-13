@@ -47,7 +47,7 @@ const xmlOf = c => c.body && c.body.parameters ? c.body.parameters.SchemaXml : '
   const bt = xmlOf(creates.find(c => /Name='BuildType'/.test(xmlOf(c))));
   ok('BuildType is a required dropdown Choice defaulting to Gunite', /Type='Choice'/.test(bt) && /Required='TRUE'/.test(bt) && /<CHOICE>Gunite<\/CHOICE><CHOICE>Fiberglass<\/CHOICE>/.test(bt) && /<Default>Gunite<\/Default>/.test(bt));
   ok('field creates are sequential (each POST follows the previous response)', r.report.failures.length === 0);
-  ok('BuildType hidden on the Jobs New form by SchemaXml insert', r.calls.some(c => /Jobs.*BuildType/.test(c.u) && c.h['X-HTTP-Method'] === 'MERGE' && /ShowInNewForm="FALSE"/.test(c.body.SchemaXml)));
+  ok('BuildType hidden on the Jobs New form by SchemaXml insert', r.calls.some(c => /Jobs.*BuildType/.test(c.u) && c.h['X-HTTP-Method'] === 'MERGE' && /ShowInNewForm="FALSE"/.test(c.body.SchemaXml) && c.body.__metadata && c.body.__metadata.type === 'SP.FieldChoice'));
   ok('two views per template list', r.calls.filter(c => /\/views$/.test(c.u) && c.m === 'POST').length === 4);
   ok('view query filters by BuildType and orders by Sequence', r.calls.filter(c => /\/views$/.test(c.u) && c.m === 'POST').every(c => /BuildType/.test(c.body.ViewQuery) && /Sequence/.test(c.body.ViewQuery)));
   // ---- idempotent

@@ -38,7 +38,7 @@
     const fUrl = list('Jobs') + "/fields/getByInternalNameOrTitle('BuildType')";
     const cur = await g(fUrl + '?$select=SchemaXml');
     if (/ShowInNewForm=/i.test(cur.SchemaXml)) report.hidden.push('Jobs/BuildType (already)');
-    else { await post(fUrl, { SchemaXml: cur.SchemaXml.replace('<Field ', '<Field ShowInNewForm="FALSE" ') }, { 'IF-MATCH': '*', 'X-HTTP-Method': 'MERGE' }); report.hidden.push('Jobs/BuildType'); }
+    else { await post(fUrl, { __metadata: { type: 'SP.FieldChoice' }, SchemaXml: cur.SchemaXml.replace('<Field ', '<Field ShowInNewForm="FALSE" ') }, { 'IF-MATCH': '*', 'X-HTTP-Method': 'MERGE' }); report.hidden.push('Jobs/BuildType'); }
   } catch (e) { report.failures.push('hide Jobs/BuildType: ' + e.message); }
   // One view per type on each template list.
   for (const l of ['Sub-phase Template', 'Task Template']) {
