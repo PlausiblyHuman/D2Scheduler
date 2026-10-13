@@ -60,7 +60,7 @@ const xmlOf = c => c.body && c.body.parameters ? c.body.parameters.SchemaXml : '
   const seed = { subphases: [{ num: '0.0', phaseName: 'Pre Construction/Sales' }, { num: '1.2', phaseName: 'Preconstruction Back Office Admin' }] };
   r = await runScript('stamp-build-type.js', { rows: [{ Id: 1, BuildType: null, SubPhaseNumber: '0.0', PhaseName: null }, { Id: 2, BuildType: 'Gunite', SubPhaseNumber: '1.2', PhaseName: 'x' }, { Id: 3, BuildType: 'Fiberglass', SubPhaseNumber: '0.0', PhaseName: null }], seed });
   const merges = r.calls.filter(c => c.h['X-HTTP-Method'] === 'MERGE');
-  ok('only blank rows are stamped', merges.length > 0 && merges.every(c => /items\(1\)$/.test(c.u)));
+  ok('only blank rows are stamped', merges.length > 0 && merges.every(c => /items\(1\)$/.test(c.u) && c.h['Content-Type'] === 'application/json;odata=nometadata'));
   ok('the stamp body sets Gunite', merges.some(c => c.body.BuildType === 'Gunite'));
   ok('PhaseName comes from the seed by SubPhaseNumber', merges.some(c => c.body.PhaseName === 'Pre Construction/Sales'));
   ok('a Fiberglass row is never given a Gunite PhaseName', !merges.some(c => /items\(3\)$/.test(c.u)));

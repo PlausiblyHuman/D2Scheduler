@@ -10,7 +10,7 @@
   const H = { Accept: 'application/json;odata=verbose', 'Content-Type': 'application/json;odata=verbose' };
   const NM = { Accept: 'application/json;odata=nometadata' };
   const dg = await (await fetch(site + '/_api/contextinfo', { method: 'POST', headers: H, credentials: 'include' })).json();
-  const HD = { ...H, 'X-RequestDigest': dg.d.GetContextWebInformation.FormDigestValue, 'IF-MATCH': '*', 'X-HTTP-Method': 'MERGE' };
+  const HD = { ...H, 'X-RequestDigest': dg.d.GetContextWebInformation.FormDigestValue, 'Content-Type': 'application/json;odata=nometadata', 'IF-MATCH': '*', 'X-HTTP-Method': 'MERGE' };
   const list = l => site + "/_api/web/lists/GetByTitle('" + encodeURIComponent(l) + "')";
   const g = async u => (await fetch(u, { headers: NM, credentials: 'include' })).json();
   const all = async u => { let out = [], next = u; while (next) { const d = await g(next); out = out.concat(d.value || []); next = d['odata.nextLink'] || null; } return out; };
