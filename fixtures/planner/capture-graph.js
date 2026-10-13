@@ -69,8 +69,17 @@ const LISTS = {
   jobs: 'ee0ecabf-2f11-458d-a9ea-641f76d10cc3',
   asg: '49ef7006-d3fe-40a7-a52f-c4c18545bd35',
   tasks: '22c45847-ff0d-417a-b53e-1ea018fbb6d3',
-  cal: 'd36758cf-9d27-4342-84e4-817f8dcfa2ba'
+  cal: 'd36758cf-9d27-4342-84e4-817f8dcfa2ba',
+  spt: '453e7cd5-f84a-4e2a-9372-73f26019e3f0',     // Sub-phase Template
+  tpt: '61824add-8eaa-4b1b-aed7-a202204bf9f5',     // Task Template
+  trades: '05038f7f-a6cb-4f57-b1a1-3ff9c7126ba5'
 };
+
+/* --merge: copy ONLY these keys from the posted capture into the two existing fixtures and
+   leave jobs/asg/tasks/cal alone. The existing pools in those fixtures are frozen demo data;
+   a wholesale recapture would replace them with live client data. */
+const MERGE = process.argv.includes('--merge');
+const MERGE_KEYS = ['spt', 'tpt', 'trades'];
 
 function page() {
   return fs.readFileSync(PAGE_FILE, 'utf8')
@@ -115,6 +124,20 @@ const server = http.createServer((req, res) => {
     req.on('end', () => {
       try {
         const d = JSON.parse(body);
+        if (MERGE) {
+          const missing = MERGE_KEYS.filter(k => !Array.isArray(d[k]));
+          if (missing.length) throw new Error('capture lacks ' + missing.join(', '));
+          for (const target of [OUT, OUT_FILTERED]) {
+            const t = JSON.parse(fs.readFileSync(target, 'utf8'));
+            for (const k of MERGE_KEYS) t[k] = d[k];
+            fs.writeFileSync(target, JSON.stringify(t, null, 1), 'utf8');
+            console.log('MERGED into ' + target + ': ' + MERGE_KEYS.map(k => k + '=' + d[k].length).join(', '));
+          }
+          console.log('Done (--merge). Other keys untouched. Ctrl+C to stop.');
+          res.writeHead(200, { 'Content-Type': 'text/plain' });
+          res.end('Merged ' + MERGE_KEYS.map(k => k + '=' + d[k].length).join(', ') + ' into both fixtures.\nYou can close this tab.');
+          return;
+        }
         fs.writeFileSync(OUT, JSON.stringify(d, null, 1), 'utf8');
         const counts = Object.keys(d).filter(k => Array.isArray(d[k]))
           .map(k => k + '=' + d[k].length).join(', ');
@@ -150,5 +173,5 @@ const server = http.createServer((req, res) => {
 ensureMsal().then(() => server.listen(PORT, () => {
   console.log('Capture server on http://localhost:' + PORT + '/');
   console.log('Open that URL and click "Sign in and capture".');
-  console.log('Read-only: GETs against Microsoft Graph, one local file written.');
+  console.log('Read-only: GETs against Microsoft Graph, one local file written' + (MERGE ? ' (--merge: only spt, tpt, trades are merged into the two fixtures).' : '.'));
 })).catch(e => { console.error('startup failed:', e.message); process.exit(1); });
