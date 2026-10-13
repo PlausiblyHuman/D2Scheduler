@@ -71,9 +71,10 @@ Phase, Section, Row Type; the other columns were empty). 45 sub-phases, 248 task
 
    29 by name, 2 by exception, 14 Unassigned. Don adjusts in the planner as he schedules; 8.3
    Final Grade is the likely first adjustment (the `finishgrade` trade exists).
-8. **Sequence** follows the Gunite scheme, phase × 100 + position: 0.0 → 1, 0.1 → 2, 1.0 → 101 …
-   1.7 → 108, 2.1 → 201 … 7.7 → 707, 8.1 → 801 … 8.6 → 806, 9.0 → 901, 9.1 → 902. Sequence
-   values overlap between types; every read is filtered by type first.
+8. **Sequence** is the position in the template, 1 to 45, which is what the live Gunite rows
+   carry (1 to 46, from `tools/template-seed.json`; the phase-hundreds scheme in
+   `sub-phase-template.csv` was documentation and was never seeded). Sequence values overlap
+   between types; every read is filtered by type first.
 
 ## 3. Data model
 
