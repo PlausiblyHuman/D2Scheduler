@@ -1,0 +1,670 @@
+[
+ {
+  "num": "0",
+  "name": "Pre Construction/Sales",
+  "sections": [
+   {
+    "num": "0.0",
+    "name": "Sales to Production Handoff",
+    "skill": "@office",
+    "days": 2,
+    "tasks": [
+     "Contract review",
+     "Signed",
+     "Change orders process",
+     "Draw schedule",
+     "Design verification",
+     "Approved Construction Plans",
+     "Approved Plan View",
+     "Verify Revision Number - Most Updated",
+     "Pool Shell Manufacturer, Model, and Color Verified",
+     "Spa Shell Manufacturer, Model, and Color Verified (if applicable)",
+     "Feature locations (tanning ledge, bench, steps, spa)",
+     "Equipment specifications approved",
+     "Material Selections Approved (coping, decking, tile)"
+    ]
+   },
+   {
+    "num": "0.1",
+    "name": "Procurement Planning",
+    "skill": "@office",
+    "days": 2,
+    "tasks": [
+     "Shell ordered from manufacturer",
+     "Shell production lead time and delivery date confirmed",
+     "Pool package pump(s)",
+     "Filter",
+     "Heater (yes or no)",
+     "Salt or chlorine chlorinator (one or the other)",
+     "Automation (yes or no)",
+     "Valves - 2 way and 3 way",
+     "Actuators if automated",
+     "Lights",
+     "Transformer (yes or no)",
+     "Jbox (yes or no)",
+     "Autofill (yes or no)",
+     "Coping/decking materials ordered",
+     "Crane/rigging service scheduled"
+    ]
+   }
+  ]
+ },
+ {
+  "num": "1",
+  "name": "Preconstruction Back Office Admin",
+  "sections": [
+   {
+    "num": "1.0",
+    "name": "Pre-Construction Back Office Admin",
+    "skill": "@office",
+    "days": 2,
+    "tasks": [
+     "Permit application submitted",
+     "Permit approved",
+     "HOA approval (if applicable)",
+     "Utility locate requested (call 811)",
+     "PortaPotty Ordered",
+     "Delivered",
+     "D2 Pool Sign in the Yard",
+     "Construction Tote for supplies onsite - all mechanical instruction books for Pool School"
+    ]
+   },
+   {
+    "num": "1.1",
+    "name": "Pre-Construction Verification - HANDOVER FROM OFFICE TO FIELD PM",
+    "skill": "@office",
+    "days": 2,
+    "tasks": [
+     "Contract scope review",
+     "Verify Auto Cover YES/NO",
+     "Plan revision verification",
+     "Easement review",
+     "Property access review",
+     "PreCon Meeting PM and Dig Team>digsheet/plan view",
+     "Crane access route to backyard verified",
+     "Shell delivery date confirmed with manufacturer/hauler"
+    ]
+   },
+   {
+    "num": "1.2",
+    "name": "Site Preparation",
+    "skill": "demolition",
+    "days": 2,
+    "tasks": [
+     "Construction Entrance and Curb Protection",
+     "Identify Site Obstacles",
+     "Site Prep and Demo (existing fence etc)",
+     "Security Fence",
+     "Silt Fence Contractor Hired",
+     "Silt Fence installed",
+     "Landscaping protection",
+     "Staging area designation",
+     "Material delivery planning",
+     "Contractor for Dig",
+     "Equipment Rental for Dig",
+     "Neighbor notification as needed",
+     "Overhead obstruction check for crane (power lines, trees)"
+    ]
+   },
+   {
+    "num": "1.3",
+    "name": "Order/Procure Site Materials",
+    "skill": "@office",
+    "days": 2,
+    "tasks": [
+     "Crushed stone/gravel base material",
+     "Backfill material (per shell manufacturer spec - crushed stone or flowable fill)",
+     "Plumbing materials",
+     "Skimmers",
+     "Return fittings",
+     "Spa fittings",
+     "Main drains",
+     "Conduit"
+    ]
+   },
+   {
+    "num": "1.4",
+    "name": "Pool Layout",
+    "skill": "dig",
+    "days": 2,
+    "tasks": [
+     "Benchmark establishment",
+     "Stake Perimeter (per shell footprint plus working clearance)",
+     "House-to-pool measurements",
+     "Setback verification",
+     "Elevation verification",
+     "Feature layout (spa, tanning ledge, water features)",
+     "Auto Cover Layout",
+     "Equipment location confirmation",
+     "Crane placement/swing radius confirmed"
+    ]
+   },
+   {
+    "num": "1.5",
+    "name": "Pre-Dig Quality Check",
+    "skill": "@unassigned",
+    "days": 2,
+    "tasks": [
+     "Layout sign-off",
+     "Dig depth calculations (shell depth plus base material thickness)",
+     "Soil condition review",
+     "Overdig requirements (shell width plus working space, typically 12-18\" per side)",
+     "Dewatering/high water table assessment",
+     "Hauloff Coordination"
+    ]
+   },
+   {
+    "num": "1.6",
+    "name": "Excavation Operations",
+    "skill": "dig",
+    "days": 2,
+    "tasks": [
+     "Dig supervision",
+     "Excavate Shell footprint plus overdig",
+     "Excavate Spa",
+     "Excavate Plumbing and Electrical trenches",
+     "Verify hole dimensions match shell shop drawing",
+     "Deep-end depth verification",
+     "Equipment Pad Verification"
+    ]
+   },
+   {
+    "num": "1.7",
+    "name": "Post-Excavation Review",
+    "skill": "@unassigned",
+    "days": 2,
+    "tasks": [
+     "Excavation dimension check against shell shop drawing",
+     "Soil stability inspection",
+     "Soil pile management",
+     "Haul-off verification",
+     "Excavation Images obtained",
+     "Excavation acceptance sign-off by PM"
+    ]
+   }
+  ]
+ },
+ {
+  "num": "2",
+  "name": "Base Preparation and Shell Set",
+  "sections": [
+   {
+    "num": "2.1",
+    "name": "Base Preparation",
+    "skill": "@unassigned",
+    "days": 2,
+    "tasks": [
+     "Install crushed stone/gravel base (per shell manufacturer spec, typically 4-6 in)",
+     "Compact and level base",
+     "Screed/template base to shell contour",
+     "Base elevation verification (laser level)",
+     "Plumbing stub-out locations marked prior to shell set"
+    ]
+   },
+   {
+    "num": "2.2",
+    "name": "Shell Delivery and Inspection",
+    "skill": "@unassigned",
+    "days": 2,
+    "tasks": [
+     "Shell delivered to site",
+     "Shell inspected for shipping damage/cracks",
+     "Gelcoat finish inspected",
+     "Fitting locations verified against plan",
+     "Shell serial number/model verified against order"
+    ]
+   },
+   {
+    "num": "2.3",
+    "name": "Crane Set and Shell Placement",
+    "skill": "@unassigned",
+    "days": 2,
+    "tasks": [
+     "Crane staged and rigged",
+     "Shell lifted and set into excavation",
+     "Shell leveled (side-to-side and end-to-end)",
+     "Shell plumbed and squared to layout stakes",
+     "Elevation/height above grade verified",
+     "Shell braced at walls, steps, and benches per manufacturer spec"
+    ]
+   }
+  ]
+ },
+ {
+  "num": "3",
+  "name": "Plumbing Rough-In",
+  "sections": [
+   {
+    "num": "3.1",
+    "name": "Hydraulic Design Verification",
+    "skill": "@office",
+    "days": 2,
+    "tasks": [
+     "Plumbing plan reviewed against shell fitting locations",
+     "Pipe sizing verified"
+    ]
+   },
+   {
+    "num": "3.2",
+    "name": "Plumbing Installation",
+    "skill": "plumbing",
+    "days": 2,
+    "tasks": [
+     "Skimmer line connected",
+     "Return lines connected",
+     "Main drain line connected",
+     "Spa lines connected (if applicable)",
+     "Auto cover lines installed (if applicable)",
+     "Water feature lines installed"
+    ]
+   },
+   {
+    "num": "3.3",
+    "name": "Plumbing Pressure Testing",
+    "skill": "plumbing",
+    "days": 2,
+    "tasks": [
+     "Pressure test all lines",
+     "Leak inspection",
+     "Repair and retest as needed"
+    ]
+   }
+  ]
+ },
+ {
+  "num": "4",
+  "name": "Electrical Rough-In",
+  "sections": [
+   {
+    "num": "4.1",
+    "name": "Electrical Rough-In",
+    "skill": "@sub",
+    "days": 2,
+    "tasks": [
+     "Bonding wire attached to shell bonding studs",
+     "Conduit run to equipment pad",
+     "Light niche wiring (if applicable)"
+    ]
+   },
+   {
+    "num": "4.2",
+    "name": "Bonding Grid Completion",
+    "skill": "@sub",
+    "days": 2,
+    "tasks": [
+     "Equipotential bonding grid installed around perimeter",
+     "Bonding continuity tested"
+    ]
+   },
+   {
+    "num": "4.3",
+    "name": "Equipment Pad Preparation",
+    "skill": "gas",
+    "days": 2,
+    "tasks": [
+     "Equipment pad base/slab poured or set",
+     "Conduit stubbed to pad"
+    ]
+   },
+   {
+    "num": "4.4",
+    "name": "Rough Inspection Preparation",
+    "skill": "@unassigned",
+    "days": 2,
+    "tasks": [
+     "Municipal rough plumbing/electrical inspection scheduled",
+     "Rough inspection passed"
+    ]
+   }
+  ]
+ },
+ {
+  "num": "5",
+  "name": "Backfill and Water Fill",
+  "sections": [
+   {
+    "num": "5.1",
+    "name": "Pre-Backfill Readiness Review",
+    "skill": "@unassigned",
+    "days": 2,
+    "tasks": [
+     "Bracing verified secure",
+     "Plumbing pressure test confirmed passed",
+     "Backfill material staged (crushed stone or flowable fill per manufacturer spec)",
+     "Water source/fill hose staged",
+     "Crew pre-backfill meeting onsite"
+    ]
+   },
+   {
+    "num": "5.2",
+    "name": "Simultaneous Backfill and Water Fill",
+    "skill": "@unassigned",
+    "days": 2,
+    "tasks": [
+     "Begin filling shell with water (initial few inches)",
+     "Begin backfilling in lifts, alternating with rising water level",
+     "Compact backfill in lifts (hand tamp near walls; no heavy equipment against shell)",
+     "Monitor shell walls for movement/distortion throughout process",
+     "Continue matched lifts until backfill reaches grade and water reaches skimmer level"
+    ]
+   },
+   {
+    "num": "5.3",
+    "name": "Post-Backfill Inspection",
+    "skill": "@unassigned",
+    "days": 2,
+    "tasks": [
+     "Verify shell walls are straight and true (no bowing)",
+     "Verify water level stable (leak check)",
+     "Backfill compaction verification",
+     "Photo documentation"
+    ]
+   }
+  ]
+ },
+ {
+  "num": "6",
+  "name": "Coping and Decking",
+  "sections": [
+   {
+    "num": "6.1",
+    "name": "Bond Beam/Collar Preparation",
+    "skill": "rebar",
+    "days": 2,
+    "tasks": [
+     "Concrete collar/bond beam formed around shell perimeter (if required by design)",
+     "Rebar placed in collar (if applicable)",
+     "Collar poured"
+    ]
+   },
+   {
+    "num": "6.2",
+    "name": "Coping Installation",
+    "skill": "coping",
+    "days": 2,
+    "tasks": [
+     "Pattern/material selected and approved by customer",
+     "Coping substrate prepared",
+     "Coping set",
+     "Coping grouted and sealed"
+    ]
+   },
+   {
+    "num": "6.3",
+    "name": "Tile Installation",
+    "skill": "tile",
+    "days": 2,
+    "tasks": [
+     "Waterline tile substrate prep (if applicable)",
+     "Tile set",
+     "Tile grouted"
+    ]
+   },
+   {
+    "num": "6.4",
+    "name": "Deck Preparation",
+    "skill": "finishgrade",
+    "days": 2,
+    "tasks": [
+     "Subgrade preparation",
+     "Compaction testing",
+     "Form setup",
+     "Drain installation"
+    ]
+   },
+   {
+    "num": "6.5",
+    "name": "Deck Placement",
+    "skill": "hardscape",
+    "days": 2,
+    "tasks": [
+     "Concrete placement",
+     "Paver installation",
+     "Paver Edge Placed",
+     "Decorative finish application",
+     "Expansion joint installation"
+    ]
+   },
+   {
+    "num": "6.6",
+    "name": "Drainage Verification",
+    "skill": "drainage",
+    "days": 2,
+    "tasks": [
+     "Deck slope testing",
+     "Area drain testing",
+     "Equipment pad drainage review"
+    ]
+   },
+   {
+    "num": "6.7",
+    "name": "Hardscape Final QC",
+    "skill": "@unassigned",
+    "days": 2,
+    "tasks": [
+     "Surface consistency review",
+     "Joint inspection",
+     "Trip hazard inspection",
+     "Finish approval"
+    ]
+   }
+  ]
+ },
+ {
+  "num": "7",
+  "name": "Equipment Installation, Startup and Trim Out",
+  "sections": [
+   {
+    "num": "7.1",
+    "name": "Equipment Plumbing",
+    "skill": "plumbing",
+    "days": 2,
+    "tasks": [
+     "Review Operation and Layout of Equipment with Installation Team",
+     "Manifold assembly",
+     "Valve installation",
+     "Check valve installation",
+     "Flow verification",
+     "Water Feature verification",
+     "Auto Leveler and Pool Drain verification"
+    ]
+   },
+   {
+    "num": "7.2",
+    "name": "Equipment Installation",
+    "skill": "plumbing",
+    "days": 2,
+    "tasks": [
+     "Pump installation",
+     "Filter installation",
+     "Heater installation",
+     "Chiller Installation",
+     "Automation installation",
+     "Sanitizer installation"
+    ]
+   },
+   {
+    "num": "7.3",
+    "name": "Equipment Electrical",
+    "skill": "automation",
+    "days": 2,
+    "tasks": [
+     "Breaker installation",
+     "Automation wiring",
+     "Bonding completion",
+     "GFCI verification",
+     "Auto Cover Switch"
+    ]
+   },
+   {
+    "num": "7.4",
+    "name": "Startup Preparation",
+    "skill": "@unassigned",
+    "days": 2,
+    "tasks": [
+     "Surface cleaning",
+     "Order Water Truck/Water delivery",
+     "Startup planning",
+     "Automation Programming"
+    ]
+   },
+   {
+    "num": "7.5",
+    "name": "Startup Procedures",
+    "skill": "@unassigned",
+    "days": 2,
+    "tasks": [
+     "Initial equipment startup",
+     "Leak Inspection",
+     "Auto Cover Installed",
+     "Lights Pulled In",
+     "Flow balancing",
+     "Valve adjustment",
+     "Automation programming"
+    ]
+   },
+   {
+    "num": "7.6",
+    "name": "Water Chemistry Startup",
+    "skill": "@unassigned",
+    "days": 2,
+    "tasks": [
+     "Initial testing",
+     "Chemical balancing",
+     "Brushing schedule",
+     "Startup log creation",
+     "Salt or Chlorinate Pool per startup schedule"
+    ]
+   },
+   {
+    "num": "7.7",
+    "name": "Trim Out",
+    "skill": "@unassigned",
+    "days": 2,
+    "tasks": [
+     "Main Drain",
+     "Bubblers",
+     "Returns",
+     "Spa Jets",
+     "Skimmers",
+     "Water Features (deck jets/waterfalls/spillovers)"
+    ]
+   }
+  ]
+ },
+ {
+  "num": "8",
+  "name": "Site Restoration and Final Grade",
+  "sections": [
+   {
+    "num": "8.1",
+    "name": "Construction Cleanup",
+    "skill": "@unassigned",
+    "days": 2,
+    "tasks": [
+     "Remove excess materials and construction debris",
+     "Equipment and tool demobilization",
+     "Dumpster removal",
+     "PortaPotty removal",
+     "Site debris haul-off"
+    ]
+   },
+   {
+    "num": "8.2",
+    "name": "Rough Grade",
+    "skill": "@unassigned",
+    "days": 2,
+    "tasks": [
+     "Set grading elevations",
+     "Rough grade perimeter for positive drainage",
+     "Verify rough grade/drainage away from structures"
+    ]
+   },
+   {
+    "num": "8.3",
+    "name": "Final Grade",
+    "skill": "@unassigned",
+    "days": 2,
+    "tasks": [
+     "Fine grade and topsoil placement",
+     "Remove rock and debris from grade",
+     "Final grade inspection and approval"
+    ]
+   },
+   {
+    "num": "8.4",
+    "name": "Seed and Straw/ Sod",
+    "skill": "@unassigned",
+    "days": 2,
+    "tasks": [
+     "Seed application",
+     "Straw/mulch application for erosion control",
+     "Erosion control blanket on slopes (as needed)",
+     "Silt fence removal (post-stabilization)"
+    ]
+   },
+   {
+    "num": "8.5",
+    "name": "Landscaping Restoration",
+    "skill": "@unassigned",
+    "days": 2,
+    "tasks": [
+     "Sod installation (alternate/supplemental to seed)",
+     "Irrigation repair/reconnection",
+     "Landscaping protection removal",
+     "Plant, shrub, and sprinkler head replacement as needed",
+     "Fence Pool safety Barrior",
+     "Pool, Door and Window Alarms"
+    ]
+   },
+   {
+    "num": "8.6",
+    "name": "Final Site Walk-Through",
+    "skill": "@unassigned",
+    "days": 2,
+    "tasks": [
+     "Site cleanliness inspection",
+     "Grading and drainage sign-off",
+     "Customer yard walk-through"
+    ]
+   }
+  ]
+ },
+ {
+  "num": "9",
+  "name": "Post Construction Completion Phase",
+  "sections": [
+   {
+    "num": "9.0",
+    "name": "Client Orientation",
+    "skill": "poolschool",
+    "days": 2,
+    "tasks": [
+     "Equipment training",
+     "Automation training",
+     "Maintenance education",
+     "Warranty Submission",
+     "Documentation handoff",
+     "Punch-list completion",
+     "Final inspection",
+     "Photo documentation",
+     "Warranty registration",
+     "Customer Pool School"
+    ]
+   },
+   {
+    "num": "9.1",
+    "name": "Warranty & 30-Day Follow-Up",
+    "skill": "@office",
+    "days": 2,
+    "tasks": [
+     "7-day startup review",
+     "30-day chemistry review",
+     "Warranty inspection",
+     "Customer satisfaction survey",
+     "Service department handoff"
+    ]
+   }
+  ]
+ }
+]
