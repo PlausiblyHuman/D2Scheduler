@@ -133,6 +133,10 @@ Source of truth is `flows/exports/D2-New-Pool-2026-10-03.json` checked against a
 - `Get_subphase_template`: `$filter` `BuildType eq '<type>'`, `$orderby Sequence asc`, `$top` 100.
 - `Get_task_template`: `$filter` `BuildType eq '<type>'`, `$top` 1000. Without the filter the list
   now holds 543 rows and the old `$top` 500 would silently truncate Gunite's own tasks.
+- Fail before writing when a read hits its cap, the same guard the 2026-09-28 scale work put on
+  four other flows: after the two template reads, if the sub-phase count is 100 or the task count
+  is 1000, set the request `Failed` with a `ReadAtCap` result and terminate before `Create_job`.
+  A truncated template must never become a half-built project.
 - `Create_job`: adds `"BuildType": "<type>"`.
 - `Filter_tasks_for_subphase` is unchanged: it joins by the `SubPhase` lookup id, which already
   keeps each type's tasks with its own sub-phases.
@@ -217,14 +221,23 @@ runs on real shapes. Then:
   `graph-to-planner.js`.
 - `npm test` gains `build-type.js`. The shakedown's `phases` tab still renders and throws nothing.
 
-Live, in this order, each step read back before the next:
+Live, in this order, each step read back before the next. **The order is load-bearing:** the live
+flow reads both template lists whole, so if the Fiberglass rows landed before the filter did, a
+Gunite request raised in that window would be built with 91 sub-phases, and the task read would
+sit 43 rows over its cap. Stopping the flow for the window is not an answer either, because the
+SharePoint created-item trigger does not pick up rows created while the flow was off.
 
-1. Columns, stamping, views, Fiberglass seed. Additive; nothing live reads the column yet.
-2. Flow. A throwaway Fiberglass request (`TEST-9901`) read back as 45 assignments and 248 tasks
-   with the expected crews; a throwaway Gunite request (`TEST-9902`) read back as 46 and 295; both
-   deleted through `Delete Pool Requests`. Flow 3 (Event-Driven Reconciliation) is stopped for the
-   two builds as the seed-data rule requires, then restarted.
-3. Planner. Harnesses green, shakedown green, deploy to Static Web Apps, tag
+1. Columns on all four lists, every existing row stamped Gunite, `PhaseName` on the Gunite 46,
+   views. Additive; nothing live reads the column yet. A throwaway Gunite request (`TEST-9902`)
+   proves the unchanged flow still builds 46 and 295 with the column present.
+2. Flow, with the filters, the raised cap and the guard. The same throwaway Gunite request shape
+   again, read back as 46 and 295 with `Jobs.BuildType = Gunite`.
+3. Fiberglass seed: 45 sub-phases and 248 tasks. A throwaway Fiberglass request (`TEST-9901`)
+   read back as 45 assignments and 248 tasks with the expected crews and `BuildType =
+   Fiberglass`; one more Gunite request to prove the filter keeps the types apart. All throwaway
+   projects deleted through `Delete Pool Requests`. Flow 3 (Event-Driven Reconciliation) is
+   stopped for the builds as the seed-data rule requires, then restarted.
+4. Planner. Harnesses green, shakedown green, deploy to Static Web Apps, tag
    `deploy/2026-10-xx`, wall checks. Refresh in a real browser shows both templates on the tab and
    `TEST-9901` (built before deletion, or rebuilt) with a Fiberglass chip and no unmatched alert.
 
