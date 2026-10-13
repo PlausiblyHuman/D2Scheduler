@@ -37,8 +37,12 @@ for name in ('Compose_build_type', 'Compose_result'):
 ok('the definition is ASCII-safe when dumped', json.dumps(A, ensure_ascii=True).isascii())
 drv = pathlib.Path(__file__).with_name('2026-10-13-new-pool-build-type.py').read_text(encoding='utf-8')
 ok('the driver backup lives outside the exports glob', "'backups'" in drv and 'exports/D2-New-Pool-' not in drv)
-newest = load(EXPORTS[-1])
-if 'Compose_build_type' in json.dumps(newest):
+# No-drift target: the first export carrying this change (the export taken right after it was pushed), not the newest.
+after = [p for p in EXPORTS if 'Compose_build_type' in json.dumps(load(p))]
+if after:
+    newest = load(after[0])
     strip = lambda x: json.loads(json.dumps(x).replace('"authentication": "@parameters(\'$authentication\')", ', ''))
     ok('published flow equals what the builder produces (no drift)', strip(newest) == strip(A))
+else:
+    ok('no export carries this change yet, no-drift check skipped', True)
 sys.exit(1 if fails else 0)

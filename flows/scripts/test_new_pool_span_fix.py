@@ -26,9 +26,12 @@ for name in ('Compose_short_scheduled_message', 'Set_shortScheduledSubphase'):
 ok('the request still ends Failed', '"Status\\":\\"Failed\\"' in json.dumps(find(A, 'Set_status_failed_span')['inputs']))
 ok('nothing else changed', json.dumps({k: v for k, v in before.items() if k not in ('Apply_to_each_subphase', 'Condition_short_scheduled')}, sort_keys=True)
    == json.dumps({k: v for k, v in A.items() if k not in ('Apply_to_each_subphase', 'Condition_short_scheduled')}, sort_keys=True))
-newest = load(EXPORTS[-1])
-# Only while the newest export is still the 10-01 shape; new_pool_always_create (2026-10-03) supersedes it.
-if 'P1D' in json.dumps(newest) and 'else' in newest['Apply_to_each_subphase']['actions']['Condition_span_incomplete']:
+# No-drift target: the first export carrying this change (the export taken right after it was pushed), not the newest.
+after = [p for p in EXPORTS if 'P1D' in json.dumps(load(p))]
+if after:
+    newest = load(after[0])
     strip = lambda x: json.loads(json.dumps(x).replace('"authentication": "@parameters(\'$authentication\')", ', ''))
     ok('published flow equals what the builder produces (no drift)', strip(newest) == strip(A))
+else:
+    ok('no export carries this change yet, no-drift check skipped', True)
 sys.exit(1 if fails else 0)

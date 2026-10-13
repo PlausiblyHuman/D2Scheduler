@@ -61,8 +61,12 @@ for name in ('Compose_short_scheduled_message', 'Append_shortScheduledSubphase',
     ok(f'{name}: quotes balanced', json.dumps(find(A, name)['inputs']).count("'") % 2 == 0)
 ok('the request still ends Failed on a short span', '"Status\\":\\"Failed\\"' in json.dumps(find(A, 'Set_status_failed_span')['inputs']))
 
-newest = load(EXPORTS[-1])
-if 'else' not in newest[LOOP]['actions'][COND]:
+# No-drift target: the first export carrying this change (the export taken right after it was pushed), not the newest.
+after = [p for p in EXPORTS if 'else' not in load(p)[LOOP]['actions'][COND]]
+if after:
+    newest = load(after[0])
     strip = lambda x: json.loads(json.dumps(x).replace('"authentication": "@parameters(\'$authentication\')", ', ''))
     ok('published flow equals what the builder produces (no drift)', strip(newest) == strip(A))
+else:
+    ok('no export carries this change yet, no-drift check skipped', True)
 sys.exit(1 if fails else 0)
