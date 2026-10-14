@@ -2961,16 +2961,20 @@ loop continued: 45 sub-phases and 247 tasks created, and the failure message nam
 sub-phase (9.1) rather than the short one (1.5). **Pre-existing defect, surfaced by Fiberglass data.**
 A second change (`flows/scripts/new_pool_escape_strings.py`, its test, driver
 `2026-10-13-new-pool-escape-strings.py`) escapes backslash then quote in the six interpolated strings
-of the three create bodies and rewords the failure message. **Its push to the tenant is pending on
-Shane**, after which TEST-9901 is rebuilt. `JobNumber` remains unescaped (follow-up). Remove the
-TEST-990x rows before the pilot.
+of the three create bodies and rewords the failure message. **Pushed 2026-10-14 00:50Z** (export
+`flows/exports/D2-New-Pool-2026-10-13b.json`, backup `backups/D2-New-Pool-pre-escape-strings.json`).
+**TEST-9901 rebuilt as Fiberglass and read back clean**: request 65 Done "Created TEST-9901
+(Fiberglass): 45 sub-phases, 248 tasks, 2026-11-02 to 2027-02-20", Job 73 `BuildType` Fiberglass,
+45 Assignments with `Sequence` 1..45 and no null dates, 248 Tasks, and the `12-18"` title stored
+verbatim. Done within 8.5 minutes of the trigger firing. `JobNumber` remains unescaped (follow-up). Remove the TEST-990x rows
+before the pilot.
 
 **Planner (`web/index.html`).**
 - `+ Job` has a Gunite / Fiberglass radio (Gunite preselected); the request row carries `BuildType` on
   both write paths. The chosen PM now reaches Save (`buildPendingCreates` used to drop `pmId`/`pmName`).
 - Refresh reads the two template lists and Trades (`D2_GRAPH.lists` `spt`, `tpt`, `trades`) and keeps
-  `S.templates` by type with `S.templatesFrom`. `S.template` is retired (a stored copy migrates to
-  `S.templates.Gunite`).
+  `S.templates` by type with `S.templatesFrom`. `S.template` is retired: a stored copy is discarded on
+  load, never migrated, because the per-browser copy was never authoritative and Refresh reloads both.
 - Each project carries `buildType` and lays out from `templateFor(type)`: `[]` for a type with no
   template, **never Gunite as a fallback**. Fiberglass shows a chip via `jobBadge`.
 - **The Phase Template tab ("Build phases") is read-only**: it shows SharePoint's templates with a
