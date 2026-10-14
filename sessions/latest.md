@@ -3,7 +3,7 @@
 **Session goal:** finish the build-type release's paperwork and brief Don: post the two open days to
 TimeTrack, answer his question on which phases are in, and send him the release summary.
 
-**Time:** 08:21 to 10:07 local, 0.75 h billable (D2, 3 blocks): 0.18 h Claude + 0.00 h reviewed gap + 0.15 h manual (weekly meeting); one gap (08:26-10:00) not yet reviewed, so billable is not final. Not posted. Tokens: 460 in / 11,183,238 cached / 1,182,521 cache-write / 17,985 out, 20 messages, claude-fable-5-1, no subagents.
+**Time:** 08:21 to 10:30 local, 1.00 h billable (D2, 4 blocks): 0.22 h Claude + 0.00 h reviewed gap + 0.15 h manual (weekly meeting); two gaps (08:26-10:00 and 10:07-10:27) reviewed as away. 0.75 h posted (TimeTrack entry 74); the close-out itself added the fourth block, so 0.25 h remains for the next post. Tokens: 460 in / 11,183,238 cached / 1,182,521 cache-write / 17,985 out, 20 messages, claude-fable-5-1, no subagents.
 
 **Files touched:**
 - `sessions/2026-10-14a-release-close-and-don-note.md`, `sessions/latest.md` — this log. No code or tenant change today.
