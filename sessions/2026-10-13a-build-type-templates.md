@@ -5,7 +5,7 @@ project, each project lays out from its own template, and the Phase Template tab
 Projects in flight keep their type; changing a project's type after creation is out of scope. Also
 closed the 2026-10-11 housekeeping (retroactive session log, `latest.md`, `master` fast-forwarded).
 
-**Time:** 08:50 to 20:37 local. Hooks 5.78 h + 0.36 h reviewed gap, billable 6.75 h (6 blocks) with three gaps (14:14-15:15, 17:23-19:51, 19:52-20:11) not yet reviewed, so billable is not final; 2.75 h written off as Plumbline work logged under this cwd. Not posted. Tokens: 10,428 in / 262,192,873 cached / 7,287,508 cache-write / 817,522 out, 842 messages, fable-5-1 orchestrating with sonnet-5-5 / opus-5-5 / haiku-5-5 subagents (39 subagents, 54,136,658 tokens).
+**Time:** 08:50 to 20:50 local, 7.00 h billable (D2, 6 blocks): 5.95 h Claude + 0.36 h reviewed gap + 0.00 h manual; three gaps reviewed as away; 2.75 h written off as Plumbline work logged under this cwd, 4.25 h to post. Tokens: 10,428 in / 262,192,873 cached / 7,287,508 cache-write / 817,522 out, 842 messages, fable-5-1 orchestrating with sonnet-5-5 / opus-5-5 / haiku-5-5 subagents (39 subagents, 54,136,658 tokens).
 
 **What shipped (branch `canvas-app-handoff`, 29 commits `d8a360b`..`f26c3b3`, 61 files):**
 - Spec `docs/specs/2026-10-13-build-type-templates-design.md`, plan `docs/plans/2026-10-13-build-type-templates.md` (15 tasks, all complete, subagent-driven, reviewed per task and whole-branch).
@@ -28,10 +28,11 @@ closed the 2026-10-11 housekeeping (retroactive session log, `latest.md`, `maste
 - TEST-9902 kept rather than deleted and rebuilt; all throwaways deleted together at the end.
 - Deferred: `JobNumber` unescaped in New Pool (before the pilot); failure emails naming the type; a zero-row guard until a third type; tab/newline escaping.
 
+**Deployed:** Shane ran the SWA deploy at about 20:45; wall checks pass anonymously (every path 302 to `/.auth/login/aad`, GitHub provider 404, `/auth-redirect.html` 200, all seven headers), the hosted page carries the new build (`templateFor` present, the template editors gone, Build phases copy) with a clean console; tag `deploy/2026-10-13` on `550617a` (`web/` identical to the reviewed `547db90`).
+
 **Open questions / blocked on:**
-- SWA deploy of `web/` denied by the permission classifier; Shane runs it, then the wall checks and the `deploy/2026-10-13` tag follow.
 - Don to hear: the Startup sub-phases renumbered to 7.4 to 7.7, and 20 Unassigned Fiberglass sub-phases need crews.
 - Guide v9 still deferred (now also carries the build-type radio and the read-only Build phases tab).
 
 **Next action:**
-Deploy `web/` (Shane), tag `deploy/2026-10-13`, run the wall checks; then brief Don on the Fiberglass template and pick the next item from his ranking.
+Brief Don on the Fiberglass template (7.4 to 7.7 renumbered, 20 sub-phases with no crew), then pick the next item from his ranking; escape `JobNumber` in New Pool before the pilot.
