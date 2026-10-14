@@ -2966,8 +2966,9 @@ of the three create bodies and rewords the failure message. **Pushed 2026-10-14 
 **TEST-9901 rebuilt as Fiberglass and read back clean**: request 65 Done "Created TEST-9901
 (Fiberglass): 45 sub-phases, 248 tasks, 2026-11-02 to 2027-02-20", Job 73 `BuildType` Fiberglass,
 45 Assignments with `Sequence` 1..45 and no null dates, 248 Tasks, and the `12-18"` title stored
-verbatim. Done within 8.5 minutes of the trigger firing. `JobNumber` remains unescaped (follow-up). Remove the TEST-990x rows
-before the pilot.
+verbatim. Done within 8.5 minutes of the trigger firing. `JobNumber` remains unescaped (follow-up). **All four
+throwaways were removed through Delete Pool Requests on 2026-10-14 01:37Z and their request rows deleted**;
+tenant read back at Jobs 34, Assignments 1,564, Tasks 10,030, New Pool Requests 38, Delete Pool Requests 4.
 
 **Planner (`web/index.html`).**
 - `+ Job` has a Gunite / Fiberglass radio (Gunite preselected); the request row carries `BuildType` on

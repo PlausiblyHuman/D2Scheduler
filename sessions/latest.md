@@ -1,41 +1,37 @@
-# 2026-10-11a — Stuck Reject fix; Don's template sheets reviewed
+# 2026-10-13a — Gunite and Fiberglass build types
 
-*Written 2026-10-13 from git, CLAUDE.md, the mail thread and the time log; the session closed without a log.*
+**Session goal:** Don's top priority from his ranking: PMs pick Gunite or Fiberglass when creating a
+project, each project lays out from its own template, and the Phase Template tab can show either.
+Projects in flight keep their type; changing a project's type after creation is out of scope. Also
+closed the 2026-10-11 housekeeping (retroactive session log, `latest.md`, `master` fast-forwarded).
 
-**Session goal:** fix the "Save first" block Don reported on 2026-10-10 (no project would activate),
-reply to him, and size the new requests in his email.
+**Time:** 08:50 to 20:37 local. Hooks 5.78 h + 0.36 h reviewed gap, billable 6.75 h (6 blocks) with three gaps (14:14-15:15, 17:23-19:51, 19:52-20:11) not yet reviewed, so billable is not final; 2.75 h written off as Plumbline work logged under this cwd. Not posted. Tokens: 10,428 in / 262,192,873 cached / 7,287,508 cache-write / 817,522 out, 842 messages, fable-5-1 orchestrating with sonnet-5-5 / opus-5-5 / haiku-5-5 subagents (39 subagents, 54,136,658 tokens).
 
-**Time:** 09:18 to 12:49 local. Hooks 1.81 h, billable 2.50 h (5 blocks); four gaps (10:30-10:48,
-10:58-11:32, 11:53-12:26, 12:32-12:49) not yet reviewed, so billable is not final. Not posted.
-Tokens: 284 in / 57,305,902 cached / 462,710 cache-write / 107,134 out, 140 messages, claude-opus-5-5, no subagents.
+**What shipped (branch `canvas-app-handoff`, 29 commits `d8a360b`..`f26c3b3`, 61 files):**
+- Spec `docs/specs/2026-10-13-build-type-templates-design.md`, plan `docs/plans/2026-10-13-build-type-templates.md` (15 tasks, all complete, subagent-driven, reviewed per task and whole-branch).
+- Fiberglass template from Don's sheet: `tools/fiberglass-template.py` -> `data/fiberglass-template.json` (45 sub-phases, 248 tasks); seed generator takes a template and a build type; seed, provision and stamp scripts under `sharepoint/`.
+- Tenant: `BuildType` Choice on Jobs, New Pool Requests, Sub-phase Template, Task Template; `PhaseName` on Sub-phase Template; per-type views; existing rows stamped Gunite; Fiberglass seeded (templates now 91 sub-phases / 543 tasks).
+- `D2 - New Pool`: reads the request's build type, filters both template reads, task cap 1000 with a read-at-cap guard, writes `BuildType` on the Job; second push escapes quotes and backslashes in the three create bodies (a pre-existing defect the Fiberglass data surfaced). Exports `D2-New-Pool-2026-10-13.json` and `-2026-10-13b.json`, backups under `flows/exports/backups/`.
+- Planner: `+ Job` radio, per-project `buildType`, both templates read from SharePoint on Refresh (`S.templates`, `S.templatesFrom`), layout from `templateFor(type)` with no Gunite fallback, Fiberglass chip, read-only Build phases tab with a type switch (nine edit functions and two rebuild buttons removed), re-layout when a project's type changes, stored per-browser template discarded on load. PM now reaches Save from `+ Job` (was dropped).
+- Read paths: `web/graph-to-planner.js` and `sharepoint/export-to-planner.js` carry build type and templates; fixtures gained `spt`/`tpt`/`trades` via `capture-graph.js --merge`.
+- Tests: `fixtures/planner/build-type.js` (52 assertions) and mutations, `build-type-scripts.js`, `merge-capture.test.js`, `graph-read.g2p-mutations.json`; the four New Pool structural tests now compare against the first export carrying their own change.
 
-**Files touched:**
-- `web/index.html` — Reject is offered only on a sign-off SharePoint holds; `hasUnsaved` no longer counts the comment queue; Mark complete still stops for an entry queued on its own project; the guard names project, sub-phase and start date
-- `fixtures/planner/save-first.js` + mutations (new, 9 mutations red); `complete.mutations.json` and `rejections.mutations.json` re-anchored; `fixtures/planner/README.md`; `package.json` test script
-- `CLAUDE.md` — "One stuck Reject blocked every Activate" section, Guide v9 deferral, the list of Don's new asks
-- `sessions/2026-10-03a-…`, `sessions/2026-10-05a-…` — the two preceding sessions' logs, written retroactively
-- `docs/2026-10-11-don-template-sheets-review.md` — new: the four workbooks against the 46-sub-phase template, problems to resolve, rough sizes
+**Verified live:** TEST-9902 (old flow) 46/295; TEST-9903 and TEST-9904 (new flow, Gunite) 46/295; TEST-9901 Fiberglass failed on the `12-18"` title, partial pool deleted, escaping fix pushed, rebuilt: request 65 Done, 45 sub-phases, 248 tasks, Job `BuildType` Fiberglass, title stored verbatim. HEAD `web/` served locally and read live over Graph: 38 projects, templates 46/295 and 45/248, the Fiberglass project linked with 45 sections and the chip, Build phases tab read-only at 55/56 rows. Flow 3 stopped around the rebuild and restarted. All four throwaways deleted through Delete Pool Requests at the end; request rows removed.
 
-**Commits:**
-- `24e943c` Save first no longer blocks on the comment queue; Reject only on a saved sign-off
-- `21e2fd9` Review of Don's four build-phase sheets against the current template
-
-**Shipped:** `deploy/2026-10-11`. Reply to Don sent 11:58 Central: the activate problem is fixed and
-live, how to remove his stuck entry, and a request to rank the new items.
-
-**Decisions made:**
-- Guide v9 deferred to the next big release (Shane).
-- The reply asks Don to rank the new items rather than committing to them; October had about 7 h
-  left in the D2 bucket.
-- Don's stuck entry stays in his browser until he removes it (sub-phase 7.0, Comments, remove); it no
-  longer blocks anything.
+**Decisions made (rulings from the SDD ledger, Shane's where noted):**
+- Shane: option 1 for Fiberglass crews and trades (name-match to Gunite, 2-day durations); approach A; keep the current Gunite template (Rev3 later); subagents build, this session orchestrates.
+- The two Phase 7s in Don's sheet merge into 7.1 to 7.7 (Startup renumbered 7.4 to 7.7); phase names from heading rows; punch-list note row dropped; text verbatim. 20 of 45 Fiberglass sub-phases are Unassigned (14 Fiberglass-only, 6 whose Gunite match is Unassigned).
+- A stored per-browser `S.template` is discarded on load, not migrated (spec 5.2 said migrate): it was never authoritative and Refresh reloads both.
+- Live template `Sequence` is the position 1..n; the CSV phase-hundreds scheme was never seeded.
+- Backups go to `flows/exports/backups/`, outside the export glob, never overwritten.
+- No-drift tests target the first export carrying their change, not the newest.
+- TEST-9902 kept rather than deleted and rebuilt; all throwaways deleted together at the end.
+- Deferred: `JobNumber` unescaped in New Pool (before the pilot); failure emails naming the type; a zero-row guard until a third type; tab/newline escaping.
 
 **Open questions / blocked on:**
-- Don's ranking of the new requests.
-- The template work is bound by the review's open questions: numbering clashes, rows that are not
-  tasks, no trade or crew on any row, missing durations, and whether the Gunite revision applies to
-  new projects only.
+- SWA deploy of `web/` denied by the permission classifier; Shane runs it, then the wall checks and the `deploy/2026-10-13` tag follow.
+- Don to hear: the Startup sub-phases renumbered to 7.4 to 7.7, and 20 Unassigned Fiberglass sub-phases need crews.
+- Guide v9 still deferred (now also carries the build-type radio and the read-only Build phases tab).
 
 **Next action:**
-Don's ranking came back on 2026-10-13: working on, and swapping between, Gunite and Fiberglass
-projects is his top priority. Design that first; the review doc holds the sheet analysis.
+Deploy `web/` (Shane), tag `deploy/2026-10-13`, run the wall checks; then brief Don on the Fiberglass template and pick the next item from his ranking.
