@@ -1,0 +1,1257 @@
+{
+ "flowId": "02905018-4f41-e05a-d140-74e2afc82052",
+ "displayName": "D2 - New Pool",
+ "workflowEntityId": "d782ee70-2fab-f111-aaab-6045bd0196b3",
+ "state": "Started",
+ "lastModifiedTime": "2026-10-14T00:50:56Z",
+ "connectionReferences": {
+  "shared_sharepointonline": {
+   "connectionName": "shared-sharepointonl-20b83f29-d689-437e-b1ff-930f7bf3fda4",
+   "connectionReferenceLogicalName": "new_sharedsharepointonline_beb06",
+   "source": "Embedded",
+   "id": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+   "displayName": "SharePoint",
+   "iconUri": "https://static.powerapps.com/resource/ppcr/releases/v1.0.1827/1.0.1827.4913/sharepointonline/icon.png",
+   "brandColor": "",
+   "tier": "Standard",
+   "apiName": "sharepointonline",
+   "isProcessSimpleApiReferenceConversionAlreadyDone": false
+  },
+  "shared_office365": {
+   "connectionName": "shared-office365-0bc14d33-bf94-4439-bdbc-d600759333d5",
+   "connectionReferenceLogicalName": "new_sharedoffice365_4d59e",
+   "source": "Embedded",
+   "id": "/providers/Microsoft.PowerApps/apis/shared_office365",
+   "displayName": "Office 365 Outlook",
+   "iconUri": "https://static.powerapps.com/resource/ppcr/releases/v1.0.1819/1.0.1819.4795/office365/icon.png",
+   "brandColor": "#0078D4",
+   "tier": "Standard",
+   "apiName": "office365",
+   "isProcessSimpleApiReferenceConversionAlreadyDone": false
+  }
+ },
+ "definition": {
+  "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+   "$connections": {
+    "defaultValue": {},
+    "type": "Object"
+   },
+   "$authentication": {
+    "defaultValue": {},
+    "type": "SecureObject"
+   }
+  },
+  "triggers": {
+   "When_an_item_is_created": {
+    "recurrence": {
+     "frequency": "Minute",
+     "interval": 1
+    },
+    "splitOn": "@triggerOutputs()?['body/value']",
+    "type": "OpenApiConnection",
+    "inputs": {
+     "host": {
+      "connectionName": "shared_sharepointonline",
+      "operationId": "GetOnNewItems",
+      "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+     },
+     "parameters": {
+      "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+      "table": "13331a5e-ea8e-4ab2-9276-db5b4f4d46bf"
+     }
+    }
+   }
+  },
+  "actions": {
+   "Set_status_building": {
+    "runAfter": {},
+    "type": "OpenApiConnection",
+    "inputs": {
+     "host": {
+      "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+      "operationId": "HttpRequest",
+      "connectionName": "shared_sharepointonline"
+     },
+     "parameters": {
+      "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+      "parameters/method": "POST",
+      "parameters/uri": "_api/web/lists/GetByTitle('New Pool Requests')/items(@{triggerOutputs()?['body/ID']})",
+      "parameters/headers": {
+       "X-HTTP-Method": "MERGE",
+       "If-Match": "*",
+       "Content-Type": "application/json;odata=verbose",
+       "Accept": "application/json;odata=verbose"
+      },
+      "parameters/body": "{\"__metadata\":{\"type\":\"SP.Data.New_x0020_Pool_x0020_RequestsListItem\"},\"Status\":\"Building\"}"
+     }
+    }
+   },
+   "Get_existing_job": {
+    "runAfter": {
+     "Set_status_building": [
+      "Succeeded"
+     ]
+    },
+    "type": "OpenApiConnection",
+    "inputs": {
+     "host": {
+      "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+      "operationId": "GetItems",
+      "connectionName": "shared_sharepointonline"
+     },
+     "parameters": {
+      "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+      "table": "ee0ecabf-2f11-458d-a9ea-641f76d10cc3",
+      "$filter": "JobNumber eq '@{triggerOutputs()?['body/JobNumber']}'",
+      "$top": 1
+     }
+    }
+   },
+   "Condition_duplicate": {
+    "actions": {
+     "Set_status_failed_duplicate": {
+      "runAfter": {},
+      "type": "OpenApiConnection",
+      "inputs": {
+       "host": {
+        "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+        "operationId": "HttpRequest",
+        "connectionName": "shared_sharepointonline"
+       },
+       "parameters": {
+        "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+        "parameters/method": "POST",
+        "parameters/uri": "_api/web/lists/GetByTitle('New Pool Requests')/items(@{triggerOutputs()?['body/ID']})",
+        "parameters/headers": {
+         "X-HTTP-Method": "MERGE",
+         "If-Match": "*",
+         "Content-Type": "application/json;odata=verbose",
+         "Accept": "application/json;odata=verbose"
+        },
+        "parameters/body": "{\"__metadata\":{\"type\":\"SP.Data.New_x0020_Pool_x0020_RequestsListItem\"},\"Status\":\"Failed\",\"Result\":\"Refused: job number @{triggerOutputs()?['body/JobNumber']} already exists.\"}"
+       }
+      }
+     },
+     "Terminate_duplicate": {
+      "runAfter": {
+       "Set_status_failed_duplicate": [
+        "Succeeded"
+       ]
+      },
+      "type": "Terminate",
+      "inputs": {
+       "runStatus": "Succeeded"
+      }
+     }
+    },
+    "runAfter": {
+     "Get_existing_job": [
+      "Succeeded"
+     ]
+    },
+    "else": {
+     "actions": {}
+    },
+    "expression": {
+     "greater": [
+      "@length(outputs('Get_existing_job')?['body/value'])",
+      0
+     ]
+    },
+    "type": "If"
+   },
+   "Condition_missing_pm": {
+    "actions": {
+     "Set_status_failed_no_pm": {
+      "runAfter": {},
+      "type": "OpenApiConnection",
+      "inputs": {
+       "host": {
+        "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+        "operationId": "HttpRequest",
+        "connectionName": "shared_sharepointonline"
+       },
+       "parameters": {
+        "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+        "parameters/method": "POST",
+        "parameters/uri": "_api/web/lists/GetByTitle('New Pool Requests')/items(@{triggerOutputs()?['body/ID']})",
+        "parameters/headers": {
+         "X-HTTP-Method": "MERGE",
+         "If-Match": "*",
+         "Content-Type": "application/json;odata=verbose",
+         "Accept": "application/json;odata=verbose"
+        },
+        "parameters/body": "{\"__metadata\":{\"type\":\"SP.Data.New_x0020_Pool_x0020_RequestsListItem\"},\"Status\":\"Failed\",\"Result\":\"Refused: Project Manager is required.\"}"
+       }
+      }
+     },
+     "Terminate_no_pm": {
+      "runAfter": {
+       "Set_status_failed_no_pm": [
+        "Succeeded"
+       ]
+      },
+      "type": "Terminate",
+      "inputs": {
+       "runStatus": "Succeeded"
+      }
+     }
+    },
+    "runAfter": {
+     "Condition_earlier_request": [
+      "Succeeded"
+     ]
+    },
+    "else": {
+     "actions": {}
+    },
+    "expression": {
+     "equals": [
+      "@coalesce(triggerOutputs()?['body/ProjectManager']?['Claims'], '')",
+      ""
+     ]
+    },
+    "type": "If"
+   },
+   "Scope_provision_job": {
+    "actions": {
+     "Ensure_pm_user": {
+      "runAfter": {},
+      "type": "OpenApiConnection",
+      "inputs": {
+       "host": {
+        "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+        "operationId": "HttpRequest",
+        "connectionName": "shared_sharepointonline"
+       },
+       "parameters": {
+        "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+        "parameters/method": "POST",
+        "parameters/uri": "_api/web/ensureuser",
+        "parameters/headers": {
+         "Content-Type": "application/json;odata=verbose",
+         "Accept": "application/json;odata=verbose"
+        },
+        "parameters/body": "{\"logonName\":\"@{triggerOutputs()?['body/ProjectManager']?['Claims']}\"}"
+       }
+      }
+     },
+     "Create_job": {
+      "runAfter": {
+       "Condition_read_at_cap": [
+        "Succeeded"
+       ]
+      },
+      "type": "OpenApiConnection",
+      "inputs": {
+       "host": {
+        "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+        "operationId": "HttpRequest",
+        "connectionName": "shared_sharepointonline"
+       },
+       "parameters": {
+        "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+        "parameters/method": "POST",
+        "parameters/uri": "_api/web/lists/GetByTitle('Jobs')/items",
+        "parameters/headers": {
+         "Content-Type": "application/json;odata=verbose",
+         "Accept": "application/json;odata=verbose"
+        },
+        "parameters/body": "{\"__metadata\":{\"type\":\"SP.Data.JobsListItem\"},\"Title\":\"@{replace(replace(triggerOutputs()?['body/Title'], '\\', '\\\\'), '\"', '\\\"')}\",\"JobNumber\":\"@{triggerOutputs()?['body/JobNumber']}\",\"Address\":\"@{replace(replace(coalesce(triggerOutputs()?['body/Address'], ''), '\\', '\\\\'), '\"', '\\\"')}\",\"City\":\"@{replace(replace(coalesce(triggerOutputs()?['body/City'], ''), '\\', '\\\\'), '\"', '\\\"')}\",\"StartDate\":\"@{formatDateTime(triggerOutputs()?['body/StartDate'],'yyyy-MM-dd')}\",\"Status\":\"Planned\",\"BuildType\":\"@{outputs('Compose_build_type')}\",\"ProjectManagerId\":@{body('Ensure_pm_user')?['d']?['Id']}}"
+       }
+      }
+     },
+     "Get_subphase_template": {
+      "runAfter": {
+       "Compose_build_type": [
+        "Succeeded"
+       ]
+      },
+      "type": "OpenApiConnection",
+      "inputs": {
+       "host": {
+        "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+        "operationId": "GetItems",
+        "connectionName": "shared_sharepointonline"
+       },
+       "parameters": {
+        "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+        "table": "453e7cd5-f84a-4e2a-9372-73f26019e3f0",
+        "$orderby": "Sequence asc",
+        "$top": 100,
+        "$filter": "BuildType eq '@{outputs('Compose_build_type')}'"
+       }
+      }
+     },
+     "Get_task_template": {
+      "runAfter": {
+       "Get_subphase_template": [
+        "Succeeded"
+       ]
+      },
+      "type": "OpenApiConnection",
+      "inputs": {
+       "host": {
+        "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+        "operationId": "GetItems",
+        "connectionName": "shared_sharepointonline"
+       },
+       "parameters": {
+        "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+        "table": "61824add-8eaa-4b1b-aed7-a202204bf9f5",
+        "$top": 1000,
+        "$filter": "BuildType eq '@{outputs('Compose_build_type')}'"
+       }
+      }
+     },
+     "Get_work_calendar": {
+      "runAfter": {
+       "Create_job": [
+        "Succeeded"
+       ]
+      },
+      "type": "OpenApiConnection",
+      "inputs": {
+       "host": {
+        "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+        "operationId": "GetItems",
+        "connectionName": "shared_sharepointonline"
+       },
+       "parameters": {
+        "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+        "table": "d36758cf-9d27-4342-84e4-817f8dcfa2ba",
+        "$top": 500
+       }
+      }
+     },
+     "Select_nonWork": {
+      "runAfter": {
+       "Get_work_calendar": [
+        "Succeeded"
+       ]
+      },
+      "type": "Select",
+      "inputs": {
+       "from": "@outputs('Get_work_calendar')?['body/value']",
+       "select": "@formatDateTime(item()?['Date'], 'yyyy-MM-dd')"
+      }
+     },
+     "Compose_build_type": {
+      "runAfter": {
+       "Ensure_pm_user": [
+        "Succeeded"
+       ]
+      },
+      "type": "Compose",
+      "inputs": "@coalesce(triggerOutputs()?['body/BuildType']?['Value'], 'Gunite')"
+     },
+     "Condition_read_at_cap": {
+      "actions": {
+       "Set_status_failed_cap": {
+        "runAfter": {},
+        "type": "OpenApiConnection",
+        "inputs": {
+         "host": {
+          "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+          "operationId": "HttpRequest",
+          "connectionName": "shared_sharepointonline"
+         },
+         "parameters": {
+          "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+          "parameters/method": "POST",
+          "parameters/uri": "_api/web/lists/GetByTitle('New Pool Requests')/items(@{triggerOutputs()?['body/ID']})",
+          "parameters/headers": {
+           "X-HTTP-Method": "MERGE",
+           "If-Match": "*",
+           "Content-Type": "application/json;odata=verbose",
+           "Accept": "application/json;odata=verbose"
+          },
+          "parameters/body": "{\"__metadata\":{\"type\":\"SP.Data.New_x0020_Pool_x0020_RequestsListItem\"},\"Status\":\"Failed\",\"Result\":\"ReadAtCap: the @{outputs('Compose_build_type')} template read came back at its cap (sub-phases @{length(outputs('Get_subphase_template')?['body/value'])}, tasks @{length(outputs('Get_task_template')?['body/value'])}). Nothing was built. The template lists need checking before this request is re-entered.\"}"
+         }
+        }
+       },
+       "Terminate_cap": {
+        "runAfter": {
+         "Set_status_failed_cap": [
+          "Succeeded"
+         ]
+        },
+        "type": "Terminate",
+        "inputs": {
+         "runStatus": "Failed",
+         "runError": {
+          "code": "ReadAtCap",
+          "message": "Template read at cap"
+         }
+        }
+       }
+      },
+      "runAfter": {
+       "Get_task_template": [
+        "Succeeded"
+       ]
+      },
+      "expression": {
+       "or": [
+        {
+         "greaterOrEquals": [
+          "@length(outputs('Get_subphase_template')?['body/value'])",
+          100
+         ]
+        },
+        {
+         "greaterOrEquals": [
+          "@length(outputs('Get_task_template')?['body/value'])",
+          1000
+         ]
+        }
+       ]
+      },
+      "type": "If"
+     }
+    },
+    "runAfter": {
+     "Condition_missing_pm": [
+      "Succeeded"
+     ]
+    },
+    "type": "Scope"
+   },
+   "Compose_provision_failure_message": {
+    "runAfter": {
+     "Scope_provision_job": [
+      "Failed",
+      "TimedOut"
+     ]
+    },
+    "type": "Compose",
+    "inputs": "@concat('Failed: could not finish preparing to build ', triggerOutputs()?['body/JobNumber'], ' (', triggerOutputs()?['body/Title'], '). A Job row for this job number may already exist in production even though no sub-phases or tasks were created. Check the Jobs list before resubmitting. If the Job row exists, remove it with the Delete Pool form first. Escalate for investigation of the underlying failure.')"
+   },
+   "Set_status_failed_provision": {
+    "runAfter": {
+     "Compose_provision_failure_message": [
+      "Succeeded"
+     ]
+    },
+    "type": "OpenApiConnection",
+    "inputs": {
+     "host": {
+      "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+      "operationId": "HttpRequest",
+      "connectionName": "shared_sharepointonline"
+     },
+     "parameters": {
+      "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+      "parameters/method": "POST",
+      "parameters/uri": "_api/web/lists/GetByTitle('New Pool Requests')/items(@{triggerOutputs()?['body/ID']})",
+      "parameters/headers": {
+       "X-HTTP-Method": "MERGE",
+       "If-Match": "*",
+       "Content-Type": "application/json;odata=verbose",
+       "Accept": "application/json;odata=verbose"
+      },
+      "parameters/body": "{\"__metadata\":{\"type\":\"SP.Data.New_x0020_Pool_x0020_RequestsListItem\"},\"Status\":\"Failed\",\"Result\":\"@{outputs('Compose_provision_failure_message')}\"}"
+     }
+    }
+   },
+   "Send_provision_failure_email": {
+    "runAfter": {
+     "Set_status_failed_provision": [
+      "Succeeded"
+     ]
+    },
+    "type": "OpenApiConnection",
+    "inputs": {
+     "host": {
+      "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+      "operationId": "SendEmailV2",
+      "connectionName": "shared_office365"
+     },
+     "parameters": {
+      "emailMessage/To": "@{coalesce(triggerOutputs()?['body/ProjectManager']?['Email'], triggerOutputs()?['body/Author']?['Email'])}",
+      "emailMessage/Subject": "URGENT: Pool build could not finish preparing: @{triggerOutputs()?['body/JobNumber']}",
+      "emailMessage/Body": "<p>@{outputs('Compose_provision_failure_message')}</p>",
+      "emailMessage/Importance": "High"
+     }
+    }
+   },
+   "Terminate_failed_provision": {
+    "runAfter": {
+     "Send_provision_failure_email": [
+      "Succeeded"
+     ]
+    },
+    "type": "Terminate",
+    "inputs": {
+     "runStatus": "Failed"
+    }
+   },
+   "Init_nonWork": {
+    "runAfter": {
+     "Scope_provision_job": [
+      "Succeeded"
+     ]
+    },
+    "type": "InitializeVariable",
+    "inputs": {
+     "variables": [
+      {
+       "name": "nonWork",
+       "type": "array",
+       "value": "@body('Select_nonWork')"
+      }
+     ]
+    }
+   },
+   "Init_cursor": {
+    "runAfter": {
+     "Init_nonWork": [
+      "Succeeded"
+     ]
+    },
+    "type": "InitializeVariable",
+    "inputs": {
+     "variables": [
+      {
+       "name": "cursor",
+       "type": "string",
+       "value": "@{formatDateTime(triggerOutputs()?['body/StartDate'],'yyyy-MM-dd')}"
+      }
+     ]
+    }
+   },
+   "Init_daysTaken": {
+    "runAfter": {
+     "Init_cursor": [
+      "Succeeded"
+     ]
+    },
+    "type": "InitializeVariable",
+    "inputs": {
+     "variables": [
+      {
+       "name": "daysTaken",
+       "type": "integer",
+       "value": 0
+      }
+     ]
+    }
+   },
+   "Init_spanStart": {
+    "runAfter": {
+     "Init_daysTaken": [
+      "Succeeded"
+     ]
+    },
+    "type": "InitializeVariable",
+    "inputs": {
+     "variables": [
+      {
+       "name": "spanStart",
+       "type": "string",
+       "value": ""
+      }
+     ]
+    }
+   },
+   "Init_spanFinish": {
+    "runAfter": {
+     "Init_spanStart": [
+      "Succeeded"
+     ]
+    },
+    "type": "InitializeVariable",
+    "inputs": {
+     "variables": [
+      {
+       "name": "spanFinish",
+       "type": "string",
+       "value": ""
+      }
+     ]
+    }
+   },
+   "Init_dayOffset": {
+    "runAfter": {
+     "Init_spanFinish": [
+      "Succeeded"
+     ]
+    },
+    "type": "InitializeVariable",
+    "inputs": {
+     "variables": [
+      {
+       "name": "dayOffset",
+       "type": "integer",
+       "value": 0
+      }
+     ]
+    }
+   },
+   "Init_taskCount": {
+    "runAfter": {
+     "Init_dayOffset": [
+      "Succeeded"
+     ]
+    },
+    "type": "InitializeVariable",
+    "inputs": {
+     "variables": [
+      {
+       "name": "taskCount",
+       "type": "integer",
+       "value": 0
+      }
+     ]
+    }
+   },
+   "Init_currentSubphase": {
+    "runAfter": {
+     "Init_taskCount": [
+      "Succeeded"
+     ]
+    },
+    "type": "InitializeVariable",
+    "inputs": {
+     "variables": [
+      {
+       "name": "currentSubphase",
+       "type": "string",
+       "value": ""
+      }
+     ]
+    }
+   },
+   "Init_shortScheduledSubphase": {
+    "runAfter": {
+     "Init_currentSubphase": [
+      "Succeeded"
+     ]
+    },
+    "type": "InitializeVariable",
+    "inputs": {
+     "variables": [
+      {
+       "name": "shortScheduledSubphase",
+       "type": "string",
+       "value": ""
+      }
+     ]
+    }
+   },
+   "Apply_to_each_subphase": {
+    "foreach": "@outputs('Get_subphase_template')?['body/value']",
+    "actions": {
+     "Set_currentSubphase": {
+      "runAfter": {},
+      "type": "SetVariable",
+      "inputs": {
+       "name": "currentSubphase",
+       "value": "@{concat(items('Apply_to_each_subphase')?['SubPhaseNumber'], ' ', items('Apply_to_each_subphase')?['Title'])}"
+      }
+     },
+     "Reset_daysTaken": {
+      "runAfter": {
+       "Set_currentSubphase": [
+        "Succeeded"
+       ]
+      },
+      "type": "SetVariable",
+      "inputs": {
+       "name": "daysTaken",
+       "value": 0
+      }
+     },
+     "Reset_spanStart": {
+      "runAfter": {
+       "Reset_daysTaken": [
+        "Succeeded"
+       ]
+      },
+      "type": "SetVariable",
+      "inputs": {
+       "name": "spanStart",
+       "value": ""
+      }
+     },
+     "Reset_spanFinish": {
+      "runAfter": {
+       "Reset_spanStart": [
+        "Succeeded"
+       ]
+      },
+      "type": "SetVariable",
+      "inputs": {
+       "name": "spanFinish",
+       "value": ""
+      }
+     },
+     "Reset_dayOffset": {
+      "runAfter": {
+       "Reset_spanFinish": [
+        "Succeeded"
+       ]
+      },
+      "type": "SetVariable",
+      "inputs": {
+       "name": "dayOffset",
+       "value": -1
+      }
+     },
+     "Do_until_span_complete": {
+      "actions": {
+       "Increment_dayOffset": {
+        "runAfter": {},
+        "type": "IncrementVariable",
+        "inputs": {
+         "name": "dayOffset",
+         "value": 1
+        }
+       },
+       "Compose_current_date": {
+        "runAfter": {
+         "Increment_dayOffset": [
+          "Succeeded"
+         ]
+        },
+        "type": "Compose",
+        "inputs": "@formatDateTime(addDays(variables('cursor'), variables('dayOffset')), 'yyyy-MM-dd')"
+       },
+       "Condition_is_work_day": {
+        "actions": {
+         "Increment_daysTaken": {
+          "runAfter": {},
+          "type": "IncrementVariable",
+          "inputs": {
+           "name": "daysTaken",
+           "value": 1
+          }
+         },
+         "Condition_first_day": {
+          "actions": {
+           "Set_spanStart": {
+            "runAfter": {},
+            "type": "SetVariable",
+            "inputs": {
+             "name": "spanStart",
+             "value": "@{outputs('Compose_current_date')}"
+            }
+           }
+          },
+          "runAfter": {
+           "Increment_daysTaken": [
+            "Succeeded"
+           ]
+          },
+          "else": {
+           "actions": {}
+          },
+          "expression": {
+           "equals": [
+            "@variables('daysTaken')",
+            1
+           ]
+          },
+          "type": "If"
+         },
+         "Set_spanFinish": {
+          "runAfter": {
+           "Condition_first_day": [
+            "Succeeded"
+           ]
+          },
+          "type": "SetVariable",
+          "inputs": {
+           "name": "spanFinish",
+           "value": "@{outputs('Compose_current_date')}"
+          }
+         }
+        },
+        "runAfter": {
+         "Compose_current_date": [
+          "Succeeded"
+         ]
+        },
+        "else": {
+         "actions": {}
+        },
+        "expression": {
+         "equals": [
+          "@and(not(equals(dayOfWeek(outputs('Compose_current_date')), 0)), not(contains(variables('nonWork'), outputs('Compose_current_date'))))",
+          true
+         ]
+        },
+        "type": "If"
+       }
+      },
+      "runAfter": {
+       "Reset_dayOffset": [
+        "Succeeded"
+       ]
+      },
+      "expression": "@greaterOrEquals(variables('daysTaken'), int(items('Apply_to_each_subphase')?['DurationDays']))",
+      "limit": {
+       "count": 90,
+       "timeout": "P1D"
+      },
+      "type": "Until"
+     },
+     "Condition_span_incomplete": {
+      "actions": {
+       "Append_shortScheduledSubphase": {
+        "runAfter": {},
+        "type": "AppendToStringVariable",
+        "inputs": {
+         "name": "shortScheduledSubphase",
+         "value": "@{concat('; ', items('Apply_to_each_subphase')?['SubPhaseNumber'], ' ', items('Apply_to_each_subphase')?['Title'], ' (', string(variables('daysTaken')), ' of ', string(items('Apply_to_each_subphase')?['DurationDays']), ' work days)')}"
+        }
+       }
+      },
+      "runAfter": {
+       "Do_until_span_complete": [
+        "Succeeded"
+       ]
+      },
+      "expression": {
+       "not": [
+        {
+         "equals": [
+          "@variables('daysTaken')",
+          "@int(items('Apply_to_each_subphase')?['DurationDays'])"
+         ]
+        }
+       ]
+      },
+      "type": "If"
+     },
+     "Create_assignment": {
+      "runAfter": {
+       "Condition_span_incomplete": [
+        "Succeeded"
+       ]
+      },
+      "type": "OpenApiConnection",
+      "inputs": {
+       "host": {
+        "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+        "operationId": "HttpRequest",
+        "connectionName": "shared_sharepointonline"
+       },
+       "parameters": {
+        "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+        "parameters/method": "POST",
+        "parameters/uri": "_api/web/lists/GetByTitle('Assignments')/items",
+        "parameters/headers": {
+         "Content-Type": "application/json;odata=verbose",
+         "Accept": "application/json;odata=verbose"
+        },
+        "parameters/body": "{\"__metadata\":{\"type\":\"SP.Data.AssignmentsListItem\"},\"Title\":\"@{replace(replace(concat(triggerOutputs()?['body/JobNumber'], ' · ', items('Apply_to_each_subphase')?['SubPhaseNumber'], ' ', items('Apply_to_each_subphase')?['Title']), '\\', '\\\\'), '\"', '\\\"')}\",\"JobId\":@{body('Create_job')?['d']?['Id']},\"SubPhaseNumber\":\"@{items('Apply_to_each_subphase')?['SubPhaseNumber']}\",\"SubPhaseName\":\"@{replace(replace(items('Apply_to_each_subphase')?['Title'], '\\', '\\\\'), '\"', '\\\"')}\",\"Sequence\":@{items('Apply_to_each_subphase')?['Sequence']},\"TradeId\":@{coalesce(items('Apply_to_each_subphase')?['Trade']?['Id'], 'null')},\"Crew\":\"@{if(triggerOutputs()?['body/AssignDefaultCrews'], coalesce(items('Apply_to_each_subphase')?['DefaultCrew'],'unassigned'), 'unassigned')}\",\"ScheduledStart\":@{if(empty(variables('spanStart')), 'null', concat('\"', variables('spanStart'), '\"'))},\"ScheduledFinish\":@{if(empty(variables('spanFinish')), 'null', concat('\"', variables('spanFinish'), '\"'))},\"DurationDays\":@{if(less(variables('daysTaken'), int(items('Apply_to_each_subphase')?['DurationDays'])), variables('daysTaken'), items('Apply_to_each_subphase')?['DurationDays'])},\"Locked\":false,\"NotApplicable\":false,\"PMSignOff\":false,\"InstallerSignOff\":false,\"TasksComplete\":0,\"TasksTotal\":0}"
+       }
+      }
+     },
+     "Filter_tasks_for_subphase": {
+      "runAfter": {
+       "Create_assignment": [
+        "Succeeded"
+       ]
+      },
+      "type": "Query",
+      "inputs": {
+       "from": "@body('Get_task_template')?['value']",
+       "where": "@equals(item()?['SubPhase']?['Id'], items('Apply_to_each_subphase')?['ID'])"
+      }
+     },
+     "Increment_taskCount": {
+      "runAfter": {
+       "Filter_tasks_for_subphase": [
+        "Succeeded"
+       ]
+      },
+      "type": "IncrementVariable",
+      "inputs": {
+       "name": "taskCount",
+       "value": "@length(body('Filter_tasks_for_subphase'))"
+      }
+     },
+     "Apply_to_each_task": {
+      "foreach": "@body('Filter_tasks_for_subphase')",
+      "actions": {
+       "Create_task": {
+        "runAfter": {},
+        "type": "OpenApiConnection",
+        "inputs": {
+         "host": {
+          "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+          "operationId": "HttpRequest",
+          "connectionName": "shared_sharepointonline"
+         },
+         "parameters": {
+          "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+          "parameters/method": "POST",
+          "parameters/uri": "_api/web/lists/GetByTitle('Tasks')/items",
+          "parameters/headers": {
+           "Content-Type": "application/json;odata=verbose",
+           "Accept": "application/json;odata=verbose"
+          },
+          "parameters/body": "{\"__metadata\":{\"type\":\"SP.Data.TasksListItem\"},\"Title\":\"@{replace(replace(items('Apply_to_each_task')?['Title'], '\\', '\\\\'), '\"', '\\\"')}\",\"AssignmentId\":@{body('Create_assignment')?['d']?['Id']},\"Sequence\":@{items('Apply_to_each_task')?['Sequence']},\"Complete\":false}"
+         }
+        }
+       }
+      },
+      "runAfter": {
+       "Increment_taskCount": [
+        "Succeeded"
+       ]
+      },
+      "type": "Foreach"
+     },
+     "Merge_task_total": {
+      "runAfter": {
+       "Apply_to_each_task": [
+        "Succeeded"
+       ]
+      },
+      "type": "OpenApiConnection",
+      "inputs": {
+       "host": {
+        "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+        "operationId": "HttpRequest",
+        "connectionName": "shared_sharepointonline"
+       },
+       "parameters": {
+        "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+        "parameters/method": "POST",
+        "parameters/uri": "_api/web/lists/GetByTitle('Assignments')/items(@{body('Create_assignment')?['d']?['Id']})",
+        "parameters/headers": {
+         "X-HTTP-Method": "MERGE",
+         "If-Match": "*",
+         "Content-Type": "application/json;odata=verbose",
+         "Accept": "application/json;odata=verbose"
+        },
+        "parameters/body": "{\"__metadata\":{\"type\":\"SP.Data.AssignmentsListItem\"},\"TasksTotal\":@{length(body('Filter_tasks_for_subphase'))},\"TasksComplete\":0}"
+       }
+      }
+     },
+     "Set_cursor_next": {
+      "runAfter": {
+       "Compose_cursor_next": [
+        "Succeeded"
+       ]
+      },
+      "type": "SetVariable",
+      "inputs": {
+       "name": "cursor",
+       "value": "@{outputs('Compose_cursor_next')}"
+      }
+     },
+     "Compose_cursor_next": {
+      "runAfter": {
+       "Merge_task_total": [
+        "Succeeded"
+       ]
+      },
+      "type": "Compose",
+      "inputs": "@if(empty(variables('spanFinish')), variables('cursor'), formatDateTime(addDays(variables('spanFinish'), 1), 'yyyy-MM-dd'))"
+     }
+    },
+    "runAfter": {
+     "Init_shortScheduledSubphase": [
+      "Succeeded"
+     ]
+    },
+    "type": "Foreach",
+    "runtimeConfiguration": {
+     "concurrency": {
+      "repetitions": 1
+     }
+    }
+   },
+   "Condition_short_scheduled": {
+    "actions": {
+     "Compose_short_scheduled_message": {
+      "runAfter": {},
+      "type": "Compose",
+      "inputs": "@concat(triggerOutputs()?['body/JobNumber'], ' (', triggerOutputs()?['body/Title'], ') was built in full: every sub-phase and task exists. The search for work days stopped early on ', substring(variables('shortScheduledSubphase'), 2), ', so each was created with fewer work days than planned. That can happen while the system is very busy. In the planner, set each one back to its planned number of days and the rest of the project moves with it. Do not delete or re-enter the project.')"
+     },
+     "Set_status_failed_span": {
+      "runAfter": {
+       "Compose_short_scheduled_message": [
+        "Succeeded"
+       ]
+      },
+      "type": "OpenApiConnection",
+      "inputs": {
+       "host": {
+        "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+        "operationId": "HttpRequest",
+        "connectionName": "shared_sharepointonline"
+       },
+       "parameters": {
+        "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+        "parameters/method": "POST",
+        "parameters/uri": "_api/web/lists/GetByTitle('New Pool Requests')/items(@{triggerOutputs()?['body/ID']})",
+        "parameters/headers": {
+         "X-HTTP-Method": "MERGE",
+         "If-Match": "*",
+         "Content-Type": "application/json;odata=verbose",
+         "Accept": "application/json;odata=verbose"
+        },
+        "parameters/body": "{\"__metadata\":{\"type\":\"SP.Data.New_x0020_Pool_x0020_RequestsListItem\"},\"Status\":\"Failed\",\"Result\":\"@{outputs('Compose_short_scheduled_message')}\"}"
+       }
+      }
+     },
+     "Send_span_failure_email": {
+      "runAfter": {
+       "Set_status_failed_span": [
+        "Succeeded"
+       ]
+      },
+      "type": "OpenApiConnection",
+      "inputs": {
+       "host": {
+        "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+        "operationId": "SendEmailV2",
+        "connectionName": "shared_office365"
+       },
+       "parameters": {
+        "emailMessage/To": "@{coalesce(triggerOutputs()?['body/ProjectManager']?['Email'], triggerOutputs()?['body/Author']?['Email'])}",
+        "emailMessage/Subject": "Check dates on new project @{triggerOutputs()?['body/JobNumber']}",
+        "emailMessage/Body": "<p>@{outputs('Compose_short_scheduled_message')}</p>",
+        "emailMessage/Importance": "Normal"
+       }
+      }
+     },
+     "Terminate_failed_span": {
+      "runAfter": {
+       "Send_span_failure_email": [
+        "Succeeded"
+       ]
+      },
+      "type": "Terminate",
+      "inputs": {
+       "runStatus": "Failed"
+      }
+     }
+    },
+    "runAfter": {
+     "Apply_to_each_subphase": [
+      "Succeeded"
+     ]
+    },
+    "else": {
+     "actions": {
+      "Compose_result": {
+       "runAfter": {},
+       "type": "Compose",
+       "inputs": "@concat('Created ', triggerOutputs()?['body/JobNumber'], ' (', outputs('Compose_build_type'), '): ', string(length(outputs('Get_subphase_template')?['body/value'])), ' sub-phases, ', string(variables('taskCount')), ' tasks, ', formatDateTime(triggerOutputs()?['body/StartDate'],'yyyy-MM-dd'), ' to ', variables('spanFinish'))"
+      },
+      "Set_status_done": {
+       "runAfter": {
+        "Compose_result": [
+         "Succeeded"
+        ]
+       },
+       "type": "OpenApiConnection",
+       "inputs": {
+        "host": {
+         "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+         "operationId": "HttpRequest",
+         "connectionName": "shared_sharepointonline"
+        },
+        "parameters": {
+         "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+         "parameters/method": "POST",
+         "parameters/uri": "_api/web/lists/GetByTitle('New Pool Requests')/items(@{triggerOutputs()?['body/ID']})",
+         "parameters/headers": {
+          "X-HTTP-Method": "MERGE",
+          "If-Match": "*",
+          "Content-Type": "application/json;odata=verbose",
+          "Accept": "application/json;odata=verbose"
+         },
+         "parameters/body": "{\"__metadata\":{\"type\":\"SP.Data.New_x0020_Pool_x0020_RequestsListItem\"},\"Status\":\"Done\",\"Result\":\"@{outputs('Compose_result')}\"}"
+        }
+       }
+      },
+      "Send_result_email": {
+       "runAfter": {
+        "Set_status_done": [
+         "Succeeded"
+        ]
+       },
+       "type": "OpenApiConnection",
+       "inputs": {
+        "host": {
+         "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+         "operationId": "SendEmailV2",
+         "connectionName": "shared_office365"
+        },
+        "parameters": {
+         "emailMessage/To": "@{coalesce(triggerOutputs()?['body/ProjectManager']?['Email'], triggerOutputs()?['body/Author']?['Email'])}",
+         "emailMessage/Subject": "New Pool Built: @{triggerOutputs()?['body/JobNumber']}",
+         "emailMessage/Body": "<p>@{outputs('Compose_result')}</p><p><a href=\"https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler/Lists/Assignments/All%20Assignments.aspx\">View assignments</a></p>",
+         "emailMessage/Importance": "Normal"
+        }
+       }
+      }
+     }
+    },
+    "expression": {
+     "not": [
+      {
+       "equals": [
+        "@variables('shortScheduledSubphase')",
+        ""
+       ]
+      }
+     ]
+    },
+    "type": "If"
+   },
+   "Compose_failure_message": {
+    "runAfter": {
+     "Apply_to_each_subphase": [
+      "Failed",
+      "TimedOut"
+     ]
+    },
+    "type": "Compose",
+    "inputs": "@concat('Failed: pool build for ', triggerOutputs()?['body/JobNumber'], ' (', triggerOutputs()?['body/Title'], ') could not create every row. The last sub-phase processed was ', variables('currentSubphase'), ', but the gap may be earlier. A Job row and a partial set of Assignments/Tasks now exist in production. Do NOT resubmit this job number. Remove the partial pool with the Delete Pool form, fix the underlying issue, then create it again.')"
+   },
+   "Set_status_failed_partial": {
+    "runAfter": {
+     "Compose_failure_message": [
+      "Succeeded"
+     ]
+    },
+    "type": "OpenApiConnection",
+    "inputs": {
+     "host": {
+      "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+      "operationId": "HttpRequest",
+      "connectionName": "shared_sharepointonline"
+     },
+     "parameters": {
+      "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+      "parameters/method": "POST",
+      "parameters/uri": "_api/web/lists/GetByTitle('New Pool Requests')/items(@{triggerOutputs()?['body/ID']})",
+      "parameters/headers": {
+       "X-HTTP-Method": "MERGE",
+       "If-Match": "*",
+       "Content-Type": "application/json;odata=verbose",
+       "Accept": "application/json;odata=verbose"
+      },
+      "parameters/body": "{\"__metadata\":{\"type\":\"SP.Data.New_x0020_Pool_x0020_RequestsListItem\"},\"Status\":\"Failed\",\"Result\":\"@{outputs('Compose_failure_message')}\"}"
+     }
+    }
+   },
+   "Send_failure_email": {
+    "runAfter": {
+     "Set_status_failed_partial": [
+      "Succeeded"
+     ]
+    },
+    "type": "OpenApiConnection",
+    "inputs": {
+     "host": {
+      "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+      "operationId": "SendEmailV2",
+      "connectionName": "shared_office365"
+     },
+     "parameters": {
+      "emailMessage/To": "@{coalesce(triggerOutputs()?['body/ProjectManager']?['Email'], triggerOutputs()?['body/Author']?['Email'])}",
+      "emailMessage/Subject": "URGENT: Pool build INCOMPLETE: @{triggerOutputs()?['body/JobNumber']}",
+      "emailMessage/Body": "<p>@{outputs('Compose_failure_message')}</p>",
+      "emailMessage/Importance": "High"
+     }
+    }
+   },
+   "Terminate_failed_partial": {
+    "runAfter": {
+     "Send_failure_email": [
+      "Succeeded"
+     ]
+    },
+    "type": "Terminate",
+    "inputs": {
+     "runStatus": "Failed"
+    }
+   },
+   "Get_earlier_request": {
+    "runAfter": {
+     "Condition_duplicate": [
+      "Succeeded"
+     ]
+    },
+    "type": "OpenApiConnection",
+    "inputs": {
+     "host": {
+      "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+      "operationId": "GetItems",
+      "connectionName": "shared_sharepointonline"
+     },
+     "parameters": {
+      "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+      "table": "13331a5e-ea8e-4ab2-9276-db5b4f4d46bf",
+      "$filter": "JobNumber eq '@{triggerOutputs()?['body/JobNumber']}' and ID lt @{triggerOutputs()?['body/ID']} and Status ne 'Failed' and Status ne 'Done'",
+      "$top": 1
+     }
+    }
+   },
+   "Condition_earlier_request": {
+    "actions": {
+     "Set_status_failed_concurrent": {
+      "runAfter": {},
+      "type": "OpenApiConnection",
+      "inputs": {
+       "host": {
+        "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+        "operationId": "HttpRequest",
+        "connectionName": "shared_sharepointonline"
+       },
+       "parameters": {
+        "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+        "parameters/method": "POST",
+        "parameters/uri": "_api/web/lists/GetByTitle('New Pool Requests')/items(@{triggerOutputs()?['body/ID']})",
+        "parameters/headers": {
+         "X-HTTP-Method": "MERGE",
+         "If-Match": "*",
+         "Content-Type": "application/json;odata=verbose",
+         "Accept": "application/json;odata=verbose"
+        },
+        "parameters/body": "{\"__metadata\":{\"type\":\"SP.Data.New_x0020_Pool_x0020_RequestsListItem\"},\"Status\":\"Failed\",\"Result\":\"Refused: request @{first(outputs('Get_earlier_request')?['body/value'])?['ID']} is already building job number @{triggerOutputs()?['body/JobNumber']}. Only one pool is built per job number. Wait for that request to finish, then Refresh. If it failed, delete it and raise this one again.\"}"
+       }
+      }
+     },
+     "Terminate_concurrent": {
+      "runAfter": {
+       "Set_status_failed_concurrent": [
+        "Succeeded"
+       ]
+      },
+      "type": "Terminate",
+      "inputs": {
+       "runStatus": "Succeeded"
+      }
+     }
+    },
+    "runAfter": {
+     "Get_earlier_request": [
+      "Succeeded"
+     ]
+    },
+    "else": {
+     "actions": {}
+    },
+    "expression": {
+     "greater": [
+      "@length(outputs('Get_earlier_request')?['body/value'])",
+      0
+     ]
+    },
+    "type": "If"
+   }
+  }
+ }
+}
