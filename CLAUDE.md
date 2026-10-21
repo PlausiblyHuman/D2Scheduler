@@ -3002,6 +3002,42 @@ the type named in the result email. In the planner, add a Fiberglass job and con
 `chrome --headless=new --remote-debugging-port=9222 --user-data-dir=<throwaway> --window-size=1600,1000`;
 at the default 800x600 two Board-centring checks fail on any version.
 
+## PROJECTS OWN THEIR STRUCTURE: step 1 (columns + backfill) done 2026-10-21
+
+Spec `docs/specs/2026-10-21-projects-own-structure-design.md` (B + C from the 2026-10-21 meeting with
+Don; scope note `docs/2026-10-21-flexible-templates-scope.md`). Step 1 is live; steps 2-4 (planner
+lays projects out from their own rows, the three flow changes, features and Update from template) are
+not built.
+
+- **Columns, created by `sharepoint/provision-structure.js` and read back:** Sub-phase Template
+  `Skill`, `Optional` (default No), `Feature`; Assignments `PhaseName`, `Skill`, `TemplateItemId`,
+  `Feature` (hidden on New and Edit); New Pool Requests `Features` (plain Note).
+- **Backfill, `sharepoint/stamp-structure.js`:** template `Skill` on all 91 rows (Trade's TradeCode,
+  else the pseudo-trade from DefaultCrew, as `graph-to-planner.js` derives it); `PhaseName`, `Skill`,
+  `TemplateItemId` on **all 1,701 Assignments of 37 projects**, matched by build type + SubPhaseNumber
+  with the name checked too. 0 unmatched, 0 name mismatches; an independent read-back found 0 blank
+  and every `TemplateItemId` pointing at a row with the same number, name, phase, skill and build
+  type. `Feature` is blank everywhere and `Optional` false everywhere.
+- **The match by number is only valid against the templates as they stood on 2026-10-21.** From here
+  on, `TemplateItemId` is the link; a new project written by `D2 - New Pool` gets no
+  PhaseName/Skill/TemplateItemId until step 3 changes the flow, so re-run `stamp-structure.js` (it
+  only touches blank rows) after any project built before then, and **never after a template has
+  been renumbered**.
+- **Tenant counts, 2026-10-21:** 37 projects (36 Gunite, 1 Fiberglass), 1,701 Assignments. The three
+  added since 10-13 are Don's tests: D2-2446 `test` (Fiberglass), D2-2447 `TEST G`, D2-2448
+  `Test 2 G`, all Done.
+- **This machine has no Azure CLI**, so FlowAgent has no identity. Flows were switched in the Power
+  Automate portal (My flows, the row's Enabled toggle) in the Playwright browser, signed in as D2 Bot.
+
+**STOPPING A POLLING-TRIGGERED FLOW DOES NOT SAVE THE RUNS. Corrects the standing "stop Flow 3 before
+a bulk write" advice.** Microsoft documents that a polling trigger, turned back on, processes every
+event that happened while it was off; only a webhook trigger skips them. Flow 3's SharePoint
+`GetOnUpdatedItems` trigger is polling, so the 1,701 backfill edits were replayed when it was turned
+back on. Each run stops at the version gate (no Crew or date change), so the cost equals leaving it
+on, and leaving it off only hides real double-bookings meanwhile. **For a bulk write, leave Flow 3 on
+and carry `SuppressReconcileUntil` in the same MERGE.** The only way to drop pending events is to copy
+the flow and delete the original, which changes its ids everywhere.
+
 ## THE BOARD AT DON'S SCALE: click-to-edit rows and a grouped Schedule Check — 2026-10-05 (`deploy/2026-10-05`)
 
 **The WP3-B inline controls made every Board redraw cost 2.9 s on Don's 34 projects.** Every
@@ -4916,7 +4952,8 @@ real number is 92, not 46. See the Phase G bullet above ("New Pool's accepted re
 cost") if alert volume ever makes this worth closing; if it does, add a `SuppressReconcile`
 boolean set in the same `Create item` call and one clause in Flow 3's version-history gate, which
 adds no extra write. For `tools/write-pool.js` (the separate bulk tool, still ours to run by
-hand): **stop Flow 3 before any bulk write and restart after.**
+hand): **stop Flow 3 before any bulk write and restart after.** (Superseded 2026-10-21: a polling
+trigger replays everything on restart; carry `SuppressReconcileUntil` instead.)
 
 **Still open on the app** (list corrected 2026-09-07 — four entries here were stale and claimed
 built features were missing):
@@ -5349,7 +5386,7 @@ Two behaviours worth knowing:
 - **It now deletes `Tasks` first.** The original version never touched Tasks, which would have orphaned Harrison's 30 rows. The `TEST-900x` rows have no Tasks, so this only matters for the demo job.
 - **`DROP_DEMO_JOB` is a flag at the top.** Set it `false` to clear only `TEST-` rows and keep Harrison alive while the canvas app is being built against it. Set `true` (the default) for the pre-pilot gate, whose expected end state is an empty tenant: `assignments []`, `jobs []`, `tasks 0`.
 
-**Stop Flow 3 (and Flow 4) before any bulk write to Assignments.** Every insert or edit fires Flow 3 — see the trigger-condition bug above. 38 inserts would otherwise burn 38 runs.
+**Stop Flow 3 (and Flow 4) before any bulk write to Assignments.** SUPERSEDED 2026-10-21: stopping a polling-triggered flow only defers the runs; see "STOPPING A POLLING-TRIGGERED FLOW". Every insert or edit fires Flow 3 — see the trigger-condition bug above. 38 inserts would otherwise burn 38 runs.
 
 Rendered previews of what the summaries produced against this data: `flows/testdata/daily-summary-preview.html`, `flows/testdata/weekly-summary-preview.html`.
 
