@@ -76,13 +76,19 @@ win.alert = () => {}; win.confirm = () => true;
   ok('a checklist reordered in SharePoint still gives each line the row with its own name',
      E.tasks[0].spId === 5400 && E.tasks[1].spId === 5401, E.tasks[0].spId + ',' + E.tasks[1].spId);
   ok('a task renamed in place keeps its row id: the leftovers line up exactly', E.tasks[2].spId === 5402, String(E.tasks[2].spId));
+  /* Since 2026-10-21 the checklist is built from the row's own Tasks, so a task moved or
+     reworded in SharePoint is shown as SharePoint has it and keeps its own row: there is no
+     matching left that could aim a tick at the wrong row. */
   const F = secs[5].s;                                                // one task both moved and renamed
-  ok('a task both moved and renamed gets NO row id, so it cannot write to the wrong row',
-     F.tasks[0].spId === null && F.tasks[1].spId === 5501, F.tasks[0].spId + ',' + F.tasks[1].spId);
+  ok('a task both moved and renamed shows SharePoint\'s wording and keeps its own row',
+     F.tasks[0].spId === 5500 && /\(reworded\)$/.test(F.tasks[0].t) && F.tasks[1].spId === 5501,
+     F.tasks[0].spId + ',' + F.tasks[0].t + ',' + F.tasks[1].spId);
   const H = secs[6].s;
-  ok('when the leftovers do not line up, NONE of them keeps a row id, even one renamed in place',
-     H.tasks[0].spId === null && H.tasks[1].spId === 5601 && H.tasks[2].spId === null,
+  ok('every line keeps its own row id, whatever was reordered or renamed',
+     H.tasks[0].spId === 5600 && H.tasks[1].spId === 5601 && H.tasks[2].spId === 5602,
      [H.tasks[0].spId, H.tasks[1].spId, H.tasks[2].spId].join(','));
+  ok('the checklist shows SharePoint\'s own task text, not the template\'s',
+     /\(renamed\)$/.test(H.tasks[2].t), H.tasks[2].t);
   const nA = A.tasks.length, nC = C.tasks.length;
   ok('scenario has room for the checks (C needs four tasks)', nC >= 4, 'A=' + nA + ' C=' + nC);
   ok('an N/A reason is imported from SharePoint', A.tasks[5].na === true && A.tasks[5].note === 'Inspection pending',
@@ -141,7 +147,7 @@ win.alert = () => {}; win.confirm = () => true;
   // ...and if a change reaches the change set anyway, the save refuses it.
   D.tasks[0].done = true;
   // E: tick the first line (matched by name) and the renamed third (matched by position).
-  // F: tick the line that was both moved and renamed (no row id).
+  // F: tick the line that was both moved and renamed (its own row, 5500).
   E.tasks[0].done = true; E.tasks[2].done = true; F.tasks[0].done = true;
 
   win.sign(j.id, 0, 0, 'inst', true);                         // sign A
@@ -206,8 +212,8 @@ win.alert = () => {}; win.confirm = () => true;
   ok('a tick on a reordered line is written to the row with its name',
      taskP.some(p => p.id === '5400' && p.body.Complete === true) && !taskP.some(p => p.id === '5401'));
   ok('a tick on a renamed-in-place line is written to its own row', taskP.some(p => p.id === '5402' && p.body.Complete === true));
-  ok('a tick on a moved-and-renamed line is not written anywhere',
-     !taskP.some(p => p.id === '5500') && !taskP.some(p => p.id === '5501'));
+  ok('a tick on a moved-and-renamed line is written to its own row and no other',
+     taskP.some(p => p.id === '5500' && p.body.Complete === true) && !taskP.some(p => p.id === '5501'));
 
   // B: reopen matches D2 - Reopen Sign-off field for field.
   const notes = body(B).SignOffNotes || '';
@@ -233,7 +239,7 @@ win.alert = () => {}; win.confirm = () => true;
   ok('the results name what was saved', /Sign-off and checklist saved/i.test(out));
   ok('the results name what was NOT saved', /NOT saved/.test(out));
   ok('...and say a signed checklist needs reopening', /signed off, so reopen it/.test(out));
-  ok('...and say an unmatched line was not written', /could not be matched to its SharePoint row/.test(out));
+  ok('...and no line is reported unmatched: every line came from its own row', !/could not be matched to its SharePoint row/.test(out));
   ok('the results use words, not column names', !/InstallerSignOffByLookupId|TasksComplete|SignOffNotes/.test(out)
      && /installer sign-off/.test(out) && /reopen noted/.test(out), out.replace(/\s+/g, ' ').slice(0, 300));
   ok('the results never say "Nothing needed saving." over saved sign-offs', !/Nothing needed saving/.test(out));

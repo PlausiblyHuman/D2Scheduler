@@ -248,7 +248,13 @@ const pageTests = async () => {
     SubPhaseNumber: '5.3', SubPhaseName: 'Tile Installation', Sequence: 30, Crew: 'cirilo',
     ScheduledStart: '2026-10-05T05:00:00Z', ScheduledFinish: '2026-10-06T05:00:00Z', DurationDays: 2,
     InstallerSignOff: true, PMSignOff: false, Locked: false, NotApplicable: false,
-    Rejected: true, RejectedReason: 'still rejected', RejectedOn: '2026-09-21T10:00:00Z' })];
+    Rejected: true, RejectedReason: 'still rejected', RejectedOn: '2026-09-21T10:00:00Z' }),
+    // A project shows only the rows SharePoint holds for it (2026-10-21), so the save tests'
+    // second sub-phase has to be a real row rather than a template line.
+    graphItem(11, { Title: 'D2-1042 5.4 Coping Installation', JobLookupId: '19',
+    SubPhaseNumber: '5.4', SubPhaseName: 'Coping Installation', Sequence: 31, Crew: 'cirilo',
+    ScheduledStart: '2026-10-07T05:00:00Z', ScheduledFinish: '2026-10-08T05:00:00Z', DurationDays: 2,
+    InstallerSignOff: false, PMSignOff: false, Locked: false, NotApplicable: false })];
   let commentsHit = 0;
   win.graphToken = async () => 'tok';
   win.graphSite = async () => ({ id: 'site1', webUrl: 'https://example/sites/x' });

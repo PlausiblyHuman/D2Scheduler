@@ -256,6 +256,13 @@
                 seq: af.Sequence || null,
                 num: af.SubPhaseNumber,
                 name: af.SubPhaseName,
+                /* The project's own structure (2026-10-21): the planner lays a project out from
+                   these rows, not from the template. Rows from before the backfill carry none of
+                   the four; the planner fills phase and skill from the template by number. */
+                phase: af.PhaseName || null,
+                skill: af.Skill || null,
+                templateItemId: af.TemplateItemId == null ? null : Number(af.TemplateItemId),
+                feature: af.Feature || null,
                 crewId: af.Crew || null,
                 start: day(af.ScheduledStart),
                 finish: day(af.ScheduledFinish),

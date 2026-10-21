@@ -128,7 +128,10 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
     try { w.importFromD2Payload(old, true); } catch (e) { threw = e; }
     ok('an export without templates does not throw', !threw, threw && threw.message);
     const fj = w.S.jobs.find(j => j.jobno === 'TEST-9901');
-    ok('the Fiberglass job has no Gunite layout and its section is reported unmatched', fj && fj.groups.length === 0 && alerts.some(a => /matched nothing/.test(a)));
+    // Since 2026-10-21 a project lays out from its own rows: no template needed, nothing unmatched.
+    const fs = fj ? fj.groups.flatMap(g => g.sections) : [];
+    ok('the Fiberglass job lays out from its own row, not the Gunite template', fs.length === 1 && fs[0].num === '2.3' && fs[0].name === 'Crane Set and Shell Placement', fs.map(s => s.num).join(','));
+    ok('and raises no unmatched alert', !alerts.some(a => /matched nothing/.test(a)), alerts.join(' | '));
     ok('no page errors', errs.length === 0, errs.join(' | '));
   }
   {

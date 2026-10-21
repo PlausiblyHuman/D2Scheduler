@@ -3005,9 +3005,27 @@ at the default 800x600 two Board-centring checks fail on any version.
 ## PROJECTS OWN THEIR STRUCTURE: step 1 (columns + backfill) done 2026-10-21
 
 Spec `docs/specs/2026-10-21-projects-own-structure-design.md` (B + C from the 2026-10-21 meeting with
-Don; scope note `docs/2026-10-21-flexible-templates-scope.md`). Step 1 is live; steps 2-4 (planner
-lays projects out from their own rows, the three flow changes, features and Update from template) are
-not built.
+Don; scope note `docs/2026-10-21-flexible-templates-scope.md`). Step 1 is live. **Step 2 is built and
+tested, NOT deployed** (see below). Steps 3-4 (the three flow changes, features and Update from
+template) are not built.
+
+**Step 2, the planner lays a SharePoint project out from its own rows.** `groupsFromPayload` in
+`web/index.html` rebuilds `j.groups` on every load from the payload's sections (Sequence order, phases
+as consecutive runs of the sub-phase number, named from the row's `phase`) and the checklist
+one-for-one from the row's own Tasks. The by-number `bySec` match, the name-then-position task match
+and the "matched nothing in this phase template" alert are gone; they cannot happen. The template only
+fills a phase name or skill a row lacks (`fb` marks such a section). Both mappers emit `phase`,
+`skill`, `templateItemId`, `feature`. Pinned by `fixtures/planner/project-structure.js` (22
+assertions, 15 mutations red across `index.html` and `graph-to-planner.js`, including a renumbered
+template that must not relabel a row). Deliberate test changes: `signoff-push.js` (a reworded task
+now keeps its own row), `build-type.js` (a Fiberglass project lays out without a template),
+`rejections.js` (its second sub-phase is now a real row). Suite 31/31, oracle 15/16, shakedown 48/48;
+Schedule Check on the demo data reads 0 errors / 80 warnings on both the old and new code.
+
+**Eight mutation anchors were already stale before this change** and guard nothing: seven in
+`board-controls.mutations.json` (building-project guards, Back to planning's live check, the Board
+picker and status filter) and one in `job-order.mutations.json` (import order). They point at code
+refactored on 2026-10-05 and in Spec A. Re-anchor them.
 
 - **Columns, created by `sharepoint/provision-structure.js` and read back:** Sub-phase Template
   `Skill`, `Optional` (default No), `Feature`; Assignments `PhaseName`, `Skill`, `TemplateItemId`,

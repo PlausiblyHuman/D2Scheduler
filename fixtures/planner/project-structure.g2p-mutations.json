@@ -1,0 +1,7 @@
+[
+ {"label": "PhaseName not mapped", "find": "phase: af.PhaseName || null,", "replace": "phase: null,"},
+ {"label": "Skill not mapped", "find": "skill: af.Skill || null,", "replace": "skill: null,"},
+ {"label": "TemplateItemId not mapped", "find": "templateItemId: af.TemplateItemId == null ? null : Number(af.TemplateItemId),", "replace": "templateItemId: null,"},
+ {"label": "Feature not mapped", "find": "feature: af.Feature || null,", "replace": "feature: null,"},
+ {"label": "TemplateItemId left as a string", "find": "templateItemId: af.TemplateItemId == null ? null : Number(af.TemplateItemId),", "replace": "templateItemId: af.TemplateItemId == null ? null : af.TemplateItemId,"}
+]

@@ -98,7 +98,8 @@
       + "&$expand=ProjectManager&$top=500"),
     all("/_api/web/lists/GetByTitle('Assignments')/items"
       + "?$select=Id,JobId,SubPhaseNumber,SubPhaseName,Sequence,Crew,ScheduledStart,"
-      + "ScheduledFinish,DurationDays,Locked,NotApplicable,InstallerSignOff,PMSignOff"
+      + "ScheduledFinish,DurationDays,Locked,NotApplicable,InstallerSignOff,PMSignOff,"
+      + "PhaseName,Skill,TemplateItemId,Feature"
       + "&$top=2000&$orderby=Id"),
     all("/_api/web/lists/GetByTitle('Tasks')/items"
       + "?$select=Id,AssignmentId,Sequence,Title,Complete,NotApplicable,Note&$top=5000&$orderby=Id"),
@@ -156,6 +157,10 @@
           seq: a.Sequence || null,
           num: a.SubPhaseNumber,
           name: a.SubPhaseName,
+          phase: a.PhaseName || null,
+          skill: a.Skill || null,
+          templateItemId: a.TemplateItemId == null ? null : a.TemplateItemId,
+          feature: a.Feature || null,
           crewId: a.Crew || null,
           start: day(a.ScheduledStart),
           finish: day(a.ScheduledFinish),

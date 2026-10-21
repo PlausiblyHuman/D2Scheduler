@@ -21,6 +21,7 @@ node fixtures/planner/writeback-parity.js
 node fixtures/planner/graph-write.js
 node fixtures/planner/signin.js
 node fixtures/planner/office-views.js
+node fixtures/planner/project-structure.js
 node oracle-test.js         # the original 16-invariant harness (repo root)
 ```
 

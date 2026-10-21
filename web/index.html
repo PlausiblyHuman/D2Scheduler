@@ -365,6 +365,30 @@ function mkJobGroups(tpl){
       crewId:null,start:null,skip:false,locked:false,inst:false,pm:false,
       tasks:s.tasks.map(t=>({t,done:false,na:false}))}))}));
 }
+/* A SharePoint project's layout, from its OWN rows (2026-10-21, docs/specs/2026-10-21-projects-
+   own-structure-design.md). Sections in the order the payload gives them (Sequence), phases from
+   consecutive sub-phase numbers, tasks one-for-one from the row's own Tasks. The template is used
+   only to fill in a phase name or skill a row does not carry (rows from before the backfill, the
+   file export of an old tenant); `fb` marks a section that needed it. Nothing is ever matched to
+   the template by number, so a renumbered template cannot attach a row to the wrong line. */
+function groupsFromPayload(inj){
+  const byNum={};
+  templateFor(inj.buildType).forEach(g=>g.sections.forEach(s=>{byNum[String(s.num)]={phase:g.name,skill:s.skill};}));
+  const groups=[];
+  (inj.sections||[]).forEach((is,i)=>{
+    const num=String(is.num==null?'':is.num), pnum=num.split('.')[0], t=byNum[num]||{};
+    const phase=is.phase||t.phase||'', skill=is.skill||t.skill||null;
+    let g=groups[groups.length-1];
+    if(!g||g.num!==pnum){g={tid:'p'+groups.length,num:pnum,name:phase,inst:false,pm:false,sections:[]};groups.push(g);}
+    else if(!g.name&&phase)g.name=phase;
+    g.sections.push({sid:'a'+(is.id??i),num,name:is.name||'',skill,days:is.days||2,
+      templateItemId:is.templateItemId??null,feature:is.feature||null,
+      fb:(!is.phase&&!!t.phase)||(!is.skill&&!!t.skill),
+      crewId:null,start:null,skip:false,locked:false,inst:false,pm:false,
+      tasks:(is.tasks||[]).map(it=>({t:it.title==null?'':String(it.title),done:false,na:false}))});
+  });
+  return groups;
+}
 /* A local SUGGESTION only. SharePoint's own Jobs list is the uniqueness
    authority once a request is actually pushed -- sharepoint/apply-planner-
    changes.js reads live Jobs and refuses a create whose job number is
@@ -2201,8 +2225,7 @@ function importFromD2Payload(d,silent){
       alert('That is not a schedule export.\n\nUse Refresh with the file downloaded from the site.');return;}
 
     if(d.templates&&typeof d.templates==='object'){const t={};Object.keys(d.templates).forEach(k=>{if(Array.isArray(d.templates[k])&&d.templates[k].length)t[k]=tplFromPayload(d.templates[k]);});if(Object.keys(t).length){S.templates=t;S.templatesFrom=new Date().toISOString();}}
-    const bySec=j=>{const m={};allSecs(j).forEach(({s})=>m[s.num]=s);return m;};
-    let added=0,updated=0,secs=0,unmatched=[];
+    let added=0,updated=0,secs=0;
     const plan=d.jobs.map(inj=>{
       const existing=S.jobs.find(j=>String(j.jobno)===String(inj.jobno));
       return {inj,existing};
@@ -2258,14 +2281,12 @@ function importFromD2Payload(d,silent){
         if(inj.city!=null)j.city=inj.city;
         if(inj.start)j.start=inj.start;
         if(inj.status)j.status=inj.status;
-        /* A tab left open from before the deploy may hold a Fiberglass project laid out from the
-           Gunite template, and a project imported before its template was loaded has no layout at
-           all. Both are rebuilt from the right template on the next Refresh; the overlay below then
-           re-applies crews, dates and ticks by number. */
-        const bt=inj.buildType==='Fiberglass'?'Fiberglass':'Gunite';
-        if((bt!==(j.buildType||'Gunite')||!j.groups||!j.groups.length)&&S.templates&&S.templates[bt])j.groups=mkJobGroups(templateFor(bt));
-        j.buildType=bt;
+        j.buildType=inj.buildType==='Fiberglass'?'Fiberglass':'Gunite';
       }
+      /* The layout is rebuilt from this project's own rows on every load (groupsFromPayload), so
+         a project shows exactly the sub-phases SharePoint holds for it, whatever the template says
+         today. Refresh already warns that unsaved edits are overwritten; nothing else is lost. */
+      j.groups=groupsFromPayload(inj);
       /* Still being built by D2 - New Pool. Read off New Pool Requests on the
          Graph path; the REST export does not carry it, so it reads false. */
       j.building=!!inj.building;
@@ -2280,10 +2301,10 @@ function importFromD2Payload(d,silent){
       if(inj.pmId!=null)j.pmId=String(inj.pmId);
       // The Jobs row's SharePoint id, so Save can read just this project's rows (Spec A).
       if(inj.id!=null)j.spId=String(inj.id);
-      const map=bySec(j);
-      (inj.sections||[]).forEach(is=>{
-        const s=map[is.num];
-        if(!s){unmatched.push((inj.jobno||'?')+' '+is.num);return;}
+      // groupsFromPayload made one section per row, in payload order: pair them by position.
+      const flat=allSecs(j).map(x=>x.s);
+      (inj.sections||[]).forEach((is,ii)=>{
+        const s=flat[ii];
         if(is.crewId!=null)s.crewId=is.crewId;
         if(is.start)s.start=is.start;
         if(is.days)s.days=is.days;
@@ -2300,48 +2321,18 @@ function importFromD2Payload(d,silent){
         s.spLocked=!!is.locked;      // the raw SharePoint pin, tracked on its own -- see WRITEBACK_FIELDS
         s.locked=!!(is.locked||is.inst);
         if(Array.isArray(is.tasks)&&Array.isArray(s.tasks)){
-          /* Which SharePoint row each checklist line writes to. Position alone
-             writes to the wrong row the moment a checklist is reordered on the
-             SharePoint site: ticking "A" would land on "B". So:
-
-             1. match by task NAME;
-             2. only what is left over matches by position, and it keeps a row
-                id only when the leftovers line up exactly -- the same number on
-                each side, each at the position of a line still unmatched. That
-                is a task renamed on one side (the SharePoint row, or this
-                browser's Phase Template), and position is then the same task.
-
-             Anything else (a reorder plus a rename, a task added or deleted in
-             SharePoint) still shows SharePoint's state but carries NO row id, so
-             a tick on it is reported instead of written where it may not belong.
-             Ids are cleared first so a re-import never keeps a stale one. */
-          const claimed=new Set(), sameName=(a,b)=>String(a??'').trim()===String(b??'').trim();
-          const pos=(it,i)=>it.seq!=null?it.seq-1:i;
-          s.tasks.forEach(t=>{t.spId=null;});
-          // A task cannot be both done and N/A. No live row sets both today, but
-          // normalize on the way in rather than trust the source: done wins, same
-          // as tick() already clearing na when a task is ticked.
-          const take=(t,it,keepId)=>{
-            claimed.add(t);
+          /* The checklist lines were built one-for-one from this row's own Tasks
+             (groupsFromPayload), so each line writes to the row it came from. A
+             task reordered, renamed, added or removed in SharePoint simply shows
+             as SharePoint has it. A task cannot be both done and N/A: done wins,
+             as tick() already clears na when a task is ticked. */
+          is.tasks.forEach((it,i)=>{
+            const t=s.tasks[i]; if(!t)return;
             t.done=!!it.done;t.na=t.done?false:!!it.na;
             t.note=t.na?String(it.note||''):'';  // the N/A reason, Tasks.Note
-            t.spId=keepId?(it.id??null):null;   // the Tasks row this tick writes to
+            t.spId=it.id??null;                  // the Tasks row this tick writes to
             t.base={done:t.done,na:t.na,note:t.note};  // what SharePoint said, for the diff
-          };
-          const rest=[];
-          is.tasks.forEach((it,i)=>{
-            const t=s.tasks.find(x=>!claimed.has(x)&&sameName(x.t,it.title));
-            if(t)take(t,it,true); else rest.push([it,i]);
           });
-          const free=s.tasks.filter(t=>!claimed.has(t));
-          const lined=rest.length===free.length
-            && new Set(rest.map(([it,i])=>pos(it,i))).size===rest.length
-            && rest.every(([it,i])=>free.includes(s.tasks[pos(it,i)]));
-          rest.forEach(([it,i])=>{
-            const t=s.tasks[pos(it,i)];
-            if(t&&!claimed.has(t))take(t,it,lined);
-          });
-          s.tasks.forEach(t=>{if(!claimed.has(t))t.base={done:!!t.done,na:!!t.na,note:t.note||''};});
         }
         /* Baseline: exactly the fields SharePoint owns, as they arrived. Divergence
            is a diff against this rather than a flag, so the same structure answers
@@ -2397,16 +2388,8 @@ function importFromD2Payload(d,silent){
     save(); UI={collapsed:{},tlScroll:{},pmFilter:UI.pmFilter,signoffJob:UI.signoffJob,boardJob:UI.boardJob,boardStatus:UI.boardStatus}; render();
     /* The routine summary is skipped on a silent re-read -- that runs straight
        after a Save, and a "Schedule loaded" modal stacked on top of the save
-       results is noise the PM did not ask for.
-       Unmatched sub-phases are NOT skipped even then. That means the phase
-       template here disagrees with SharePoint, which is exactly the condition
-       under which a push may have been aimed at the wrong rows, so it is worth
-       interrupting for however the load was triggered. */
-    if(unmatched.length){
-      alert(unmatched.length+' sub-phase(s) in the schedule matched nothing in this phase template:\n'+
-        unmatched.slice(0,8).join(', ')+(unmatched.length>8?' ...':'')+
-        '\n\nThat means the template here is out of step with SharePoint.');
-    }else if(!silent){
+       results is noise the PM did not ask for. */
+    if(!silent){
       alert('Schedule loaded.\n\n'+updated+' updated, '+added+' added, '+untouched+' left alone.');
     }
 }
