@@ -3006,8 +3006,40 @@ at the default 800x600 two Board-centring checks fail on any version.
 
 Spec `docs/specs/2026-10-21-projects-own-structure-design.md` (B + C from the 2026-10-21 meeting with
 Don; scope note `docs/2026-10-21-flexible-templates-scope.md`). Step 1 is live. **Step 2 is built and
-tested, NOT deployed** (see below). Steps 3-4 (the three flow changes, features and Update from
-template) are not built.
+tested, NOT deployed** (see below). **Step 3 is live and verified** (see below). Step 4 (features on
+`+ Job`, the live-project features panel, Update from template) is not built.
+
+**Step 3, the three flows, pushed and verified live 2026-10-21.** Builders and offline tests in
+`flows/scripts/` (`new_pool_features.py`, `reschedule_skip_na.py`, `counter_recon_chunk.py`, each with
+a `test_*.py`); `2026-10-21-structure-flows.py` builds from the live clientdata, checks it equals the
+pre-change export, writes backups to `flows/exports/backups/*-pre-*.json` and verifies the read-back.
+Exports `flows/exports/*-2026-10-21.json`.
+- `D2 - New Pool`: `Select_features` splits the request's `Features` on `;`; `Compose_is_na` per
+  sub-phase is Optional AND its feature name (`Feature`, else the title) not picked. An N/A row counts
+  no work days, gets null dates, keeps the template DurationDays, is never reported short, and the
+  cursor does not move. Every row now gets `PhaseName`, `Skill`, `TemplateItemId` and (optional rows
+  only) `Feature`.
+- `D2 - Reschedule Pool`: N/A rows are skipped, never treated as pinned, and listed "(not applicable)".
+- `D2 - Counter Reconciliation`: each project's tasks are read 46 assignment ids per chunk into a
+  `job_tasks` array (union through a Compose). Run time went from 8m33s to 11m32s.
+- **Verified on throwaway TEST-9910 (feature not picked) and TEST-9911 (picked), with a temporary
+  Gunite template line 3.8 at Sequence 21.5 carrying a feature name with a double quote:** 9910's 3.8
+  was N/A, undated, 2 days, Feature stored with the quote, and 4.1 started the working day after 3.7;
+  9911's 3.8 was dated and 4.1 followed it over Christmas; the two finished 2027-02-23 and 02-25.
+  A reflow of 9910 moved 46 rows and listed 3.8 "(not applicable)". Counter Reconciliation repaired
+  counters drifted on a row in each chunk (positions 22 and 47) and ended Succeeded. Everything was
+  then removed: template line and its tasks recycled, both projects through Delete Pool Requests
+  (each took ~15 min under load), request rows recycled. Tenant read back at 37 jobs, 1,701
+  assignments, 10,868 tasks, templates 46/45 and 295/248, request lists 41/4/3, no TEST- jobs.
+- **A decimal `Sequence` works**: the template stored 21.5 and New Pool carried it to the Assignment.
+- **The Dataverse Web API accepts the browser session cookie.** Signed in on
+  `https://org4ed2f722.crm.dynamics.com/`, a page `fetch` to `/api/data/v9.2/workflows(<id>)` reads
+  and PATCHes `clientdata`, and `/api/data/v9.2/PublishXml` publishes, with no token. Files go in and
+  out through Playwright: `browser_evaluate` with `filename` saves a result to disk, and a temporary
+  `<input type=file>` plus `browser_file_upload` brings a local file into the page.
+- **The Azure CLI was installed 2026-10-21** (2.91.0, winget) and signed in to D2 as
+  `stratirus@d2pools.com`. FlowAgent still reports `'az' is not recognized` until the Claude desktop
+  app is restarted, because its process started before the install.
 
 **Step 2, the planner lays a SharePoint project out from its own rows.** `groupsFromPayload` in
 `web/index.html` rebuilds `j.groups` on every load from the payload's sections (Sequence order, phases
