@@ -40,7 +40,10 @@ for t in TARGETS:
     ok(f'{n}: depth unchanged', max_depth(A) == max_depth(before))
     ok(f'{n}: empty live set filters to nothing, never to everything',
        "'JobId eq -1'" in container['Compose_live_job_clause']['inputs'])
-    newest = load(exports[-1])
+    # The first export carrying the clause, not the newest: later changes to the same flow
+    # (2026-10-21) would otherwise fail this check for the wrong reason.
+    carrying = [p for p in exports if 'Get_live_jobs' in json.dumps(load(p))]
+    newest = load(carrying[0]) if carrying else {}
     if 'Get_live_jobs' in json.dumps(newest):
         ok(f'{n}: published flow equals what the builder produces (no drift)', newest == A)
 sys.exit(1 if fails else 0)

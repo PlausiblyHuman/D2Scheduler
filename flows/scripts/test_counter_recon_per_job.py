@@ -20,7 +20,9 @@ def strip_auth(x):
         return [strip_auth(v) for v in x]
     return x
 
-newest = load(EXPORTS[-1])
+# No-drift target: the first export carrying this change, not the newest; a later change to the
+# same flow (the 2026-10-21 chunked task read) would otherwise fail this check for the wrong reason.
+newest = load([p for p in EXPORTS if 'For_each_job' in load(p)][0])
 if 'For_each_job' in newest:
     ok('published flow equals what the builder produces (no drift)',
        strip_auth(newest) == strip_auth(build_actions(json.loads(json.dumps(old)))))
