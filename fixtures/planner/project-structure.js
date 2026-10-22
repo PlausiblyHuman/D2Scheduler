@@ -125,6 +125,18 @@ const payload = (sections, extra) => ({ app: 'D2 Pool Build Scheduler', kind: 'd
     ok('a row without the columns maps them to null, not undefined', r0.phase === null && r0.skill === null && r0.templateItemId === null && r0.feature === null);
   }
 
+  // ---- 7. Feature data through the page ----
+  {
+    w.importFromD2Payload(payload([row(1, '0.0', 'A', { phase: 'P0', skill: '@office', tasks: [{ id: 5, title: 'x', done: false, na: false, note: '', feature: 'Spa' }, { id: 6, title: 'y', done: false, na: false, note: '' }] })]), true);
+    const ts = secs()[0].tasks;
+    ok('a payload task feature lands as t.feature, null when absent', ts[0].feature === 'Spa' && ts[1].feature === null);
+    w.importFromD2Payload(Object.assign(payload([]), { templates: { Gunite: [{ num: '3', name: 'Ph', sections: [
+      { id: 41, seq: 7, optional: true, feature: 'Spa', tradeId: '5', num: '3.1', name: 'Spa Shell', skill: null, days: 2, tasks: ['t'], taskSeq: [1], taskFeature: ['Spa'] }] }] } }), true);
+    const sec = w.S.templates.Gunite[0].sections[0];
+    ok('template section id, seq, optional, feature, tradeId survive', sec.id === 41 && sec.seq === 7 && sec.optional === true && sec.feature === 'Spa' && sec.tradeId === '5');
+    ok('taskSeq and taskFeature survive and tasks stay strings', sec.taskSeq[0] === 1 && sec.taskFeature[0] === 'Spa' && sec.tasks[0] === 't');
+  }
+
   ok('no page errors', errs.length === 0, errs.join(' | '));
   console.log(fails ? '\nFAILED' : '\nall passed');
   process.exit(fails ? 1 : 0);

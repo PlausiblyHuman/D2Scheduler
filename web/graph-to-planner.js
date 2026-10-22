@@ -134,8 +134,15 @@
       if (!ph) { ph = { num: pnum, name: f.PhaseName || '', sections: [] }; phases.push(ph); }
       const skill = f.TradeLookupId != null ? (tradeCode.get(key(f.TradeLookupId)) || null)
                   : (PSEUDO_BY_CREW[String(f.DefaultCrew || '').trim().toLowerCase()] || null);
-      ph.sections.push({ num: f.SubPhaseNumber, name: f.Title, skill, days: Number(f.DurationDays) || 2,
-        tasks: (tasksBySub.get(key(f.id)) || []).slice().sort((x, y) => (x.fields.Sequence || 0) - (y.fields.Sequence || 0)).map(t => t.fields.Title) });
+      const optional = !!f.Optional, rawFeature = String(f.Feature == null ? '' : f.Feature).trim();
+      const trows = (tasksBySub.get(key(f.id)) || []).slice().sort((x, y) => (x.fields.Sequence || 0) - (y.fields.Sequence || 0));
+      ph.sections.push({ id: f.id != null ? Number(f.id) : (r.id != null ? Number(r.id) : null), seq: f.Sequence == null ? null : Number(f.Sequence),
+        optional, feature: rawFeature || (optional ? String(f.Title == null ? '' : f.Title).trim() || null : null),
+        tradeId: f.TradeLookupId != null ? key(f.TradeLookupId) : null,
+        num: f.SubPhaseNumber, name: f.Title, skill, days: Number(f.DurationDays) || 2,
+        tasks: trows.map(t => t.fields.Title),
+        taskSeq: trows.map(t => t.fields.Sequence == null ? null : Number(t.fields.Sequence)),
+        taskFeature: trows.map(t => String(t.fields.Feature == null ? '' : t.fields.Feature).trim() || null) });
     });
     return out;
   }
@@ -289,7 +296,8 @@
                     na: !!t.fields.NotApplicable,
                     // The N/A reason. Graph omits an empty column entirely, so
                     // absent means no reason, never an error.
-                    note: t.fields.Note == null ? '' : String(t.fields.Note)
+                    note: t.fields.Note == null ? '' : String(t.fields.Note),
+                    feature: String(t.fields.Feature == null ? '' : t.fields.Feature).trim() || null
                   }))
               };
             })

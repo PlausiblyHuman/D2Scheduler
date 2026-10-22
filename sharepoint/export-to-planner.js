@@ -71,8 +71,15 @@
       if (!ph) { ph = { num: pnum, name: r.PhaseName || '', sections: [] }; phases.push(ph); }
       const skill = r.TradeId != null ? (tradeCode.get(String(r.TradeId)) || null)
                   : (PSEUDO_BY_CREW[String(r.DefaultCrew || '').trim().toLowerCase()] || null);
-      ph.sections.push({ num: r.SubPhaseNumber, name: r.Title, skill, days: Number(r.DurationDays) || 2,
-        tasks: (tasksBySub.get(String(r.Id)) || []).slice().sort((x, y) => (x.Sequence || 0) - (y.Sequence || 0)).map(t => t.Title) });
+      const optional = !!r.Optional, rawFeature = String(r.Feature == null ? '' : r.Feature).trim();
+      const trows = (tasksBySub.get(String(r.Id)) || []).slice().sort((x, y) => (x.Sequence || 0) - (y.Sequence || 0));
+      ph.sections.push({ id: r.Id != null ? Number(r.Id) : null, seq: r.Sequence == null ? null : Number(r.Sequence),
+        optional, feature: rawFeature || (optional ? String(r.Title == null ? '' : r.Title).trim() || null : null),
+        tradeId: r.TradeId != null ? String(r.TradeId) : null,
+        num: r.SubPhaseNumber, name: r.Title, skill, days: Number(r.DurationDays) || 2,
+        tasks: trows.map(t => t.Title),
+        taskSeq: trows.map(t => t.Sequence == null ? null : Number(t.Sequence)),
+        taskFeature: trows.map(t => String(t.Feature == null ? '' : t.Feature).trim() || null) });
     });
     return out;
   }
@@ -102,11 +109,11 @@
       + "PhaseName,Skill,TemplateItemId,Feature"
       + "&$top=2000&$orderby=Id"),
     all("/_api/web/lists/GetByTitle('Tasks')/items"
-      + "?$select=Id,AssignmentId,Sequence,Title,Complete,NotApplicable,Note&$top=5000&$orderby=Id"),
+      + "?$select=Id,AssignmentId,Sequence,Title,Complete,NotApplicable,Note,Feature&$top=5000&$orderby=Id"),
     all("/_api/web/lists/GetByTitle('Work Calendar')/items"
       + "?$select=Id,Title,Date&$top=1000&$orderby=Id"),
-    all("/_api/web/lists/GetByTitle('Sub-phase%20Template')/items?$select=Id,Title,SubPhaseNumber,Sequence,TradeId,DefaultCrew,DurationDays,BuildType,PhaseName&$top=500&$orderby=Id"),
-    all("/_api/web/lists/GetByTitle('Task%20Template')/items?$select=Id,Title,SubPhaseId,Sequence,BuildType&$top=2000&$orderby=Id"),
+    all("/_api/web/lists/GetByTitle('Sub-phase%20Template')/items?$select=Id,Title,SubPhaseNumber,Sequence,TradeId,DefaultCrew,DurationDays,BuildType,PhaseName,Optional,Feature&$top=500&$orderby=Id"),
+    all("/_api/web/lists/GetByTitle('Task%20Template')/items?$select=Id,Title,SubPhaseId,Sequence,BuildType,Feature&$top=2000&$orderby=Id"),
     all("/_api/web/lists/GetByTitle('Trades')/items?$select=Id,TradeCode&$top=200")
   ]);
 
@@ -176,7 +183,8 @@
             // by position on the way in, which is fine for display and useless
             // for writing back.
             .map(t => ({ id: t.Id, seq: t.Sequence, title: t.Title, done: !!t.Complete,
-                         na: !!t.NotApplicable, note: t.Note == null ? '' : String(t.Note) }))
+                         na: !!t.NotApplicable, note: t.Note == null ? '' : String(t.Note),
+                         feature: String(t.Feature == null ? '' : t.Feature).trim() || null }))
         }))
     }))
   };

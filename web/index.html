@@ -358,7 +358,8 @@ function templateFor(type){
 /* Templates read from SharePoint arrive without ids; assign them the way mkTemplate does. */
 function tplFromPayload(phases){
   return (phases||[]).map((p,i)=>({id:'g'+i,num:String(p.num),name:p.name||'',
-    sections:(p.sections||[]).map((s,k)=>({id:'s'+i+'_'+k,num:s.num,name:s.name,skill:s.skill||null,days:s.days||2,tasks:(s.tasks||[]).slice()}))}));
+    sections:(p.sections||[]).map((s,k)=>({id:s.id==null?'s'+i+'_'+k:s.id,seq:s.seq==null?null:s.seq,optional:!!s.optional,feature:s.feature||null,tradeId:s.tradeId==null?null:s.tradeId,
+      num:s.num,name:s.name,skill:s.skill||null,days:s.days||2,tasks:(s.tasks||[]).slice(),taskSeq:(s.taskSeq||[]).slice(),taskFeature:(s.taskFeature||[]).map(f=>f||null)}))}));
 }
 function mkJobGroups(tpl){
   return tpl.map(g=>({tid:g.id,num:g.num,name:g.name,inst:false,pm:false,
@@ -386,7 +387,7 @@ function groupsFromPayload(inj){
       templateItemId:is.templateItemId??null,feature:is.feature||null,
       fb:(!is.phase&&!!t.phase)||(!is.skill&&!!t.skill),
       crewId:null,start:null,skip:false,locked:false,inst:false,pm:false,
-      tasks:(is.tasks||[]).map(it=>({t:it.title==null?'':String(it.title),done:false,na:false}))});
+      tasks:(is.tasks||[]).map(it=>({t:it.title==null?'':String(it.title),done:false,na:false,feature:it.feature||null}))});
   });
   return groups;
 }

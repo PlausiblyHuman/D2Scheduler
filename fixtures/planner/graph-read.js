@@ -290,6 +290,24 @@ const totalNa = p => p.jobs.reduce((n, j) => n + j.sections.reduce((m, s) => m +
     const M = require(path.join(ROOT, 'web/graph-to-planner.js'));
     ok('normType folds case and space, defaults to Gunite', M.normType(' fiberglass ') === 'Fiberglass' && M.normType('GUNITE') === 'Gunite' && M.normType(undefined) === 'Gunite' && M.normType('Carbon') === 'Gunite');
     ok('a template read with no rows yields no key, not an empty array', !('Carbon' in T));
+    /* feature data (step 4): synthetic rows, since the live capture predates the columns */
+    {
+      const sp = (id, seq, title, extra) => ({ id: String(id), fields: Object.assign({ id: String(id), Sequence: seq, Title: title, SubPhaseNumber: '3.' + seq, BuildType: 'Gunite', DefaultCrew: 'x', DurationDays: 2 }, extra) });
+      const tp = (id, sub, seq, title, extra) => ({ id: String(id), fields: Object.assign({ id: String(id), SubPhaseLookupId: String(sub), Sequence: seq, Title: title, BuildType: 'Gunite' }, extra) });
+      const spt = [sp(10, 1, 'Plain', {}), sp(11, 2, 'Auto Cover', { Optional: true }), sp(12, 3, 'Spa Shell', { Optional: true, Feature: ' Spa ', TradeLookupId: '5' })];
+      const tpt = [tp(20, 12, 2, 'Second'), tp(21, 12, 1, 'First', { Feature: 'Spa' }), tp(22, 10, 1, 'Only')];
+      const t = M.templatesFrom(spt, tpt, []).Gunite[0].sections;
+      ok('template section carries id, seq, optional', t[1].id === 11 && t[1].seq === 2 && t[1].optional === true && t[0].optional === false);
+      ok('feature is null on a plain row, the title on a bare optional row, the trimmed Feature when set', t[0].feature === null && t[1].feature === 'Auto Cover' && t[2].feature === 'Spa');
+      ok('tradeId is a string or null', t[2].tradeId === '5' && t[0].tradeId === null);
+      ok('tasks stay plain strings in Sequence order', t[2].tasks.join() === 'First,Second' && typeof t[2].tasks[0] === 'string');
+      ok('taskSeq and taskFeature align with tasks', t[2].taskSeq.join() === '1,2' && t[2].taskFeature[0] === 'Spa' && t[2].taskFeature[1] === null && t[0].taskFeature.length === 1);
+      const gp = M.toPlannerPayload({ jobs: [{ id: '1', fields: { id: '1', Title: 'J', JobNumber: 'F-1', Status: 'Active', BuildType: 'Gunite' } }],
+        asg: [{ id: '2', fields: { id: '2', JobLookupId: '1', Sequence: 1, SubPhaseNumber: '1.0', SubPhaseName: 'A' } }],
+        tasks: [{ id: '3', fields: { id: '3', AssignmentLookupId: '2', Sequence: 1, Title: 'a', Feature: 'Spa' } }, { id: '4', fields: { id: '4', AssignmentLookupId: '2', Sequence: 2, Title: 'b' } }], cal: [] });
+      const pt = gp.jobs[0].sections[0].tasks;
+      ok('project task carries feature, null when blank', pt[0].feature === 'Spa' && pt[1].feature === null);
+    }
     ok('REST payload carries the same templates and types', JSON.stringify(restPayload.templates) === JSON.stringify(T) && restPayload.jobs.every(j => j.buildType === 'Gunite'));
   }
 
