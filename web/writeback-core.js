@@ -574,12 +574,25 @@
             return;
           }
 
-          if (!!live.Complete !== !!t.from.done || !!live.NotApplicable !== !!t.from.na) {
+          /* Clearing an N/A also checks the reason: a feature switch clears only
+             the automatic reason, and a PM may have typed a different one on the
+             site since the last Refresh. That reason is not ours to wipe. */
+          var clearsNa = !!t.from.na && !t.to.na;
+          var noteDiverged = clearsNa
+            && String(live.Note || '') !== String(t.from.note || '');
+          if (!!live.Complete !== !!t.from.done || !!live.NotApplicable !== !!t.from.na
+              || noteDiverged) {
+            var loaded = { done: !!t.from.done, na: !!t.from.na };
+            var nowLive = { done: !!live.Complete, na: !!live.NotApplicable };
+            var wanted = { done: !!t.to.done, na: !!t.to.na };
+            if (clearsNa) {
+              loaded.note = String(t.from.note || '');
+              nowLive.note = String(live.Note || '');
+              wanted.note = String(t.to.note || '');
+            }
             refusals.push(Object.assign({}, where, {
               col: 'Complete', reason: 'diverged',
-              loaded: { done: !!t.from.done, na: !!t.from.na },
-              nowLive: { done: !!live.Complete, na: !!live.NotApplicable },
-              wanted: { done: !!t.to.done, na: !!t.to.na }
+              loaded: loaded, nowLive: nowLive, wanted: wanted
             }));
             return;
           }

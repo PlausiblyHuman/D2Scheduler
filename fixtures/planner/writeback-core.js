@@ -299,7 +299,7 @@ ok('titleMatches rejects the same sub-phase number on a different job',
   }
 
   t = C.planTaskTicks(tpool([{ id: 901, title: 'B', from: { done: false, na: true, note: 'x' }, to: { done: false, na: false, note: '' } }]),
-                      { '901': { Complete: false, NotApplicable: true } }, WHO);
+                      { '901': { Complete: false, NotApplicable: true, Note: 'x' } }, WHO);
   ok('clearing N/A clears the reason too, as the field app does',
      t.writes.length === 1 && t.writes[0].fields.NotApplicable === false && t.writes[0].fields.Note === '',
      JSON.stringify(t.writes[0] && t.writes[0].fields));
@@ -322,6 +322,28 @@ ok('titleMatches rejects the same sub-phase number on a different job',
   }
   ok('a plain tick on a task that was never N/A leaves Note alone',
      !('Note' in t.writes[0].fields), JSON.stringify(t.writes[0].fields));
+
+  // Clearing an N/A must not wipe a reason somebody typed on the site since the last Refresh.
+  const clearNa = [{ id: 901, title: 'B', from: { done: false, na: true, note: 'Spa not on this project' }, to: { done: false, na: false, note: '' } }];
+  t = C.planTaskTicks(tpool(clearNa),
+                      { '901': { Complete: false, NotApplicable: true, Note: 'Client deferred' } }, WHO);
+  ok('clearing an N/A whose live reason changed is refused as diverged, with the note shown',
+     t.writes.length === 0 && t.refusals.length === 1 && t.refusals[0].reason === 'diverged'
+     && t.refusals[0].nowLive.note === 'Client deferred' && t.refusals[0].loaded.note === 'Spa not on this project'
+     && t.refusals[0].wanted.note === '', JSON.stringify(t.refusals[0]));
+  t = C.planTaskTicks(tpool(clearNa),
+                      { '901': { Complete: false, NotApplicable: true, Note: 'Spa not on this project' } }, WHO);
+  ok('clearing an N/A whose live reason still matches is written',
+     t.writes.length === 1 && t.writes[0].fields.NotApplicable === false && t.writes[0].fields.Note === '',
+     JSON.stringify(t));
+  t = C.planTaskTicks(tpool([{ id: 901, title: 'B', from: { done: false, na: true, note: '' }, to: { done: false, na: false, note: '' } }]),
+                      { '901': { Complete: false, NotApplicable: true } }, WHO);
+  ok('a missing live Note and a missing loaded note count as equal',
+     t.writes.length === 1, JSON.stringify(t));
+  t = C.planTaskTicks(tpool([{ id: 900, title: 'A', from: { done: false, na: false, note: '' }, to: { done: true, na: false } }]),
+                      { '900': { Complete: false, NotApplicable: false, Note: 'typed on site' } }, WHO);
+  ok('a done tick on a never-N/A task ignores a differing live Note',
+     t.writes.length === 1 && t.refusals.length === 0, JSON.stringify(t));
 
   t = C.planTaskTicks(tpool([{ id: 900, title: 'A', from: { done: false, na: false }, to: { done: true, na: false } }]),
                       { '900': { Complete: true, NotApplicable: false } }, WHO);

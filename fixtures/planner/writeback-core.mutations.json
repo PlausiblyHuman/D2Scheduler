@@ -1,0 +1,7 @@
+[
+ {"label": "note compare dropped", "find": "var noteDiverged = clearsNa\n            && String(live.Note || '') !== String(t.from.note || '');", "replace": "var noteDiverged = false;"},
+ {"label": "note compare applies to every change", "find": "var clearsNa = !!t.from.na && !t.to.na;", "replace": "var clearsNa = true;"},
+ {"label": "missing live note not treated as empty", "find": "String(live.Note || '') !== String(t.from.note || '');", "replace": "live.Note !== t.from.note;"},
+ {"label": "refusal omits live note", "find": "nowLive.note = String(live.Note || '');", "replace": ""},
+ {"label": "refusal omits loaded note", "find": "loaded.note = String(t.from.note || '');", "replace": ""}
+]
