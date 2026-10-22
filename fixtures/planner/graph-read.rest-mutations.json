@@ -1,0 +1,9 @@
+[
+ {"label": "REST: optional dropped", "find": "        optional, feature: rawFeature || (optional", "replace": "        optional: false, feature: rawFeature || (optional"},
+ {"label": "REST: title fallback dropped", "find": "|| (optional ? String(r.Title == null ? '' : r.Title).trim() || null : null)", "replace": "|| null"},
+ {"label": "REST: Feature not trimmed", "find": "rawFeature = String(r.Feature == null ? '' : r.Feature).trim();", "replace": "rawFeature = String(r.Feature == null ? '' : r.Feature);"},
+ {"label": "REST: tradeId not a string", "find": "tradeId: r.TradeId != null ? String(r.TradeId) : null,", "replace": "tradeId: r.TradeId != null ? Number(r.TradeId) : null,"},
+ {"label": "REST: taskFeature not aligned after sort", "find": "taskFeature: trows.map(", "replace": "taskFeature: (tasksBySub.get(String(r.Id)) || []).map("},
+ {"label": "REST: taskSeq dropped", "find": "taskSeq: trows.map(t => t.Sequence == null ? null : Number(t.Sequence)),", "replace": "taskSeq: [],"},
+ {"label": "REST: task feature dropped", "find": "feature: String(t.Feature == null ? '' : t.Feature).trim() || null }))", "replace": "feature: null }))"}
+]

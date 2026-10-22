@@ -307,6 +307,19 @@ const totalNa = p => p.jobs.reduce((n, j) => n + j.sections.reduce((m, s) => m +
         tasks: [{ id: '3', fields: { id: '3', AssignmentLookupId: '2', Sequence: 1, Title: 'a', Feature: 'Spa' } }, { id: '4', fields: { id: '4', AssignmentLookupId: '2', Sequence: 2, Title: 'b' } }], cal: [] });
       const pt = gp.jobs[0].sections[0].tasks;
       ok('project task carries feature, null when blank', pt[0].feature === 'Spa' && pt[1].feature === null);
+      /* the REST producer, run for real on the same data in REST shape */
+      const rsp = (id, seq, title, extra) => Object.assign({ Id: id, Sequence: seq, Title: title, SubPhaseNumber: '3.' + seq, BuildType: 'Gunite', DefaultCrew: 'x', DurationDays: 2 }, extra);
+      const rtp = (id, sub, seq, title, extra) => Object.assign({ Id: id, SubPhaseId: sub, Sequence: seq, Title: title, BuildType: 'Gunite' }, extra);
+      const rest = await runExport({
+        jobs: [{ Id: 1, Title: 'J', JobNumber: 'F-1', Status: 'Active', BuildType: 'Gunite' }],
+        asg: [{ Id: 2, JobId: 1, Sequence: 1, SubPhaseNumber: '1.0', SubPhaseName: 'A' }],
+        tasks: [{ Id: 3, AssignmentId: 2, Sequence: 1, Title: 'a', Feature: ' Spa ' }, { Id: 4, AssignmentId: 2, Sequence: 2, Title: 'b' }],
+        cal: [], trades: [],
+        spt: [rsp(10, 1, 'Plain', {}), rsp(11, 2, 'Auto Cover', { Optional: true }), rsp(12, 3, 'Spa Shell', { Optional: true, Feature: ' Spa ', TradeId: 5 })],
+        tpt: [rtp(20, 12, 2, 'Second'), rtp(21, 12, 1, 'First', { Feature: 'Spa' }), rtp(22, 10, 1, 'Only')]
+      });
+      ok('REST template mapper equals the Graph mapper on feature data', JSON.stringify(rest.templates) === JSON.stringify(M.templatesFrom(spt, tpt, [])));
+      ok('REST project task carries feature the same way', rest.jobs[0].sections[0].tasks[0].feature === 'Spa' && rest.jobs[0].sections[0].tasks[1].feature === null);
     }
     ok('REST payload carries the same templates and types', JSON.stringify(restPayload.templates) === JSON.stringify(T) && restPayload.jobs.every(j => j.buildType === 'Gunite'));
   }

@@ -1,72 +1,16 @@
 [
- {
-  "label": "layout not rebuilt from the rows (keeps template / old layout)",
-  "find": "      j.groups=groupsFromPayload(inj);\n",
-  "replace": ""
- },
- {
-  "label": "template phase name wins over the row's",
-  "find": "const phase=is.phase||t.phase||''",
-  "replace": "const phase=t.phase||is.phase||''"
- },
- {
-  "label": "template skill wins over the row's",
-  "find": "skill=is.skill||t.skill||null",
-  "replace": "skill=t.skill||is.skill||null"
- },
- {
-  "label": "row name dropped",
-  "find": "name:is.name||'',skill",
-  "replace": "name:'',skill"
- },
- {
-  "label": "task row id dropped",
-  "find": "t.spId=it.id??null;",
-  "replace": "t.spId=null;"
- },
- {
-  "label": "task text dropped",
-  "find": "t:it.title==null?'':String(it.title)",
-  "replace": "t:''"
- },
- {
-  "label": "every row in one phase",
-  "find": "if(!g||g.num!==pnum){",
-  "replace": "if(!g){"
- },
- {
-  "label": "fallback flag never set",
-  "find": "fb:(!is.phase&&!!t.phase)||(!is.skill&&!!t.skill),",
-  "replace": "fb:false,"
- },
- {
-  "label": "overlay pairs every row with the first section",
-  "find": "const s=flat[ii];",
-  "replace": "const s=flat[0];"
- },
- {
-  "label": "phase name not filled from a later row",
-  "find": "else if(!g.name&&phase)g.name=phase;",
-  "replace": ""
- },
- {
-  "label": "project task feature dropped in layout",
-  "find": "done:false,na:false,feature:it.feature||null}))});",
-  "replace": "done:false,na:false,feature:null}))});"
- },
- {
-  "label": "template section id not copied",
-  "find": "({id:s.id==null?'s'+i+'_'+k:s.id,",
-  "replace": "({id:'s'+i+'_'+k,"
- },
- {
-  "label": "template optional not copied",
-  "find": "optional:!!s.optional,feature:s.feature||null,",
-  "replace": "optional:false,feature:s.feature||null,"
- },
- {
-  "label": "template taskFeature not copied",
-  "find": "taskFeature:(s.taskFeature||[]).map(f=>f||null)",
-  "replace": "taskFeature:[]"
- }
+ {"label": "layout not rebuilt from the rows (keeps template / old layout)", "find": "      j.groups=groupsFromPayload(inj);\n", "replace": ""},
+ {"label": "template phase name wins over the row's", "find": "const phase=is.phase||t.phase||''", "replace": "const phase=t.phase||is.phase||''"},
+ {"label": "template skill wins over the row's", "find": "skill=is.skill||t.skill||null", "replace": "skill=t.skill||is.skill||null"},
+ {"label": "row name dropped", "find": "name:is.name||'',skill", "replace": "name:'',skill"},
+ {"label": "task row id dropped", "find": "t.spId=it.id??null;", "replace": "t.spId=null;"},
+ {"label": "task text dropped", "find": "t:it.title==null?'':String(it.title)", "replace": "t:''"},
+ {"label": "every row in one phase", "find": "if(!g||g.num!==pnum){", "replace": "if(!g){"},
+ {"label": "fallback flag never set", "find": "fb:(!is.phase&&!!t.phase)||(!is.skill&&!!t.skill),", "replace": "fb:false,"},
+ {"label": "overlay pairs every row with the first section", "find": "const s=flat[ii];", "replace": "const s=flat[0];"},
+ {"label": "phase name not filled from a later row", "find": "else if(!g.name&&phase)g.name=phase;", "replace": ""},
+ {"label": "project task feature dropped in layout", "find": "done:false,na:false,feature:it.feature||null}))});", "replace": "done:false,na:false,feature:null}))});"},
+ {"label": "template section id not copied", "find": "({id:s.id==null?'s'+i+'_'+k:s.id,", "replace": "({id:'s'+i+'_'+k,"},
+ {"label": "template optional not copied", "find": "optional:!!s.optional,feature:s.feature||null,", "replace": "optional:false,feature:s.feature||null,"},
+ {"label": "template taskFeature not copied", "find": "taskFeature:(s.taskFeature||[]).map(f=>f||null)", "replace": "taskFeature:[]"}
 ]

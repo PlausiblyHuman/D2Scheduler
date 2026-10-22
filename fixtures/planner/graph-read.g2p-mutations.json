@@ -1,52 +1,12 @@
 [
- {
-  "label": "buildType never normalised",
-  "find": "buildType: normType(jf.BuildType),",
-  "replace": "buildType: jf.BuildType,"
- },
- {
-  "label": "templates dropped from the payload",
-  "find": "templates: templatesFrom(graph.spt, graph.tpt, graph.trades),",
-  "replace": ""
- },
- {
-  "label": "optional dropped from template section",
-  "find": "        optional, feature: rawFeature || (optional",
-  "replace": "        optional: false, feature: rawFeature || (optional"
- },
- {
-  "label": "bare optional row not named by its title",
-  "find": "|| (optional ? String(f.Title == null ? '' : f.Title).trim() || null : null)",
-  "replace": "|| null"
- },
- {
-  "label": "Feature not trimmed on template",
-  "find": "rawFeature = String(f.Feature == null ? '' : f.Feature).trim();",
-  "replace": "rawFeature = String(f.Feature == null ? '' : f.Feature);"
- },
- {
-  "label": "tradeId not a string",
-  "find": "tradeId: f.TradeLookupId != null ? key(f.TradeLookupId) : null,",
-  "replace": "tradeId: f.TradeLookupId != null ? Number(f.TradeLookupId) : null,"
- },
- {
-  "label": "taskFeature not aligned (unsorted)",
-  "find": "taskFeature: trows.map(",
-  "replace": "taskFeature: (tasksBySub.get(key(f.id)) || []).map("
- },
- {
-  "label": "taskSeq dropped",
-  "find": "taskSeq: trows.map(t => t.fields.Sequence == null ? null : Number(t.fields.Sequence)),",
-  "replace": "taskSeq: [],"
- },
- {
-  "label": "template section id dropped",
-  "find": "id: f.id != null ? Number(f.id) : (r.id != null ? Number(r.id) : null), seq:",
-  "replace": "id: null, seq:"
- },
- {
-  "label": "project task feature dropped",
-  "find": "                    feature: String(t.fields.Feature == null ? '' : t.fields.Feature).trim() || null\n",
-  "replace": "                    feature: null\n"
- }
+ { "label": "buildType never normalised", "find": "buildType: normType(jf.BuildType),", "replace": "buildType: jf.BuildType,"},
+ { "label": "templates dropped from the payload", "find": "templates: templatesFrom(graph.spt, graph.tpt, graph.trades),", "replace": ""},
+ {"label": "optional dropped from template section", "find": "        optional, feature: rawFeature || (optional", "replace": "        optional: false, feature: rawFeature || (optional"},
+ {"label": "bare optional row not named by its title", "find": "|| (optional ? String(f.Title == null ? '' : f.Title).trim() || null : null)", "replace": "|| null"},
+ {"label": "Feature not trimmed on template", "find": "rawFeature = String(f.Feature == null ? '' : f.Feature).trim();", "replace": "rawFeature = String(f.Feature == null ? '' : f.Feature);"},
+ {"label": "tradeId not a string", "find": "tradeId: f.TradeLookupId != null ? key(f.TradeLookupId) : null,", "replace": "tradeId: f.TradeLookupId != null ? Number(f.TradeLookupId) : null,"},
+ {"label": "taskFeature not aligned (unsorted)", "find": "taskFeature: trows.map(", "replace": "taskFeature: (tasksBySub.get(key(f.id)) || []).map("},
+ {"label": "taskSeq dropped", "find": "taskSeq: trows.map(t => t.fields.Sequence == null ? null : Number(t.fields.Sequence)),", "replace": "taskSeq: [],"},
+ {"label": "template section id dropped", "find": "id: f.id != null ? Number(f.id) : (r.id != null ? Number(r.id) : null), seq:", "replace": "id: null, seq:"},
+ {"label": "project task feature dropped", "find": "                    feature: String(t.fields.Feature == null ? '' : t.fields.Feature).trim() || null\n", "replace": "                    feature: null\n"}
 ]
