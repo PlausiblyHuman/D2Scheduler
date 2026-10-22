@@ -2240,6 +2240,102 @@ function importFromD2(file){
   };
   r.readAsText(file);
 }
+/* Lay one project's payload row onto the planner: create the job if it is new, otherwise
+   update it in place. Shared by the full load and refreshOneProject. */
+function applyJobPayload(existing,inj){
+    let j=existing;
+    if(!j){
+      j=newJob(inj.name||'Pool',inj.addr||'',inj.city||'',inj.state||'',inj.zip||'',inj.start||todayStr(),inj.buildType);
+      j.jobno=inj.jobno; j.status=inj.status||'Active'; S.jobs.push(j);
+    }else{
+      if(inj.name)j.name=inj.name;
+      if(inj.addr!=null)j.addr=inj.addr;
+      if(inj.city!=null)j.city=inj.city;
+      if(inj.start)j.start=inj.start;
+      if(inj.status)j.status=inj.status;
+      j.buildType=inj.buildType==='Fiberglass'?'Fiberglass':'Gunite';
+    }
+    /* The layout is rebuilt from this project's own rows on every load (groupsFromPayload), so
+       a project shows exactly the sub-phases SharePoint holds for it, whatever the template says
+       today. Refresh already warns that unsaved edits are overwritten; nothing else is lost. */
+    j.groups=groupsFromPayload(inj);
+    /* Still being built by D2 - New Pool. Read off New Pool Requests on the
+       Graph path; the REST export does not carry it, so it reads false. */
+    j.building=!!inj.building;
+    // A project arriving in a Refresh is live; only openCompleted marks one read-only, after this.
+    j.readOnly=false;
+    /* The project's own start as loaded, so a reset here can be written back
+       to Jobs.StartDate with a compare against what was loaded. */
+    j.baseStart=inj.start||null;
+    // PM name for the Jobs tab. The id rides along for the Graph path only;
+    // the REST export carries the name without it.
+    if(inj.pm!=null)j.pm=inj.pm;
+    if(inj.pmId!=null)j.pmId=String(inj.pmId);
+    // The Jobs row's SharePoint id, so Save can read just this project's rows (Spec A).
+    if(inj.id!=null)j.spId=String(inj.id);
+    // groupsFromPayload made one section per row, in payload order: pair them by position.
+    const flat=allSecs(j).map(x=>x.s);
+    (inj.sections||[]).forEach((is,ii)=>{
+      const s=flat[ii];
+      if(is.crewId!=null)s.crewId=is.crewId;
+      if(is.start)s.start=is.start;
+      if(is.days)s.days=is.days;
+      s.skip=!!is.skip;
+      s.inst=!!is.inst;
+      s.pm=!!is.pm;
+      /* Rejection state is display state, never diffed, so it stays out of
+         s.base. The thread is replaced, never merged: an entry deleted on the
+         site must disappear here on the next Refresh rather than linger. */
+      s.rejected=!!is.rejected;
+      s.rejectedOn=is.rejectedOn||null;
+      s.rejectedReason=is.rejectedReason||null;
+      s.thread=Array.isArray(is.thread)?is.thread:[];
+      s.spLocked=!!is.locked;      // the raw SharePoint pin, tracked on its own -- see WRITEBACK_FIELDS
+      s.locked=!!(is.locked||is.inst);
+      if(Array.isArray(is.tasks)&&Array.isArray(s.tasks)){
+        /* The checklist lines were built one-for-one from this row's own Tasks
+           (groupsFromPayload), so each line writes to the row it came from. A
+           task reordered, renamed, added or removed in SharePoint simply shows
+           as SharePoint has it. A task cannot be both done and N/A: done wins,
+           as tick() already clears na when a task is ticked. */
+        is.tasks.forEach((it,i)=>{
+          const t=s.tasks[i]; if(!t)return;
+          t.done=!!it.done;t.na=t.done?false:!!it.na;
+          t.note=t.na?String(it.note||''):'';  // the N/A reason, Tasks.Note
+          t.spId=it.id??null;                  // the Tasks row this tick writes to
+          t.base={done:t.done,na:t.na,note:t.note};  // what SharePoint said, for the diff
+        });
+      }
+      /* Baseline: exactly the fields SharePoint owns, as they arrived. Divergence
+         is a diff against this rather than a flag, so the same structure answers
+         "has this pool been edited here" and "what would a write-back send".
+         fixtures/planner/freshness.js pins the exact key set of this object;
+         extend that assertion if a key is ever deliberately added here. inst
+         and pm are in it (see the note beside them below), but only
+         buildSignoffSet reads them -- the scheduling diff never does.
+         `locked` stays the DERIVED lock (SharePoint's Locked OR sign-off) that
+         divergedSecs and Auto-Schedule both already key off; `spLocked` is the
+         raw SharePoint Locked value on its own, kept alongside so a later
+         write-back can tell a PM's deliberate pin apart from a lock this planner
+         inferred from sign-off -- the two read identically through `locked`.
+         `seq` (the row's SharePoint Sequence) rides along for the write-back:
+         it is never diffed or written itself, just carried onto a change-set
+         entry so a reflow can order writes and a conflict report can be read
+         against the row the way a PM does, by sub-phase. */
+      s.base={id:is.id??null,seq:is.seq??null,crewId:s.crewId??null,start:s.start??null,
+              days:s.days??null,locked:!!s.locked,skip:!!s.skip,
+              spLocked:!!is.locked,
+              /* inst/pm added 2026-09-16. freshness.js fences this key set
+                 deliberately, and the fence's reasoning was that the planner
+                 held sign-off as a BARE BOOLEAN -- no attribution, no
+                 timestamp -- so writing it back would replace an attested
+                 sign-off with a flag. The planner now has a signed-in user and
+                 resolveSiteUserId, so it writes who and when. The precondition
+                 the fence protected is satisfied rather than overridden. */
+              inst:!!s.inst, pm:!!s.pm};
+    });
+  return j;
+}
 /* The shared core of importFromD2, split out so the Graph read path (below)
    can feed it a payload directly -- Graph never produces a File, so there is
    nothing for a FileReader to read. Both callers hand this the exact same
@@ -2298,99 +2394,7 @@ function importFromD2Payload(d,silent){
     S.settings.loadedAt=new Date().toISOString();
     UI.tlScroll={};   // a new schedule re-centres on today
 
-    plan.forEach(({inj,existing})=>{
-      let j=existing;
-      if(!j){
-        j=newJob(inj.name||'Pool',inj.addr||'',inj.city||'',inj.state||'',inj.zip||'',inj.start||todayStr(),inj.buildType);
-        j.jobno=inj.jobno; j.status=inj.status||'Active'; S.jobs.push(j);
-      }else{
-        if(inj.name)j.name=inj.name;
-        if(inj.addr!=null)j.addr=inj.addr;
-        if(inj.city!=null)j.city=inj.city;
-        if(inj.start)j.start=inj.start;
-        if(inj.status)j.status=inj.status;
-        j.buildType=inj.buildType==='Fiberglass'?'Fiberglass':'Gunite';
-      }
-      /* The layout is rebuilt from this project's own rows on every load (groupsFromPayload), so
-         a project shows exactly the sub-phases SharePoint holds for it, whatever the template says
-         today. Refresh already warns that unsaved edits are overwritten; nothing else is lost. */
-      j.groups=groupsFromPayload(inj);
-      /* Still being built by D2 - New Pool. Read off New Pool Requests on the
-         Graph path; the REST export does not carry it, so it reads false. */
-      j.building=!!inj.building;
-      // A project arriving in a Refresh is live; only openCompleted marks one read-only, after this.
-      j.readOnly=false;
-      /* The project's own start as loaded, so a reset here can be written back
-         to Jobs.StartDate with a compare against what was loaded. */
-      j.baseStart=inj.start||null;
-      // PM name for the Jobs tab. The id rides along for the Graph path only;
-      // the REST export carries the name without it.
-      if(inj.pm!=null)j.pm=inj.pm;
-      if(inj.pmId!=null)j.pmId=String(inj.pmId);
-      // The Jobs row's SharePoint id, so Save can read just this project's rows (Spec A).
-      if(inj.id!=null)j.spId=String(inj.id);
-      // groupsFromPayload made one section per row, in payload order: pair them by position.
-      const flat=allSecs(j).map(x=>x.s);
-      (inj.sections||[]).forEach((is,ii)=>{
-        const s=flat[ii];
-        if(is.crewId!=null)s.crewId=is.crewId;
-        if(is.start)s.start=is.start;
-        if(is.days)s.days=is.days;
-        s.skip=!!is.skip;
-        s.inst=!!is.inst;
-        s.pm=!!is.pm;
-        /* Rejection state is display state, never diffed, so it stays out of
-           s.base. The thread is replaced, never merged: an entry deleted on the
-           site must disappear here on the next Refresh rather than linger. */
-        s.rejected=!!is.rejected;
-        s.rejectedOn=is.rejectedOn||null;
-        s.rejectedReason=is.rejectedReason||null;
-        s.thread=Array.isArray(is.thread)?is.thread:[];
-        s.spLocked=!!is.locked;      // the raw SharePoint pin, tracked on its own -- see WRITEBACK_FIELDS
-        s.locked=!!(is.locked||is.inst);
-        if(Array.isArray(is.tasks)&&Array.isArray(s.tasks)){
-          /* The checklist lines were built one-for-one from this row's own Tasks
-             (groupsFromPayload), so each line writes to the row it came from. A
-             task reordered, renamed, added or removed in SharePoint simply shows
-             as SharePoint has it. A task cannot be both done and N/A: done wins,
-             as tick() already clears na when a task is ticked. */
-          is.tasks.forEach((it,i)=>{
-            const t=s.tasks[i]; if(!t)return;
-            t.done=!!it.done;t.na=t.done?false:!!it.na;
-            t.note=t.na?String(it.note||''):'';  // the N/A reason, Tasks.Note
-            t.spId=it.id??null;                  // the Tasks row this tick writes to
-            t.base={done:t.done,na:t.na,note:t.note};  // what SharePoint said, for the diff
-          });
-        }
-        /* Baseline: exactly the fields SharePoint owns, as they arrived. Divergence
-           is a diff against this rather than a flag, so the same structure answers
-           "has this pool been edited here" and "what would a write-back send".
-           fixtures/planner/freshness.js pins the exact key set of this object;
-           extend that assertion if a key is ever deliberately added here. inst
-           and pm are in it (see the note beside them below), but only
-           buildSignoffSet reads them -- the scheduling diff never does.
-           `locked` stays the DERIVED lock (SharePoint's Locked OR sign-off) that
-           divergedSecs and Auto-Schedule both already key off; `spLocked` is the
-           raw SharePoint Locked value on its own, kept alongside so a later
-           write-back can tell a PM's deliberate pin apart from a lock this planner
-           inferred from sign-off -- the two read identically through `locked`.
-           `seq` (the row's SharePoint Sequence) rides along for the write-back:
-           it is never diffed or written itself, just carried onto a change-set
-           entry so a reflow can order writes and a conflict report can be read
-           against the row the way a PM does, by sub-phase. */
-        s.base={id:is.id??null,seq:is.seq??null,crewId:s.crewId??null,start:s.start??null,
-                days:s.days??null,locked:!!s.locked,skip:!!s.skip,
-                spLocked:!!is.locked,
-                /* inst/pm added 2026-09-16. freshness.js fences this key set
-                   deliberately, and the fence's reasoning was that the planner
-                   held sign-off as a BARE BOOLEAN -- no attribution, no
-                   timestamp -- so writing it back would replace an attested
-                   sign-off with a flag. The planner now has a signed-in user and
-                   resolveSiteUserId, so it writes who and when. The precondition
-                   the fence protected is satisfied rather than overridden. */
-                inst:!!s.inst, pm:!!s.pm};
-      });
-    });
+    plan.forEach(({inj,existing})=>{applyJobPayload(existing,inj);});
     plan.forEach(({inj})=>{const j=S.jobs.find(x=>String(x.jobno)===String(inj.jobno));if(j)delete j.touchedAt;});
     // A pending create resolves itself the moment the real pool comes back --
     // no reason to keep telling a PM they are waiting on a request SharePoint already
@@ -3361,6 +3365,43 @@ async function openCompleted(jobno){
     document.getElementById('dFoot').innerHTML='<button class="btn" onclick="closeDrawer()">Close</button>';
     document.getElementById('drawer').classList.add('open');
   }
+}
+/* Re-read ONE project from SharePoint and rebuild it on screen, leaving every other project, the
+   templates and the work calendar alone. Used after rows are created for a project (the Features
+   drawer), so the new sub-phases arrive with their real row ids. Returns false and leaves the
+   project as it was on any read failure: a partial read is never applied. No dialog, and the
+   header's "refreshed" stamp is not touched, because the rest of the schedule was not re-read. */
+async function refreshOneProject(j){
+  if(!j||j.spId==null)return false;
+  try{
+    const tok=await graphToken(), R=window.D2GraphToPlanner, GW=window.D2GraphWriteback;
+    if(!R)return false;
+    if(!LAST_GRAPH){
+      const site=await graphSite(tok), base='https://graph.microsoft.com/v1.0/sites/'+site.id+'/lists/';
+      const [cal,req]=await Promise.all(['cal','req'].map(k=>graphPageAll(base+D2_GRAPH.lists[k]+'/items?$expand=fields&$top=500',tok)));
+      LAST_GRAPH={site:site.webUrl, siteId:site.id, base, cal, req};
+    }
+    const base=LAST_GRAPH.base;
+    const jr=await fetch(base+D2_GRAPH.lists.jobs+'/items/'+encodeURIComponent(j.spId)+'?$expand=fields',{headers:{Authorization:'Bearer '+tok}});
+    if(!jr.ok)throw graphHttpError('Graph '+jr.status+' reading the project',jr.status);
+    const row=await jr.json();
+    if(!row||!row.fields)throw new Error('That project is no longer in SharePoint.');
+    const lr=await R.readLive({jobs:[row], pageAll:u=>graphPageAll(u,tok),
+      asgItems:base+D2_GRAPH.lists.asg+'/items', taskItems:base+D2_GRAPH.lists.tasks+'/items'});
+    const req=await graphPageAll(base+D2_GRAPH.lists.req+'/items?$expand=fields&$top=500',tok);
+    LAST_GRAPH.req=req;
+    const users=GW?await graphPageAll(GW.urls(LAST_GRAPH.siteId).userInfo,tok).catch(()=>[]):[];
+    const comments=D2_GRAPH.commentsList
+      ?await graphPageAll(base+D2_GRAPH.commentsList+'/items?$expand=fields&$top=999',tok):[];
+    const payload=R.toPlannerPayload({site:LAST_GRAPH.site, cal:LAST_GRAPH.cal, req, users, comments,
+      jobs:[row], asg:lr.asg, tasks:lr.tasks},{includeComplete:true});
+    const inj=payload.jobs&&payload.jobs[0];
+    if(!inj)return false;
+    applyJobPayload(j,inj);
+    delete j.touchedAt;
+    save(); render();
+    return true;
+  }catch(e){ return false; }
 }
 async function loadFromD2ViaGraph(silent,opts){
   const tok=await graphToken(opts);
