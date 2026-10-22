@@ -631,7 +631,116 @@
     return { writes: writes, refusals: refusals, errors: errors };
   }
 
+  /* Structure creates: add template sub-phases to one live project.
+   *
+   * These are NEW rows, so nothing here compares against a live value and the
+   * edit allowlist does not apply: an Assignments create sets the row's whole
+   * starting state, and the reflow that follows sets its dates through the
+   * ordinary Save path. Every field type follows how Graph stores the column
+   * (fixtures/planner/structure-capture.json): lookup ids as strings,
+   * TemplateItemId a number, Choice as a plain string.
+   *
+   * WHERE A NEW ROW SITS. Place is found by TEMPLATE Sequence among the
+   * project's rows that carry a template id: prev is the row whose template
+   * Sequence is the greatest below the line's, next is the project row that
+   * follows prev in project Sequence (any row, hand-added ones included, so
+   * the new value always sits strictly between real neighbours). A row's
+   * template Sequence is `tplSeq` when the caller supplies it (a renumbered
+   * template) and its own `seq` otherwise, which is what D2 - New Pool copied
+   * from the template. Several lines in one gap split it evenly in template
+   * order; lines past the last row get last + 1, last + 2.
+   *
+   * args: {job:{jobno, spId}, rows:[{id, seq, templateItemId, tplSeq?}],
+   *        tplSecs:[{id, seq, optional, feature, tradeId, num, name, phase,
+   *                  skill, days, tasks, taskSeq, taskFeature}],
+   *        offFeatureKeys, nowMs, keyOf, reasonFor}
+   * keyOf/reasonFor are D2FeaturesCore.featureKey/autoReason, passed in so
+   * this file stays free of the feature model.
+   * returns {creates:[{tplId, num, name, asg, tasks}], refusals:[{tplId, reason}]}
+   */
+  function planStructureCreates(args) {
+    var job = args.job, keyOf = args.keyOf, reasonFor = args.reasonFor;
+    var rows = (args.rows || []).filter(function (r) { return r && r.seq != null; })
+      .slice().sort(function (a, b) { return Number(a.seq) - Number(b.seq); });
+    var have = {};
+    rows.forEach(function (r) { if (r.templateItemId != null) have[String(r.templateItemId)] = true; });
+    var off = {};
+    (args.offFeatureKeys || []).forEach(function (k) { var kk = keyOf(k); if (kk) off[kk] = true; });
+    var stamp = suppressUntil(args.nowMs, 10);
+
+    var refusals = [], todo = [];
+    (args.tplSecs || []).forEach(function (sec) {
+      var k = String(sec.id);
+      if (have[k]) { refusals.push({ tplId: sec.id, reason: 'already-present' }); return; }
+      have[k] = true;
+      todo.push(sec);
+    });
+    var tseq = function (sec) { return sec.seq == null ? Infinity : Number(sec.seq); };
+    todo.sort(function (a, b) { return tseq(a) - tseq(b) || Number(a.id) - Number(b.id); });
+
+    // Group by the gap each line falls in: the index of prev in `rows`, -1 before the first.
+    var placed = rows.filter(function (r) { return r.templateItemId != null; });
+    var gaps = {};
+    todo.forEach(function (sec) {
+      var prev = null, want = tseq(sec);
+      placed.forEach(function (r) {
+        var ps = Number(r.tplSeq != null ? r.tplSeq : r.seq);
+        if (ps < want && (!prev || ps > prev.ps)) prev = { row: r, ps: ps };
+      });
+      var at = prev ? rows.indexOf(prev.row) : -1;
+      (gaps[at] = gaps[at] || []).push(sec);
+    });
+    var seqOf = {};
+    Object.keys(gaps).forEach(function (at) {
+      var list = gaps[at], i = Number(at), n = list.length;
+      var next = rows[i + 1];
+      var lo = i >= 0 ? Number(rows[i].seq) : (next ? Number(next.seq) - 1 : 0);
+      list.forEach(function (sec, j) {
+        seqOf[String(sec.id)] = next ? lo + (Number(next.seq) - lo) * (j + 1) / (n + 1) : lo + j + 1;
+      });
+    });
+
+    var creates = todo.map(function (sec) {
+      var titles = sec.tasks || [];
+      var asg = {
+        Title: job.jobno + ' · ' + sec.num + ' ' + sec.name,
+        JobLookupId: String(job.spId),
+        SubPhaseNumber: String(sec.num),
+        SubPhaseName: sec.name,
+        PhaseName: sec.phase == null ? '' : String(sec.phase),
+        Skill: sec.skill == null ? '' : String(sec.skill),
+        TemplateItemId: Number(sec.id),
+        Sequence: seqOf[String(sec.id)],
+        Crew: 'unassigned',
+        DurationDays: Number(sec.days),
+        Locked: false, PMSignOff: false, InstallerSignOff: false, NotApplicable: false,
+        TasksTotal: titles.length, TasksComplete: 0,
+        SuppressReconcileUntil: stamp
+      };
+      if (sec.optional) {
+        var fname = String(sec.feature == null ? '' : sec.feature).trim() || String(sec.name).trim();
+        asg.Feature = fname;
+      }
+      if (sec.tradeId != null) asg.TradeLookupId = String(sec.tradeId);
+      var tasks = titles.map(function (title, i) {
+        var tseqI = (sec.taskSeq || [])[i];
+        var t = { Title: title, AssignmentLookupId: null,
+                  Sequence: tseqI == null ? i + 1 : Number(tseqI), Complete: false, NotApplicable: false };
+        var tf = (sec.taskFeature || [])[i];
+        var tname = tf == null ? '' : String(tf).trim();
+        if (tname) {
+          t.Feature = tname;
+          if (off[keyOf(tname)]) { t.NotApplicable = true; t.Note = reasonFor(tname); }
+        }
+        return t;
+      });
+      return { tplId: sec.id, num: sec.num, name: sec.name, asg: asg, tasks: tasks };
+    });
+    return { creates: creates, refusals: refusals };
+  }
+
   return {
+    planStructureCreates: planStructureCreates,
     ALLOWLIST: ALLOWLIST, FIELD_DEFS: FIELD_DEFS, titleMatches: titleMatches,
     jobKey: jobKey, suppressUntil: suppressUntil, planEdits: planEdits,
     planCreates: planCreates, day: day,

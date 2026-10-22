@@ -1,0 +1,20 @@
+[
+ {"label": "stamp not stripped from task bodies", "find": "if (k !== 'SuppressReconcileUntil') b[k] = task[k];", "replace": "b[k] = task[k];"},
+ {"label": "task lookup sent as a number", "find": "b.AssignmentLookupId = String(asgId);", "replace": "b.AssignmentLookupId = Number(asgId);"},
+ {"label": "no retries", "find": "attempt < 2", "replace": "attempt < 0"},
+ {"label": "three retries", "find": "attempt < 2", "replace": "attempt < 3"},
+ {"label": "503 not retried", "find": "(r.status === 429 || r.status === 503)", "replace": "(r.status === 429)"},
+ {"label": "Retry-After ignored", "find": "(isFinite(ra) && ra >= 0 ? ra : 2) * 1000", "replace": "2 * 1000"},
+ {"label": "default wait 0", "find": "? ra : 2) * 1000", "replace": "? ra : 0) * 1000"},
+ {"label": "absent Retry-After read as 0", "find": "raw == null || String(raw).trim() === '' ? NaN : Number(raw)", "replace": "Number(raw)"},
+ {"label": "network error throws", "find": "return { ok: false, status: 0 };", "replace": "throw e;"},
+ {"label": "POST sent as PUT", "find": "{ method: 'POST', headers: headers(token), body: JSON.stringify(body) }", "replace": "{ method: 'PUT', headers: headers(token), body: JSON.stringify(body) }"},
+ {"label": "assignment posted to the Tasks list", "find": "U.items(ctx.asgListId)", "replace": "U.items(ctx.tasksListId)"},
+ {"label": "assignment body not wrapped in fields", "find": "{ fields: c.asg }", "replace": "c.asg"},
+ {"label": "failed assignment still posts its tasks", "find": "failed.push({ tplId: c.tplId, stage: 'asg', status: ar.status });\n        continue;", "replace": "failed.push({ tplId: c.tplId, stage: 'asg', status: ar.status });"},
+ {"label": "assignment with no id treated as created", "find": "if (!ar.ok || !row || row.id == null) {", "replace": "if (!ar.ok) {"},
+ {"label": "a failed task stops the rest", "find": "failed.push({ tplId: c.tplId, stage: 'task', title: task.Title, status: tr.status });\n          continue;", "replace": "failed.push({ tplId: c.tplId, stage: 'task', title: task.Title, status: tr.status });\n          break;"},
+ {"label": "failed task not named", "find": "title: task.Title, status: tr.status", "replace": "status: tr.status"},
+ {"label": "failed task counted as created", "find": "if (!tr.ok || !trow || trow.id == null) {", "replace": "if (!tr.ok && false) {"},
+ {"label": "created not reported", "find": "created.push({ tplId: c.tplId, asgId: asgId, taskIds: taskIds });", "replace": ""}
+]

@@ -213,7 +213,78 @@
     return { done: done, failed: failed };
   }
 
+  /* A Tasks create linked to the Assignments row just made. The Tasks list has
+     no SuppressReconcileUntil column, and sending a column a list does not
+     have fails the write outright, so it is stripped even if a plan carries it. */
+  function structureTaskBody(task, asgId) {
+    var b = {};
+    Object.keys(task).forEach(function (k) { if (k !== 'SuppressReconcileUntil') b[k] = task[k]; });
+    b.AssignmentLookupId = String(asgId);
+    return { fields: b };
+  }
+
+  /* POST with up to two retries on a 429 or 503, waiting Retry-After seconds
+     (2 when absent or not a number). Any other status, and a network error
+     (status 0), is returned at once. */
+  async function postRetrying(f, sleep, url, token, body) {
+    for (var attempt = 0; ; attempt++) {
+      var r;
+      try {
+        r = await f(url, { method: 'POST', headers: headers(token), body: JSON.stringify(body) });
+      } catch (e) {
+        return { ok: false, status: 0 };
+      }
+      if ((r.status === 429 || r.status === 503) && attempt < 2) {
+        var raw = r.headers && r.headers.get ? r.headers.get('Retry-After') : null;
+        var ra = raw == null || String(raw).trim() === '' ? NaN : Number(raw); // Number(null) is 0, not absent
+        await sleep((isFinite(ra) && ra >= 0 ? ra : 2) * 1000);
+        continue;
+      }
+      return r;
+    }
+  }
+
+  /* Create the rows planStructureCreates (writeback-core.js) planned: each
+     Assignment, then its tasks in order. A failed Assignment posts none of its
+     tasks, because a task with no parent is an orphan nothing reads. A failed
+     task is recorded by title and the rest continue, so one bad row never
+     discards the others. Sequential on purpose: each task needs its parent's
+     id, and these are few. */
+  async function applyStructureCreates(plan, ctx) {
+    var f = ctx.fetchImpl || (typeof fetch !== 'undefined' ? fetch : null);
+    if (!f) throw new Error('No fetch implementation available.');
+    var sleep = ctx.sleep || function (ms) { return new Promise(function (res) { setTimeout(res, ms); }); };
+    var U = urls(ctx.siteId);
+    var created = [], failed = [];
+    var list = (plan && plan.creates) || [];
+    for (var i = 0; i < list.length; i++) {
+      var c = list[i];
+      var ar = await postRetrying(f, sleep, U.items(ctx.asgListId), ctx.token, { fields: c.asg });
+      var row = null;
+      if (ar.ok) { try { row = await ar.json(); } catch (e) { row = null; } }
+      if (!ar.ok || !row || row.id == null) {
+        failed.push({ tplId: c.tplId, stage: 'asg', status: ar.status });
+        continue;
+      }
+      var asgId = String(row.id), taskIds = [];
+      for (var t = 0; t < (c.tasks || []).length; t++) {
+        var task = c.tasks[t];
+        var tr = await postRetrying(f, sleep, U.items(ctx.tasksListId), ctx.token, structureTaskBody(task, asgId));
+        var trow = null;
+        if (tr.ok) { try { trow = await tr.json(); } catch (e) { trow = null; } }
+        if (!tr.ok || !trow || trow.id == null) {
+          failed.push({ tplId: c.tplId, stage: 'task', title: task.Title, status: tr.status });
+          continue;
+        }
+        taskIds.push(String(trow.id));
+      }
+      created.push({ tplId: c.tplId, asgId: asgId, taskIds: taskIds });
+    }
+    return { created: created, failed: failed };
+  }
+
   return {
+    structureTaskBody: structureTaskBody, applyStructureCreates: applyStructureCreates,
     urls: urls, headers: headers, resolveSiteUserId: resolveSiteUserId,
     patchBody: patchBody, createBody: createBody, statusBody: statusBody,
     applyWrites: applyWrites, commentBody: commentBody, applyRejectionOps: applyRejectionOps
