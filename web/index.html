@@ -3370,12 +3370,18 @@ async function openCompleted(jobno){
    templates and the work calendar alone. Used after rows are created for a project (the Features
    drawer), so the new sub-phases arrive with their real row ids. Returns false and leaves the
    project as it was on any read failure: a partial read is never applied. No dialog, and the
-   header's "refreshed" stamp is not touched, because the rest of the schedule was not re-read. */
+   header's "refreshed" stamp is not touched, because the rest of the schedule was not re-read.
+   DESTRUCTIVE: it replaces this project's rows with SharePoint's, so any unsaved edit on it is
+   discarded (call it only after stopForUnsaved(..., j) or a Save), and it clears readOnly, so a
+   project opened read-only from Completed projects comes back editable.
+   On failure it returns false and sets refreshOneProject.lastError to the cause (an Error, with
+   .status for an HTTP failure); it is null after a success. */
 async function refreshOneProject(j){
-  if(!j||j.spId==null)return false;
+  refreshOneProject.lastError=null;
+  if(!j||j.spId==null){refreshOneProject.lastError=new Error('That project has no SharePoint id.');return false;}
   try{
     const tok=await graphToken(), R=window.D2GraphToPlanner, GW=window.D2GraphWriteback;
-    if(!R)return false;
+    if(!R)throw new Error('The schedule reader is not loaded.');
     if(!LAST_GRAPH){
       const site=await graphSite(tok), base='https://graph.microsoft.com/v1.0/sites/'+site.id+'/lists/';
       const [cal,req]=await Promise.all(['cal','req'].map(k=>graphPageAll(base+D2_GRAPH.lists[k]+'/items?$expand=fields&$top=500',tok)));
@@ -3383,7 +3389,7 @@ async function refreshOneProject(j){
     }
     const base=LAST_GRAPH.base;
     const jr=await fetch(base+D2_GRAPH.lists.jobs+'/items/'+encodeURIComponent(j.spId)+'?$expand=fields',{headers:{Authorization:'Bearer '+tok}});
-    if(!jr.ok)throw graphHttpError('Graph '+jr.status+' reading the project',jr.status);
+    if(!jr.ok)throw graphHttpError(jr.status===404?'That project is no longer in SharePoint.':'Graph '+jr.status+' reading the project',jr.status);
     const row=await jr.json();
     if(!row||!row.fields)throw new Error('That project is no longer in SharePoint.');
     const lr=await R.readLive({jobs:[row], pageAll:u=>graphPageAll(u,tok),
@@ -3396,12 +3402,12 @@ async function refreshOneProject(j){
     const payload=R.toPlannerPayload({site:LAST_GRAPH.site, cal:LAST_GRAPH.cal, req, users, comments,
       jobs:[row], asg:lr.asg, tasks:lr.tasks},{includeComplete:true});
     const inj=payload.jobs&&payload.jobs[0];
-    if(!inj)return false;
+    if(!inj)throw new Error('SharePoint returned nothing for that project.');
     applyJobPayload(j,inj);
     delete j.touchedAt;
     save(); render();
     return true;
-  }catch(e){ return false; }
+  }catch(e){ refreshOneProject.lastError=e; return false; }
 }
 async function loadFromD2ViaGraph(silent,opts){
   const tok=await graphToken(opts);
