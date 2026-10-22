@@ -18,14 +18,14 @@
 
   /* The reason written on a task or sub-phase set N/A because the project
      does not have the feature. */
-  function autoReason(name) { return name + ' not on this project'; }
+  function autoReason(name) { return String(name).trim() + ' not on this project'; }
 
   /* Raw template Feature column wins; an optional line with none is its own
      feature, named by its title; a plain line has no feature. */
   function secFeatureName(sec) {
     const f = sec && sec.feature != null ? String(sec.feature).trim() : '';
     if (f) return f;
-    return sec && sec.optional ? sec.name : null;
+    return sec && sec.optional && sec.name != null ? String(sec.name).trim() : null;
   }
 
   function byName(a, b) { return a.key < b.key ? -1 : a.key > b.key ? 1 : 0; } // key is the case-insensitive name
@@ -96,5 +96,63 @@
     return out;
   }
 
-  return { featureKey, autoReason, secFeatureName, templateFeatures, projectFeatures, missingTemplateLines };
+  /* What flipping one feature on or off does to a project, as data. Nothing is
+     applied here: the caller writes the plan to the groups and reflows from
+     firstSec. "Signed" reads s.base.inst, the state SharePoint holds, never the
+     on-screen tick, so an unsaved tick can neither protect nor expose a row.
+     Only the automatic reason is ever cleared on On; a PM's own N/A note stays. */
+  function planSwitch(groups, tpl, key, on) {
+    const plan = { secs: [], tasks: [], creates: [], left: [], firstSec: null };
+    const k = featureKey(key);
+    const feat = projectFeatures(groups, tpl).find(f => f.key === k);
+    if (!feat) return plan;
+    const gs = groups || [];
+    const signed = (s) => !!(s.base && s.base.inst);
+    const leftSigned = new Set();
+    const leave = (gi, si, reason) => {
+      if (reason === 'signed') { const id = gi + ':' + si; if (leftSigned.has(id)) return; leftSigned.add(id); }
+      plan.left.push({ gi, si, num: gs[gi].sections[si].num, reason });
+    };
+    const reason = autoReason(feat.name);
+    feat.rows.forEach(({ gi, si }) => {
+      const s = gs[gi].sections[si];
+      const label = s.num + ' ' + s.name;
+      if (on) {
+        if (!s.skip) return;
+        if (signed(s)) { leave(gi, si, 'signed'); return; }
+        plan.secs.push({ gi, si, skip: false, label });
+      } else {
+        if (s.skip) return;
+        if (signed(s)) { leave(gi, si, 'signed'); return; }
+        if ((s.tasks || []).some(t => t.done)) { leave(gi, si, 'done'); return; }
+        plan.secs.push({ gi, si, skip: true, label });
+      }
+    });
+    feat.taskRefs.forEach(({ gi, si, ti }) => {
+      const s = gs[gi].sections[si];
+      const t = s.tasks[ti];
+      const label = s.num + ' ' + t.t;
+      if (on) {
+        if (!t.na) return;
+        if (t.note !== reason) { leave(gi, si, 'pm-na'); return; }
+        if (signed(s)) { leave(gi, si, 'signed'); return; }
+        plan.tasks.push({ gi, si, ti, na: false, note: '', label });
+      } else {
+        if (t.done || t.na) return;
+        if (signed(s)) { leave(gi, si, 'signed'); return; }
+        plan.tasks.push({ gi, si, ti, na: true, note: reason, label });
+      }
+    });
+    if (on) {
+      const have = new Set();
+      gs.forEach(g => (g.sections || []).forEach(s => { if (s.templateItemId != null) have.add(String(s.templateItemId)); }));
+      feat.secs.forEach(x => { if (!have.has(String(x.tplId))) plan.creates.push({ tplId: x.tplId, num: x.num, name: x.name }); });
+    }
+    plan.secs.forEach(x => {
+      if (!plan.firstSec || x.gi < plan.firstSec.gi || (x.gi === plan.firstSec.gi && x.si < plan.firstSec.si)) plan.firstSec = { gi: x.gi, si: x.si };
+    });
+    return plan;
+  }
+
+  return { featureKey, autoReason, secFeatureName, templateFeatures, projectFeatures, missingTemplateLines, planSwitch };
 });

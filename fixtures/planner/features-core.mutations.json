@@ -1,15 +1,122 @@
 [
-  {"label": "key not lowercased", "find": "String(name).trim().toLowerCase()", "replace": "String(name).trim()"},
-  {"label": "key not trimmed", "find": "String(name).trim().toLowerCase()", "replace": "String(name).toLowerCase()"},
-  {"label": "task tags ignored", "find": "const tf = get((sec.taskFeature || [])[i]);", "replace": "const tf = null;"},
-  {"label": "project task tags ignored", "find": "const tr = rec(t.feature);", "replace": "const tr = null;"},
-  {"label": "features on rows but not in template dropped", "find": "if (!map.has(key)) map.set(key, { key, name: String(name).trim(), secs: [], tasks: [] });\n      return map.get(key);", "replace": "if (!map.has(key)) return null;\n      return map.get(key);"},
-  {"label": "optional lines leak into missing", "find": "if (!sec.optional && !have.has(String(sec.id)))", "replace": "if (!have.has(String(sec.id)))"},
-  {"label": "partly collapsed to on", "find": "on === fl.length ? 'on' : on === 0 ? 'off' : 'partly'", "replace": "on === 0 ? 'off' : 'on'"},
-  {"label": "partly collapsed to off", "find": "on === fl.length ? 'on' : on === 0 ? 'off' : 'partly'", "replace": "on === fl.length ? 'on' : 'off'"},
-  {"label": "absent reported as off", "find": "!fl.length ? 'absent'", "replace": "!fl.length ? 'off'"},
-  {"label": "reason text changed", "find": "name + ' not on this project'", "replace": "name + ' not needed'"},
-  {"label": "optional line without a tag gets no feature", "find": "return sec && sec.optional ? sec.name : null;", "replace": "return null;"},
-  {"label": "blank tag treated as a name", "find": "if (f) return f;", "replace": "if (sec && sec.feature != null) return sec.feature;"},
-  {"label": "not sorted", "find": ".sort(byName).map(f => {", "replace": ".map(f => {"}
+ {
+  "label": "key not lowercased",
+  "find": "String(name).trim().toLowerCase()",
+  "replace": "String(name).trim()"
+ },
+ {
+  "label": "key not trimmed",
+  "find": "String(name).trim().toLowerCase()",
+  "replace": "String(name).toLowerCase()"
+ },
+ {
+  "label": "task tags ignored",
+  "find": "const tf = get((sec.taskFeature || [])[i]);",
+  "replace": "const tf = null;"
+ },
+ {
+  "label": "project task tags ignored",
+  "find": "const tr = rec(t.feature);",
+  "replace": "const tr = null;"
+ },
+ {
+  "label": "features on rows but not in template dropped",
+  "find": "if (!map.has(key)) map.set(key, { key, name: String(name).trim(), secs: [], tasks: [] });\n      return map.get(key);",
+  "replace": "if (!map.has(key)) return null;\n      return map.get(key);"
+ },
+ {
+  "label": "optional lines leak into missing",
+  "find": "if (!sec.optional && !have.has(String(sec.id)))",
+  "replace": "if (!have.has(String(sec.id)))"
+ },
+ {
+  "label": "partly collapsed to on",
+  "find": "on === fl.length ? 'on' : on === 0 ? 'off' : 'partly'",
+  "replace": "on === 0 ? 'off' : 'on'"
+ },
+ {
+  "label": "partly collapsed to off",
+  "find": "on === fl.length ? 'on' : on === 0 ? 'off' : 'partly'",
+  "replace": "on === fl.length ? 'on' : 'off'"
+ },
+ {
+  "label": "absent reported as off",
+  "find": "!fl.length ? 'absent'",
+  "replace": "!fl.length ? 'off'"
+ },
+ {
+  "label": "reason text changed",
+  "find": "' not on this project'",
+  "replace": "' not needed'"
+ },
+ {
+  "label": "optional line without a tag gets no feature",
+  "find": "sec.name != null ? String(sec.name).trim() : null;",
+  "replace": "false ? 1 : null;"
+ },
+ {
+  "label": "blank tag treated as a name",
+  "find": "if (f) return f;",
+  "replace": "if (sec && sec.feature != null) return sec.feature;"
+ },
+ {
+  "label": "not sorted",
+  "find": ".sort(byName).map(f => {",
+  "replace": ".map(f => {"
+ },
+ {
+  "label": "signed reads on-screen inst",
+  "find": "const signed = (s) => !!(s.base && s.base.inst);",
+  "replace": "const signed = (s) => !!s.inst;"
+ },
+ {
+  "label": "auto-reason compare dropped",
+  "find": "if (t.note !== reason) { leave(gi, si, 'pm-na'); return; }",
+  "replace": ""
+ },
+ {
+  "label": "done tasks flipped on Off",
+  "find": "if (t.done || t.na) return;",
+  "replace": "if (t.na) return;"
+ },
+ {
+  "label": "done row skipped on Off",
+  "find": "if ((s.tasks || []).some(t => t.done)) { leave(gi, si, 'done'); return; }",
+  "replace": ""
+ },
+ {
+  "label": "signed row switched anyway",
+  "find": "if (signed(s)) { leave(gi, si, 'signed'); return; }\n        plan.secs.push({ gi, si, skip: false, label });",
+  "replace": "plan.secs.push({ gi, si, skip: false, label });"
+ },
+ {
+  "label": "signed section tasks switched anyway on Off",
+  "find": "if (signed(s)) { leave(gi, si, 'signed'); return; }\n        plan.tasks.push({ gi, si, ti, na: true",
+  "replace": "plan.tasks.push({ gi, si, ti, na: true"
+ },
+ {
+  "label": "creates dropped",
+  "find": "if (!have.has(String(x.tplId))) plan.creates.push",
+  "replace": "if (false) plan.creates.push"
+ },
+ {
+  "label": "firstSec not earliest",
+  "find": "x.gi < plan.firstSec.gi ||",
+  "replace": "x.gi > plan.firstSec.gi ||"
+ },
+ {
+  "label": "autoReason untrimmed",
+  "find": "String(name).trim() + ' not on this project'",
+  "replace": "String(name) + ' not on this project'"
+ },
+ {
+  "label": "title fallback untrimmed",
+  "find": "String(sec.name).trim() : null",
+  "replace": "sec.name : null"
+ },
+ {
+  "label": "left signed duplicated per task",
+  "find": "if (leftSigned.has(id)) return; leftSigned.add(id);",
+  "replace": ""
+ }
 ]

@@ -176,5 +176,68 @@ const mkJob = (o) => Object.assign({ id: 'j' + Math.random().toString(36).slice(
   ok('...and does reflow the row it starts from onwards',
      secB[2].start === '2027-09-22', 'landed ' + secB[2].start + ' (expected 2027-09-22)');
 
+  // ====== D-FEAT: reflowFrom opts (floor, pinStarted, fromPrev) for feature switches ======
+  const FLOOR = '2026-10-23';                       // a Friday, not a holiday
+  const mkFeat = () => {
+    const jF = mkJob({ jobno: 'FEAT' });
+    const sc = jF.groups[0].sections;
+    sc.push(mkSec({ num: '1', days: 2, start: '2026-08-06' }));                 // ends 2026-08-10 (Mon)
+    sc.push(mkSec({ num: '2', days: 2, start: null }));                         // re-enabled row
+    sc.push(mkSec({ num: '3', days: 2, start: '2026-09-01' }));                 // already started
+    sc.push(mkSec({ num: '4', days: 2, start: '2026-11-30' }));                 // later work
+    S.jobs = [jF];
+    return { jF, sc };
+  };
+  {
+    const { jF, sc } = mkFeat();
+    win.reflowFrom(jF.id, 0, 1, undefined, { floor: FLOOR, pinStarted: true, fromPrev: true });
+    ok('floor wins over an earlier previous row', sc[1].start === FLOOR, sc[1].start);
+    ok('pinStarted leaves an already-started row where it is', sc[2].start === '2026-09-01', sc[2].start);
+    ok('a later row moves to follow the re-enabled one', sc[3].start === '2026-10-26', sc[3].start);
+  }
+  {
+    const { jF, sc } = mkFeat();
+    win.reflowFrom(jF.id, 0, 1, undefined, { floor: FLOOR, fromPrev: true });
+    ok('without pinStarted the started row is pulled forward too', sc[2].start === '2026-10-26', sc[2].start);
+  }
+  {
+    const { jF, sc } = mkFeat();
+    sc[0].start = '2026-10-30';                                                  // previous row ends after the floor
+    win.reflowFrom(jF.id, 0, 1, undefined, { floor: FLOOR, pinStarted: true, fromPrev: true });
+    ok('fromPrev follows the previous row when it ends after the floor', sc[1].start === '2026-11-02', sc[1].start);
+  }
+  {
+    const { jF, sc } = mkFeat();
+    sc[1].start = '2026-12-14';
+    win.reflowFrom(jF.id, 0, 1, undefined, { floor: FLOOR, fromPrev: true });
+    ok('fromPrev ignores the own start of the row', sc[1].start === FLOOR, sc[1].start);
+  }
+  {
+    const { jF, sc } = mkFeat();
+    sc[0].skip = true; sc[0].start = '2026-11-02';                               // off row must not set the cursor
+    win.reflowFrom(jF.id, 0, 1, undefined, { floor: FLOOR, fromPrev: true });
+    ok('fromPrev skips an off (skip) previous row', sc[1].start === FLOOR, sc[1].start);
+  }
+  {
+    const jU = mkJob({ jobno: 'FEATP' });
+    jU.groups[0].sections.push(mkSec({ num: '1', days: 2, start: null }));
+    S.jobs = [jU];
+    win.reflowFrom(jU.id, 0, 0, undefined, { floor: '2026-01-05', fromPrev: true });
+    ok('with no previous row the cursor is the floor, not today', jU.groups[0].sections[0].start === '2026-01-05', jU.groups[0].sections[0].start);
+  }
+  {
+    const jU = mkJob({ jobno: 'FEATU' });
+    jU.groups[0].sections.push(mkSec({ num: '1', days: 2, start: null }), mkSec({ num: '2', days: 2, start: null }));
+    S.jobs = [jU];
+    win.reflowFrom(jU.id, 0, 0, undefined, { floor: FLOOR, pinStarted: true, fromPrev: true });
+    ok('an undated project starts at the floor', jU.groups[0].sections[0].start === FLOOR, jU.groups[0].sections[0].start);
+    ok('...and its next row follows', jU.groups[0].sections[1].start === '2026-10-26', jU.groups[0].sections[1].start);
+  }
+  {
+    const { jF, sc } = mkFeat();
+    const r = win.reflowFrom(jF.id, 0, 1);
+    ok('no opts: behaves as before (starts from the row, today when undated)', sc[1].start && sc[1].start >= '2026-10-22' && r.pinned === 0, sc[1].start);
+  }
+
   process.exit(fail);
 })();

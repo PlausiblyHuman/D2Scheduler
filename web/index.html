@@ -695,7 +695,7 @@ function jobSortControl(){
 
    Rows before the starting one are never touched, exactly as FromSequence works
    server-side. Returns what happened so the caller can explain a no-op. */
-function reflowFrom(jobId,gi,si,fromDate){
+function reflowFrom(jobId,gi,si,fromDate,opts){
   const j=S.jobs.find(x=>x.id===jobId); if(!j)return null;
   const list=allSecs(j);
   const at=list.findIndex(x=>x.gi===gi&&x.si===si);
@@ -703,13 +703,22 @@ function reflowFrom(jobId,gi,si,fromDate){
   const adv=(st,days)=>nextWork(addCal(workSpan(st,days).pop(),1));
   // fromDate lets a slipped sub-phase be pushed to today rather than reflowed
   // from where it already (wrongly) sits.
+  const o=opts||{}, floor=o.floor||null;
   let cursor=fromDate?nextWork(fromDate):(list[at].s.start||todayStr());
+  if(o.fromPrev){
+    // Start after the nearest earlier applicable row that has a start, so a
+    // re-enabled row follows the work before it rather than its own old date.
+    let prev=null;
+    for(let k=at-1;k>=0;k--){const p=list[k].s; if(!p.skip&&p.start){prev=p;break;}}
+    cursor=prev?adv(prev.start,prev.days>0?prev.days:1):(floor?nextWork(floor):todayStr());
+  }
+  if(floor){const f=nextWork(floor); if(f>cursor)cursor=f;}
   let moved=0,pinned=0,badDays=0;
   for(let i=at;i<list.length;i++){
     const s=list[i].s;
     if(s.skip)continue;
     if(!(s.days>0)){badDays++;continue;}          // logged, never guessed at
-    if(s.locked||s.inst){                          // pinned or signed: leave it
+    if(s.locked||s.inst||(o.pinStarted&&floor&&s.start&&s.start<floor)){ // pinned, signed or already started: leave it
       if(s.start){const nc=adv(s.start,s.days); if(nc>cursor)cursor=nc;}
       pinned++; continue;
     }

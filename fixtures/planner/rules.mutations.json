@@ -1,0 +1,7 @@
+[
+  {"label": "floor ignored", "find": "if(floor){const f=nextWork(floor); if(f>cursor)cursor=f;}", "replace": ""},
+  {"label": "pinStarted ignored", "find": "(o.pinStarted&&floor&&s.start&&s.start<floor)", "replace": "false"},
+  {"label": "fromPrev uses the row's own start", "find": "if(o.fromPrev){", "replace": "if(false){"},
+  {"label": "fromPrev falls back to today not floor", "find": "(floor?nextWork(floor):todayStr())", "replace": "todayStr()"},
+  {"label": "fromPrev ignores skipped-row rule", "find": "if(!p.skip&&p.start){prev=p;break;}", "replace": "if(p.start){prev=p;break;}"}
+]

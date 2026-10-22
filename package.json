@@ -3,7 +3,7 @@
   "private": true,
   "description": "Test harnesses only. This repo is not a Node project; jsdom is here so the browser-planner fixtures can run the real HTML file.",
   "scripts": {
-    "test": "node oracle-test.js && node fixtures/planner/determinism.js && node fixtures/planner/roundtrip.js && node fixtures/planner/empty.js && node fixtures/planner/live-export.js && node fixtures/planner/signin.js && node fixtures/planner/office-views.js && node fixtures/planner/rejections.js && node fixtures/planner/board-controls.js && node fixtures/planner/restore.js && node fixtures/planner/inline-edit.js && node fixtures/planner/job-order.js && node fixtures/planner/complete.js && node fixtures/planner/save-first.js && node fixtures/planner/build-type.js && node fixtures/planner/features-core.js"
+    "test": "node oracle-test.js && node fixtures/planner/determinism.js && node fixtures/planner/roundtrip.js && node fixtures/planner/empty.js && node fixtures/planner/live-export.js && node fixtures/planner/signin.js && node fixtures/planner/office-views.js && node fixtures/planner/rejections.js && node fixtures/planner/board-controls.js && node fixtures/planner/restore.js && node fixtures/planner/inline-edit.js && node fixtures/planner/job-order.js && node fixtures/planner/complete.js && node fixtures/planner/save-first.js && node fixtures/planner/build-type.js && node fixtures/planner/features-core.js && node fixtures/planner/rules.js"
   },
   "devDependencies": {
     "jsdom": "^24.0.0"
