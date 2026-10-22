@@ -1466,7 +1466,7 @@ function vJobs(){
     ${pend.map(c=>`<tr>
       <td class="mono small">${esc(c.jobno)}</td>
       <td>${esc(c.name)}</td>
-      <td class="small">${esc(c.buildType||'Gunite')}</td>
+      <td class="small">${esc(c.buildType||'Gunite')}${(c.features||[]).length?`<div class="muted small">${esc(c.features.join(', '))}</div>`:''}</td>
       <td class="small">${c.pmName?esc(c.pmName):'<span class="muted">You</span>'}</td>
       <td class="small muted">${esc([c.addr,c.city].filter(Boolean).join(', '))}</td>
       <td class="small muted">${pretty(c.start)}</td>
@@ -1853,6 +1853,19 @@ function ncTypeChanged(){
   const el=document.getElementById('ncTypeCopy'); if(el)el.innerHTML=ncTypeCopy(t);
   const c=tplCounts(t), u=document.getElementById('ncUnassignedCopy');
   if(u)u.textContent=c?`Unchecked leaves all ${c.secs} sub-phases`:'Unchecked leaves every sub-phase';
+  const ff=document.getElementById('ncFeaturesList'); if(ff)ff.innerHTML=ncFeaturesHTML(t);
+}
+/* The optional features of a build type, as tick boxes. Hosted only: a downloaded
+   copy hands its change-set to a console script that cannot carry them. */
+function ncFeaturesHTML(type){
+  if(!graphModeAvailable())return '<div class="hint" style="padding:0">Features can be picked in the hosted planner</div>';
+  const fl=window.D2FeaturesCore.templateFeatures(templateFor(type));
+  if(!fl.length)return `<div class="hint" style="padding:0">No optional features in the ${esc(type)} template yet</div>`;
+  const plur=(n,w)=>n+' '+w+(n===1?'':'s');
+  return fl.map(f=>{
+    const cov=[f.secs.length?plur(f.secs.length,'sub-phase'):'',f.tasks.length?plur(f.tasks.length,'task'):''].filter(Boolean).join(', ');
+    return `<label style="display:block;margin:2px 0"><input type="checkbox" name="ncFeat" value="${esc(f.name)}"> ${esc(f.name)} <span class="muted small">(${cov})</span></label>`;
+  }).join('');
 }
 function addJob(){
   document.getElementById('dTitle').textContent='Request a new pool';
@@ -1878,7 +1891,10 @@ function addJob(){
       <div class="hint" style="padding:4px 0 0">Checked pulls each sub-phase's default crew from the
       template (rule 1 is checked nightly by D2 - Crew Trade Check either way, never enforced at
       creation). <span id="ncUnassignedCopy">${tplCounts('Gunite')?'Unchecked leaves all '+tplCounts('Gunite').secs+' sub-phases':'Unchecked leaves every sub-phase'}</span> <span class="mono">unassigned</span> for a PM to
-      allocate by hand.</div></div>`;
+      allocate by hand.</div></div>
+    <div class="fld" id="ncFeatures"><label>Optional features</label>
+      <div class="hint" style="padding:0 0 4px">Ticked features are built into the project; the rest are left out and can be added later.</div>
+      <div id="ncFeaturesList">${ncFeaturesHTML('Gunite')}</div></div>`;
   document.getElementById('dFoot').innerHTML=
     `<button class="btn p" id="ncSubmit" onclick="confirmNewPoolRequest()">Queue request</button>
      <button class="btn" onclick="closeDrawer()">Cancel</button>`;
@@ -1917,6 +1933,7 @@ function confirmNewPoolRequest(){
   const start=document.getElementById('ncStart').value;
   const assignDefaultCrews=document.getElementById('ncAssignCrews').checked;
   const buildType=(document.querySelector('input[name=ncType]:checked')||{}).value==='Fiberglass'?'Fiberglass':'Gunite';
+  const features=[...document.querySelectorAll('#ncFeatures input[name=ncFeat]:checked')].map(b=>b.value);
   // Blank means "whoever is signed in when Save runs", resolved in pushCreates.
   const pmSel=document.getElementById('ncPm');
   const pmId=pmSel&&pmSel.value?pmSel.value:null;
@@ -1926,7 +1943,7 @@ function confirmNewPoolRequest(){
   if(S.jobs.some(j=>String(j.jobno)===jobno)||S.pendingCreates.some(c=>c.jobno===jobno)){
     alert(jobno+' is already in use here — pick a different job number.');return;}
   S.pendingCreates.push({id:'pc'+Math.random().toString(36).slice(2,8),
-    jobno,name,addr,city,start,assignDefaultCrews,buildType,pmId,pmName,queuedAt:new Date().toISOString(),requestedAt:null});
+    jobno,name,addr,city,start,assignDefaultCrews,buildType,features,pmId,pmName,queuedAt:new Date().toISOString(),requestedAt:null});
   closeDrawer();
   TAB='jobs';
   document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.t==='jobs'));
@@ -2461,6 +2478,7 @@ function buildPendingCreates(){
     .map(c=>({jobno:c.jobno,name:c.name,addr:c.addr||'',city:c.city||'',start:c.start,
       assignDefaultCrews:!!c.assignDefaultCrews,
       buildType:c.buildType==='Fiberglass'?'Fiberglass':'Gunite',
+      features:Array.isArray(c.features)?c.features.slice():[],
       // The PM picked on + Job. These two were dropped here until 2026-10-13, so Save always
       // sent the signed-in user whatever the form said.
       pmId:c.pmId==null||c.pmId===''?null:String(c.pmId), pmName:c.pmName||''}));

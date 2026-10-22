@@ -3,7 +3,7 @@
  {"label": "PM dropped again in buildPendingCreates", "find": "pmId:c.pmId==null||c.pmId===''?null:String(c.pmId), pmName:c.pmName||''", "replace": "pmId:null, pmName:''"},
  {"label": "confirm ignores the radio", "find": "value==='Fiberglass'?'Fiberglass':'Gunite';", "replace": "value==='Fiberglass'?'Gunite':'Gunite';"},
  {"label": "ncTypeChanged does nothing", "find": "  const t=(document.querySelector('input[name=ncType]:checked')||{}).value||'Gunite';\n  const el=", "replace": "  return;\n  const el="},
- {"label": "pending card hides the type", "find": "<td class=\"small\">${esc(c.buildType||'Gunite')}</td>", "replace": "<td class=\"small\"></td>"},
+ {"label": "pending card hides the type", "find": "<td class=\"small\">${esc(c.buildType||'Gunite')}${(c.features", "replace": "<td class=\"small\">${(c.features"},
  {"label": "newJob ignores the type", "find": "groups:mkJobGroups(templateFor(buildType))", "replace": "groups:mkJobGroups(templateFor('Gunite'))"},
  {"label": "import never stores templates", "find": "if(Object.keys(t).length){S.templates=t;S.templatesFrom=new Date().toISOString();}", "replace": "if(false){}"},
  {"label": "Fiberglass falls back to the Gunite template", "find": "return type==='Gunite'?mkTemplate():[];", "replace": "return mkTemplate();"},
@@ -11,5 +11,13 @@
  {"label": "migration keeps S.template", "find": "delete S.template;/*", "replace": "/*"},
  {"label": "fromSp ignores the timestamp", "find": "const fromSp=!!(have[type]&&S.templatesFrom);", "replace": "const fromSp=!!have[type];"},
  {"label": "switch ignored", "find": "const type=UI.tplType==='Fiberglass'&&have.Fiberglass?'Fiberglass':'Gunite';", "replace": "const type='Gunite';"},
- {"label": "hint lies about the source", "find": "?`From SharePoint, as of", "replace": "?`Built-in copy of the Gunite template, as of"}
+ {"label": "hint lies about the source", "find": "?`From SharePoint, as of", "replace": "?`Built-in copy of the Gunite template, as of"},
+ {"label": "form ignores the ticked features", "find": "[...document.querySelectorAll('#ncFeatures input[name=ncFeat]:checked')].map(b=>b.value)", "replace": "[]"},
+ {"label": "pending create drops features", "find": "buildType,features,pmId,pmName,queuedAt", "replace": "buildType,pmId,pmName,queuedAt"},
+ {"label": "buildPendingCreates drops features", "find": "features:Array.isArray(c.features)?c.features.slice():[],\n", "replace": "\n"},
+ {"label": "pending card hides the features", "find": "${(c.features||[]).length?`<div class=\"muted small\">${esc(c.features.join(', '))}</div>`:''}", "replace": ""},
+ {"label": "radio change leaves the old features", "find": "if(ff)ff.innerHTML=ncFeaturesHTML(t);", "replace": "if(ff)ff.innerHTML='';"},
+ {"label": "feature names painted unescaped", "find": "${esc(f.name)} <span class=\"muted small\">", "replace": "${f.name} <span class=\"muted small\">"},
+ {"label": "file mode offers the picks anyway", "find": "if(!graphModeAvailable())return '<div class=\"hint\" style=\"padding:0\">Features can be picked in the hosted planner</div>';\n  const fl", "replace": "const fl"},
+ {"label": "coverage never pluralises", "find": "(n===1?'':'s')", "replace": "''"}
 ]

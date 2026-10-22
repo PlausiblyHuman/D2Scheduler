@@ -63,6 +63,7 @@ function boot() {
     .replace('<script src="graph-to-planner.js"></script>', inline('graph-to-planner.js'))
     .replace('<script src="writeback-core.js"></script>', inline('writeback-core.js'))
     .replace('<script src="graph-writeback.js"></script>', inline('graph-writeback.js'))
+    .replace('<script src="features-core.js"></script>', inline('features-core.js'))
     .replace('</body>', `<script>window.__x=()=>{window.S=S;window.getUI=()=>UI;window.D2_GRAPH=D2_GRAPH;
        window.collapseAll=collapseAll;window.pushCreates=pushCreates;window.addJob=addJob;
        window.confirmNewPoolRequest=confirmNewPoolRequest;window.crew=crew;window.render=render;};</script><script>__x();</script></body>`);

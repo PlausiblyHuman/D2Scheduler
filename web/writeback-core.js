@@ -196,6 +196,15 @@
      run instructions actively train a re-run, because a request sits at
      "Building" for about sixteen minutes and looks stuck; two requests landing
      in one trigger batch yields 92 assignments and 590 tasks. */
+  function cleanFeatures(list) {
+    var seen = {}, out = [];
+    (Array.isArray(list) ? list : []).forEach(function (n) {
+      var name = n == null ? '' : String(n).trim(), key = name.toLowerCase();
+      if (!name || seen[key]) return;
+      seen[key] = true; out.push(name);
+    });
+    return out;
+  }
   function planCreates(creates, liveJobNumbers, pendingJobNumbers) {
     var taken = {};
     (liveJobNumbers || []).concat(pendingJobNumbers || []).forEach(function (n) {
@@ -223,6 +232,9 @@
         assignDefaultCrews: !!c.assignDefaultCrews,
         // Choice columns validate nothing on a REST write; normalise here.
         buildType: c.buildType === 'Fiberglass' ? 'Fiberglass' : 'Gunite',
+        // Optional features picked on + Job, by display name: trimmed, blanks
+        // dropped, one per feature identity (name, trimmed and lower-cased).
+        features: cleanFeatures(c.features),
         // The PM picked on + Job, as a site-user id. Null means "whoever is
         // signed in when Save runs", resolved by the caller.
         pmId: c.pmId == null || c.pmId === '' ? null : String(c.pmId)

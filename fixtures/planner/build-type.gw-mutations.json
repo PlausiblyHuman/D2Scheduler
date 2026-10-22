@@ -1,0 +1,17 @@
+[
+ {
+  "label": "createBody never sends Features",
+  "find": "if (create.features && create.features.length) body.Features = create.features.join(';');",
+  "replace": ""
+ },
+ {
+  "label": "createBody always sends Features",
+  "find": "if (create.features && create.features.length) body.Features",
+  "replace": "if (true) body.Features"
+ },
+ {
+  "label": "createBody joins with a comma",
+  "find": "create.features.join(';')",
+  "replace": "create.features.join(',')"
+ }
+]

@@ -120,7 +120,7 @@
         + 'D2 - New Pool about sixteen minutes later, which reads as the tool '
         + 'hanging rather than as a rejected request.');
     }
-    return {
+    var body = {
       Title: create.name,                    // the POOL NAME, per every live row
       JobNumber: create.jobno,
       Address: create.addr || '',
@@ -138,6 +138,9 @@
       /* Status and Result are deliberately absent. Both are flow-owned, both
          are hidden from the New form, and Status defaults to Requested. */
     };
+    // Optional features, names joined by a semicolon; absent when none were picked.
+    if (create.features && create.features.length) body.Features = create.features.join(';');
+    return body;
   }
 
   function statusBody(status) { return { Status: status }; }

@@ -1,0 +1,22 @@
+[
+ {
+  "label": "planCreates drops features",
+  "find": "features: cleanFeatures(c.features),",
+  "replace": "features: [],"
+ },
+ {
+  "label": "planCreates keeps duplicates",
+  "find": "if (!name || seen[key]) return;",
+  "replace": "if (!name) return;"
+ },
+ {
+  "label": "planCreates keeps blanks",
+  "find": "if (!name || seen[key]) return;",
+  "replace": "if (seen[key]) return;"
+ },
+ {
+  "label": "planCreates does not trim",
+  "find": "var name = n == null ? '' : String(n).trim(), key",
+  "replace": "var name = n == null ? '' : String(n), key"
+ }
+]

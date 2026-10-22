@@ -10,10 +10,12 @@ const ok = (l, c, d) => { console.log((c ? 'PASS' : 'FAIL') + ' · ' + l + (d ? 
 const UIL = [{ id: '14', Title: 'Cody Campbell', Name: 'i:0#.f|membership|cody@d2pools.com', EMail: 'cody@d2pools.com' },
              { id: '16', Title: 'Don Borgeson', Name: 'i:0#.f|membership|don@d2pools.com', EMail: 'don@d2pools.com' }].map(f => ({ id: f.id, fields: f }));
 const MSAL_STUB = `<script>window.msal={PublicClientApplication:class{constructor(){} getActiveAccount(){return {username:'cody@d2pools.com'};} setActiveAccount(){} getAllAccounts(){return [{username:'cody@d2pools.com'}];} acquireTokenSilent(){return Promise.resolve({accessToken:'t'});} loginPopup(){return Promise.resolve({accessToken:'t',account:{username:'cody@d2pools.com'}});}}};</script>`;
-function boot() {
+function boot(opts) {
+  opts = opts || {};
   const inline = f => '<script>' + fs.readFileSync(path.join(WEB, f), 'utf8') + '</script>';
   const html = fs.readFileSync(path.join(WEB, 'index.html'), 'utf8')
-    .replace('<script src="vendor/msal-browser.min.js"></script>', MSAL_STUB)
+    .replace('<script src="vendor/msal-browser.min.js"></script>', opts.noMsal ? '' : MSAL_STUB)
+    .replace('<script src="features-core.js"></script>', inline('features-core.js'))
     .replace('<script src="graph-to-planner.js"></script>', inline('graph-to-planner.js'))
     .replace('<script src="writeback-core.js"></script>', inline('writeback-core.js'))
     .replace('<script src="graph-writeback.js"></script>', inline('graph-writeback.js'))
@@ -164,6 +166,68 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
     btn.click(); m = w.document.getElementById('main');
     ok('switching shows the 45 Fiberglass sub-phases under 10 phases', m.querySelectorAll('tbody tr').length === 45 + 10 && /Crane Set and Shell Placement/.test(m.textContent));
     ok('the switch is remembered until reload', w.getUI().tplType === 'Fiberglass');
+    ok('no page errors', errs.length === 0, errs.join(' | '));
+  }
+  // ---- optional features on + Job (Task 8)
+  {
+    const mk = (id, num, name, extra) => Object.assign({ id, num, name, skill: null, days: 2, tasks: ['t'], optional: false, feature: null, taskFeature: [null], seq: id, taskSeq: [1] }, extra || {});
+    const FEATS = () => ({
+      Gunite: [{ num: '1', name: 'p', sections: [
+        mk(1, '1.1', 'Plain'),
+        mk(2, '1.2', 'Cover install', { optional: true, feature: 'Auto Cover', tasks: ['a', 'b'], taskFeature: [null, 'Auto Cover'] }),
+        mk(3, '1.3', 'Spa A', { optional: true, feature: 'Spa <i>"Falls"</i>' }),
+        mk(4, '1.4', 'Spa B', { optional: true, feature: 'spa <i>"falls"</i>' })] }],
+      Fiberglass: [{ num: '1', name: 'p', sections: [mk(10, '1.1', 'Plain')] }] });
+    const { w, errs, net } = boot(); await wait(600);
+    await w.refreshLive(true); await wait(300);
+    w.S.templates = FEATS();
+    w.addJob();
+    const fs8 = () => w.document.getElementById('ncFeatures');
+    const boxes = () => [...w.document.querySelectorAll('#ncFeatures input[type=checkbox]')];
+    ok('+ Job renders a features fieldset with one unticked box per feature', fs8() && boxes().length === 2 && boxes().every(b => !b.checked), boxes().length);
+    const txt = fs8().textContent;
+    ok('each box is labelled with its name and coverage', /Auto Cover.*1 sub-phase, 1 task/s.test(txt) && /Spa <i>.*2 sub-phases/s.test(txt) && !/2 sub-phases, 0/.test(txt), txt);
+    ok('a feature name is escaped when painted', fs8().querySelector('i') === null && boxes().some(b => b.value === 'Spa <i>"Falls"</i>'));
+    const fr8 = w.document.querySelectorAll('input[name=ncType]')[1]; fr8.checked = true; fr8.dispatchEvent(new w.Event('change'));
+    ok('Fiberglass without features says so', /No optional features in the Fiberglass template yet/.test(fs8().textContent) && boxes().length === 0, fs8().textContent);
+    const gn = w.document.querySelectorAll('input[name=ncType]')[0]; gn.checked = true; gn.dispatchEvent(new w.Event('change'));
+    ok('switching back shows the Gunite features again', boxes().length === 2);
+    const ac = boxes().find(b => /Auto Cover/.test(b.parentNode.textContent)); ac.checked = true;
+    w.document.getElementById('ncJobNo').value = 'TEST-9960'; w.document.getElementById('ncName').value = 'Feat Test';
+    w.document.getElementById('ncPm').value = '16';
+    w.confirmNewPoolRequest();
+    const pcf = w.S.pendingCreates.find(c => c.jobno === 'TEST-9960');
+    ok('the pending create carries the picked features', pcf && JSON.stringify(pcf.features) === '["Auto Cover"]', pcf && JSON.stringify(pcf.features));
+    ok('the pending card shows the picked features', /Auto Cover/.test(w.document.getElementById('main').textContent));
+    const bf = w.buildPendingCreates().find(c => c.jobno === 'TEST-9960');
+    ok('buildPendingCreates carries features', bf && JSON.stringify(bf.features) === '["Auto Cover"]');
+    const C8 = require(path.join(WEB, 'writeback-core.js')), GW8 = require(path.join(WEB, 'graph-writeback.js'));
+    const pl = C8.planCreates([bf, Object.assign({}, bf, { jobno: 'TEST-9961', features: [' Auto Cover ', 'auto cover', '', 'Spa'] }), { jobno: 'TEST-9962', name: 'n', start: '2026-11-02' }], [], []).creates;
+    ok('planCreates carries features', JSON.stringify(pl[0].features) === '["Auto Cover"]', JSON.stringify(pl[0].features));
+    ok('planCreates trims, drops blanks and de-duplicates by feature key', JSON.stringify(pl[1].features) === '["Auto Cover","Spa"]', JSON.stringify(pl[1].features));
+    ok('planCreates gives a missing list as empty', JSON.stringify(pl[2].features) === '[]');
+    ok('createBody sends Features joined by a semicolon', GW8.createBody(pl[1], '16').Features === 'Auto Cover;Spa');
+    ok('createBody omits Features when none are picked', !('Features' in GW8.createBody(pl[2], '16')));
+    await w.pushCreates(G.siteId, 't', w.buildPendingCreates());
+    const post8 = net.posts.find(p => p.body && p.body.fields && p.body.fields.JobNumber === 'TEST-9960');
+    ok('the New Pool Requests POST carries Features', post8 && post8.body.fields.Features === 'Auto Cover', post8 && JSON.stringify(post8.body.fields));
+    w.addJob(); w.document.getElementById('ncJobNo').value = 'TEST-9963'; w.document.getElementById('ncName').value = 'No Feat';
+    w.confirmNewPoolRequest();
+    await w.pushCreates(G.siteId, 't', w.buildPendingCreates().filter(c => c.jobno === 'TEST-9963'));
+    const post9 = net.posts.find(p => p.body && p.body.fields && p.body.fields.JobNumber === 'TEST-9963');
+    ok('no picks sends no Features key', post9 && !('Features' in post9.body.fields));
+    ok('no page errors', errs.length === 0, errs.join(' | '));
+  }
+  {
+    const { w, errs } = boot({ noMsal: true }); await wait(600);
+    w.S.templates = { Gunite: [{ num: '1', name: 'p', sections: [{ id: 2, num: '1.2', name: 'C', optional: true, feature: 'Auto Cover', tasks: [], taskFeature: [] }] }] };
+    w.addJob();
+    const el = w.document.getElementById('ncFeatures');
+    ok('file mode shows only the hosted-planner sentence', el && /Features can be picked in the hosted planner/.test(el.textContent) && el.querySelectorAll('input').length === 0, el && el.textContent);
+    w.document.getElementById('ncJobNo').value = 'TEST-9964'; w.document.getElementById('ncName').value = 'File';
+    w.confirmNewPoolRequest();
+    const pf = w.S.pendingCreates.find(c => c.jobno === 'TEST-9964');
+    ok('file mode queues features: []', pf && Array.isArray(pf.features) && pf.features.length === 0);
     ok('no page errors', errs.length === 0, errs.join(' | '));
   }
   process.exit(fails ? 1 : 0);
