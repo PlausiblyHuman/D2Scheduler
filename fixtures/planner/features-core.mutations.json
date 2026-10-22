@@ -1,0 +1,15 @@
+[
+  {"label": "key not lowercased", "find": "String(name).trim().toLowerCase()", "replace": "String(name).trim()"},
+  {"label": "key not trimmed", "find": "String(name).trim().toLowerCase()", "replace": "String(name).toLowerCase()"},
+  {"label": "task tags ignored", "find": "const tf = get((sec.taskFeature || [])[i]);", "replace": "const tf = null;"},
+  {"label": "project task tags ignored", "find": "const tr = rec(t.feature);", "replace": "const tr = null;"},
+  {"label": "features on rows but not in template dropped", "find": "if (!map.has(key)) map.set(key, { key, name: String(name).trim(), secs: [], tasks: [] });\n      return map.get(key);", "replace": "if (!map.has(key)) return null;\n      return map.get(key);"},
+  {"label": "optional lines leak into missing", "find": "if (!sec.optional && !have.has(String(sec.id)))", "replace": "if (!have.has(String(sec.id)))"},
+  {"label": "partly collapsed to on", "find": "on === fl.length ? 'on' : on === 0 ? 'off' : 'partly'", "replace": "on === 0 ? 'off' : 'on'"},
+  {"label": "partly collapsed to off", "find": "on === fl.length ? 'on' : on === 0 ? 'off' : 'partly'", "replace": "on === fl.length ? 'on' : 'off'"},
+  {"label": "absent reported as off", "find": "!fl.length ? 'absent'", "replace": "!fl.length ? 'off'"},
+  {"label": "reason text changed", "find": "name + ' not on this project'", "replace": "name + ' not needed'"},
+  {"label": "optional line without a tag gets no feature", "find": "return sec && sec.optional ? sec.name : null;", "replace": "return null;"},
+  {"label": "blank tag treated as a name", "find": "if (f) return f;", "replace": "if (sec && sec.feature != null) return sec.feature;"},
+  {"label": "not sorted", "find": ".sort(byName).map(f => {", "replace": ".map(f => {"}
+]
