@@ -158,3 +158,11 @@ ok('secFeatureName trims the title fallback', F.secFeatureName({ optional: true,
   const zOn = F.planSwitch(gz, tpl, 'auto cover', true);
   ok('On: a signed skipped row is left, not switched', zOn.secs.length === 0 && zOn.left.length === 1 && zOn.left[0].reason === 'signed');
 }
+{
+  const g = groups([s({ templateItemId: 14 })], [s({ templateItemId: 64, feature: 'Auto Cover', skip: true, start: '2026-08-08' })]);
+  const on = F.planSwitch(g, tpl, 'auto cover', true);
+  ok('On: secs entries carry clearStart', on.secs.length === 1 && on.secs[0].clearStart === true, JSON.stringify(on.secs));
+  const g2 = groups([s({ templateItemId: 14 })], [s({ templateItemId: 64, feature: 'Auto Cover' })]);
+  const off = F.planSwitch(g2, tpl, 'auto cover', false);
+  ok('Off: secs entries do not carry clearStart', off.secs.length === 1 && !('clearStart' in off.secs[0]), JSON.stringify(off.secs));
+}

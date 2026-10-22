@@ -197,6 +197,13 @@ const mkJob = (o) => Object.assign({ id: 'j' + Math.random().toString(36).slice(
   }
   {
     const { jF, sc } = mkFeat();
+    sc[1].start = null;                                                          // re-enabled row, start cleared
+    win.reflowFrom(jF.id, 0, 1, undefined, { floor: FLOOR, pinStarted: true, fromPrev: true });
+    ok('a cleared re-enabled row lands exactly at the floor', sc[1].start === FLOOR, sc[1].start);
+    ok('...and a later already-started row stays put', sc[2].start === '2026-09-01', sc[2].start);
+  }
+  {
+    const { jF, sc } = mkFeat();
     win.reflowFrom(jF.id, 0, 1, undefined, { floor: FLOOR, fromPrev: true });
     ok('without pinStarted the started row is pulled forward too', sc[2].start === '2026-10-26', sc[2].start);
   }

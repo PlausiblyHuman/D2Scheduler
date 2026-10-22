@@ -120,7 +120,7 @@
       if (on) {
         if (!s.skip) return;
         if (signed(s)) { leave(gi, si, 'signed'); return; }
-        plan.secs.push({ gi, si, skip: false, label });
+        plan.secs.push({ gi, si, skip: false, clearStart: true, label });
       } else {
         if (s.skip) return;
         if (signed(s)) { leave(gi, si, 'signed'); return; }

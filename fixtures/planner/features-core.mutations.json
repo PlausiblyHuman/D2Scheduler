@@ -86,8 +86,8 @@
  },
  {
   "label": "signed row switched anyway",
-  "find": "if (signed(s)) { leave(gi, si, 'signed'); return; }\n        plan.secs.push({ gi, si, skip: false, label });",
-  "replace": "plan.secs.push({ gi, si, skip: false, label });"
+  "find": "if (signed(s)) { leave(gi, si, 'signed'); return; }\n        plan.secs.push({ gi, si, skip: false, clearStart: true, label });",
+  "replace": "plan.secs.push({ gi, si, skip: false, clearStart: true, label });"
  },
  {
   "label": "signed section tasks switched anyway on Off",
@@ -118,5 +118,10 @@
   "label": "left signed duplicated per task",
   "find": "if (leftSigned.has(id)) return; leftSigned.add(id);",
   "replace": ""
+ },
+ {
+  "label": "clearStart dropped",
+  "find": "skip: false, clearStart: true, label",
+  "replace": "skip: false, label"
  }
 ]
