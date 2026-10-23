@@ -20,6 +20,15 @@
      does not have the feature. */
   function autoReason(name) { return String(name).trim() + ' not on this project'; }
 
+  /* Is this task note the automatic reason for any of these spellings of the
+     feature? Trimmed and compared ignoring case, because D2 - New Pool writes
+     the reason from the task's own Feature value, which may differ in case from
+     the template's sub-phase. Anything else is a PM's own note. */
+  function isAutoReason(note, names) {
+    const n = note == null ? '' : String(note).trim().toLowerCase();
+    return (names || []).some(x => x != null && autoReason(x).toLowerCase() === n);
+  }
+
   /* Only an optional line belongs to a feature: its Feature column if set,
      else its own title. A plain line has no feature even when its Feature
      column carries a value, so it is never switched off with one. */
@@ -102,7 +111,10 @@
      applied here: the caller writes the plan to the groups and reflows from
      firstSec. "Signed" reads s.base.inst, the state SharePoint holds, never the
      on-screen tick, so an unsaved tick can neither protect nor expose a row.
-     Only the automatic reason is ever cleared on On; a PM's own N/A note stays. */
+     Only the automatic reason is ever cleared on On (isAutoReason); a PM's own
+     N/A note stays. Off writes the reason with the task's own spelling, as the
+     flow does. A task kept for a PM note is its own `left` entry, with `ti` and
+     its title in `task`. */
   function planSwitch(groups, tpl, key, on) {
     const plan = { secs: [], tasks: [], creates: [], left: [], firstSec: null };
     const k = featureKey(key);
@@ -111,11 +123,12 @@
     const gs = groups || [];
     const signed = (s) => !!(s.base && s.base.inst);
     const leftSigned = new Set();
-    const leave = (gi, si, reason) => {
+    const leave = (gi, si, reason, ti) => {
       if (reason === 'signed') { const id = gi + ':' + si; if (leftSigned.has(id)) return; leftSigned.add(id); }
-      plan.left.push({ gi, si, num: gs[gi].sections[si].num, reason });
+      const e = { gi, si, num: gs[gi].sections[si].num, reason };
+      if (ti != null) { e.ti = ti; e.task = gs[gi].sections[si].tasks[ti].t; }
+      plan.left.push(e);
     };
-    const reason = autoReason(feat.name);
     feat.rows.forEach(({ gi, si }) => {
       const s = gs[gi].sections[si];
       const label = s.num + ' ' + s.name;
@@ -136,13 +149,13 @@
       const label = s.num + ' ' + t.t;
       if (on) {
         if (!t.na) return;
-        if (t.note !== reason) { leave(gi, si, 'pm-na'); return; }
+        if (!isAutoReason(t.note, [t.feature, feat.name])) { leave(gi, si, 'pm-na', ti); return; }
         if (signed(s)) { leave(gi, si, 'signed'); return; }
         plan.tasks.push({ gi, si, ti, na: false, note: '', label });
       } else {
         if (t.done || t.na) return;
         if (signed(s)) { leave(gi, si, 'signed'); return; }
-        plan.tasks.push({ gi, si, ti, na: true, note: reason, label });
+        plan.tasks.push({ gi, si, ti, na: true, note: autoReason(t.feature || feat.name), label });
       }
     });
     if (on) {
@@ -156,5 +169,5 @@
     return plan;
   }
 
-  return { featureKey, autoReason, secFeatureName, templateFeatures, projectFeatures, missingTemplateLines, planSwitch };
+  return { featureKey, autoReason, isAutoReason, secFeatureName, templateFeatures, projectFeatures, missingTemplateLines, planSwitch };
 });

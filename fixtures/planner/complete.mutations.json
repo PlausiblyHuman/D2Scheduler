@@ -101,8 +101,8 @@
  },
  {
   "label": "read-only not frozen",
-  "find": "function frozen(j){ return !!(j&&(j.building||j.readOnly)); }",
-  "replace": "function frozen(j){ return !!(j&&j.building); }"
+  "find": "function frozen(j){ return !!(j&&(j.building||j.readOnly||j.creating)); }",
+  "replace": "function frozen(j){ return !!(j&&(j.building||j.creating)); }"
  },
  {
   "label": "sign() ignores read-only",
@@ -146,7 +146,7 @@
  },
  {
   "label": "R1 readOnly not cleared on Refresh",
-  "find": "      j.readOnly=false;\n",
+  "find": "    j.readOnly=false;\n",
   "replace": "\n"
  },
  {

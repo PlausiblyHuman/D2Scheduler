@@ -31,5 +31,7 @@
  {"label": "off match not by key", "find": "if (off[keyOf(tname)])", "replace": "if (off[tname])"},
  {"label": "offFeatureKeys not normalised", "find": "var kk = keyOf(k);", "replace": "var kk = k;"},
  {"label": "off task not N/A", "find": "t.NotApplicable = true; ", "replace": ""},
- {"label": "off task note not the automatic reason", "find": "t.Note = reasonFor(tname);", "replace": "t.Note = tname;"}
+ {"label": "off task note not the automatic reason", "find": "t.Note = reasonFor(tname);", "replace": "t.Note = tname;"},
+ {"label": "a line with no template id created anyway", "find": "if (!isFinite(idn)) { refusals.push({ tplId: sec.id, reason: 'no-template-id' }); return; }", "replace": ""},
+ {"label": "a blank or missing id read as 0", "find": "var idn = sec.id == null || sec.id === '' ? NaN : Number(sec.id);", "replace": "var idn = Number(sec.id);"}
 ]

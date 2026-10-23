@@ -168,3 +168,35 @@ ok('secFeatureName trims the title fallback', F.secFeatureName({ optional: true,
   const off = F.planSwitch(g2, tpl, 'auto cover', false);
   ok('Off: secs entries do not carry clearStart', off.secs.length === 1 && !('clearStart' in off.secs[0]), JSON.stringify(off.secs));
 }
+
+/* ---- the automatic reason ignores case and spacing, and is tried against the task's own spelling ---- */
+{
+  const g = groups([s({ num: '1.4', name: 'Layout', templateItemId: 14, tasks: [
+      task('Auto cover layout', { feature: 'Auto cover', na: true, note: 'Auto cover not on this project' }),
+      task('Pads', { feature: ' auto COVER', na: true, note: '  AUTO COVER NOT ON THIS PROJECT ' }),
+      task('Remote', { feature: 'Auto cover', na: true, note: 'Auto Cover not on this project' })] })],
+    [s({ num: '6.4', name: 'Auto Cover Rough In', templateItemId: 64, feature: ' auto cover ', skip: true })]);
+  const pf = F.projectFeatures(g, tpl);
+  ok('a project row or task whose feature differs from the template only in case or spacing is one feature',
+    pf.length === 2 && pf.filter(f => f.key === 'auto cover').length === 1 && find(pf, 'auto cover').rows.length === 1
+    && find(pf, 'auto cover').taskRefs.length === 3 && find(pf, 'auto cover').state === 'off', JSON.stringify(pf.map(f => [f.key, f.rows.length, f.taskRefs.length, f.state])));
+  const on = F.planSwitch(g, tpl, 'auto cover', true);
+  ok('On: an automatic reason written in another case or with spaces is cleared', on.tasks.length === 3 && on.left.length === 0
+    && on.tasks.every(x => x.na === false && x.note === ''), JSON.stringify(on));
+  ok('isAutoReason: the task spelling, the display name, any case', F.isAutoReason(' auto COVER not on this PROJECT ', ['Auto cover'])
+    && F.isAutoReason('Auto Cover not on this project', [null, 'Auto Cover']) && !F.isAutoReason('', ['Auto Cover']) && !F.isAutoReason('x', []));
+  const g2 = groups([s({ num: '1.4', templateItemId: 14, tasks: [task('A', { feature: 'Fire Bowl', na: true, note: 'Auto Cover not on this project' }),
+    task('B', { feature: 'Fire Bowl', na: true, note: 'Fire Bowl not on this project, ask Don' })] })]);
+  ok('On: the reason of another feature, or the reason with more words, is a PM note', F.planSwitch(g2, tpl, 'fire bowl', true).tasks.length === 0);
+  const g3 = groups([s({ num: '1.4', templateItemId: 14, tasks: [task('A', { feature: 'Auto cover' }), task('B', { feature: ' AUTO COVER ' }), task('C', { feature: 'Auto Cover' })] })],
+    [s({ num: '6.4', templateItemId: 64, feature: 'Auto Cover' })]);
+  const off = F.planSwitch(g3, tpl, 'auto cover', false);
+  ok('Off: the reason is written with the spelling on the task, trimmed', off.tasks.map(x => x.note).join('|')
+    === 'Auto cover not on this project|AUTO COVER not on this project|Auto Cover not on this project', off.tasks.map(x => x.note).join('|'));
+  const g4 = groups([s({ num: '1.4', name: 'Layout', templateItemId: 14, tasks: [task('Mark corners'),
+      task('Layout A', { feature: 'Auto Cover', na: true, note: 'Customer declined' }), task('Layout B', { feature: 'Auto Cover', na: true, note: 'Not ordered' })] })],
+    [s({ num: '6.4', templateItemId: 64, feature: 'Auto Cover', skip: true })]);
+  const l = F.planSwitch(g4, tpl, 'auto cover', true).left.filter(x => x.reason === 'pm-na');
+  ok('On: each task kept for a PM reason is its own left entry, with its index and title', l.length === 2
+    && l[0].ti === 1 && l[0].task === 'Layout A' && l[1].ti === 2 && l[1].task === 'Layout B' && l.every(x => x.num === '1.4'), JSON.stringify(l));
+}

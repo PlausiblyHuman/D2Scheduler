@@ -431,7 +431,7 @@ function jobBadge(j){
   return bt+`<span class="chip jb ${cls}" title="Jobs.Status in SharePoint">${esc(j.status)}</span>`+building+edited;
 }
 function load(){
-  try{const raw=localStorage.getItem(KEY);if(raw){S=JSON.parse(raw);S.settings=S.settings||{};S.pendingCreates=S.pendingCreates||[];S.pendingComments=S.pendingComments||[];if(S.template){delete S.template;/* the per-browser copy was never authoritative; a Refresh loads the real templates */} S.templates=S.templates||{};syncNonWork();sortJobsByNumber();return;}}catch(e){}
+  try{const raw=localStorage.getItem(KEY);if(raw){S=JSON.parse(raw);S.settings=S.settings||{};S.pendingCreates=S.pendingCreates||[];S.pendingComments=S.pendingComments||[];if(S.template){delete S.template;/* the per-browser copy was never authoritative; a Refresh loads the real templates */} S.templates=S.templates||{};(S.jobs||[]).forEach(j=>{delete j.creating;/* a page closed mid-create */});syncNonWork();sortJobsByNumber();return;}}catch(e){}
   S={crews:JSON.parse(JSON.stringify(SEED_CREWS)),templates:{},jobs:[],settings:{},pendingCreates:[],pendingComments:[]};
   /* NO DEMO POOLS. Removed 2026-09-11.
      This used to seed Harrison Residence, Vasquez Pool & Spa and Bell Canyon
@@ -711,7 +711,11 @@ function reflowFrom(jobId,gi,si,fromDate,opts){
     // re-enabled row follows the work before it rather than its own old date.
     let prev=null;
     for(let k=at-1;k>=0;k--){const p=list[k].s; if(!p.skip&&p.start){prev=p;break;}}
-    cursor=prev?adv(prev.start,prev.days>0?prev.days:1):(floor?nextWork(floor):todayStr());
+    // With nothing dated before it, start where the project starts or where the row already
+    // sits, whichever is later, so a project that starts in the future stays there; the floor
+    // below is still the minimum.
+    const own=[j.start,list[at].s.start].filter(Boolean).sort().pop();
+    cursor=prev?adv(prev.start,prev.days>0?prev.days:1):own?nextWork(own):(floor?nextWork(floor):todayStr());
   }
   if(floor){const f=nextWork(floor); if(f>cursor)cursor=f;}
   let moved=0,pinned=0,badDays=0;
@@ -795,10 +799,12 @@ function divergedSecs(j){
    exclude it entirely rather than offer to "push" a pool SharePoint has never
    heard of. Creating a pool is out of scope for the write-back; that stays
    `New Pool Requests`. */
-/* A project nothing on this screen may change: still being built by D2 - New Pool, or a
-   completed project opened read-only from Completed projects (Spec A). Every edit gate and
-   every Save set asks this; the Building chip and its copy still read j.building directly. */
-function frozen(j){ return !!(j&&(j.building||j.readOnly)); }
+/* A project nothing on this screen may change: still being built by D2 - New Pool, a
+   completed project opened read-only from Completed projects (Spec A), or one whose new
+   sub-phases are being added in SharePoint right now (j.creating, set by createFromTemplate;
+   the re-read that follows would discard any edit made meanwhile). Every edit gate and every
+   Save set asks this; the Building chip and its copy still read j.building directly. */
+function frozen(j){ return !!(j&&(j.building||j.readOnly||j.creating)); }
 function poolHasBaseline(j){ return allSecs(j).some(({s})=>!!s.base); }
 /* Comments need a SharePoint row to hang off and a Graph token to write with.
    A local sketch has no row; a downloaded copy has no token. Both are told,
@@ -1601,6 +1607,8 @@ function editSec(jobId,gi,si){
     document.getElementById('dBody').innerHTML=j.readOnly
       ? `<div class="hint"><b>Completed project, read only.</b> It is shown for reference and nothing on it
       can be changed here. Reopen it from Completed projects on the Jobs tab to work on it again.</div>`
+      : j.creating
+      ? `<div class="hint">Sub-phases are being added to this project in SharePoint. Wait a moment, then open this sub-phase again.</div>`
       : `<div class="hint">This project is still being built in SharePoint,
       which usually takes 10 to 20 minutes. Nothing on it can be changed until that finishes. Press Refresh once it has.</div>`;
     document.getElementById('dFoot').innerHTML=`<button class="btn" onclick="closeDrawer()">Close</button>`;
@@ -1869,6 +1877,7 @@ function ncTypeChanged(){
    copy hands its change-set to a console script that cannot carry them. */
 function ncFeaturesHTML(type){
   if(!graphModeAvailable())return '<div class="hint" style="padding:0">Features can be picked in the hosted planner</div>';
+  if(!tplFromSharePoint(type))return '<div class="hint" style="padding:0">Press Refresh to load the optional features</div>';
   const fl=window.D2FeaturesCore.templateFeatures(templateFor(type));
   if(!fl.length)return `<div class="hint" style="padding:0">No optional features in the ${esc(type)} template yet</div>`;
   const plur=(n,w)=>n+' '+w+(n===1?'':'s');
@@ -1902,9 +1911,9 @@ function addJob(){
       template (rule 1 is checked nightly by D2 - Crew Trade Check either way, never enforced at
       creation). <span id="ncUnassignedCopy">${tplCounts('Gunite')?'Unchecked leaves all '+tplCounts('Gunite').secs+' sub-phases':'Unchecked leaves every sub-phase'}</span> <span class="mono">unassigned</span> for a PM to
       allocate by hand.</div></div>
-    <div class="fld" id="ncFeatures"><label>Optional features</label>
+    ${window.D2FeaturesCore?`<div class="fld" id="ncFeatures"><label>Optional features</label>
       <div class="hint" style="padding:0 0 4px">Ticked features are built into the project; the rest are left out and can be added later.</div>
-      <div id="ncFeaturesList">${ncFeaturesHTML('Gunite')}</div></div>`;
+      <div id="ncFeaturesList">${ncFeaturesHTML('Gunite')}</div></div>`:''}`;
   document.getElementById('dFoot').innerHTML=
     `<button class="btn p" id="ncSubmit" onclick="confirmNewPoolRequest()">Queue request</button>
      <button class="btn" onclick="closeDrawer()">Cancel</button>`;
@@ -2101,11 +2110,36 @@ async function setStatusByJobNo(jobno,from,to){
 const FEAT_STATE={on:'On',off:'Off',partly:'Partly on',absent:'Not on this project yet'};
 const nOf=(n,w)=>n+' '+w+(n===1?'':'s');
 function featuresAllowed(j){ return !!j&&graphModeAvailable()&&!!window.D2FeaturesCore&&poolHasBaseline(j)&&!frozen(j)&&j.spId!=null; }
+/* Templates and rows read from SharePoint carry numeric row ids. A template kept in this browser
+   from before those ids were read (ids like 's0_0'), or a project whose rows were loaded before
+   they carried a template id, cannot be matched line for line: every template line would look
+   missing, and adding them would put each in twice. Until a Refresh, features are not offered. */
+const numericId=v=>v!=null&&v!==''&&isFinite(Number(v));
+function tplFromSharePoint(type){
+  const t=S&&S.templates&&S.templates[type==='Fiberglass'?'Fiberglass':'Gunite'];
+  return !!(S.templatesFrom&&Array.isArray(t)&&t.length&&t.every(ph=>(ph.sections||[]).every(sec=>numericId(sec.id))));
+}
+function featuresStale(j){ return !tplFromSharePoint(j.buildType)||!allSecs(j).some(({s})=>s.templateItemId!=null); }
+function featuresStaleNotice(j){
+  document.getElementById('dTitle').textContent='Refresh first: '+(j.jobno||j.name);
+  document.getElementById('dBody').innerHTML=`<div class="hint" style="padding:0 0 11px"><strong>Press Refresh first.</strong>
+    This screen holds an older copy of the templates or of this project. Press Refresh to load them from
+    SharePoint, then open Features again.</div>`;
+  document.getElementById('dFoot').innerHTML='<button class="btn" onclick="closeDrawer()">Close</button>';
+  document.getElementById('drawer').classList.add('open');
+}
+/* While a create is in flight: say so, and switch off every control in the drawer so a second
+   click cannot send the same rows again. */
+function featureBusy(){
+  document.querySelectorAll('#dBody input,#dBody button,#dBody select').forEach(e=>{e.disabled=true;});
+  document.getElementById('dFoot').innerHTML='<span class="hint">Adding sub-phases in SharePoint…</span>';
+}
 /* The feature reflow: never before the next working day, and work already under way stays put. */
 const featureReflowOpts=()=>({floor:nextWork(addCal(todayStr(),1)),pinStarted:true,fromPrev:true});
 function openFeatures(jobId){
   const j=S.jobs.find(x=>x.id===jobId); if(!featuresAllowed(j))return;
   UI.fs=null;
+  if(featuresStale(j)){featuresStaleNotice(j);return;}
   const F=window.D2FeaturesCore, tpl=templateFor(j.buildType);
   const feats=F.projectFeatures(j.groups,tpl), missing=F.missingTemplateLines(j.groups,tpl);
   const rows=feats.map(f=>{
@@ -2140,11 +2174,12 @@ function featLeftWhy(j,x){
   const s=j.groups[x.gi]&&j.groups[x.gi].sections[x.si], lbl='<b>'+esc(x.num+' '+(s?s.name:''))+'</b>';
   if(x.reason==='signed')return lbl+' is signed off, so it is left as it is. Reopen it to change it.';
   if(x.reason==='done')return lbl+' has work done, so it stays on. Mark it not applicable by hand if it is not wanted.';
-  if(x.reason==='pm-na')return lbl+' has a task marked not applicable for another reason, so that task stays as it is.';
+  if(x.reason==='pm-na')return lbl+' has a task, <b>'+esc(x.task==null?'':x.task)+'</b>, marked not applicable for another reason, so that task stays as it is.';
   return lbl+' is left as it is.';
 }
 function featureConfirm(jobId,key,on){
   const j=S.jobs.find(x=>x.id===jobId); if(!featuresAllowed(j))return;
+  if(featuresStale(j)){UI.fs=null;featuresStaleNotice(j);return;}
   const F=window.D2FeaturesCore, tpl=templateFor(j.buildType), k=F.featureKey(key);
   const feat=F.projectFeatures(j.groups,tpl).find(f=>f.key===k); if(!feat)return;
   const plan=F.planSwitch(j.groups,tpl,k,!!on);
@@ -2188,28 +2223,31 @@ async function createFromTemplate(j,tplIds,switchingKey){
   const plan=C.planStructureCreates({job:{jobno:j.jobno,spId:j.spId},rows,tplSecs,offFeatureKeys:off,
     nowMs:Date.now(),keyOf:F.featureKey,reasonFor:F.autoReason});
   if(!plan.creates.length)return {present:[],report:''};
-  let res;
+  j.creating=true;   // closes the project (frozen) until the create and its re-read are done
   try{
-    const tok=await graphToken(), siteId=(await graphSite(tok)).id;
-    res=await GW.applyStructureCreates(plan,{token:tok,siteId,asgListId:D2_GRAPH.lists.asg,tasksListId:D2_GRAPH.lists.tasks});
-  }catch(e){ return {error:e,lead:'Nothing was added.'}; }
-  if(!(await refreshOneProject(j))){
-    j.needsRefresh=true; save();   // the rows may exist in SharePoint but not here: no second create until a re-read
-    return {error:refreshOneProject.lastError,
-      lead:'The sub-phases were sent to SharePoint, but this project could not be read back, so nothing else was changed here. Press Refresh before changing it.'};
-  }
-  const have=new Set(allSecs(j).map(({s})=>String(s.templateItemId)));
-  const present=[], msgs=[];
-  plan.creates.forEach(c=>{
-    const lbl='<b>'+esc(c.num+' '+c.name)+'</b>', fa=res.failed.filter(f=>String(f.tplId)===String(c.tplId));
-    if(!have.has(String(c.tplId))){msgs.push(lbl+' was not created. Try again, or add it on the SharePoint site.');return;}
-    present.push(String(c.tplId));
-    if(fa.some(f=>f.stage==='asg')&&c.tasks.length)
-      msgs.push(lbl+' was added, but its tasks were not. Add them on the SharePoint site.');
-    const tf=fa.filter(f=>f.stage==='task');
-    if(tf.length)msgs.push(lbl+' was added without '+(tf.length===1?'this task':'these tasks')+': '+tf.map(f=>esc(f.title)).join(', ')+'. Add them on the SharePoint site.');
-  });
-  return {present,report:msgs.length?`<div class="hint" style="color:#a84a18;padding:0 0 8px">${msgs.join('<br>')}</div>`:''};
+    let res;
+    try{
+      const tok=await graphToken(), siteId=(await graphSite(tok)).id;
+      res=await GW.applyStructureCreates(plan,{token:tok,siteId,asgListId:D2_GRAPH.lists.asg,tasksListId:D2_GRAPH.lists.tasks});
+    }catch(e){ return {error:e,lead:'Nothing was added.'}; }
+    if(!(await refreshOneProject(j))){
+      j.needsRefresh=true; save();   // the rows may exist in SharePoint but not here: no second create until a re-read
+      return {error:refreshOneProject.lastError,
+        lead:'The sub-phases were sent to SharePoint, but this project could not be read back, so nothing else was changed here. Press Refresh before changing it.'};
+    }
+    const have=new Set(allSecs(j).map(({s})=>String(s.templateItemId)));
+    const present=[], msgs=[];
+    plan.creates.forEach(c=>{
+      const lbl='<b>'+esc(c.num+' '+c.name)+'</b>', fa=res.failed.filter(f=>String(f.tplId)===String(c.tplId));
+      if(!have.has(String(c.tplId))){msgs.push(lbl+' was not created. Try again, or add it on the SharePoint site.');return;}
+      present.push(String(c.tplId));
+      if(fa.some(f=>f.stage==='asg')&&c.tasks.length)
+        msgs.push(lbl+' was added, but its tasks were not. Add them on the SharePoint site.');
+      const tf=fa.filter(f=>f.stage==='task');
+      if(tf.length)msgs.push(lbl+' was added without '+(tf.length===1?'this task':'these tasks')+': '+tf.map(f=>esc(f.title)).join(', ')+'. Add them on the SharePoint site.');
+    });
+    return {present,report:msgs.length?`<div class="hint" style="color:#a84a18;padding:0 0 8px">${msgs.join('<br>')}</div>`:''};
+  }finally{ delete j.creating; }
 }
 /* After a create whose re-read failed, the new rows may be in SharePoint but not on this screen.
    Another create would add them twice, so it waits for a Refresh, which clears j.needsRefresh. */
@@ -2229,6 +2267,7 @@ const sameIds=(a,b)=>a.length===b.length&&a.slice().sort().join('|')===b.slice()
 async function applyFeatureSwitch(jobId,key,on){
   const j=S.jobs.find(x=>x.id===jobId), st=UI.fs, F=window.D2FeaturesCore;
   if(!featuresAllowed(j)||!st||st.jobId!==jobId||st.key!==F.featureKey(key)||st.on!==!!on)return;
+  if(featuresStale(j)){UI.fs=null;featuresStaleNotice(j);return;}
   const plan=st.plan;
   const ticked=(kind,list)=>list.filter((x,i)=>{
     const el=document.querySelector('#dBody input[data-fs="'+kind+'"][data-i="'+i+'"]'); return !!el&&el.checked;});
@@ -2246,7 +2285,7 @@ async function applyFeatureSwitch(jobId,key,on){
   let leftHTML=plan.left.map(x=>featLeftWhy(j,x));
   let created=[], report='';
   if(plan.creates.length){
-    document.getElementById('dFoot').innerHTML='<span class="hint">Adding sub-phases in SharePoint…</span>';
+    featureBusy();
     const r=await createFromTemplate(j,plan.creates.map(c=>c.tplId),st.key);
     if(r.error){featureError(r);return;}
     created=r.present; report=r.report;
@@ -2312,11 +2351,12 @@ async function applyFeatureSwitch(jobId,key,on){
 }
 async function addTemplateLines(jobId){
   const j=S.jobs.find(x=>x.id===jobId); if(!featuresAllowed(j))return;
+  if(featuresStale(j)){featuresStaleNotice(j);return;}
   const ids=[...document.querySelectorAll('#dBody input[data-add-tpl]')].filter(el=>el.checked).map(el=>el.dataset.addTpl);
   if(!ids.length){alert('Tick the sub-phases to add first.');return;}
   if(j.needsRefresh){needsRefreshNotice(j);return;}
   if(stopForUnsaved('Add from the template: '+(j.jobno||j.name),'Adding sub-phases from the template'))return;
-  document.getElementById('dFoot').innerHTML='<span class="hint">Adding sub-phases in SharePoint…</span>';
+  featureBusy();
   const r=await createFromTemplate(j,ids,null);
   if(r.error){featureError(r);return;}
   delete j.featUndo;

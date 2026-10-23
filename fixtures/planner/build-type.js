@@ -15,7 +15,7 @@ function boot(opts) {
   const inline = f => '<script>' + fs.readFileSync(path.join(WEB, f), 'utf8') + '</script>';
   const html = fs.readFileSync(path.join(WEB, 'index.html'), 'utf8')
     .replace('<script src="vendor/msal-browser.min.js"></script>', opts.noMsal ? '' : MSAL_STUB)
-    .replace('<script src="features-core.js"></script>', inline('features-core.js'))
+    .replace('<script src="features-core.js"></script>', opts.noFeatures ? '' : inline('features-core.js'))
     .replace('<script src="graph-to-planner.js"></script>', inline('graph-to-planner.js'))
     .replace('<script src="writeback-core.js"></script>', inline('writeback-core.js'))
     .replace('<script src="graph-writeback.js"></script>', inline('graph-writeback.js'))
@@ -228,6 +228,23 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
     w.confirmNewPoolRequest();
     const pf = w.S.pendingCreates.find(c => c.jobno === 'TEST-9964');
     ok('file mode queues features: []', pf && Array.isArray(pf.features) && pf.features.length === 0);
+    ok('no page errors', errs.length === 0, errs.join(' | '));
+  }
+  {
+    // features-core.js failed to load: + Job still works, with no features fieldset.
+    const { w, errs } = boot({ noFeatures: true }); await wait(600);
+    await w.refreshLive(true); await wait(300);
+    let threw = null;
+    try {
+      w.addJob();
+      const fr = w.document.querySelectorAll('input[name=ncType]')[1]; fr.checked = true; fr.dispatchEvent(new w.Event('change'));
+      w.document.getElementById('ncJobNo').value = 'TEST-9965'; w.document.getElementById('ncName').value = 'No module';
+      w.confirmNewPoolRequest();
+    } catch (e) { threw = e; }
+    ok('without the features module + Job opens and queues', !threw && !!w.S.pendingCreates.find(c => c.jobno === 'TEST-9965'), threw && threw.message);
+    ok('and shows no features fieldset', !w.document.getElementById('ncFeatures'));
+    const pc = w.S.pendingCreates.find(c => c.jobno === 'TEST-9965');
+    ok('and queues no features', !!pc && Array.isArray(pc.features) && pc.features.length === 0);
     ok('no page errors', errs.length === 0, errs.join(' | '));
   }
   process.exit(fails ? 1 : 0);

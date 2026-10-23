@@ -71,7 +71,7 @@
  },
  {
   "label": "auto-reason compare dropped",
-  "find": "if (t.note !== reason) { leave(gi, si, 'pm-na'); return; }",
+  "find": "if (!isAutoReason(t.note, [t.feature, feat.name])) { leave(gi, si, 'pm-na', ti); return; }",
   "replace": ""
  },
  {
@@ -128,5 +128,35 @@
   "label": "a non-optional line keeps its feature value",
   "find": "    if (!sec || !sec.optional) return null;\n",
   "replace": "    if (!sec) return null;\n"
+ },
+ {
+  "label": "auto reason compared with case",
+  "find": "autoReason(x).toLowerCase() === n",
+  "replace": "autoReason(x) === String(note).trim()"
+ },
+ {
+  "label": "auto reason note not trimmed",
+  "find": "const n = note == null ? '' : String(note).trim().toLowerCase();",
+  "replace": "const n = note == null ? '' : String(note).toLowerCase();"
+ },
+ {
+  "label": "Off writes the display-name reason",
+  "find": "note: autoReason(t.feature || feat.name), label",
+  "replace": "note: autoReason(feat.name), label"
+ },
+ {
+  "label": "pm-na entry carries no task",
+  "find": "if (ti != null) { e.ti = ti; e.task = gs[gi].sections[si].tasks[ti].t; }",
+  "replace": ""
+ },
+ {
+  "label": "pm-na left without its task index",
+  "find": "leave(gi, si, 'pm-na', ti)",
+  "replace": "leave(gi, si, 'pm-na')"
+ },
+ {
+  "label": "a project spelling with spaces not joined to the template feature",
+  "find": "      const f = get(name);\n      if (!f) return null;",
+  "replace": "      const f = typeof name === 'string' && name !== name.trim() ? null : get(name);\n      if (!f) return null;"
  }
 ]

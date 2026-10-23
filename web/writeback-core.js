@@ -656,7 +656,8 @@
    *        offFeatureKeys, nowMs, keyOf, reasonFor}
    * keyOf/reasonFor are D2FeaturesCore.featureKey/autoReason, passed in so
    * this file stays free of the feature model.
-   * returns {creates:[{tplId, num, name, asg, tasks}], refusals:[{tplId, reason}]}
+   * returns {creates:[{tplId, num, name, asg, tasks}], refusals:[{tplId, reason}]},
+   * reason 'already-present' or 'no-template-id' (an id that is not a number)
    */
   function planStructureCreates(args) {
     var job = args.job, keyOf = args.keyOf, reasonFor = args.reasonFor;
@@ -670,6 +671,10 @@
 
     var refusals = [], todo = [];
     (args.tplSecs || []).forEach(function (sec) {
+      // A line with no SharePoint row id (an old per-browser template copy, ids like 's0_0')
+      // would be sent with TemplateItemId null and land before row 1.
+      var idn = sec.id == null || sec.id === '' ? NaN : Number(sec.id);
+      if (!isFinite(idn)) { refusals.push({ tplId: sec.id, reason: 'no-template-id' }); return; }
       var k = String(sec.id);
       if (have[k]) { refusals.push({ tplId: sec.id, reason: 'already-present' }); return; }
       have[k] = true;

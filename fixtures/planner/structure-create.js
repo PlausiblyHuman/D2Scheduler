@@ -185,5 +185,12 @@ function stubGraph(script) {
   r = await G.applyStructureCreates(one, s.ctx);
   ok('a network error is a failure, not a throw', r.failed.length === 1 && r.failed[0].stage === 'asg' && r.failed[0].status === 0);
 
+  // ---- A template line with no SharePoint id (an old per-browser copy) is never created ----
+  const stale = plan({ tplSecs: [tsec({ id: 's0_0' }), tsec({ id: null, num: '9.1' }), tsec({ id: '', num: '9.2' }), tsec({ id: 901, num: '9.3' })] });
+  ok('a line whose id is not a number is refused as no-template-id', same(stale.refusals, [
+    { tplId: 's0_0', reason: 'no-template-id' }, { tplId: null, reason: 'no-template-id' }, { tplId: '', reason: 'no-template-id' }]), JSON.stringify(stale.refusals));
+  ok('and only the line with a real id is created', stale.creates.length === 1 && stale.creates[0].asg.TemplateItemId === 901);
+  ok('a numeric string id is accepted', plan({ tplSecs: [tsec({ id: '902' })] }).creates.map(c => c.asg.TemplateItemId).join() === '902');
+
   console.log(fail ? '\nFAILED' : '\nALL PASS');
 })().catch(e => { console.log('FAIL · harness crashed: ' + (e && e.stack || e)); process.exitCode = 1; });

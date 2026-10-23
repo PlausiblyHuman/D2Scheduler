@@ -18,6 +18,7 @@
  {"label": "pending card hides the features", "find": "${(c.features||[]).length?`<div class=\"muted small\">${esc(c.features.join(', '))}</div>`:''}", "replace": ""},
  {"label": "radio change leaves the old features", "find": "if(ff)ff.innerHTML=ncFeaturesHTML(t);", "replace": "if(ff)ff.innerHTML='';"},
  {"label": "feature names painted unescaped", "find": "${esc(f.name)} <span class=\"muted small\">", "replace": "${f.name} <span class=\"muted small\">"},
- {"label": "file mode offers the picks anyway", "find": "if(!graphModeAvailable())return '<div class=\"hint\" style=\"padding:0\">Features can be picked in the hosted planner</div>';\n  const fl", "replace": "const fl"},
- {"label": "coverage never pluralises", "find": "(n===1?'':'s')", "replace": "''"}
+ {"label": "file mode offers the picks anyway", "find": "if(!graphModeAvailable())return '<div class=\"hint\" style=\"padding:0\">Features can be picked in the hosted planner</div>';\n", "replace": ""},
+ {"label": "coverage never pluralises", "find": "(n===1?'':'s')", "replace": "''"},
+ {"label": "+ Job draws the features fieldset without the module", "find": "${window.D2FeaturesCore?`<div class=\"fld\" id=\"ncFeatures\">", "replace": "${true?`<div class=\"fld\" id=\"ncFeatures\">"}
 ]
