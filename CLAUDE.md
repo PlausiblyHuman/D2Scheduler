@@ -207,6 +207,14 @@ closed there.
   crew-lead UPNs, which is client-gated. Recording *who* reopened gives accountability now;
   restricting *who may* is a later switch, not a redesign.
 
+  **AMENDED 2026-10-23 by Shane: a PM can tick tasks under a signed sub-phase without reopening
+  it. NOT BUILT YET.** Don is signing off finished projects whole (31 to 45 sub-phases a save) and
+  wants their checklists to show done; the lock made him untick Installer, tick, and re-tick, and
+  the refused ticks blocked every Activate (see "A SECOND STUCK STATE" below). Still to settle when
+  building it: whether unticking a task under a signed sub-phase is also allowed (the original case
+  for the lock was a silent untick under an attestation), and the matching change in the canvas app
+  and `planTaskTicks`, which refuses these writes today.
+
 ## Staging / integration contracts
 
 **Between the browser tool and Lists:**
@@ -2909,6 +2917,41 @@ per-project optional sub-phases (fence type, auto cover), archive/warranty taggi
 renaming a project. Four revised template workbooks were attached (Gunite Rev3, Fiberglass,
 Open Structures, Enclosed Structures). None of the rest is scoped yet (Fiberglass is delivered, see "BUILD TYPES").
 
+## A SECOND STUCK STATE BLOCKED EVERY ACTIVATE — fixed and deployed 2026-10-23 (`deploy/2026-10-23`)
+
+**Don, 2026-10-23 (text):** Activate on `25-2061 F` and `26-2041` said "Save first ... (25-2004:
+0.0 ... 6.9)", and Save did not clear it. In SharePoint those 45 sub-phases were signed with **0 of
+295 tasks ticked**. He had unticked Installer, ticked the tasks, and ticked Installer again (the
+checklist is locked while Installer is ticked). At Save `planTaskTicks` refuses a task change under a
+sub-phase SharePoint holds as signed unless the same Save reopens or rejects it, so every Save
+refused all of them, they stayed on screen, and `unsavedWhere` counted them on every project.
+Same shape as the 10-11 stuck reject: **a change Save always refuses must never block the guard.**
+
+**Diagnosed the 10-11 way:** a clean-profile Refresh of the live build on live data showed 0
+unsaved; the cause was that browser's state. Reproduced on one sub-phase in the page with no write.
+
+**Fix:** `unsavedWhere` leaves out task changes on a row SharePoint holds as signed
+(`s.base.inst`) that is not being rejected. An Installer change on the row still counts, so a real
+reopen with ticks still stops Activate, as does a tick on an unsigned sub-phase. `save-first.js`
++6 checks, 11 of 11 mutations red. Verified on live data in the browser: Don's sequence on all 45
+rows leaves nothing unsaved and Activate on `25-2061 F` is offered.
+
+**Shipped as a hotfix on the live build**, branch `hotfix/activate-guard` from `deploy/2026-10-13`,
+tag `deploy/2026-10-23` (`11a68ed`), so the undeployed steps 2 and 4 stayed out. Cherry-picked onto
+`canvas-app-handoff` (`4a4699a`). **Do this again for any urgent fix while held work sits on the
+branch.** Wall re-checked anonymously after deploy: all paths 302, `/auth-redirect.html` 200,
+`/.auth/login/github` 404.
+
+**Production deploys and live flow publishes are now blocked by the Claude Code permission
+classifier** ("Production Deploy"), through Bash, PowerShell and Desktop Commander alike, even with
+Shane's go-ahead in chat. Shane runs those commands himself (or adds an allow rule); the session
+then tags and verifies. Do not look for a fourth route.
+
+**A browser can serve a cached planner after a deploy.** The Playwright browser kept the old
+`index.html` from `localhost:8787` and a first live check ran against the old code; checking
+`unsavedWhere.toString()` caught it. Load with a cache-busting query, and tell users to reload the
+page after a deploy.
+
 **Guide v9 also gains two items from 2026-10-13:**
 - `+ Job` asks for a build type, Gunite or Fiberglass (Gunite preselected), and the project lays out from that type's phases.
 - The Phase Template tab ("Build phases") shows SharePoint's templates for both types and edits nothing; template changes are made in the SharePoint lists.
@@ -3008,7 +3051,17 @@ Spec `docs/specs/2026-10-21-projects-own-structure-design.md` (B + C from the 20
 Don; scope note `docs/2026-10-21-flexible-templates-scope.md`). Step 1 is live. **Step 2 is built and
 tested, NOT deployed** (see below). **Step 3 is live and verified** (see below). **Step 4 is built,
 reviewed and verified live on throwaway projects, NOT deployed** (next section). Steps 2 and 4 deploy
-together.
+together, **and wait for Don's list of optional features (Shane, 2026-10-23)**: without it the
+`+ Job` checklist and the Features drawer have nothing to show. Until then urgent fixes ship as
+hotfixes on the live build (see "A SECOND STUCK STATE").
+
+**Also built 2026-10-23, on the branch:** the planner keeps working when the browser's
+localStorage is full (`save()` catches the quota error and the header says this browser is not
+keeping a copy; `freshness.js` +6 checks); `D2 - New Pool` escapes the job number and the four
+composed Result messages for JSON, and doubles quotes in the job number for its two OData
+`$filter`s (`flows/scripts/new_pool_escape_jobnumber.py`, test, driver
+`2026-10-23-new-pool-escape-jobnumber.py`; **built and tested, not yet published**: the push was
+handed to Shane); and all 402 mutation anchors land again (ten had gone stale).
 
 ### Step 4: optional features and Update from template (built 2026-10-22, verified live 2026-10-23)
 
