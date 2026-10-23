@@ -21,8 +21,8 @@
  },
  {
   "label": "Activate offered on a building project",
-  "find": "const j=S.jobs.find(x=>x.id===jobId); if(!j||j.building)return;\n  /* Split by level.",
-  "replace": "const j=S.jobs.find(x=>x.id===jobId); if(!j)return;\n  /* Split by level."
+  "find": "const j=S.jobs.find(x=>x.id===jobId); if(!j||frozen(j))return;\n  if(stopForUnsaved('Activate '",
+  "replace": "const j=S.jobs.find(x=>x.id===jobId); if(!j)return;\n  if(stopForUnsaved('Activate '"
  },
  {
   "label": "Jobs tab shows Activate while building",
@@ -36,22 +36,22 @@
  },
  {
   "label": "divergedSecs counts edits on a building project",
-  "find": "if(j.building)return out;   // half-built in SharePoint: nothing on it is offered to Save",
+  "find": "if(frozen(j))return out;   // half-built in SharePoint, or completed and read-only: nothing on it is offered to Save",
   "replace": ""
  },
  {
   "label": "buildChangeSet pushes a building project",
-  "find": "if(!poolHasBaseline(j)||j.building)return;   // a local sketch, or a project still being built: never pushed",
+  "find": "if(!poolHasBaseline(j)||frozen(j))return;   // a local sketch, a project still being built, or a read-only one: never pushed",
   "replace": "if(!poolHasBaseline(j))return;"
  },
  {
   "label": "drawer opens for editing on a building project",
-  "find": "if(j.building){\n    document.getElementById('dTitle').textContent=`${j.name} › ${s.num} ${s.name}`;",
+  "find": "if(frozen(j)){\n    document.getElementById('dTitle').textContent=`${j.name} › ${s.num} ${s.name}`;",
   "replace": "if(false){\n    document.getElementById('dTitle').textContent=`${j.name} › ${s.num} ${s.name}`;"
  },
  {
   "label": "Back to planning writes without checking the live status",
-  "find": "if(row.fields.Status!==from)\n      throw new Error('This pool is already '+row.fields.Status+' in SharePoint. Nothing was changed.');",
+  "find": "if(row.fields.Status!==from)\n      throw new Error('This project is already '+row.fields.Status+' in SharePoint. Nothing was changed.');",
   "replace": ""
  },
  {
@@ -61,13 +61,13 @@
  },
  {
   "label": "project picker ignored on the Board",
-  "find": "return S.jobs.filter(j=>(!pick||j.id===pick)&&(st==='both'||(st==='planned'?j.status==='Planned':j.status!=='Planned')));",
-  "replace": "return S.jobs.filter(j=>(st==='both'||(st==='planned'?j.status==='Planned':j.status!=='Planned')));"
+  "find": "return orderJobs(S.jobs.filter(j=>(!pick||j.id===pick)&&(st==='both'||(st==='planned'?j.status==='Planned':j.status!=='Planned'))));",
+  "replace": "return orderJobs(S.jobs.filter(j=>(st==='both'||(st==='planned'?j.status==='Planned':j.status!=='Planned'))));"
  },
  {
   "label": "status filter ignored",
-  "find": "return S.jobs.filter(j=>(!pick||j.id===pick)&&(st==='both'||(st==='planned'?j.status==='Planned':j.status!=='Planned')));",
-  "replace": "return S.jobs.filter(j=>(!pick||j.id===pick));"
+  "find": "return orderJobs(S.jobs.filter(j=>(!pick||j.id===pick)&&(st==='both'||(st==='planned'?j.status==='Planned':j.status!=='Planned'))));",
+  "replace": "return orderJobs(S.jobs.filter(j=>(!pick||j.id===pick)));"
  },
  {
   "label": "a vanished picked project shows nothing",
@@ -121,8 +121,8 @@
  },
  {
   "label": "reset moves locked rows",
-  "find": "if(s.locked||s.inst){                          // pinned or signed: leave it",
-  "replace": "if(false){                          // pinned or signed: leave it"
+  "find": "if(s.locked||s.inst||(o.pinStarted&&floor&&s.start&&s.start<floor)){",
+  "replace": "if((o.pinStarted&&floor&&s.start&&s.start<floor)){"
  },
  {
   "label": "reset does not record the new project start",

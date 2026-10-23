@@ -1,6 +1,6 @@
 [
   {"label": "job numbers compared as text, not numbers", "find": "if(x[i]!==y[i]) return x[i]-y[i];", "replace": "if(x[i]!==y[i]) return String(x[i]).localeCompare(String(y[i]));"},
-  {"label": "import leaves SharePoint's order", "find": "S.people=d.people;\n\n    sortJobsByNumber();", "replace": "S.people=d.people;\n\n"},
+  {"label": "import leaves SharePoint's order", "find": "if(Array.isArray(d.completedJobs)) S.completedJobs=d.completedJobs;\n\n    sortJobsByNumber();", "replace": "if(Array.isArray(d.completedJobs)) S.completedJobs=d.completedJobs;\n\n"},
   {"label": "Board ignores the order choice", "find": "return orderJobs(S.jobs.filter(", "replace": "return (S.jobs.filter("},
   {"label": "Jobs tab ignores the order choice", "find": "const shown=orderJobs(", "replace": "const shown=("},
   {"label": "order choice not remembered", "find": "S.settings.jobSort=v==='start'?'start':'number'; save();", "replace": "UI.jobSortTmp=v; save();"},

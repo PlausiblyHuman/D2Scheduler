@@ -1,5 +1,5 @@
 [
- {"label": "layout not rebuilt from the rows (keeps template / old layout)", "find": "      j.groups=groupsFromPayload(inj);\n", "replace": ""},
+ {"label": "layout not rebuilt from the rows (keeps template / old layout)", "find": "j.groups=groupsFromPayload(inj);", "replace": ""},
  {"label": "template phase name wins over the row's", "find": "const phase=is.phase||t.phase||''", "replace": "const phase=t.phase||is.phase||''"},
  {"label": "template skill wins over the row's", "find": "skill=is.skill||t.skill||null", "replace": "skill=t.skill||is.skill||null"},
  {"label": "row name dropped", "find": "name:is.name||'',skill", "replace": "name:'',skill"},
