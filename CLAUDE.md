@@ -3006,8 +3006,59 @@ at the default 800x600 two Board-centring checks fail on any version.
 
 Spec `docs/specs/2026-10-21-projects-own-structure-design.md` (B + C from the 2026-10-21 meeting with
 Don; scope note `docs/2026-10-21-flexible-templates-scope.md`). Step 1 is live. **Step 2 is built and
-tested, NOT deployed** (see below). **Step 3 is live and verified** (see below). Step 4 (features on
-`+ Job`, the live-project features panel, Update from template) is not built.
+tested, NOT deployed** (see below). **Step 3 is live and verified** (see below). **Step 4 is built,
+reviewed and verified live on throwaway projects, NOT deployed** (next section). Steps 2 and 4 deploy
+together.
+
+### Step 4: optional features and Update from template (built 2026-10-22, verified live 2026-10-23)
+
+Spec `docs/specs/2026-10-22-step4-features-design.md` (extends the parent), plan
+`docs/superpowers/plans/2026-10-22-step4-features.md`. Rev4 mapping for Amy:
+`docs/2026-10-22-gunite-rev4-mapping.md`.
+
+- **A feature is a named group of optional work, at two levels.** A sub-phase belongs to a feature
+  only when `Sub-phase Template.Optional` is true (its `Feature`, else its title). A task belongs to
+  one when `Task Template.Feature` is non-blank, in any sub-phase (Rev4 scatters auto cover tasks
+  through about eight standard sub-phases). Feature identity is `trim().toLowerCase()`. A plain
+  sub-phase with a `Feature` value has no feature (matches New Pool).
+- **The automatic N/A reason is `<Feature> not on this project`**, written with the task's own
+  trimmed spelling by the flow, the planner and the creates alike, and recognised ignoring case.
+  It is the only N/A note any switch clears; a PM's own reason is never touched, and
+  `planTaskTicks` refuses clearing an N/A whose live Note changed since the last Refresh.
+- **Columns (live 2026-10-22):** `Task Template.Feature`, `Tasks.Feature` (Text; Tasks' hidden on
+  forms), by `sharepoint/provision-task-feature.js`.
+- **`D2 - New Pool` (live 2026-10-22,** `flows/scripts/new_pool_task_features.py`, export
+  `D2-New-Pool-2026-10-22.json`): `Compose_task_is_na` per task; `Create_task` writes `Feature`,
+  `NotApplicable` and, on an unpicked feature, the automatic reason as `Note`.
+- **Planner:** `+ Job` lists the template's features as checkboxes (hosted only) and sends
+  `Features`. Each SharePoint project on the Jobs tab has a **Features** button: a drawer that
+  switches a feature on or off (sub-phases and tagged tasks together, after listing every change
+  with a tick each) and adds template sub-phases a project lacks (**New in the template**, by
+  `TemplateItemId` only). Pure logic in `web/features-core.js`; creates planned in
+  `writeback-core.js` `planStructureCreates` and posted by `graph-writeback.js`
+  `applyStructureCreates`; `refreshOneProject(j)` re-reads one project after a create.
+- **Rules the drawer keeps:** signed work and every task under it never change; a sub-phase with a
+  Done task is not switched off; added work starts no earlier than the next working day, rows
+  already started stay put, a re-enabled row drops its old date; with no earlier dated row the
+  start is the later of the project's start and the row's own; each switch queues one
+  `Change order: <Feature> added|removed` comment per touched sub-phase. Switches wait for Save;
+  creates happen at once and need "Save first" for that project (queued comments do not block).
+- **Stale-state guard:** the drawer and the `+ Job` checklist refuse until a Refresh has loaded the
+  SharePoint templates and the project's rows carry `TemplateItemId`. Without it, the first open
+  after a deploy offered every template line as missing and Add created duplicates (caught in the
+  final review). A create in flight freezes the project (`j.creating`); a failed re-read after a
+  create blocks another create until Refresh (`j.needsRefresh`).
+- **Graph create shapes are captured, not assumed:** `fixtures/planner/structure-capture.json`
+  holds a live create on TEST-9920 read back field for field (lookups as strings, `TemplateItemId`
+  a number, decimal `Sequence` kept to 15 significant digits, quotes intact in `Feature`/`Note`).
+- **Live run 2026-10-23, all via the real drawer, rows read back over REST:** an old project gained
+  3.8 and 4.8 in sequence with their tasks, a tick landed on a new task, comments stored; a project
+  built with the feature off was switched on and ended identical to one built with it on, then
+  switched off and ended identical to its original. Throwaways deleted, tenant back to its counts.
+- **Not covered:** adding missing tasks to an old project's existing sub-phases; feature
+  quantities; loading Rev4 (data work after Amy's answers; load by editing existing template rows
+  in place so `TemplateItemId` keeps matching). A PM clicking Add in the seconds after a Save is
+  told "Save first" until the post-save re-read finishes.
 
 **Step 3, the three flows, pushed and verified live 2026-10-21.** Builders and offline tests in
 `flows/scripts/` (`new_pool_features.py`, `reschedule_skip_na.py`, `counter_recon_chunk.py`, each with
