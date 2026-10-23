@@ -33,6 +33,9 @@ and a hotfix for Don being unable to activate any project.
 - `D2 - New Pool` job-number fix published (I ran the driver; the permission check blocks live
   publishes from the session). Export `D2-New-Pool-2026-10-23.json`, no-drift check green.
 - GitHub shadow set up: `PlausiblyHuman/D2Scheduler`, remote `github`.
+- Fiberglass phases renumbered 0 to 10 (8.x Startup and Trim Out, 9.x Site Restoration, 10.x Post
+  Construction): template and both Fiberglass projects, 45 rows, run by me from the planner console
+  with `sharepoint/renumber-fiberglass-2026-10-23.js`; generator, data files and seed follow it.
 - Don built `25-2061 F` (Fiberglass, his first) and saved 147 sign-offs across four projects today;
   every flow run succeeded.
 
@@ -41,9 +44,16 @@ and a hotfix for Don being unable to activate any project.
 - Steps 2 and 4 deploy when Don's optional-feature list arrives, not before.
 - Urgent fixes ship as hotfixes on the live build while held work sits on the branch.
 - A PM can tick tasks under a signed sub-phase without reopening it (rule change, not built).
+- Fiberglass durations stay 2 days; PMs fix the template later.
+- Fiberglass renumbering decided by us rather than waiting on Don: the sheet's split of Electrical
+  out of Plumbing was never carried through, so phases follow the sheet's order, 0 to 10.
+- The Gunite template target is Amy's Rev4 (not Rev3), loaded once her questions are answered.
 
 **Open questions / blocked on:**
-- Don: optional-feature list, where the three gas phases go, open Fiberglass questions.
+- Don (I'm calling him): optional-feature list; where the three gas phases go; crews for the 20
+  unassigned Fiberglass sub-phases; which existing jobs are Fiberglass; Harrison and Campos coming
+  off; and the Fiberglass renumbering heads-up.
+- Amy: her Rev4 questions are not recorded in the repo; find them or draft them from the mapping.
 - Ghost calendar events: has anyone seen one? Needs a short design before any code.
 - Don called and we missed each other; nothing found wrong on the system side.
 - The idle re-anchor worktree (`nifty-lovelace-cd3a91`) and its session can be archived.
