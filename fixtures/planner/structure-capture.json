@@ -1,123 +1,318 @@
 {
-  "source": "derived from live-payloads-graph.json read shapes and existing working Graph POSTs; live create capture pending",
-  "note": "Expected Graph request bodies for adding a template sub-phase (one Assignments row plus its Tasks rows) to a live project, as web/graph-writeback.js applyStructureCreates POSTs them to /sites/{siteId}/lists/{listId}/items. Ids are synthetic stand-ins of the stored type (lookup ids as strings, TemplateItemId as a number). When the live capture runs on TEST-9920, diff its request bodies and read-back fields against this file: field names, types and values.",
-  "derivedFrom": {
-    "readShapes": "fixtures/planner/live-payloads-graph.json (captured 2026-09-13T12:34:27Z): asg[].fields and tasks[].fields as Graph stores them",
-    "writeShapes": "web/graph-writeback.js commentBody (AssignmentLookupId sent as a string, accepted live 2026-09-23) and createBody (a Graph create into New Pool Requests, accepted live 2026-09-15)",
-    "columnsAfterCapture": "PhaseName, Skill, TemplateItemId, Feature (Assignments) and Feature (Tasks) post-date the read capture. Text columns are sent as strings, TemplateItemId as a number, as D2 - New Pool writes them."
+ "source": "derived from live-payloads-graph.json read shapes and existing working Graph POSTs; confirmed by a live create capture on 2026-10-23 (readBack)",
+ "note": "Expected Graph request bodies for adding a template sub-phase (one Assignments row plus its Tasks rows) to a live project, as web/graph-writeback.js applyStructureCreates POSTs them to /sites/{siteId}/lists/{listId}/items. Ids are synthetic stand-ins of the stored type (lookup ids as strings, TemplateItemId as a number). When the live capture runs on TEST-9920, diff its request bodies and read-back fields against this file: field names, types and values.",
+ "derivedFrom": {
+  "readShapes": "fixtures/planner/live-payloads-graph.json (captured 2026-09-13T12:34:27Z): asg[].fields and tasks[].fields as Graph stores them",
+  "writeShapes": "web/graph-writeback.js commentBody (AssignmentLookupId sent as a string, accepted live 2026-09-23) and createBody (a Graph create into New Pool Requests, accepted live 2026-09-15)",
+  "columnsAfterCapture": "PhaseName, Skill, TemplateItemId, Feature (Assignments) and Feature (Tasks) post-date the read capture. Text columns are sent as strings, TemplateItemId as a number, as D2 - New Pool writes them."
+ },
+ "storedShapes": {
+  "Assignments": {
+   "Title": {
+    "type": "string",
+    "example": "D2-1042 · 0.0 Sales to Production Handoff"
+   },
+   "JobLookupId": {
+    "type": "string",
+    "example": "20"
+   },
+   "SubPhaseNumber": {
+    "type": "string",
+    "example": "0.0"
+   },
+   "SubPhaseName": {
+    "type": "string",
+    "example": "Sales to Production Handoff"
+   },
+   "PhaseName": {
+    "type": "string",
+    "example": null,
+    "evidence": "Text column, created 2026-10-21, after the read capture"
+   },
+   "Skill": {
+    "type": "string",
+    "example": null,
+    "evidence": "Text column, created 2026-10-21, after the read capture"
+   },
+   "TemplateItemId": {
+    "type": "number",
+    "example": null,
+    "evidence": "Number column, created 2026-10-21, after the read capture"
+   },
+   "Feature": {
+    "type": "string",
+    "example": null,
+    "evidence": "Text column, created 2026-10-21, after the read capture"
+   },
+   "Sequence": {
+    "type": "number",
+    "example": 1
+   },
+   "TradeLookupId": {
+    "type": "string",
+    "example": "6"
+   },
+   "Crew": {
+    "type": "string",
+    "example": "office"
+   },
+   "DurationDays": {
+    "type": "number",
+    "example": 2
+   },
+   "Locked": {
+    "type": "boolean",
+    "example": false
+   },
+   "PMSignOff": {
+    "type": "boolean",
+    "example": false
+   },
+   "InstallerSignOff": {
+    "type": "boolean",
+    "example": true
+   },
+   "NotApplicable": {
+    "type": "boolean",
+    "example": false
+   },
+   "TasksTotal": {
+    "type": "number",
+    "example": 17
+   },
+   "TasksComplete": {
+    "type": "number",
+    "example": 17
+   },
+   "SuppressReconcileUntil": {
+    "type": "string",
+    "example": "2026-09-10T19:43:21Z"
+   }
   },
-  "storedShapes": {
-    "Assignments": {
-      "Title": {"type": "string", "example": "D2-1042 · 0.0 Sales to Production Handoff"},
-      "JobLookupId": {"type": "string", "example": "20"},
-      "SubPhaseNumber": {"type": "string", "example": "0.0"},
-      "SubPhaseName": {"type": "string", "example": "Sales to Production Handoff"},
-      "PhaseName": {"type": "string", "example": null, "evidence": "Text column, created 2026-10-21, after the read capture"},
-      "Skill": {"type": "string", "example": null, "evidence": "Text column, created 2026-10-21, after the read capture"},
-      "TemplateItemId": {"type": "number", "example": null, "evidence": "Number column, created 2026-10-21, after the read capture"},
-      "Feature": {"type": "string", "example": null, "evidence": "Text column, created 2026-10-21, after the read capture"},
-      "Sequence": {"type": "number", "example": 1},
-      "TradeLookupId": {"type": "string", "example": "6"},
-      "Crew": {"type": "string", "example": "office"},
-      "DurationDays": {"type": "number", "example": 2},
-      "Locked": {"type": "boolean", "example": false},
-      "PMSignOff": {"type": "boolean", "example": false},
-      "InstallerSignOff": {"type": "boolean", "example": true},
-      "NotApplicable": {"type": "boolean", "example": false},
-      "TasksTotal": {"type": "number", "example": 17},
-      "TasksComplete": {"type": "number", "example": 17},
-      "SuppressReconcileUntil": {"type": "string", "example": "2026-09-10T19:43:21Z"}
-    },
-    "Tasks": {
-      "Title": {"type": "string", "example": "Contract review"},
-      "AssignmentLookupId": {"type": "string", "example": "324"},
-      "Sequence": {"type": "number", "example": 1},
-      "Complete": {"type": "boolean", "example": true},
-      "Feature": {"type": "string", "example": null, "evidence": "Text column, created 2026-10-22, after the read capture"},
-      "NotApplicable": {"type": "boolean", "example": false},
-      "Note": {"type": "string", "example": "Inspection pending - excluded by PM"}
-    }
+  "Tasks": {
+   "Title": {
+    "type": "string",
+    "example": "Contract review"
+   },
+   "AssignmentLookupId": {
+    "type": "string",
+    "example": "324"
+   },
+   "Sequence": {
+    "type": "number",
+    "example": 1
+   },
+   "Complete": {
+    "type": "boolean",
+    "example": true
+   },
+   "Feature": {
+    "type": "string",
+    "example": null,
+    "evidence": "Text column, created 2026-10-22, after the read capture"
+   },
+   "NotApplicable": {
+    "type": "boolean",
+    "example": false
+   },
+   "Note": {
+    "type": "string",
+    "example": "Inspection pending - excluded by PM"
+   }
+  }
+ },
+ "input": {
+  "job": {
+   "jobno": "TEST-9920",
+   "spId": "9920"
   },
-  "input": {
-    "job": {"jobno": "TEST-9920", "spId": "9920"},
-    "nowMs": "2026-10-22T15:00:00Z",
-    "offFeatureKeys": ["auto cover"],
-    "rows": "project rows Sequence 1..46, ids 4001..4046, templateItemId 101..146",
-    "tplSecs": [
-      {"id": 812, "seq": 21.5, "optional": true, "feature": "TEST feature", "tradeId": "6",
-       "num": "9.8", "name": "TEST feature step", "phase": "Plumbing", "skill": "plumbing", "days": 2,
-       "tasks": ["Rough in", "Pressure test"], "taskSeq": [1, 2], "taskFeature": [null, "Auto Cover"]},
-      {"id": 813, "seq": 30.5, "optional": false, "feature": null, "tradeId": null,
-       "num": "9.9", "name": "TEST plain step", "phase": "Finish", "skill": null, "days": 3,
-       "tasks": ["Walk the site"], "taskSeq": [1], "taskFeature": ["TEST feature"]}
-    ],
-    "responses": "Assignments POSTs return ids 5001 then 5002; Tasks POSTs return 7001, 7002, 7003"
-  },
-  "requests": [
-    {"list": "Assignments", "body": {"fields": {
-      "Title": "TEST-9920 · 9.8 TEST feature step",
-      "JobLookupId": "9920",
-      "SubPhaseNumber": "9.8",
-      "SubPhaseName": "TEST feature step",
-      "PhaseName": "Plumbing",
-      "Skill": "plumbing",
-      "TemplateItemId": 812,
-      "Feature": "TEST feature",
-      "Sequence": 21.5,
-      "TradeLookupId": "6",
-      "Crew": "unassigned",
-      "DurationDays": 2,
-      "Locked": false,
-      "PMSignOff": false,
-      "InstallerSignOff": false,
-      "NotApplicable": false,
-      "TasksTotal": 2,
-      "TasksComplete": 0,
-      "SuppressReconcileUntil": "2026-10-22T15:10:00.000Z"
-    }}},
-    {"list": "Tasks", "body": {"fields": {
-      "Title": "Rough in",
-      "AssignmentLookupId": "5001",
-      "Sequence": 1,
-      "Complete": false,
-      "NotApplicable": false
-    }}},
-    {"list": "Tasks", "body": {"fields": {
-      "Title": "Pressure test",
-      "AssignmentLookupId": "5001",
-      "Sequence": 2,
-      "Complete": false,
-      "Feature": "Auto Cover",
-      "NotApplicable": true,
-      "Note": "Auto Cover not on this project"
-    }}},
-    {"list": "Assignments", "body": {"fields": {
-      "Title": "TEST-9920 · 9.9 TEST plain step",
-      "JobLookupId": "9920",
-      "SubPhaseNumber": "9.9",
-      "SubPhaseName": "TEST plain step",
-      "PhaseName": "Finish",
-      "Skill": "",
-      "TemplateItemId": 813,
-      "Sequence": 30.5,
-      "Crew": "unassigned",
-      "DurationDays": 3,
-      "Locked": false,
-      "PMSignOff": false,
-      "InstallerSignOff": false,
-      "NotApplicable": false,
-      "TasksTotal": 1,
-      "TasksComplete": 0,
-      "SuppressReconcileUntil": "2026-10-22T15:10:00.000Z"
-    }}},
-    {"list": "Tasks", "body": {"fields": {
-      "Title": "Walk the site",
-      "AssignmentLookupId": "5002",
-      "Sequence": 1,
-      "Complete": false,
-      "Feature": "TEST feature",
-      "NotApplicable": false
-    }}}
+  "nowMs": "2026-10-22T15:00:00Z",
+  "offFeatureKeys": [
+   "auto cover"
   ],
-  "readBack": null
+  "rows": "project rows Sequence 1..46, ids 4001..4046, templateItemId 101..146",
+  "tplSecs": [
+   {
+    "id": 812,
+    "seq": 21.5,
+    "optional": true,
+    "feature": "TEST feature",
+    "tradeId": "6",
+    "num": "9.8",
+    "name": "TEST feature step",
+    "phase": "Plumbing",
+    "skill": "plumbing",
+    "days": 2,
+    "tasks": [
+     "Rough in",
+     "Pressure test"
+    ],
+    "taskSeq": [
+     1,
+     2
+    ],
+    "taskFeature": [
+     null,
+     "Auto Cover"
+    ]
+   },
+   {
+    "id": 813,
+    "seq": 30.5,
+    "optional": false,
+    "feature": null,
+    "tradeId": null,
+    "num": "9.9",
+    "name": "TEST plain step",
+    "phase": "Finish",
+    "skill": null,
+    "days": 3,
+    "tasks": [
+     "Walk the site"
+    ],
+    "taskSeq": [
+     1
+    ],
+    "taskFeature": [
+     "TEST feature"
+    ]
+   }
+  ],
+  "responses": "Assignments POSTs return ids 5001 then 5002; Tasks POSTs return 7001, 7002, 7003"
+ },
+ "requests": [
+  {
+   "list": "Assignments",
+   "body": {
+    "fields": {
+     "Title": "TEST-9920 · 9.8 TEST feature step",
+     "JobLookupId": "9920",
+     "SubPhaseNumber": "9.8",
+     "SubPhaseName": "TEST feature step",
+     "PhaseName": "Plumbing",
+     "Skill": "plumbing",
+     "TemplateItemId": 812,
+     "Feature": "TEST feature",
+     "Sequence": 21.5,
+     "TradeLookupId": "6",
+     "Crew": "unassigned",
+     "DurationDays": 2,
+     "Locked": false,
+     "PMSignOff": false,
+     "InstallerSignOff": false,
+     "NotApplicable": false,
+     "TasksTotal": 2,
+     "TasksComplete": 0,
+     "SuppressReconcileUntil": "2026-10-22T15:10:00.000Z"
+    }
+   }
+  },
+  {
+   "list": "Tasks",
+   "body": {
+    "fields": {
+     "Title": "Rough in",
+     "AssignmentLookupId": "5001",
+     "Sequence": 1,
+     "Complete": false,
+     "NotApplicable": false
+    }
+   }
+  },
+  {
+   "list": "Tasks",
+   "body": {
+    "fields": {
+     "Title": "Pressure test",
+     "AssignmentLookupId": "5001",
+     "Sequence": 2,
+     "Complete": false,
+     "Feature": "Auto Cover",
+     "NotApplicable": true,
+     "Note": "Auto Cover not on this project"
+    }
+   }
+  },
+  {
+   "list": "Assignments",
+   "body": {
+    "fields": {
+     "Title": "TEST-9920 · 9.9 TEST plain step",
+     "JobLookupId": "9920",
+     "SubPhaseNumber": "9.9",
+     "SubPhaseName": "TEST plain step",
+     "PhaseName": "Finish",
+     "Skill": "",
+     "TemplateItemId": 813,
+     "Sequence": 30.5,
+     "Crew": "unassigned",
+     "DurationDays": 3,
+     "Locked": false,
+     "PMSignOff": false,
+     "InstallerSignOff": false,
+     "NotApplicable": false,
+     "TasksTotal": 1,
+     "TasksComplete": 0,
+     "SuppressReconcileUntil": "2026-10-22T15:10:00.000Z"
+    }
+   }
+  },
+  {
+   "list": "Tasks",
+   "body": {
+    "fields": {
+     "Title": "Walk the site",
+     "AssignmentLookupId": "5002",
+     "Sequence": 1,
+     "Complete": false,
+     "Feature": "TEST feature",
+     "NotApplicable": false
+    }
+   }
+  }
+ ],
+ "readBack": {
+  "capturedAt": "2026-10-23T16:03Z",
+  "project": "TEST-9920 (throwaway, Planned, D2 Bot)",
+  "by": "applyStructureCreates from the planner served on localhost:8787, signed in as stratirus@d2pools.com",
+  "asgReadBack": {
+   "Title": "TEST-9920 · 3.7 Rough Inspection Preparation",
+   "JobLookupId": "79",
+   "SubPhaseNumber": "3.7",
+   "SubPhaseName": "Rough Inspection Preparation",
+   "PhaseName": "Site Prep",
+   "Skill": "@unassigned",
+   "TemplateItemId": 21,
+   "Sequence": 21,
+   "Crew": "unassigned",
+   "DurationDays": 2,
+   "Locked": false,
+   "PMSignOff": false,
+   "InstallerSignOff": false,
+   "NotApplicable": false,
+   "TasksTotal": 4,
+   "TasksComplete": 0,
+   "SuppressReconcileUntil": "2026-10-23T16:03:13Z"
+  },
+  "taskReadBack": [
+   {
+    "Title": "Plumbing QC review",
+    "AssignmentLookupId": "2953",
+    "Sequence": 1,
+    "Complete": false,
+    "NotApplicable": false
+   }
+  ],
+  "decimalSequence": {
+   "sent": 21.333333333333332,
+   "stored": 21.3333333333333
+  },
+  "featureAndNa": {
+   "asgFeature": "TEST \"feature\"",
+   "taskNotApplicable": true,
+   "taskNote": "TEST \"feature\" not on this project",
+   "taskFeature": "TEST \"feature\""
+  },
+  "differences": "none: every field stored as sent, except SuppressReconcileUntil lost its milliseconds and the decimal Sequence was kept to 15 significant digits; ids returned as strings. Both capture rows and their tasks were deleted afterwards (404 on re-read)."
+ }
 }
