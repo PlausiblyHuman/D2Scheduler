@@ -13,6 +13,9 @@ Client-facing name: **D2 Build Scheduler**. Internal codename: **Batterboard** (
 standalone product built from its behaviour in `C:\src\Plumbline`. The codename is internal
 only; the client keeps hearing D2 Build Scheduler.
 
+**GitHub shadow:** https://github.com/PlausiblyHuman/D2Scheduler (remote `github`, push-only; set up
+2026-10-23; `origin` on Azure DevOps stays the pull source)
+
 Site URL: `https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler` (site created 2026-08-22; lists NOT yet provisioned — see Known bugs).
 
 ## Owner / stakeholders
@@ -3060,8 +3063,11 @@ localStorage is full (`save()` catches the quota error and the header says this 
 keeping a copy; `freshness.js` +6 checks); `D2 - New Pool` escapes the job number and the four
 composed Result messages for JSON, and doubles quotes in the job number for its two OData
 `$filter`s (`flows/scripts/new_pool_escape_jobnumber.py`, test, driver
-`2026-10-23-new-pool-escape-jobnumber.py`; **built and tested, not yet published**: the push was
-handed to Shane); and all 402 mutation anchors land again (ten had gone stale).
+`2026-10-23-new-pool-escape-jobnumber.py`; **published 2026-10-23** by Shane running the driver,
+export `flows/exports/D2-New-Pool-2026-10-23.json`, backup
+`backups/D2-New-Pool-pre-escape-jobnumber.json`, all seven New Pool tests green including the
+no-drift check against it; not yet exercised by a live build); and all 402 mutation anchors land
+again (ten had gone stale).
 
 ### Step 4: optional features and Update from template (built 2026-10-22, verified live 2026-10-23)
 

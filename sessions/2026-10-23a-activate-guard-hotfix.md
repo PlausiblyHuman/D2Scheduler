@@ -30,6 +30,9 @@ and a hotfix for Don being unable to activate any project.
 - Step 4 live check finished by the parallel session; tenant back to 37 jobs, templates 91/543,
   proxy flow deleted.
 - FlowAgent now sees the Azure CLI (the restart item is closed).
+- `D2 - New Pool` job-number fix published (I ran the driver; the permission check blocks live
+  publishes from the session). Export `D2-New-Pool-2026-10-23.json`, no-drift check green.
+- GitHub shadow set up: `PlausiblyHuman/D2Scheduler`, remote `github`.
 - Don built `25-2061 F` (Fiberglass, his first) and saved 147 sign-offs across four projects today;
   every flow run succeeded.
 
@@ -41,7 +44,6 @@ and a hotfix for Don being unable to activate any project.
 
 **Open questions / blocked on:**
 - Don: optional-feature list, where the three gas phases go, open Fiberglass questions.
-- `D2 - New Pool` job-number fix: push handed to me (the permission check blocks live publishes).
 - Ghost calendar events: has anyone seen one? Needs a short design before any code.
 - Don called and we missed each other; nothing found wrong on the system side.
 - The idle re-anchor worktree (`nifty-lovelace-cd3a91`) and its session can be archived.
