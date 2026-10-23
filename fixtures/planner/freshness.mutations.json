@@ -1,0 +1,7 @@
+[
+  {"label": "quota error not caught", "find": "try{localStorage.setItem(KEY,JSON.stringify(S));storageFull=false;}\n  catch(e){storageFull=true;}", "replace": "localStorage.setItem(KEY,JSON.stringify(S));storageFull=false;"},
+  {"label": "save never paints the warning", "find": "catch(e){storageFull=true;}\n  storageNote();", "replace": "catch(e){storageFull=true;}"},
+  {"label": "warning stacked on every render", "find": "if(storageFull&&!el){", "replace": "if(storageFull){"},
+  {"label": "warning never cleared", "find": "}else if(!storageFull&&el)el.remove();", "replace": "}"},
+  {"label": "a successful save leaves the flag set", "find": "localStorage.setItem(KEY,JSON.stringify(S));storageFull=false;}", "replace": "localStorage.setItem(KEY,JSON.stringify(S));}"}
+]

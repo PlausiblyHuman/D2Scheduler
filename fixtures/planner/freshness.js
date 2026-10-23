@@ -15,7 +15,7 @@ const ok = (l, c, d = '') => { console.log((c ? 'PASS' : 'FAIL') + ' · ' + l + 
 const html = fs.readFileSync(PLANNER, 'utf8').replace('</body>',
   `<script>window.__x=()=>{window.S=S;window.allSecs=allSecs;window.importFromD2=importFromD2;
     window.autoSchedule=autoSchedule;window.SEED_TEMPLATE=SEED_TEMPLATE;
-    window.divergedSecs=divergedSecs;window.delCrew=delCrew;};</script><script>__x();</script></body>`);
+    window.divergedSecs=divergedSecs;window.delCrew=delCrew;window.render=render;window.setZoom=setZoom;window.save=save;};</script><script>__x();</script></body>`);
 const vc = new VirtualConsole(); vc.on('jsdomError', e => console.log('[jsdom]', e.message));
 const dom = new JSDOM(html, { runScripts: 'dangerously', pretendToBeVisual: true, url: 'http://localhost/', virtualConsole: vc });
 const win = dom.window;
@@ -139,6 +139,32 @@ win.confirm = () => true; win.alert = () => {};
 
   const header = win.document.querySelector('header').textContent;
   ok('the header says how fresh the data is', /Live as of/i.test(header), header.slice(0, 120));
+
+  // --- a full localStorage must not freeze the screen ---
+  // Past the browser's quota (about 5 MB) setItem throws. render() saves last, so
+  // the throw used to escape every handler and the screen stopped following edits.
+  const realSet = win.Storage.prototype.setItem;
+  win.Storage.prototype.setItem = function () { const e = new Error('quota'); e.name = 'QuotaExceededError'; throw e; };
+  const fzText = () => win.document.getElementById('freshness').textContent;
+  let threw = null;
+  try { win.render(); } catch (e) { threw = e; }
+  ok('a full localStorage does not throw out of render', !threw, threw && threw.name);
+  ok('the header says this browser is not keeping a copy', /not keeping a copy/i.test(fzText()), fzText().slice(-140));
+  threw = null;
+  try { win.setZoom('week'); } catch (e) { threw = e; }
+  ok('a handler that saves before rendering still renders', !threw && /zoom-week/.test(win.document.getElementById('main').innerHTML),
+     threw ? threw.name : 'zoom-week drawn: ' + /zoom-week/.test(win.document.getElementById('main').innerHTML));
+  win.render();
+  ok('the warning is shown once, not stacked on each render', (fzText().match(/not keeping a copy/gi) || []).length === 1, fzText().slice(-200));
+  // A task tick saves without rendering, so the header is NOT rewritten in between:
+  // save() itself has to avoid stacking the note and has to take it down.
+  win.save(); win.save();
+  ok('saves with no render in between show the warning once', (fzText().match(/not keeping a copy/gi) || []).length === 1, fzText().slice(-200));
+  win.Storage.prototype.setItem = realSet;
+  win.save();
+  ok('a save that works takes the warning down without a render', !/not keeping a copy/i.test(fzText()), fzText().slice(-140));
+  win.render();
+  ok('the warning clears once the browser can store again', !/not keeping a copy/i.test(fzText()), fzText().slice(-140));
 
   process.exit(fail);
 })();

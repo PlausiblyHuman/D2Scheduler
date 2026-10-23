@@ -444,7 +444,27 @@ function load(){
   S.jobs=[];
   syncNonWork();
 }
-const save=()=>localStorage.setItem(KEY,JSON.stringify(S));
+/* Each browser keeps its copy of the schedule in localStorage between visits.
+   Past the browser's quota (about 5 MB, roughly 90 projects held here) setItem
+   throws, and render() saves last, so the throw used to escape every handler:
+   whatever ran after render() never did, and the screen stopped following edits.
+   Now the failure is caught and the header says this browser is not keeping a
+   copy. SharePoint still holds everything saved there, so Refresh brings it back. */
+let storageFull=false;
+function storageNote(){
+  const fz=document.getElementById('freshness');if(!fz)return;
+  let el=fz.querySelector('.nokeep');
+  if(storageFull&&!el){
+    el=document.createElement('b');el.className='nokeep';
+    el.textContent=' · This browser is out of space, so it is not keeping a copy of this screen. Press Save before you close it.';
+    fz.appendChild(el);
+  }else if(!storageFull&&el)el.remove();
+}
+const save=()=>{
+  try{localStorage.setItem(KEY,JSON.stringify(S));storageFull=false;}
+  catch(e){storageFull=true;}
+  storageNote();
+};
 const crew=id=>S.crews.find(c=>c.id===id);
 const crewColor=id=>{const c=crew(id);if(c&&c.color)return c.color;
   const i=S.crews.findIndex(x=>x.id===id);return i<0?'#94a3b8':PALETTE[i%PALETTE.length];};
