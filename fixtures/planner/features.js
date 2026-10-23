@@ -153,7 +153,7 @@ const SYN = {
    pastOff: 1.2 finished, 6.4 switched off in SharePoint with an old date, 7.0 already started. */
 function fillProject(w, store, variant) {
   const T = w.__todayStr(), nw = w.nextWork, add = w.addCal, adv = (st, n) => nw(add(w.workSpan(st, n).pop(), 1));
-  const past = variant === 'pastOff';
+  const past = variant === 'pastOff' || variant === 'pastOffNa';
   const d1 = nw(add(T, -40)), d2 = nw(add(T, -7)), d3 = past ? nw(add(T, -20)) : nw(add(T, 10)),
     d4 = past ? nw(add(T, -15)) : adv(d3, 2), d6 = past ? nw(add(T, -3)) : adv(adv(d4, 3), 5);
   const at = d => d + 'T05:00:00Z';
@@ -171,6 +171,11 @@ function fillProject(w, store, variant) {
     task(5021, 502, 'Mark corners', 1), task(5022, 502, 'Auto Cover Layout', 2, ac), task(5031, 503, 'Dig', 1),
     task(5041, 504, 'Rough in', 1), task(5042, 504, 'Auto Cover check', 2, Object.assign({}, ac, past ? { NotApplicable: true, Note: REASON } : {})),
     task(5061, 506, 'Walk', 1)];
+  if (variant === 'pastOffNa') {
+    Object.assign(store.tasks.find(t => t.id === '5022').fields, { NotApplicable: true, Note: REASON });
+    store.tasks.push(task(5032, 503, 'Auto Cover conduit', 2, Object.assign({ NotApplicable: true, Note: REASON }, ac)),
+      task(5062, 506, 'Auto Cover remote', 2, Object.assign({ NotApplicable: true, Note: REASON }, ac)));
+  }
 }
 async function fresh(variant) {
   const b = boot(SYN); await wait(600);
@@ -325,6 +330,29 @@ async function drawerTests() {
     ok('On+create: one added comment each on the new row and 6.4', mine(w).length === 2 && mine(w).every(e => e.body === 'Change order: Auto Cover added')
       && mine(w).map(e => e.secId).sort().join() === [String(tr && tr.base.id), '504'].sort().join(), JSON.stringify(mine(w)));
   }
+  /* ---- a create re-reads the project, and the switch is re-planned against what SharePoint holds now ---- */
+  {
+    const b = await fresh('pastOffNa'), { w, j } = b;
+    b.store.spt.push(fspt(7, '6.3', 'Auto Cover Track', 35, 'Equipment', { Optional: true, Feature: 'Auto Cover' }));
+    await w.refreshLive(true); await wait(50);
+    w.featureConfirm(j.id, 'auto cover', true);
+    const box = re => [...dBody(w).querySelectorAll('input[data-fs]')].find(e => re.test(e.parentNode.textContent));
+    ok('re-plan: the confirm lists 6.4 and four tasks', dBody(w).querySelectorAll('input[data-fs="sec"]').length === 1 && dBody(w).querySelectorAll('input[data-fs="task"]').length === 4);
+    box(/6\.4 Auto Cover Rough In becomes/).checked = false;        // the PM keeps 6.4 off
+    box(/1\.2 Auto Cover conduit/).checked = false;                 // and this task N/A
+    // Meanwhile on the site: 1.1 is signed, 6.4's automatic reason is replaced, 7.0's N/A is cleared.
+    b.store.asg.find(a => a.id === '502').fields.InstallerSignOff = true;
+    b.store.tasks.find(t => t.id === '5042').fields.Note = 'Customer declined';
+    Object.assign(b.store.tasks.find(t => t.id === '5062').fields, { NotApplicable: false, Note: undefined });
+    await w.applyFeatureSwitch(j.id, 'auto cover', true);
+    const t = dBody(w).textContent;
+    ok('re-plan: the task under the newly signed sub-phase is unchanged', taskOf(w, j, 502, 5022).na && taskOf(w, j, 502, 5022).note === REASON);
+    ok('re-plan: the PM reason now on the site is kept', taskOf(w, j, 504, 5042).na && taskOf(w, j, 504, 5042).note === 'Customer declined');
+    ok('re-plan: both are reported with their reason', /1\.1 Layout is signed off/.test(t) && /6\.4 Auto Cover Rough In has a task marked not applicable for another reason/.test(t), t);
+    ok('re-plan: an item that changed on the site is reported', /7\.0 Auto Cover remote changed in SharePoint since the last Refresh/.test(t), t);
+    ok('re-plan: unticked items stay as they were', secOf(w, j, 504).skip === true && taskOf(w, j, 503, 5032).na);
+    ok('re-plan: no comment on the signed sub-phase, none on unchanged rows', !mine(w).some(e => ['502', '503', '504', '506'].includes(e.secId)) && mine(w).length === 1, JSON.stringify(mine(w)));
+  }
   /* ---- Update from template ---- */
   {
     const b = await fresh('base'), { w, j } = b;
@@ -394,6 +422,28 @@ async function drawerTests() {
     w.featureConfirm(j.id, 'fire bowl', true); await w.applyFeatureSwitch(j.id, 'fire bowl', true);
     ok('refresh fails: the cause is shown', /a84a18/.test(dBody(w).innerHTML) && /Graph 500/.test(dBody(w).textContent), dBody(w).textContent);
     ok('refresh fails: nothing else is applied on screen', JSON.stringify(j.groups) === snap && mine(w).length === 0);
+    const n = b.store.posts.length;
+    w.featureConfirm(j.id, 'fire bowl', true);
+    ok('refresh fails: a second Turn on is refused until a Refresh', /Refresh first/.test(dBody(w).textContent) && !dBody(w).querySelector('input[data-fs]') && b.store.posts.length === n);
+    w.UI.fs = { jobId: j.id, key: 'fire bowl', name: 'Fire Bowl', on: true, plan: w.D2FeaturesCore.planSwitch(j.groups, w.templateFor(j.buildType), 'fire bowl', true) };
+    await w.applyFeatureSwitch(j.id, 'fire bowl', true);
+    ok('refresh fails: and so is its Apply', /Refresh first/.test(dBody(w).textContent) && b.store.posts.length === n);
+    w.openFeatures(j.id); dBody(w).querySelector('input[data-add-tpl="900"]').checked = true;
+    await w.addTemplateLines(j.id);
+    ok('refresh fails: and so is Add from the template', /Refresh first/.test(dBody(w).textContent) && b.store.posts.length === n);
+    b.store.failReadsAfterPost = false;
+    ok('after a successful re-read, creates are allowed again', (await w.refreshOneProject(j)) === true && !j.needsRefresh);
+    w.openFeatures(j.id); dBody(w).querySelector('input[data-add-tpl="900"]').checked = true;
+    await w.addTemplateLines(j.id);
+    ok('and Add from the template posts again', b.store.posts.length > n && !!w.allSecs(j).map(x => x.s).find(s => s.templateItemId === 900));
+  }
+  /* ---- the confirm list fails closed: an item with no checkbox on screen is not applied ---- */
+  {
+    const b = await fresh('base'), { w, j } = b, snap = JSON.stringify(j.groups);
+    w.featureConfirm(j.id, 'auto cover', false);
+    dBody(w).innerHTML = '';
+    await w.applyFeatureSwitch(j.id, 'auto cover', false);
+    ok('fail closed: nothing applied without its ticked checkbox', JSON.stringify(j.groups) === snap && mine(w).length === 0);
   }
   /* ---- where the button is not offered ---- */
   {

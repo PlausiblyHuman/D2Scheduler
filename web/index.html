@@ -2149,6 +2149,7 @@ function featureConfirm(jobId,key,on){
   const feat=F.projectFeatures(j.groups,tpl).find(f=>f.key===k); if(!feat)return;
   const plan=F.planSwitch(j.groups,tpl,k,!!on);
   UI.fs=null;
+  if(plan.creates.length&&j.needsRefresh){needsRefreshNotice(j);return;}
   if(plan.creates.length&&stopForUnsaved('Turn on '+feat.name,'Adding sub-phases from the template'))return;
   UI.fs={jobId,key:k,name:feat.name,on:!!on,plan};
   const box=(kind,i,text)=>`<div><label style="text-transform:none;font-weight:400"><input type="checkbox" data-fs="${kind}" data-i="${i}" checked> ${text}</label></div>`;
@@ -2192,9 +2193,11 @@ async function createFromTemplate(j,tplIds,switchingKey){
     const tok=await graphToken(), siteId=(await graphSite(tok)).id;
     res=await GW.applyStructureCreates(plan,{token:tok,siteId,asgListId:D2_GRAPH.lists.asg,tasksListId:D2_GRAPH.lists.tasks});
   }catch(e){ return {error:e,lead:'Nothing was added.'}; }
-  if(!(await refreshOneProject(j)))
+  if(!(await refreshOneProject(j))){
+    j.needsRefresh=true; save();   // the rows may exist in SharePoint but not here: no second create until a re-read
     return {error:refreshOneProject.lastError,
       lead:'The sub-phases were sent to SharePoint, but this project could not be read back, so nothing else was changed here. Press Refresh before changing it.'};
+  }
   const have=new Set(allSecs(j).map(({s})=>String(s.templateItemId)));
   const present=[], msgs=[];
   plan.creates.forEach(c=>{
@@ -2208,6 +2211,16 @@ async function createFromTemplate(j,tplIds,switchingKey){
   });
   return {present,report:msgs.length?`<div class="hint" style="color:#a84a18;padding:0 0 8px">${msgs.join('<br>')}</div>`:''};
 }
+/* After a create whose re-read failed, the new rows may be in SharePoint but not on this screen.
+   Another create would add them twice, so it waits for a Refresh, which clears j.needsRefresh. */
+function needsRefreshNotice(j){
+  document.getElementById('dTitle').textContent='Refresh first: '+(j.jobno||j.name);
+  document.getElementById('dBody').innerHTML=`<div class="hint" style="padding:0 0 11px"><strong>Refresh first.</strong>
+    Sub-phases were sent to SharePoint for this project, but it could not be read back afterwards. Press Refresh
+    before adding any more, so nothing is added twice.</div>`;
+  document.getElementById('dFoot').innerHTML='<button class="btn" onclick="closeDrawer()">Close</button>';
+  document.getElementById('drawer').classList.add('open');
+}
 function featureError(r){
   document.getElementById('dBody').innerHTML=graphErrorHTML(r.error,r.lead||'');
   document.getElementById('dFoot').innerHTML='<button class="btn" onclick="closeDrawer()">Close</button>';
@@ -2218,24 +2231,37 @@ async function applyFeatureSwitch(jobId,key,on){
   if(!featuresAllowed(j)||!st||st.jobId!==jobId||st.key!==F.featureKey(key)||st.on!==!!on)return;
   const plan=st.plan;
   const ticked=(kind,list)=>list.filter((x,i)=>{
-    const el=document.querySelector('#dBody input[data-fs="'+kind+'"][data-i="'+i+'"]'); return !el||el.checked;});
+    const el=document.querySelector('#dBody input[data-fs="'+kind+'"][data-i="'+i+'"]'); return !!el&&el.checked;});
   const secs=ticked('sec',plan.secs), tasks=ticked('task',plan.tasks);
+  if(plan.creates.length&&j.needsRefresh){needsRefreshNotice(j);return;}
   if(plan.creates.length&&stopForUnsaved('Turn on '+st.name,'Adding sub-phases from the template'))return;
   UI.fs=null;
   /* Rows by their SharePoint id: a create re-reads the project and rebuilds its rows, so the
      positions the plan was made with may have moved. */
   const at=(gi,si)=>j.groups[gi].sections[si];
-  const hs=secs.map(x=>({x,id:String(at(x.gi,x.si).base.id)}));
-  const ht=tasks.map(x=>{const s=at(x.gi,x.si),t=s.tasks[x.ti];return {x,id:String(s.base.id),tid:t.spId==null?null:String(t.spId)};});
-  const leftHTML=plan.left.map(x=>featLeftWhy(j,x));   // before a create re-reads the rows
+  const secId=x=>{const s=at(x.gi,x.si);return String(s.base&&s.base.id);};
+  const taskKey=x=>{const t=at(x.gi,x.si).tasks[x.ti];return secId(x)+':'+(t.spId==null?null:String(t.spId));};
+  const hOf=x=>({x,id:secId(x)}), tOf=x=>{const t=at(x.gi,x.si).tasks[x.ti];return {x,id:secId(x),tid:t.spId==null?null:String(t.spId)};};
+  let hs=secs.map(hOf), ht=tasks.map(tOf);
+  let leftHTML=plan.left.map(x=>featLeftWhy(j,x));
   let created=[], report='';
   if(plan.creates.length){
     document.getElementById('dFoot').innerHTML='<span class="hint">Adding sub-phases in SharePoint…</span>';
     const r=await createFromTemplate(j,plan.creates.map(c=>c.tplId),st.key);
     if(r.error){featureError(r);return;}
     created=r.present; report=r.report;
+    /* The rows were just re-read, so what SharePoint holds now decides. Only what was ticked AND
+       still qualifies is switched: a sub-phase signed since the last Refresh, or an automatic N/A
+       whose reason a PM has since replaced, is left and said so. */
+    const tickS=new Set(hs.map(h=>h.id)), tickT=new Set(ht.map(h=>h.id+':'+h.tid)), was=hs.concat(ht);
+    const re=window.D2FeaturesCore.planSwitch(j.groups,templateFor(j.buildType),st.key,!!on);
+    hs=re.secs.filter(x=>tickS.has(secId(x))).map(hOf);
+    ht=re.tasks.filter(x=>tickT.has(taskKey(x))).map(tOf);
+    leftHTML=re.left.map(x=>featLeftWhy(j,x));
+    const leftIds=new Set(re.left.map(secId)), nowS=new Set(hs.map(h=>h.id)), nowT=new Set(ht.map(h=>h.id+':'+h.tid));
+    was.filter(h=>!(h.tid===undefined?nowS.has(h.id):nowT.has(h.id+':'+h.tid))&&!leftIds.has(h.id))
+      .forEach(h=>leftHTML.push('<b>'+esc(h.x.label)+'</b> changed in SharePoint since the last Refresh, so it is left as it is.'));
   }
-  const byId=id=>allSecs(j).find(({s})=>s.base&&String(s.base.id)===id)||null;
   /* Switching straight back, before Save, puts the dates back exactly as they were, and takes
      back the change-order comments the first switch queued, so nothing is sent for either. Only
      when the same rows are switched back and no date on the project moved in between. */
@@ -2246,11 +2272,11 @@ async function applyFeatureSwitch(jobId,key,on){
   const before={}; allSecs(j).forEach(({s})=>{before[s.sid]=s.start??null;});
   const touched=new Set();
   let nSec=0,nTask=0;
-  hs.forEach(h=>{const hit=byId(h.id); if(!hit)return;
-    hit.s.skip=h.x.skip; if(h.x.clearStart&&!undo)hit.s.start=null; touched.add(hit.s); nSec++;});
-  ht.forEach(h=>{const hit=byId(h.id); if(!hit)return;
-    const t=hit.s.tasks.find(t=>h.tid!=null&&String(t.spId)===h.tid)||hit.s.tasks[h.x.ti]; if(!t)return;
-    t.na=h.x.na; t.note=h.x.note; touched.add(hit.s); nTask++;});
+  // hs and ht hold positions in the rows on screen now: the re-plan after a create made them fresh.
+  hs.forEach(h=>{const sc=at(h.x.gi,h.x.si);
+    sc.skip=h.x.skip; if(h.x.clearStart&&!undo)sc.start=null; touched.add(sc); nSec++;});
+  ht.forEach(h=>{const sc=at(h.x.gi,h.x.si), t=sc.tasks[h.x.ti]; if(!t)return;
+    t.na=h.x.na; t.note=h.x.note; touched.add(sc); nTask++;});
   const order=allSecs(j), newSecs=order.filter(({s})=>created.includes(String(s.templateItemId))).map(x=>x.s);
   newSecs.forEach(s=>touched.add(s));
   let comments=[];
@@ -2261,7 +2287,7 @@ async function applyFeatureSwitch(jobId,key,on){
     delete j.featUndo;
   }else{
     let first=-1;
-    order.forEach((x,i)=>{if(first<0&&(hs.some(h=>byId(h.id)&&byId(h.id).s===x.s)||newSecs.includes(x.s)))first=i;});
+    order.forEach((x,i)=>{if(first<0&&(hs.some(h=>at(h.x.gi,h.x.si)===x.s)||newSecs.includes(x.s)))first=i;});
     if(first>=0)reflowFrom(j.id,order[first].gi,order[first].si,null,featureReflowOpts());
     const body='Change order: '+st.name+' '+(on?'added':'removed');
     touched.forEach(s=>{const e=queueEntryFor(j,s,'comment',body); if(e)comments.push(e.localId);});
@@ -2288,6 +2314,7 @@ async function addTemplateLines(jobId){
   const j=S.jobs.find(x=>x.id===jobId); if(!featuresAllowed(j))return;
   const ids=[...document.querySelectorAll('#dBody input[data-add-tpl]')].filter(el=>el.checked).map(el=>el.dataset.addTpl);
   if(!ids.length){alert('Tick the sub-phases to add first.');return;}
+  if(j.needsRefresh){needsRefreshNotice(j);return;}
   if(stopForUnsaved('Add from the template: '+(j.jobno||j.name),'Adding sub-phases from the template'))return;
   document.getElementById('dFoot').innerHTML='<span class="hint">Adding sub-phases in SharePoint…</span>';
   const r=await createFromTemplate(j,ids,null);
@@ -2487,6 +2514,7 @@ function applyJobPayload(existing,inj){
        today. Refresh already warns that unsaved edits are overwritten; nothing else is lost. */
     j.groups=groupsFromPayload(inj);
     delete j.featUndo;   // a feature switch can only be undone exactly against the rows it was made on
+    delete j.needsRefresh;   // the rows are now SharePoint's, created ones included
     /* Still being built by D2 - New Pool. Read off New Pool Requests on the
        Graph path; the REST export does not carry it, so it reads false. */
     j.building=!!inj.building;
