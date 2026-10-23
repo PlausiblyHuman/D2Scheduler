@@ -638,7 +638,7 @@
       "num": "7.1",
       "name": "Equipment Plumbing",
       "phaseNum": "7",
-      "phaseName": "Equipment Installation, Startup and Trim Out",
+      "phaseName": "Equipment Installation",
       "skill": "plumbing",
       "tradeCode": "plumbing",
       "defaultCrew": "harrison",
@@ -662,7 +662,7 @@
       "num": "7.2",
       "name": "Equipment Installation",
       "phaseNum": "7",
-      "phaseName": "Equipment Installation, Startup and Trim Out",
+      "phaseName": "Equipment Installation",
       "skill": "plumbing",
       "tradeCode": "plumbing",
       "defaultCrew": "harrison",
@@ -685,7 +685,7 @@
       "num": "7.3",
       "name": "Equipment Electrical",
       "phaseNum": "7",
-      "phaseName": "Equipment Installation, Startup and Trim Out",
+      "phaseName": "Equipment Installation",
       "skill": "automation",
       "tradeCode": "automation",
       "defaultCrew": "harrison",
@@ -703,10 +703,10 @@
       ]
     },
     {
-      "num": "7.4",
+      "num": "8.1",
       "name": "Startup Preparation",
-      "phaseNum": "7",
-      "phaseName": "Equipment Installation, Startup and Trim Out",
+      "phaseNum": "8",
+      "phaseName": "Startup and Trim Out",
       "skill": "@unassigned",
       "tradeCode": null,
       "defaultCrew": "unassigned",
@@ -721,10 +721,10 @@
       ]
     },
     {
-      "num": "7.5",
+      "num": "8.2",
       "name": "Startup Procedures",
-      "phaseNum": "7",
-      "phaseName": "Equipment Installation, Startup and Trim Out",
+      "phaseNum": "8",
+      "phaseName": "Startup and Trim Out",
       "skill": "@unassigned",
       "tradeCode": null,
       "defaultCrew": "unassigned",
@@ -742,10 +742,10 @@
       ]
     },
     {
-      "num": "7.6",
+      "num": "8.3",
       "name": "Water Chemistry Startup",
-      "phaseNum": "7",
-      "phaseName": "Equipment Installation, Startup and Trim Out",
+      "phaseNum": "8",
+      "phaseName": "Startup and Trim Out",
       "skill": "@unassigned",
       "tradeCode": null,
       "defaultCrew": "unassigned",
@@ -761,10 +761,10 @@
       ]
     },
     {
-      "num": "7.7",
+      "num": "8.4",
       "name": "Trim Out",
-      "phaseNum": "7",
-      "phaseName": "Equipment Installation, Startup and Trim Out",
+      "phaseNum": "8",
+      "phaseName": "Startup and Trim Out",
       "skill": "@unassigned",
       "tradeCode": null,
       "defaultCrew": "unassigned",
@@ -781,9 +781,9 @@
       ]
     },
     {
-      "num": "8.1",
+      "num": "9.1",
       "name": "Construction Cleanup",
-      "phaseNum": "8",
+      "phaseNum": "9",
       "phaseName": "Site Restoration and Final Grade",
       "skill": "@unassigned",
       "tradeCode": null,
@@ -800,9 +800,9 @@
       ]
     },
     {
-      "num": "8.2",
+      "num": "9.2",
       "name": "Rough Grade",
-      "phaseNum": "8",
+      "phaseNum": "9",
       "phaseName": "Site Restoration and Final Grade",
       "skill": "@unassigned",
       "tradeCode": null,
@@ -817,9 +817,9 @@
       ]
     },
     {
-      "num": "8.3",
+      "num": "9.3",
       "name": "Final Grade",
-      "phaseNum": "8",
+      "phaseNum": "9",
       "phaseName": "Site Restoration and Final Grade",
       "skill": "@unassigned",
       "tradeCode": null,
@@ -834,9 +834,9 @@
       ]
     },
     {
-      "num": "8.4",
+      "num": "9.4",
       "name": "Seed and Straw/ Sod",
-      "phaseNum": "8",
+      "phaseNum": "9",
       "phaseName": "Site Restoration and Final Grade",
       "skill": "@unassigned",
       "tradeCode": null,
@@ -852,9 +852,9 @@
       ]
     },
     {
-      "num": "8.5",
+      "num": "9.5",
       "name": "Landscaping Restoration",
-      "phaseNum": "8",
+      "phaseNum": "9",
       "phaseName": "Site Restoration and Final Grade",
       "skill": "@unassigned",
       "tradeCode": null,
@@ -872,9 +872,9 @@
       ]
     },
     {
-      "num": "8.6",
+      "num": "9.6",
       "name": "Final Site Walk-Through",
-      "phaseNum": "8",
+      "phaseNum": "9",
       "phaseName": "Site Restoration and Final Grade",
       "skill": "@unassigned",
       "tradeCode": null,
@@ -889,9 +889,9 @@
       ]
     },
     {
-      "num": "9.0",
+      "num": "10.0",
       "name": "Client Orientation",
-      "phaseNum": "9",
+      "phaseNum": "10",
       "phaseName": "Post Construction Completion Phase",
       "skill": "poolschool",
       "tradeCode": "poolschool",
@@ -915,9 +915,9 @@
       ]
     },
     {
-      "num": "9.1",
+      "num": "10.1",
       "name": "Warranty & 30-Day Follow-Up",
-      "phaseNum": "9",
+      "phaseNum": "10",
       "phaseName": "Post Construction Completion Phase",
       "skill": "@office",
       "tradeCode": null,

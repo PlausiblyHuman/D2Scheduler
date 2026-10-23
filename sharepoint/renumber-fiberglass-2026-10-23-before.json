@@ -1,0 +1,426 @@
+{
+  "templateChanges": 15,
+  "asgChanges": 30,
+  "titleAnomalies": [],
+  "byJob": {
+    "D2-2446": 15,
+    "25-2061 F": 15
+  },
+  "sampleTemplate": [
+    {
+      "id": "77",
+      "from": {
+        "num": "7.1",
+        "phase": "Equipment Installation, Startup and Trim Out"
+      },
+      "set": {
+        "PhaseName": "Equipment Installation"
+      }
+    },
+    {
+      "id": "78",
+      "from": {
+        "num": "7.2",
+        "phase": "Equipment Installation, Startup and Trim Out"
+      },
+      "set": {
+        "PhaseName": "Equipment Installation"
+      }
+    },
+    {
+      "id": "79",
+      "from": {
+        "num": "7.3",
+        "phase": "Equipment Installation, Startup and Trim Out"
+      },
+      "set": {
+        "PhaseName": "Equipment Installation"
+      }
+    },
+    {
+      "id": "80",
+      "from": {
+        "num": "7.4",
+        "phase": "Equipment Installation, Startup and Trim Out"
+      },
+      "set": {
+        "SubPhaseNumber": "8.1",
+        "PhaseName": "Startup and Trim Out"
+      }
+    },
+    {
+      "id": "81",
+      "from": {
+        "num": "7.5",
+        "phase": "Equipment Installation, Startup and Trim Out"
+      },
+      "set": {
+        "SubPhaseNumber": "8.2",
+        "PhaseName": "Startup and Trim Out"
+      }
+    }
+  ],
+  "sampleAsg": [
+    {
+      "from": "25-2061 F · 7.1 Equipment Plumbing",
+      "to": "(title same)",
+      "phase": "Equipment Installation"
+    },
+    {
+      "from": "25-2061 F · 7.2 Equipment Installation",
+      "to": "(title same)",
+      "phase": "Equipment Installation"
+    },
+    {
+      "from": "25-2061 F · 7.3 Equipment Electrical",
+      "to": "(title same)",
+      "phase": "Equipment Installation"
+    },
+    {
+      "from": "25-2061 F · 7.4 Startup Preparation",
+      "to": "25-2061 F · 8.1 Startup Preparation",
+      "phase": "Startup and Trim Out"
+    },
+    {
+      "from": "25-2061 F · 7.5 Startup Procedures",
+      "to": "25-2061 F · 8.2 Startup Procedures",
+      "phase": "Startup and Trim Out"
+    }
+  ],
+  "before": {
+    "template": [
+      {
+        "id": "77",
+        "SubPhaseNumber": "7.1",
+        "PhaseName": "Equipment Installation, Startup and Trim Out",
+        "Title": "Equipment Plumbing"
+      },
+      {
+        "id": "78",
+        "SubPhaseNumber": "7.2",
+        "PhaseName": "Equipment Installation, Startup and Trim Out",
+        "Title": "Equipment Installation"
+      },
+      {
+        "id": "79",
+        "SubPhaseNumber": "7.3",
+        "PhaseName": "Equipment Installation, Startup and Trim Out",
+        "Title": "Equipment Electrical"
+      },
+      {
+        "id": "80",
+        "SubPhaseNumber": "7.4",
+        "PhaseName": "Equipment Installation, Startup and Trim Out",
+        "Title": "Startup Preparation"
+      },
+      {
+        "id": "81",
+        "SubPhaseNumber": "7.5",
+        "PhaseName": "Equipment Installation, Startup and Trim Out",
+        "Title": "Startup Procedures"
+      },
+      {
+        "id": "82",
+        "SubPhaseNumber": "7.6",
+        "PhaseName": "Equipment Installation, Startup and Trim Out",
+        "Title": "Water Chemistry Startup"
+      },
+      {
+        "id": "83",
+        "SubPhaseNumber": "7.7",
+        "PhaseName": "Equipment Installation, Startup and Trim Out",
+        "Title": "Trim Out"
+      },
+      {
+        "id": "84",
+        "SubPhaseNumber": "8.1",
+        "PhaseName": "Site Restoration and Final Grade",
+        "Title": "Construction Cleanup"
+      },
+      {
+        "id": "85",
+        "SubPhaseNumber": "8.2",
+        "PhaseName": "Site Restoration and Final Grade",
+        "Title": "Rough Grade"
+      },
+      {
+        "id": "86",
+        "SubPhaseNumber": "8.3",
+        "PhaseName": "Site Restoration and Final Grade",
+        "Title": "Final Grade"
+      },
+      {
+        "id": "87",
+        "SubPhaseNumber": "8.4",
+        "PhaseName": "Site Restoration and Final Grade",
+        "Title": "Seed and Straw/ Sod"
+      },
+      {
+        "id": "88",
+        "SubPhaseNumber": "8.5",
+        "PhaseName": "Site Restoration and Final Grade",
+        "Title": "Landscaping Restoration"
+      },
+      {
+        "id": "89",
+        "SubPhaseNumber": "8.6",
+        "PhaseName": "Site Restoration and Final Grade",
+        "Title": "Final Site Walk-Through"
+      },
+      {
+        "id": "90",
+        "SubPhaseNumber": "9.0",
+        "PhaseName": "Post Construction Completion Phase",
+        "Title": "Client Orientation"
+      },
+      {
+        "id": "91",
+        "SubPhaseNumber": "9.1",
+        "PhaseName": "Post Construction Completion Phase",
+        "Title": "Warranty & 30-Day Follow-Up"
+      }
+    ],
+    "asg": [
+      {
+        "id": "2730",
+        "SubPhaseNumber": "7.1",
+        "Title": "D2-2446 · 7.1 Equipment Plumbing",
+        "PhaseName": "Equipment Installation, Startup and Trim Out",
+        "InstallerSignOff": false,
+        "TemplateItemId": 77
+      },
+      {
+        "id": "2732",
+        "SubPhaseNumber": "7.2",
+        "Title": "D2-2446 · 7.2 Equipment Installation",
+        "PhaseName": "Equipment Installation, Startup and Trim Out",
+        "InstallerSignOff": false,
+        "TemplateItemId": 78
+      },
+      {
+        "id": "2734",
+        "SubPhaseNumber": "7.3",
+        "Title": "D2-2446 · 7.3 Equipment Electrical",
+        "PhaseName": "Equipment Installation, Startup and Trim Out",
+        "InstallerSignOff": false,
+        "TemplateItemId": 79
+      },
+      {
+        "id": "2736",
+        "SubPhaseNumber": "7.4",
+        "Title": "D2-2446 · 7.4 Startup Preparation",
+        "PhaseName": "Equipment Installation, Startup and Trim Out",
+        "InstallerSignOff": false,
+        "TemplateItemId": 80
+      },
+      {
+        "id": "2738",
+        "SubPhaseNumber": "7.5",
+        "Title": "D2-2446 · 7.5 Startup Procedures",
+        "PhaseName": "Equipment Installation, Startup and Trim Out",
+        "InstallerSignOff": false,
+        "TemplateItemId": 81
+      },
+      {
+        "id": "2740",
+        "SubPhaseNumber": "7.6",
+        "Title": "D2-2446 · 7.6 Water Chemistry Startup",
+        "PhaseName": "Equipment Installation, Startup and Trim Out",
+        "InstallerSignOff": false,
+        "TemplateItemId": 82
+      },
+      {
+        "id": "2742",
+        "SubPhaseNumber": "7.7",
+        "Title": "D2-2446 · 7.7 Trim Out",
+        "PhaseName": "Equipment Installation, Startup and Trim Out",
+        "InstallerSignOff": false,
+        "TemplateItemId": 83
+      },
+      {
+        "id": "2744",
+        "SubPhaseNumber": "8.1",
+        "Title": "D2-2446 · 8.1 Construction Cleanup",
+        "PhaseName": "Site Restoration and Final Grade",
+        "InstallerSignOff": false,
+        "TemplateItemId": 84
+      },
+      {
+        "id": "2746",
+        "SubPhaseNumber": "8.2",
+        "Title": "D2-2446 · 8.2 Rough Grade",
+        "PhaseName": "Site Restoration and Final Grade",
+        "InstallerSignOff": false,
+        "TemplateItemId": 85
+      },
+      {
+        "id": "2748",
+        "SubPhaseNumber": "8.3",
+        "Title": "D2-2446 · 8.3 Final Grade",
+        "PhaseName": "Site Restoration and Final Grade",
+        "InstallerSignOff": false,
+        "TemplateItemId": 86
+      },
+      {
+        "id": "2749",
+        "SubPhaseNumber": "8.4",
+        "Title": "D2-2446 · 8.4 Seed and Straw/ Sod",
+        "PhaseName": "Site Restoration and Final Grade",
+        "InstallerSignOff": false,
+        "TemplateItemId": 87
+      },
+      {
+        "id": "2752",
+        "SubPhaseNumber": "8.5",
+        "Title": "D2-2446 · 8.5 Landscaping Restoration",
+        "PhaseName": "Site Restoration and Final Grade",
+        "InstallerSignOff": false,
+        "TemplateItemId": 88
+      },
+      {
+        "id": "2754",
+        "SubPhaseNumber": "8.6",
+        "Title": "D2-2446 · 8.6 Final Site Walk-Through",
+        "PhaseName": "Site Restoration and Final Grade",
+        "InstallerSignOff": false,
+        "TemplateItemId": 89
+      },
+      {
+        "id": "2755",
+        "SubPhaseNumber": "9.0",
+        "Title": "D2-2446 · 9.0 Client Orientation",
+        "PhaseName": "Post Construction Completion Phase",
+        "InstallerSignOff": false,
+        "TemplateItemId": 90
+      },
+      {
+        "id": "2758",
+        "SubPhaseNumber": "9.1",
+        "Title": "D2-2446 · 9.1 Warranty & 30-Day Follow-Up",
+        "PhaseName": "Post Construction Completion Phase",
+        "InstallerSignOff": false,
+        "TemplateItemId": 91
+      },
+      {
+        "id": "3083",
+        "SubPhaseNumber": "7.1",
+        "Title": "25-2061 F · 7.1 Equipment Plumbing",
+        "PhaseName": "Equipment Installation, Startup and Trim Out",
+        "InstallerSignOff": true,
+        "TemplateItemId": 77
+      },
+      {
+        "id": "3084",
+        "SubPhaseNumber": "7.2",
+        "Title": "25-2061 F · 7.2 Equipment Installation",
+        "PhaseName": "Equipment Installation, Startup and Trim Out",
+        "InstallerSignOff": true,
+        "TemplateItemId": 78
+      },
+      {
+        "id": "3085",
+        "SubPhaseNumber": "7.3",
+        "Title": "25-2061 F · 7.3 Equipment Electrical",
+        "PhaseName": "Equipment Installation, Startup and Trim Out",
+        "InstallerSignOff": true,
+        "TemplateItemId": 79
+      },
+      {
+        "id": "3086",
+        "SubPhaseNumber": "7.4",
+        "Title": "25-2061 F · 7.4 Startup Preparation",
+        "PhaseName": "Equipment Installation, Startup and Trim Out",
+        "InstallerSignOff": true,
+        "TemplateItemId": 80
+      },
+      {
+        "id": "3087",
+        "SubPhaseNumber": "7.5",
+        "Title": "25-2061 F · 7.5 Startup Procedures",
+        "PhaseName": "Equipment Installation, Startup and Trim Out",
+        "InstallerSignOff": true,
+        "TemplateItemId": 81
+      },
+      {
+        "id": "3088",
+        "SubPhaseNumber": "7.6",
+        "Title": "25-2061 F · 7.6 Water Chemistry Startup",
+        "PhaseName": "Equipment Installation, Startup and Trim Out",
+        "InstallerSignOff": true,
+        "TemplateItemId": 82
+      },
+      {
+        "id": "3089",
+        "SubPhaseNumber": "7.7",
+        "Title": "25-2061 F · 7.7 Trim Out",
+        "PhaseName": "Equipment Installation, Startup and Trim Out",
+        "InstallerSignOff": true,
+        "TemplateItemId": 83
+      },
+      {
+        "id": "3090",
+        "SubPhaseNumber": "8.1",
+        "Title": "25-2061 F · 8.1 Construction Cleanup",
+        "PhaseName": "Site Restoration and Final Grade",
+        "InstallerSignOff": false,
+        "TemplateItemId": 84
+      },
+      {
+        "id": "3091",
+        "SubPhaseNumber": "8.2",
+        "Title": "25-2061 F · 8.2 Rough Grade",
+        "PhaseName": "Site Restoration and Final Grade",
+        "InstallerSignOff": false,
+        "TemplateItemId": 85
+      },
+      {
+        "id": "3092",
+        "SubPhaseNumber": "8.3",
+        "Title": "25-2061 F · 8.3 Final Grade",
+        "PhaseName": "Site Restoration and Final Grade",
+        "InstallerSignOff": false,
+        "TemplateItemId": 86
+      },
+      {
+        "id": "3093",
+        "SubPhaseNumber": "8.4",
+        "Title": "25-2061 F · 8.4 Seed and Straw/ Sod",
+        "PhaseName": "Site Restoration and Final Grade",
+        "InstallerSignOff": false,
+        "TemplateItemId": 87
+      },
+      {
+        "id": "3094",
+        "SubPhaseNumber": "8.5",
+        "Title": "25-2061 F · 8.5 Landscaping Restoration",
+        "PhaseName": "Site Restoration and Final Grade",
+        "InstallerSignOff": false,
+        "TemplateItemId": 88
+      },
+      {
+        "id": "3095",
+        "SubPhaseNumber": "8.6",
+        "Title": "25-2061 F · 8.6 Final Site Walk-Through",
+        "PhaseName": "Site Restoration and Final Grade",
+        "InstallerSignOff": false,
+        "TemplateItemId": 89
+      },
+      {
+        "id": "3096",
+        "SubPhaseNumber": "9.0",
+        "Title": "25-2061 F · 9.0 Client Orientation",
+        "PhaseName": "Post Construction Completion Phase",
+        "InstallerSignOff": false,
+        "TemplateItemId": 90
+      },
+      {
+        "id": "3097",
+        "SubPhaseNumber": "9.1",
+        "Title": "25-2061 F · 9.1 Warranty & 30-Day Follow-Up",
+        "PhaseName": "Post Construction Completion Phase",
+        "InstallerSignOff": false,
+        "TemplateItemId": 91
+      }
+    ]
+  }
+}

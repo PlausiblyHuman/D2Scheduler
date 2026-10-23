@@ -2980,11 +2980,23 @@ Spec: `docs/specs/2026-10-13-build-type-templates-design.md`.
 - Seed files come from `tools/gen-template-seed.py --template ... --build-type ...`
   (`tools/template-seed.json`, `tools/template-seed-fiberglass.json`). The Fiberglass template is
   built by `tools/fiberglass-template.py` from `D2-Build-Scheduler/D2-Build-Scheduler/source/Fiberglass Build Phase_Rev1_091726.tsv`.
-- **Fiberglass decisions (spec section 2):** the two Phase 7s are merged into 7.1 to 7.7, so the four
-  Startup sub-phases are renumbered 7.4 to 7.7 (were 7.1 to 7.4); phase names come from the heading
-  rows; the punch-list note row is dropped; text is verbatim including "Barrior"; durations 2; crews
-  by the name table. **20 of 45 sub-phases are Unassigned**: 14 Fiberglass-only, and 6 whose Gunite
-  match is itself Unassigned.
+- **Fiberglass decisions (spec section 2):** ~~the two Phase 7s are merged into 7.1 to 7.7~~
+  **RENUMBERED 2026-10-23 (Shane's call, Don not asked first): phases are numbered by their place in
+  the sheet, 0 to 10.** Don's sheet carries three numbering columns; the newest split Electrical out
+  of Plumbing and bumped the later phases by one, but stopped after Equipment Installation, leaving
+  two Phase 7s. So: 7.1-7.3 Equipment Installation; **8.1-8.4 Startup and Trim Out** (were 7.4-7.7);
+  **9.1-9.6 Site Restoration and Final Grade** (were 8.x); **10.0-10.1 Post Construction Completion
+  Phase** (were 9.x). Written live by Shane running `sharepoint/renumber-fiberglass-2026-10-23.js`
+  from the hosted planner's console (the permission check blocked it from the session): 15 template
+  rows and 15 rows on each Fiberglass project (`25-2061 F`, `D2-2446`), number + Title + PhaseName
+  only, compare-before-write, 45 of 45 read back as planned. Before-values in
+  `sharepoint/renumber-fiberglass-2026-10-23-before.json`. `tools/fiberglass-template.py`, its data
+  files, its test and `tools/template-seed-fiberglass.json` regenerate the new numbering; by position
+  every sub-phase keeps its name, crew, duration and tasks. **Any Fiberglass project built before
+  this must be renumbered the same way**; there were two. Phase names come from the heading
+  rows; the punch-list note row is dropped; text is verbatim including "Barrior"; durations 2 (Shane
+  2026-10-23: they stay 2 until PMs fix the template); crews by the name table. **20 of 45
+  sub-phases are Unassigned**: 14 Fiberglass-only, and 6 whose Gunite match is itself Unassigned.
 
 **`D2 - New Pool`** (flowId `02905018-4f41-e05a-d140-74e2afc82052`, pushed 2026-10-13 20:56Z by
 `flows/scripts/2026-10-13-new-pool-build-type.py`; builder `new_pool_build_type.py`, test

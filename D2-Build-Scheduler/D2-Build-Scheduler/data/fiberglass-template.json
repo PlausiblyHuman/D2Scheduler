@@ -452,7 +452,7 @@
  },
  {
   "num": "7",
-  "name": "Equipment Installation, Startup and Trim Out",
+  "name": "Equipment Installation",
   "sections": [
    {
     "num": "7.1",
@@ -495,9 +495,15 @@
      "GFCI verification",
      "Auto Cover Switch"
     ]
-   },
+   }
+  ]
+ },
+ {
+  "num": "8",
+  "name": "Startup and Trim Out",
+  "sections": [
    {
-    "num": "7.4",
+    "num": "8.1",
     "name": "Startup Preparation",
     "skill": "@unassigned",
     "days": 2,
@@ -509,7 +515,7 @@
     ]
    },
    {
-    "num": "7.5",
+    "num": "8.2",
     "name": "Startup Procedures",
     "skill": "@unassigned",
     "days": 2,
@@ -524,7 +530,7 @@
     ]
    },
    {
-    "num": "7.6",
+    "num": "8.3",
     "name": "Water Chemistry Startup",
     "skill": "@unassigned",
     "days": 2,
@@ -537,7 +543,7 @@
     ]
    },
    {
-    "num": "7.7",
+    "num": "8.4",
     "name": "Trim Out",
     "skill": "@unassigned",
     "days": 2,
@@ -553,11 +559,11 @@
   ]
  },
  {
-  "num": "8",
+  "num": "9",
   "name": "Site Restoration and Final Grade",
   "sections": [
    {
-    "num": "8.1",
+    "num": "9.1",
     "name": "Construction Cleanup",
     "skill": "@unassigned",
     "days": 2,
@@ -570,7 +576,7 @@
     ]
    },
    {
-    "num": "8.2",
+    "num": "9.2",
     "name": "Rough Grade",
     "skill": "@unassigned",
     "days": 2,
@@ -581,7 +587,7 @@
     ]
    },
    {
-    "num": "8.3",
+    "num": "9.3",
     "name": "Final Grade",
     "skill": "@unassigned",
     "days": 2,
@@ -592,7 +598,7 @@
     ]
    },
    {
-    "num": "8.4",
+    "num": "9.4",
     "name": "Seed and Straw/ Sod",
     "skill": "@unassigned",
     "days": 2,
@@ -604,7 +610,7 @@
     ]
    },
    {
-    "num": "8.5",
+    "num": "9.5",
     "name": "Landscaping Restoration",
     "skill": "@unassigned",
     "days": 2,
@@ -618,7 +624,7 @@
     ]
    },
    {
-    "num": "8.6",
+    "num": "9.6",
     "name": "Final Site Walk-Through",
     "skill": "@unassigned",
     "days": 2,
@@ -631,11 +637,11 @@
   ]
  },
  {
-  "num": "9",
+  "num": "10",
   "name": "Post Construction Completion Phase",
   "sections": [
    {
-    "num": "9.0",
+    "num": "10.0",
     "name": "Client Orientation",
     "skill": "poolschool",
     "days": 2,
@@ -653,7 +659,7 @@
     ]
    },
    {
-    "num": "9.1",
+    "num": "10.1",
     "name": "Warranty & 30-Day Follow-Up",
     "skill": "@office",
     "days": 2,
