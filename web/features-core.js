@@ -20,12 +20,14 @@
      does not have the feature. */
   function autoReason(name) { return String(name).trim() + ' not on this project'; }
 
-  /* Raw template Feature column wins; an optional line with none is its own
-     feature, named by its title; a plain line has no feature. */
+  /* Only an optional line belongs to a feature: its Feature column if set,
+     else its own title. A plain line has no feature even when its Feature
+     column carries a value, so it is never switched off with one. */
   function secFeatureName(sec) {
-    const f = sec && sec.feature != null ? String(sec.feature).trim() : '';
+    if (!sec || !sec.optional) return null;
+    const f = sec.feature != null ? String(sec.feature).trim() : '';
     if (f) return f;
-    return sec && sec.optional && sec.name != null ? String(sec.name).trim() : null;
+    return sec.name != null ? String(sec.name).trim() : null;
   }
 
   function byName(a, b) { return a.key < b.key ? -1 : a.key > b.key ? 1 : 0; } // key is the case-insensitive name

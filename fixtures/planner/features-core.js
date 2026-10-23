@@ -38,6 +38,8 @@ ok('autoReason exact', F.autoReason('Auto Cover') === 'Auto Cover not on this pr
 ok('secFeatureName: tag wins', F.secFeatureName({ optional: true, feature: 'X', name: 'N' }) === 'X');
 ok('secFeatureName: optional falls back to name', F.secFeatureName({ optional: true, feature: ' ', name: 'N' }) === 'N');
 ok('secFeatureName: plain is null', F.secFeatureName({ optional: false, feature: null, name: 'N' }) === null);
+ok('secFeatureName: a non-optional line with a feature value has no feature', F.secFeatureName({ optional: false, feature: 'Auto Cover', name: 'N' }) === null);
+ok('templateFeatures ignores a feature value on a non-optional line', F.templateFeatures([{ sections: [sec({ id: 1, num: '2.1', name: 'Plain', feature: 'Ghost' })] }]).length === 0);
 
 const task = (title, o) => Object.assign({ t: title, done: false, na: false, note: '', feature: null }, o);
 const s = (o) => Object.assign({ num: '', name: '', skip: false, templateItemId: null, feature: null, inst: false, tasks: [] }, o);

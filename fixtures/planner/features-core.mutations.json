@@ -123,5 +123,10 @@
   "label": "clearStart dropped",
   "find": "skip: false, clearStart: true, label",
   "replace": "skip: false, label"
+ },
+ {
+  "label": "a non-optional line keeps its feature value",
+  "find": "    if (!sec || !sec.optional) return null;\n",
+  "replace": "    if (!sec) return null;\n"
  }
 ]

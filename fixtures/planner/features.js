@@ -1,5 +1,6 @@
 // fixtures/planner/features.js   Run: node fixtures/planner/features.js
-// Step 4 features: single-project refresh (Task 9). Stubbed Graph with a mutable store.
+// Step 4 features: single-project refresh (Task 9) and the Features drawer (Task 10).
+// Stubbed Graph with a mutable store that also takes the drawer's creates (POST).
 const fs = require('fs'), path = require('path');
 const { JSDOM, VirtualConsole } = require('jsdom');
 const WEB = path.join(__dirname, '..', '..', 'web');
@@ -10,8 +11,11 @@ const ok = (l, c, d) => { console.log((c ? 'PASS' : 'FAIL') + ' · ' + l + (d ? 
 const UIL = [{ id: '14', Title: 'Cody Campbell', Name: 'i:0#.f|membership|cody@d2pools.com', EMail: 'cody@d2pools.com' }].map(f => ({ id: f.id, fields: f }));
 const MSAL_STUB = `<script>window.msal={PublicClientApplication:class{constructor(){} getActiveAccount(){return {username:'cody@d2pools.com'};} setActiveAccount(){} getAllAccounts(){return [{username:'cody@d2pools.com'}];} acquireTokenSilent(){return Promise.resolve({accessToken:'t'});} loginPopup(){return Promise.resolve({accessToken:'t',account:{username:'cody@d2pools.com'}});}}};</script>`;
 const clone = o => JSON.parse(JSON.stringify(o));
-function boot() {
-  const store = { jobs: clone(G.jobs), asg: clone(G.asg), tasks: clone(G.tasks), comments: [], req: [], failTasks: false, log: [] };
+function boot(data) {
+  const d = data || G;
+  const store = { jobs: clone(d.jobs), asg: clone(d.asg), tasks: clone(d.tasks), spt: clone(d.spt || []), tpt: clone(d.tpt || []), trades: clone(d.trades || []),
+    comments: [], req: [], failTasks: false, log: [], posts: [], nextId: 7000,
+    failAsg: false, asgBadBody: false, failTaskTitles: [], failReadsAfterPost: false };
   const inline = f => '<script>' + fs.readFileSync(path.join(WEB, f), 'utf8') + '</script>';
   const html = fs.readFileSync(path.join(WEB, 'index.html'), 'utf8')
     .replace('<script src="vendor/msal-browser.min.js"></script>', MSAL_STUB)
@@ -20,7 +24,8 @@ function boot() {
     .replace('<script src="writeback-core.js"></script>', inline('writeback-core.js'))
     .replace('<script src="graph-writeback.js"></script>', inline('graph-writeback.js'))
     .replace('</body>', `<script>window.__x=()=>{Object.defineProperty(window,'S',{get:()=>S,configurable:true});window.D2_GRAPH=D2_GRAPH;
-      window.refreshLive=refreshLive;window.refreshOneProject=refreshOneProject;window.allSecs=allSecs;};</script><script>__x();</script></body>`);
+      window.refreshLive=refreshLive;window.refreshOneProject=refreshOneProject;window.allSecs=allSecs;window.__todayStr=todayStr;window.closeDrawer=closeDrawer;
+      Object.defineProperty(window,'UI',{get:()=>UI,configurable:true});};</script><script>__x();</script></body>`);
   const errs = [], vc = new VirtualConsole(); vc.on('jsdomError', e => errs.push(e.message));
   const dom = new JSDOM(html, { runScripts: 'dangerously', pretendToBeVisual: true, url: HOST + '/', virtualConsole: vc,
     beforeParse(w) {
@@ -31,6 +36,21 @@ function boot() {
         if (u.startsWith('https://graph.microsoft.com/v1.0/sites/netorgft15040037.sharepoint.com:')) return json(200, { id: G.siteId, webUrl: G.site });
         if (u.includes('User Information List')) return json(200, { value: UIL });
         const L = w.D2_GRAPH.lists, dec = decodeURIComponent(u);
+        if (opts && opts.method === 'POST') {
+          const b = JSON.parse(opts.body); store.posts.push({ u, body: b });
+          if (u.includes('/lists/' + L.asg + '/items')) {
+            if (store.failAsg) return json(500, {});
+            const id = String(store.nextId++); store.asg.push({ id, fields: Object.assign({}, b.fields, { id }) });
+            if (store.asgBadBody) return Promise.resolve({ ok: true, status: 201, headers: { get: () => null }, json: () => Promise.reject(new Error('unreadable')) });
+            return json(201, { id, fields: Object.assign({}, b.fields, { id }) });
+          }
+          if (u.includes('/lists/' + L.tasks + '/items')) {
+            if (store.failTaskTitles.includes(b.fields.Title)) return json(500, {});
+            const id = String(store.nextId++); store.tasks.push({ id, fields: Object.assign({}, b.fields, { id }) });
+            return json(201, { id, fields: Object.assign({}, b.fields, { id }) });
+          }
+          return json(404, {});
+        }
         const one = u.match(new RegExp('/lists/' + L.jobs + '/items/([^/?]+)\\?'));
         if (one) { const r = store.jobs.find(j => j.fields.id === one[1]); return r ? json(200, r) : json(404, {}); }
         if (u.includes('/lists/' + L.asg + '/items')) {
@@ -38,7 +58,7 @@ function boot() {
           return json(200, { value: store.asg.filter(a => !m || a.fields.JobLookupId === m[1]) });
         }
         if (u.includes('/lists/' + L.tasks + '/items')) {
-          if (store.failTasks) return json(500, {});
+          if (store.failTasks || (store.failReadsAfterPost && store.posts.length)) return json(500, {});
           const ids = [...dec.matchAll(/AssignmentLookupId eq '(\d+)'/g)].map(x => x[1]);
           return json(200, { value: store.tasks.filter(t => !ids.length || ids.includes(t.fields.AssignmentLookupId)) });
         }
@@ -46,7 +66,7 @@ function boot() {
         if (u.includes('/lists/' + L.jobs + '/items')) return json(200, { value: store.jobs });
         if (u.includes('/lists/' + L.cal + '/items')) return json(200, { value: G.cal });
         if (u.includes('/lists/' + L.req + '/items')) return json(200, { value: store.req });
-        for (const k of ['spt', 'tpt', 'trades']) if (u.includes('/lists/' + L[k] + '/items')) return json(200, { value: G[k] || [] });
+        for (const k of ['spt', 'tpt', 'trades']) if (u.includes('/lists/' + L[k] + '/items')) return json(200, { value: store[k] });
         return json(404, {});
       };
     } });
@@ -102,5 +122,293 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
   ok('a success clears lastError', (await w.refreshOneProject(A)) === true && w.refreshOneProject.lastError === null);
   ok('a project with no SharePoint id returns false', (await w.refreshOneProject({ jobno: 'X' })) === false);
   ok('no page errors', errs.length === 0, errs.join(' | '));
+  await drawerTests();
   console.log(fails ? fails + ' failed' : 'all passed');
 })();
+
+/* ---------------- The Features drawer (Task 10) ----------------
+   A small synthetic Gunite project and template, so every row's place, feature and date is known.
+   Dates are built from today with the planner's own work-day functions after a first Refresh has
+   loaded the work calendar, because the feature reflow floors at the next working day. */
+const REASON = 'Auto Cover not on this project';
+const fspt = (id, num, title, seq, phase, x) => ({ id: String(id), fields: Object.assign({ id: String(id), Title: title, SubPhaseNumber: num, Sequence: seq,
+  DefaultCrew: 'office', DurationDays: 2, BuildType: 'Gunite', PhaseName: phase }, x || {}) });
+const ftpt = (id, sub, title, seq, feature) => ({ id: String(id), fields: Object.assign({ id: String(id), Title: title, SubPhaseLookupId: String(sub), Sequence: seq, BuildType: 'Gunite' }, feature ? { Feature: feature } : {}) });
+const SYN = {
+  jobs: [], asg: [], tasks: [], trades: [],
+  spt: [fspt(10, '1.0', 'Permit', 10, 'Site'), fspt(1, '1.1', 'Layout', 20, 'Site'), fspt(2, '1.2', 'Dig', 30, 'Site'),
+    fspt(3, '6.4', 'Auto Cover Rough In', 40, 'Equipment', { Optional: true, Feature: 'Auto Cover', DurationDays: 3 }),
+    fspt(4, '6.5', 'Fire Bowl', 50, 'Equipment', { Optional: true }),
+    fspt(6, '6.7', '<i id="xf">Spa</i>', 55, 'Equipment', { Optional: true }),
+    fspt(900, '6.6', 'Gas Line', 60, 'Equipment'), fspt(5, '7.0', 'Warranty', 70, 'Start', { DurationDays: 1 })],
+  tpt: [ftpt(101, 10, 'Permit filed', 1), ftpt(102, 10, 'Auto Cover permit', 2, 'Auto Cover'),
+    ftpt(111, 1, 'Mark corners', 1), ftpt(112, 1, 'Auto Cover Layout', 2, 'Auto Cover'), ftpt(121, 2, 'Dig', 1),
+    ftpt(131, 3, 'Rough in', 1), ftpt(132, 3, 'Auto Cover check', 2, 'Auto Cover'), ftpt(141, 4, 'Set bowl', 1), ftpt(142, 4, 'Fire Bowl igniter', 2, 'Fire Bowl'),
+    ftpt(191, 900, 'Run gas', 1), ftpt(192, 900, 'Gas to the fire bowl', 2, 'Fire Bowl'), ftpt(151, 5, 'Walk', 1)]
+};
+/* The project: 1.0 signed in the past, 1.1 already started, 1.2 and 6.4 ahead and back to back,
+   7.0 after a gap of five working days (so only an exact undo, not a reflow, puts it back). Its
+   Sequence values are 1..7 while the template's are 10..70, as after a renumbered template, so a
+   create placed by the project's own Sequence instead of its template Sequence lands at the end.
+   pastOff: 1.2 finished, 6.4 switched off in SharePoint with an old date, 7.0 already started. */
+function fillProject(w, store, variant) {
+  const T = w.__todayStr(), nw = w.nextWork, add = w.addCal, adv = (st, n) => nw(add(w.workSpan(st, n).pop(), 1));
+  const past = variant === 'pastOff';
+  const d1 = nw(add(T, -40)), d2 = nw(add(T, -7)), d3 = past ? nw(add(T, -20)) : nw(add(T, 10)),
+    d4 = past ? nw(add(T, -15)) : adv(d3, 2), d6 = past ? nw(add(T, -3)) : adv(adv(d4, 3), 5);
+  const at = d => d + 'T05:00:00Z';
+  store.jobs = [{ id: '50', fields: { id: '50', Title: 'Feature Test', JobNumber: 'TEST-9950', Status: 'Planned', BuildType: 'Gunite', StartDate: at(d1), ProjectManagerLookupId: '14' } }];
+  const asg = (id, tpl, num, name, phase, seq, start, days, x) => ({ id: String(id), fields: Object.assign({ id: String(id), Title: 'TEST-9950 · ' + num + ' ' + name, JobLookupId: '50',
+    SubPhaseNumber: num, SubPhaseName: name, PhaseName: phase, TemplateItemId: tpl, Crew: 'office', Sequence: seq, ScheduledStart: at(start), DurationDays: days,
+    InstallerSignOff: false, PMSignOff: false, Locked: false, NotApplicable: false }, x || {}) });
+  store.asg = [asg(501, 10, '1.0', 'Permit', 'Site', 1, d1, 2, { InstallerSignOff: variant !== 'unsigned' }), asg(502, 1, '1.1', 'Layout', 'Site', 2, d2, 2),
+    asg(503, 2, '1.2', 'Dig', 'Site', 3, d3, 2),
+    asg(504, 3, '6.4', 'Auto Cover Rough In', 'Equipment', 4, d4, 3, Object.assign({ Feature: 'Auto Cover' }, past ? { NotApplicable: true } : {})),
+    asg(506, 5, '7.0', 'Warranty', 'Start', 7, d6, 1)];
+  const task = (id, a, title, seq, x) => ({ id: String(id), fields: Object.assign({ id: String(id), Title: title, AssignmentLookupId: String(a), Sequence: seq, Complete: false, NotApplicable: false }, x || {}) });
+  const ac = { Feature: 'Auto Cover' };
+  store.tasks = [task(5011, 501, 'Permit filed', 1, { Complete: true }), task(5012, 501, 'Auto Cover permit', 2, ac),
+    task(5021, 502, 'Mark corners', 1), task(5022, 502, 'Auto Cover Layout', 2, ac), task(5031, 503, 'Dig', 1),
+    task(5041, 504, 'Rough in', 1), task(5042, 504, 'Auto Cover check', 2, Object.assign({}, ac, past ? { NotApplicable: true, Note: REASON } : {})),
+    task(5061, 506, 'Walk', 1)];
+}
+async function fresh(variant) {
+  const b = boot(SYN); await wait(600);
+  await b.w.refreshLive(true); await wait(100);
+  fillProject(b.w, b.store, variant);
+  await b.w.refreshLive(true); await wait(100);
+  b.j = b.w.S.jobs.find(x => x.jobno === 'TEST-9950');
+  return b;
+}
+const secOf = (w, j, id) => w.allSecs(j).map(x => x.s).find(s => s.base && String(s.base.id) === String(id));
+const taskOf = (w, j, sid, tid) => { const s = secOf(w, j, sid); return s && s.tasks.find(t => String(t.spId) === String(tid)); };
+const dBody = w => w.document.getElementById('dBody');
+const stateOf = (w, key) => { const r = dBody(w).querySelector('tr[data-feature="' + key + '"]'); const c = r && r.querySelector('[data-state]'); return c ? c.dataset.state : null; };
+const starts = (w, j) => w.allSecs(j).map(x => (x.s.base ? x.s.base.id : '?') + '=' + x.s.start).join(' ');
+const mine = w => (w.S.pendingComments || []).filter(e => e.jobno === 'TEST-9950');
+const asgPosts = b => b.store.posts.filter(p => p.u.includes('/lists/' + b.w.D2_GRAPH.lists.asg + '/'));
+const taskPosts = b => b.store.posts.filter(p => p.u.includes('/lists/' + b.w.D2_GRAPH.lists.tasks + '/'));
+const floorOf = w => w.nextWork(w.addCal(w.__todayStr(), 1));
+
+async function drawerTests() {
+  /* ---- Off, then reopened and switched back On before Save ---- */
+  {
+    const b = await fresh('base'), { w, j } = b;
+    ok('drawer: synthetic project loaded with 5 sub-phases', !!j && w.allSecs(j).length === 5, j && starts(w, j));
+    ok('drawer: Features button on the Jobs row', w.vJobs().includes("openFeatures('" + j.id + "')"));
+    const s0 = starts(w, j);
+    w.openFeatures(j.id);
+    ok('drawer opens', w.document.getElementById('drawer').classList.contains('open'));
+    ok('drawer: Auto Cover listed On', stateOf(w, 'auto cover') === 'on');
+    ok('drawer: Fire Bowl listed as not on this project yet', stateOf(w, 'fire bowl') === 'absent' && /Not on this project yet/.test(dBody(w).textContent));
+    ok('drawer: New in the template lists 6.6 Gas Line only', [...dBody(w).querySelectorAll('input[data-add-tpl]')].map(e => e.dataset.addTpl).join() === '900'
+      && /6\.6 Gas Line/.test(dBody(w).textContent));
+    ok('drawer: a feature name is painted as text', !w.document.getElementById('xf') && dBody(w).textContent.includes('<i id="xf">Spa</i>'));
+    const spaKey = [...dBody(w).querySelectorAll('tr[data-feature]')].map(r => r.dataset.feature).find(k => k.includes('spa'));
+    w.featureConfirm(j.id, spaKey, true);
+    ok('confirm: a feature name in the create list is painted as text', !w.document.getElementById('xf') && dBody(w).textContent.includes('<i id="xf">Spa</i>'));
+    w.featureConfirm(j.id, 'auto cover', false);
+    const boxes = k => [...dBody(w).querySelectorAll('input[data-fs="' + k + '"]')];
+    ok('confirm: the row and both open tasks are listed, all ticked', boxes('sec').length === 1 && boxes('task').length === 2 && [...boxes('sec'), ...boxes('task')].every(e => e.checked),
+      boxes('sec').length + '/' + boxes('task').length);
+    ok('confirm: the signed sub-phase is named with its reason', /1\.0 Permit is signed off/.test(dBody(w).textContent));
+    await w.applyFeatureSwitch(j.id, 'auto cover', false);
+    const s504 = secOf(w, j, 504);
+    ok('Off: 6.4 is not applicable', s504.skip === true);
+    ok('Off: both tasks N/A with the automatic reason', [taskOf(w, j, 502, 5022), taskOf(w, j, 504, 5042)].every(t => t.na && t.note === REASON));
+    ok('Off: the task under the signed sub-phase is untouched', !taskOf(w, j, 501, 5012).na && !taskOf(w, j, 501, 5012).note);
+    ok('Off: divergedSecs carries NotApplicable for 6.4', w.divergedSecs(j).includes(s504) && w.secFieldDiffs(s504).some(d => d.col === 'NotApplicable' && d.to === true));
+    const so = w.buildSignoffSet().find(p => p.jobno === 'TEST-9950'), sot = so ? so.sections.flatMap(x => x.tasks) : [];
+    ok('Off: buildSignoffSet sends the two task N/As with the note', sot.length === 2 && sot.every(t => t.to.na && t.to.note === REASON), JSON.stringify(sot));
+    const pc = mine(w);
+    ok('Off: one change-order comment per touched section', pc.length === 2 && pc.every(e => e.kind === 'comment' && e.body === 'Change order: Auto Cover removed')
+      && pc.map(e => e.secId).sort().join() === '502,504', JSON.stringify(pc));
+    const was = Object.fromEntries(s0.split(' ').map(x => x.split('=')));
+    ok('Off: 7.0 moves up to where 6.4 started', secOf(w, j, 506).start === was['504'], starts(w, j));
+    ok('Off: rows before the change and started work stay put', ['501', '502', '503'].every(id => secOf(w, j, id).start === was[id]));
+    ok('Off: the result says to press Save', /press Save/i.test(dBody(w).textContent));
+    ok('Off: the result names what was left and why', /1\.0 Permit is signed off/.test(dBody(w).textContent));
+    ok('Off: nothing was written to SharePoint', b.store.posts.length === 0);
+    ok('Off: the project is marked edited', !!j.touchedAt);
+    w.openFeatures(j.id);
+    ok('reopened before Save, Auto Cover shows the pending change (partly on: the signed sub-phase kept its task)', stateOf(w, 'auto cover') === 'partly' && /Partly on/.test(dBody(w).textContent));
+    w.featureConfirm(j.id, 'auto cover', true);
+    await w.applyFeatureSwitch(j.id, 'auto cover', true);
+    ok('switched back On, every date is as it was', starts(w, j) === s0, starts(w, j) + ' vs ' + s0);
+    ok('switched back On, divergedSecs sends nothing', w.divergedSecs(j).length === 0);
+    ok('switched back On, buildSignoffSet sends nothing', !w.buildSignoffSet().some(p => p.jobno === 'TEST-9950'));
+    ok('switched back On, the pending change-order comments are withdrawn', mine(w).length === 0, JSON.stringify(mine(w)));
+    ok('drawer: no page errors', b.errs.length === 0, b.errs.join(' | '));
+  }
+  /* ---- with nothing signed, a pending Off reopens as Off ---- */
+  {
+    const b = await fresh('unsigned'), { w, j } = b;
+    // Driven through the drawer's own buttons, so the inline handlers are exercised too.
+    w.openFeatures(j.id);
+    [...dBody(w).querySelectorAll('tr[data-feature="auto cover"] button')].find(x => x.textContent === 'Turn off').click();
+    [...w.document.getElementById('dFoot').querySelectorAll('button')].find(x => x.textContent === 'Apply').click();
+    await wait(100);
+    ok('buttons: Turn off then Apply switches the feature', secOf(w, j, 504).skip === true && /press Save/i.test(dBody(w).textContent));
+    [...w.document.getElementById('dFoot').querySelectorAll('button')].find(x => x.textContent === 'Back to features').click();
+    ok('reopened before Save, Auto Cover shows Off', stateOf(w, 'auto cover') === 'off' && taskOf(w, j, 501, 5012).na);
+  }
+  /* ---- unticking an item leaves it as it was ---- */
+  {
+    const b = await fresh('base'), { w, j } = b, s0 = starts(w, j);
+    w.featureConfirm(j.id, 'auto cover', false);
+    const box = [...dBody(w).querySelectorAll('input[data-fs="task"]')].find(e => /1\.1 Auto Cover Layout/.test(e.parentNode.textContent));
+    const sbox = dBody(w).querySelector('input[data-fs="sec"]');
+    box.checked = false; sbox.checked = false;
+    await w.applyFeatureSwitch(j.id, 'auto cover', false);
+    ok('untick: the unticked task is unchanged', !taskOf(w, j, 502, 5022).na);
+    ok('untick: the ticked task changed', taskOf(w, j, 504, 5042).na && taskOf(w, j, 504, 5042).note === REASON);
+    ok('untick: the unticked sub-phase is unchanged and nothing moved', secOf(w, j, 504).skip === false && starts(w, j) === s0);
+    ok('untick: only the touched section gets a comment', mine(w).length === 1 && mine(w)[0].secId === '504');
+    ok('untick: a tasks-only change still marks the project edited', !!j.touchedAt);
+  }
+  /* ---- On for a feature the project does not have: creates, refresh, reflow ---- */
+  {
+    const b = await fresh('base'), { w, j } = b;
+    const pre = w.queueEntryFor(j, secOf(w, j, 503), 'comment', 'Change order: Spa removed');
+    ok('queueEntryFor queues an entry for any section', !!pre && mine(w).length === 1 && pre.secId === '503');
+    const was = { 501: secOf(w, j, 501).start, 502: secOf(w, j, 502).start, 504: secOf(w, j, 504).start };
+    w.featureConfirm(j.id, 'fire bowl', true);
+    ok('On absent: the queued comment does not stop the create', !/Save first/.test(dBody(w).textContent) && /6\.5 Fire Bowl/.test(dBody(w).textContent));
+    await w.applyFeatureSwitch(j.id, 'fire bowl', true);
+    const ap = asgPosts(b), tp = taskPosts(b);
+    ok('On absent: one Assignments POST and its two Tasks POSTs', ap.length === 1 && tp.length === 2, ap.length + '/' + tp.length);
+    ok('On absent: a task of the feature being switched on is created applicable', tp.some(p => p.body.fields.Title === 'Fire Bowl igniter' && p.body.fields.NotApplicable === false));
+    const ab = ap[0] && ap[0].body.fields;
+    ok('On absent: the row sits between 6.4 and 7.0 and carries the suppression stamp', ab && ab.Sequence === 5.5 && ab.TemplateItemId === 4 && ab.Feature === 'Fire Bowl'
+      && Date.parse(ab.SuppressReconcileUntil) > Date.now(), JSON.stringify(ab));
+    ok('On absent: the task has no suppression stamp', tp[0] && !('SuppressReconcileUntil' in tp[0].body.fields) && tp[0].body.fields.Title === 'Set bowl');
+    const order = w.allSecs(j).map(x => x.s.num).join(' ');
+    const ns = w.allSecs(j).map(x => x.s).find(s => s.templateItemId === 4);
+    ok('On absent: the new sub-phase is on screen, applicable, with its row ids', !!ns && ns.skip === false && ns.base && ns.base.id != null && ns.tasks.length === 2 && ns.tasks.every(t => t.spId != null && !t.na));
+    ok('On absent: placed by Sequence', order === '1.0 1.1 1.2 6.4 6.5 7.0', order);
+    const adv = (st, n) => w.nextWork(w.addCal(w.workSpan(st, n).pop(), 1));
+    ok('On absent: it follows 6.4, no earlier than tomorrow', !!ns && ns.start === adv(was[504], 3) && ns.start >= floorOf(w), ns && ns.start);
+    ok('On absent: 7.0 follows it', !!ns && secOf(w, j, 506).start === adv(ns.start, 2), secOf(w, j, 506).start);
+    ok('On absent: started and earlier rows did not move', ['501', '502', '504'].every(id => secOf(w, j, id).start === was[id]));
+    const pc = mine(w);
+    ok('On absent: a change-order comment is queued on the new row', !!ns && pc.some(e => e.secId === String(ns.base.id) && e.body === 'Change order: Fire Bowl added'), JSON.stringify(pc));
+    ok('On absent: the comment queued before the create is still queued and its row is still here', pc.some(e => e.localId === pre.localId) && !!secOf(w, j, 503));
+    ok('On absent: the result says to press Save', /press Save/i.test(dBody(w).textContent));
+    ok('On absent: the new row dates wait for Save', !!ns && w.divergedSecs(j).includes(ns));
+    w.openFeatures(j.id);
+    ok('On absent: reopened, Fire Bowl shows On', stateOf(w, 'fire bowl') === 'on');
+  }
+  /* ---- a row switched Off in SharePoint with an old date lands at the floor ---- */
+  {
+    const b = await fresh('pastOff'), { w, j } = b, old = secOf(w, j, 504).start;
+    w.featureConfirm(j.id, 'auto cover', true);
+    await w.applyFeatureSwitch(j.id, 'auto cover', true);
+    ok('On past: the re-enabled row lands at the next working day', secOf(w, j, 504).start === floorOf(w) && secOf(w, j, 504).start !== old, old + ' -> ' + secOf(w, j, 504).start);
+    ok('On past: its automatic N/A task is back to do', !taskOf(w, j, 504, 5042).na && taskOf(w, j, 504, 5042).note === '');
+    ok('On past: work already started after it is not restacked', secOf(w, j, 506).start === b.store.asg.find(a => a.id === '506').fields.ScheduledStart.slice(0, 10));
+  }
+  /* ---- On with a create that lands before an existing row, after SharePoint reordered a checklist ---- */
+  {
+    const b = await fresh('pastOff'), { w, j } = b;
+    b.store.spt.push(fspt(7, '6.3', 'Auto Cover Track', 35, 'Equipment', { Optional: true, Feature: 'Auto Cover' }));
+    await w.refreshLive(true); await wait(50);
+    w.featureConfirm(j.id, 'auto cover', true);
+    ok('On+create: the confirm lists the change and the create', dBody(w).querySelectorAll('input[data-fs]').length === 2 && /6\.3 Auto Cover Track/.test(dBody(w).textContent));
+    b.store.tasks.find(t => t.id === '5041').fields.Sequence = 3;     // reordered on the site meanwhile
+    await w.applyFeatureSwitch(j.id, 'auto cover', true);
+    const order = w.allSecs(j).map(x => x.s.num).join(' '), tr = w.allSecs(j).map(x => x.s).find(s => s.templateItemId === 7);
+    ok('On+create: the new row sits before 6.4 by template Sequence', order === '1.0 1.1 1.2 6.3 6.4 7.0', order);
+    ok('On+create: 6.4 itself is applicable again after the re-read', secOf(w, j, 504).skip === false && !!tr && tr.skip === false);
+    ok('On+create: the right task is cleared, by row id not position', !taskOf(w, j, 504, 5042).na && taskOf(w, j, 504, 5042).note === '' && w.allSecs(j).length === 6);
+    const adv = (st, n) => w.nextWork(w.addCal(w.workSpan(st, n).pop(), 1));
+    ok('On+create: the reflow starts at the earlier of the two, at the floor', !!tr && tr.start === floorOf(w) && secOf(w, j, 504).start === adv(tr.start, 2), tr && tr.start + ' / ' + secOf(w, j, 504).start);
+    ok('On+create: one added comment each on the new row and 6.4', mine(w).length === 2 && mine(w).every(e => e.body === 'Change order: Auto Cover added')
+      && mine(w).map(e => e.secId).sort().join() === [String(tr && tr.base.id), '504'].sort().join(), JSON.stringify(mine(w)));
+  }
+  /* ---- Update from template ---- */
+  {
+    const b = await fresh('base'), { w, j } = b;
+    w.openFeatures(j.id);
+    dBody(w).querySelector('input[data-add-tpl="900"]').checked = true;
+    await w.addTemplateLines(j.id);
+    const ap = asgPosts(b), tp = taskPosts(b);
+    ok('template: one Assignments POST and its two tasks', ap.length === 1 && tp.length === 2 && ap[0].body.fields.TemplateItemId === 900 && !('Feature' in ap[0].body.fields), ap.length + '/' + tp.length);
+    const gt = tp.find(p => p.body.fields.Title === 'Gas to the fire bowl');
+    ok('template: a task of a feature the project does not have is created N/A with its reason', !!gt && gt.body.fields.NotApplicable === true && gt.body.fields.Note === 'Fire Bowl not on this project', gt && JSON.stringify(gt.body.fields));
+    const ns = w.allSecs(j).map(x => x.s).find(s => s.templateItemId === 900);
+    ok('template: the line is on the project, after 6.4, no earlier than tomorrow', !!ns && w.allSecs(j).map(x => x.s.num).join(' ') === '1.0 1.1 1.2 6.4 6.6 7.0' && ns.start >= floorOf(w));
+    ok('template: the result says to press Save', /press Save/i.test(dBody(w).textContent));
+    ok('template: no change-order comment', mine(w).length === 0);
+    w.openFeatures(j.id);
+    ok('template: the line is no longer listed', !dBody(w).querySelector('input[data-add-tpl="900"]') && !/6\.6 Gas Line/.test(dBody(w).textContent));
+    await w.addTemplateLines(j.id);
+    ok('template: nothing ticked writes nothing', asgPosts(b).length === 1);
+  }
+  /* ---- a create while the project has an unsaved date edit stops and applies nothing ---- */
+  {
+    const b = await fresh('base'), { w, j } = b;
+    w.featureConfirm(j.id, 'fire bowl', true);               // confirm shown while nothing is unsaved
+    const s3 = secOf(w, j, 503); s3.start = w.nextWork(w.addCal(s3.start, 3));
+    const snap = JSON.stringify(j.groups), q = JSON.stringify(w.S.pendingComments);
+    await w.applyFeatureSwitch(j.id, 'fire bowl', true);
+    ok('unsaved: the switch stops with Save first', /Save first/.test(dBody(w).textContent));
+    ok('unsaved: nothing posted, nothing changed on screen, nothing queued', b.store.posts.length === 0 && JSON.stringify(j.groups) === snap && JSON.stringify(w.S.pendingComments) === q);
+    w.closeDrawer(); w.featureConfirm(j.id, 'fire bowl', true);
+    ok('unsaved: the confirm itself stops too', /Save first/.test(dBody(w).textContent) && !dBody(w).querySelector('input[data-fs]'));
+    w.openFeatures(j.id);
+    ok('unsaved: the drawer still opens', stateOf(w, 'auto cover') === 'on');
+    dBody(w).querySelector('input[data-add-tpl="900"]').checked = true;
+    await w.addTemplateLines(j.id);
+    ok('unsaved: Add from the template stops too, nothing written or changed', /Save first/.test(dBody(w).textContent) && b.store.posts.length === 0 && JSON.stringify(j.groups) === snap);
+    w.closeDrawer(); w.featureConfirm(j.id, 'auto cover', false);
+    ok('unsaved: a switch with no creates is not stopped', !/Save first/.test(dBody(w).textContent) && dBody(w).querySelectorAll('input[data-fs]').length === 3);
+  }
+  /* ---- create failures are named, from what came back ---- */
+  {
+    const b = await fresh('base'), { w, j } = b;
+    b.store.failTaskTitles = ['Set bowl'];
+    w.featureConfirm(j.id, 'fire bowl', true); await w.applyFeatureSwitch(j.id, 'fire bowl', true);
+    const t = dBody(w).textContent;
+    ok('fail task: named, with add them on the SharePoint site', /Set bowl/.test(t) && /add them on the SharePoint site/i.test(t), t);
+    ok('fail task: the row itself is on screen', !!w.allSecs(j).map(x => x.s).find(s => s.templateItemId === 4));
+  }
+  {
+    const b = await fresh('base'), { w, j } = b;
+    b.store.asgBadBody = true;
+    w.featureConfirm(j.id, 'fire bowl', true); await w.applyFeatureSwitch(j.id, 'fire bowl', true);
+    const t = dBody(w).textContent;
+    ok('unreadable reply: a row that came back is not reported as not created', !/not created/.test(t) && !!w.allSecs(j).map(x => x.s).find(s => s.templateItemId === 4), t);
+    ok('unreadable reply: its tasks are reported for the SharePoint site', /6\.5 Fire Bowl/.test(t) && /add them on the SharePoint site/i.test(t), t);
+  }
+  {
+    const b = await fresh('base'), { w, j } = b;
+    b.store.failAsg = true;
+    w.featureConfirm(j.id, 'fire bowl', true); await w.applyFeatureSwitch(j.id, 'fire bowl', true);
+    const t = dBody(w).textContent;
+    ok('fail row: named as not created', /6\.5 Fire Bowl was not created/.test(t), t);
+    ok('fail row: no comment for a row that does not exist', mine(w).length === 0);
+  }
+  {
+    const b = await fresh('base'), { w, j } = b, snap = JSON.stringify(j.groups);
+    b.store.failReadsAfterPost = true;
+    w.featureConfirm(j.id, 'fire bowl', true); await w.applyFeatureSwitch(j.id, 'fire bowl', true);
+    ok('refresh fails: the cause is shown', /a84a18/.test(dBody(w).innerHTML) && /Graph 500/.test(dBody(w).textContent), dBody(w).textContent);
+    ok('refresh fails: nothing else is applied on screen', JSON.stringify(j.groups) === snap && mine(w).length === 0);
+  }
+  /* ---- where the button is not offered ---- */
+  {
+    const b = await fresh('base'), { w, j } = b, has = () => w.vJobs().includes("openFeatures('" + j.id + "')");
+    const m = w.msal; w.msal = undefined;
+    ok('no Features button when the planner cannot reach Graph', !has());
+    ok('queueEntryFor queues nothing when comments cannot be saved', w.queueEntryFor(j, secOf(w, j, 503), 'comment', 'x') === null && mine(w).length === 0);
+    w.msal = m; j.building = true;
+    ok('no Features button while the project is building', !has());
+    w.closeDrawer(); w.openFeatures(j.id);
+    ok('and the drawer does not open for it', !w.document.getElementById('drawer').classList.contains('open'));
+    j.building = false; j.readOnly = true;
+    ok('no Features button on a read-only project', !has());
+    j.readOnly = false;
+    w.S.jobs.push({ id: 'jlocal', jobno: 'D2-7777', name: 'Sketch', spId: '999', groups: [{ num: '1', name: 'x', sections: [{ num: '1.1', name: 'a', days: 2, tasks: [] }] }] });
+    ok('no Features button on a local sketch', !w.vJobs().includes("openFeatures('jlocal')"));
+  }
+}

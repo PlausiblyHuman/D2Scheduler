@@ -1538,7 +1538,8 @@ function vJobs(){
       ? `<span class="muted">Active</span> <button class="btn sm" onclick="planPool('${j.id}')" title="Move this project back to Planned: out of the dispatch, the summaries and the alerts until it is activated again.">Back to planning</button>${readyToComplete(j)
         ? ` <button class="btn sm p" onclick="completeProject('${j.id}')" title="Every sub-phase is signed off or not applicable.">Mark complete</button>`:''}`
       : `<span class="muted">${esc(j.status||'Active')}</span>`}</td>
-    <td style="text-align:right">${poolHasBaseline(j)
+    <td style="text-align:right">${featuresAllowed(j)
+      ? `<button class="btn sm" data-features onclick="openFeatures('${j.id}')" title="Turn optional features on or off for this project, and add sub-phases that are new in the template.">Features</button> `:''}${poolHasBaseline(j)
       ? `<button class="btn sm" onclick="delJob('${j.id}')" title="Removes this pool from this screen only. It stays in SharePoint and comes back on the next Refresh.">Remove</button>`
       : `<button class="btn sm d" onclick="delJob('${j.id}')" title="This pool has never been saved to SharePoint. Deleting it here cannot be undone.">Delete</button>`}</td></tr>`;}).join('')}
   </tbody></table>
@@ -1687,12 +1688,21 @@ function cmtWhen(iso){
     return p.month+'/'+p.day+'/'+String(p.year).slice(2)+' '+p.hour+':'+p.minute;
   }catch(e){return String(iso).slice(0,16).replace('T',' ')+' UTC';}
 }
+/* Queues one comment, rejection or resolution on sub-phase s of project j, sent on Save.
+   Returns the entry, or null when the row cannot take one (no SharePoint row, or no Graph).
+   The Features drawer queues its change-order comments through this, on sections that are
+   not the open panel's; queueEntry is the panel's own path. */
+function queueEntryFor(j,s,kind,body){
+  if(!j||!s||!s.base||s.base.id==null||!commentsWritable(j))return null;
+  S.pendingComments=S.pendingComments||[];
+  const e={localId:'c'+Math.random().toString(36).slice(2,9),
+    jobno:j.jobno,num:s.num,secId:String(s.base.id),kind,body,at:new Date().toISOString()};
+  S.pendingComments.push(e);
+  return e;
+}
 function queueEntry(kind,body){
   const j=S.jobs.find(x=>x.id===CUR.jobId),s=cur();
-  if(!s.base||s.base.id==null||!commentsWritable(j))return;
-  S.pendingComments=S.pendingComments||[];
-  S.pendingComments.push({localId:'c'+Math.random().toString(36).slice(2,9),
-    jobno:j.jobno,num:s.num,secId:String(s.base.id),kind,body,at:new Date().toISOString()});
+  if(!queueEntryFor(j,s,kind,body))return;
   save();editSec(CUR.jobId,CUR.gi,CUR.si);render();
 }
 function commentBox(){const el=document.getElementById('fComment');return el?String(el.value||'').trim():'';}
@@ -2079,6 +2089,223 @@ async function setStatusByJobNo(jobno,from,to){
   }
 }
 
+/* ---- Features and Update from template (step 4, docs/specs/2026-10-22-step4-features-design.md) ----
+   A Features drawer on each SharePoint project's row of the Jobs tab. Switching a feature changes
+   that project's sub-phases and tasks on screen only, and Save sends them through the usual paths
+   (sub-phases through the scheduling allowlist, tasks through the sign-off and tick path). Two
+   things write straight away, because Save matches by row id and a new row has none: creating the
+   template sub-phases a project lacks, for a feature switched on or a line under New in the
+   template. Both then re-read this project alone, which throws away its unsaved edits, so those
+   two, and only those, stop for unsaved changes first. The comment queue is not counted: its
+   entries are keyed by row id and survive the re-read. Hosted only. */
+const FEAT_STATE={on:'On',off:'Off',partly:'Partly on',absent:'Not on this project yet'};
+const nOf=(n,w)=>n+' '+w+(n===1?'':'s');
+function featuresAllowed(j){ return !!j&&graphModeAvailable()&&!!window.D2FeaturesCore&&poolHasBaseline(j)&&!frozen(j)&&j.spId!=null; }
+/* The feature reflow: never before the next working day, and work already under way stays put. */
+const featureReflowOpts=()=>({floor:nextWork(addCal(todayStr(),1)),pinStarted:true,fromPrev:true});
+function openFeatures(jobId){
+  const j=S.jobs.find(x=>x.id===jobId); if(!featuresAllowed(j))return;
+  UI.fs=null;
+  const F=window.D2FeaturesCore, tpl=templateFor(j.buildType);
+  const feats=F.projectFeatures(j.groups,tpl), missing=F.missingTemplateLines(j.groups,tpl);
+  const rows=feats.map(f=>{
+    const cover=f.state==='absent'
+      ? (f.secs.length?'Adds '+nOf(f.secs.length,'sub-phase')+' from the template':'Nothing in the template to add')
+      : [f.rows.length?nOf(f.rows.length,'sub-phase'):'',f.taskRefs.length?nOf(f.taskRefs.length,'task'):''].filter(Boolean).join(' and ')+' on this project';
+    const canOn=f.state==='off'||f.state==='partly'||(f.state==='absent'&&f.secs.length>0), canOff=f.state==='on'||f.state==='partly';
+    return `<tr data-feature="${esc(f.key)}"><td><b>${esc(f.name)}</b><div class="small muted">${esc(cover)}</div></td>
+      <td class="small" data-state="${esc(f.state)}" style="width:150px">${esc(FEAT_STATE[f.state]||f.state)}</td>
+      <td style="text-align:right;white-space:nowrap">${canOn?`<button class="btn sm" data-key="${esc(f.key)}" onclick="featureConfirm('${jobId}',this.dataset.key,true)">Turn on</button>`:''}
+        ${canOff?`<button class="btn sm" data-key="${esc(f.key)}" onclick="featureConfirm('${jobId}',this.dataset.key,false)">Turn off</button>`:''}</td></tr>`;
+  }).join('');
+  document.getElementById('dTitle').textContent='Features: '+(j.jobno||j.name);
+  document.getElementById('dBody').innerHTML=
+    `<div class="hint" style="padding:0 0 11px">Turning a feature on or off changes this project's sub-phases and tasks here,
+       and nothing is sent until you press Save. Sub-phases this project does not have yet are added in SharePoint
+       straight away.</div>`
+    +(rows?`<table><tbody>${rows}</tbody></table>`:'<div class="small muted">The template has no optional features.</div>')
+    +`<div class="fld" style="margin-top:14px"><label>New in the template</label>`
+    +(missing.length
+      ? `<div class="hint" style="padding:0 0 6px">These sub-phases are in the template but not on this project. Tick the ones to add.
+           They are added in SharePoint straight away; their dates are set here and wait for Save.</div>
+         ${missing.map(m=>`<div><label style="text-transform:none;font-weight:400"><input type="checkbox" data-add-tpl="${esc(m.tplId)}"> ${esc(m.num+' '+m.name)}</label></div>`).join('')}
+         <button class="btn" style="margin-top:6px" onclick="addTemplateLines('${jobId}')">Add ticked sub-phases</button>`
+      : '<div class="small muted">Every sub-phase in the template is on this project.</div>')
+    +`</div>`;
+  document.getElementById('dFoot').innerHTML='<button class="btn" onclick="closeDrawer()">Close</button>';
+  document.getElementById('drawer').classList.add('open');
+}
+/* Why a switch left a sub-phase as it was. Built as escaped HTML. */
+function featLeftWhy(j,x){
+  const s=j.groups[x.gi]&&j.groups[x.gi].sections[x.si], lbl='<b>'+esc(x.num+' '+(s?s.name:''))+'</b>';
+  if(x.reason==='signed')return lbl+' is signed off, so it is left as it is. Reopen it to change it.';
+  if(x.reason==='done')return lbl+' has work done, so it stays on. Mark it not applicable by hand if it is not wanted.';
+  if(x.reason==='pm-na')return lbl+' has a task marked not applicable for another reason, so that task stays as it is.';
+  return lbl+' is left as it is.';
+}
+function featureConfirm(jobId,key,on){
+  const j=S.jobs.find(x=>x.id===jobId); if(!featuresAllowed(j))return;
+  const F=window.D2FeaturesCore, tpl=templateFor(j.buildType), k=F.featureKey(key);
+  const feat=F.projectFeatures(j.groups,tpl).find(f=>f.key===k); if(!feat)return;
+  const plan=F.planSwitch(j.groups,tpl,k,!!on);
+  UI.fs=null;
+  if(plan.creates.length&&stopForUnsaved('Turn on '+feat.name,'Adding sub-phases from the template'))return;
+  UI.fs={jobId,key:k,name:feat.name,on:!!on,plan};
+  const box=(kind,i,text)=>`<div><label style="text-transform:none;font-weight:400"><input type="checkbox" data-fs="${kind}" data-i="${i}" checked> ${text}</label></div>`;
+  const items=plan.secs.map((x,i)=>box('sec',i,esc(x.label)+(on?' becomes applicable again':' becomes not applicable')))
+    .concat(plan.tasks.map((x,i)=>box('task',i,esc(x.label)+(on?' goes back to do':' becomes not applicable: '+esc(x.note)))));
+  const any=items.length||plan.creates.length;
+  document.getElementById('dTitle').textContent=(on?'Turn on ':'Turn off ')+feat.name;
+  document.getElementById('dBody').innerHTML=
+    `<div class="hint" style="padding:0 0 11px">${any?`Turning ${on?'on':'off'} <b>${esc(feat.name)}</b> changes the items below on this project.
+       Untick anything that should stay as it is. Nothing here is sent until you press Save${plan.creates.length?', except the sub-phases added from the template':''}.`
+       :`Turning ${on?'on':'off'} <b>${esc(feat.name)}</b> changes nothing on this project.`}</div>`
+    +(items.length?`<div class="fld"><label>Changes</label>${items.join('')}</div>`:'')
+    +(plan.creates.length?`<div class="fld"><label>Added from the template, in SharePoint straight away</label>
+        ${plan.creates.map(c=>`<div>${esc(c.num+' '+c.name)}</div>`).join('')}</div>`:'')
+    +(plan.left.length?`<div class="fld"><label>Left as it is</label>${plan.left.map(x=>`<div class="small">${featLeftWhy(j,x)}</div>`).join('')}</div>`:'');
+  document.getElementById('dFoot').innerHTML=
+    (any?`<button class="btn p" data-key="${esc(k)}" onclick="applyFeatureSwitch('${jobId}',this.dataset.key,${on?'true':'false'})">Apply</button> `:'')
+    +`<button class="btn" onclick="openFeatures('${jobId}')">Back</button>`;
+  document.getElementById('drawer').classList.add('open');
+}
+/* Creates the template sub-phases tplIds on project j over Graph, then re-reads the project.
+   What is reported comes from what the re-read shows, not only from the failure list: a row
+   whose reply could not be read may still have been made. Returns {present:[tplId strings that
+   are now on the project], report:html} or {error, lead} when nothing on screen should change. */
+async function createFromTemplate(j,tplIds,switchingKey){
+  const F=window.D2FeaturesCore, C=window.D2WritebackCore, GW=window.D2GraphWriteback;
+  const tpl=templateFor(j.buildType), byId={};
+  tpl.forEach(ph=>(ph.sections||[]).forEach(sec=>{byId[String(sec.id)]=Object.assign({},sec,{phase:ph.name});}));
+  const rows=allSecs(j).filter(({s})=>s.base&&s.base.id!=null).map(({s})=>{
+    const t=s.templateItemId!=null?byId[String(s.templateItemId)]:null;
+    return {id:s.base.id,seq:s.base.seq,templateItemId:s.templateItemId,tplSeq:t&&t.seq!=null?t.seq:null};
+  });
+  const sk=switchingKey?F.featureKey(switchingKey):'';
+  const off=F.projectFeatures(j.groups,tpl).filter(f=>(f.state==='off'||f.state==='absent')&&f.key!==sk).map(f=>f.key);
+  const tplSecs=tplIds.map(id=>byId[String(id)]).filter(Boolean);
+  const plan=C.planStructureCreates({job:{jobno:j.jobno,spId:j.spId},rows,tplSecs,offFeatureKeys:off,
+    nowMs:Date.now(),keyOf:F.featureKey,reasonFor:F.autoReason});
+  if(!plan.creates.length)return {present:[],report:''};
+  let res;
+  try{
+    const tok=await graphToken(), siteId=(await graphSite(tok)).id;
+    res=await GW.applyStructureCreates(plan,{token:tok,siteId,asgListId:D2_GRAPH.lists.asg,tasksListId:D2_GRAPH.lists.tasks});
+  }catch(e){ return {error:e,lead:'Nothing was added.'}; }
+  if(!(await refreshOneProject(j)))
+    return {error:refreshOneProject.lastError,
+      lead:'The sub-phases were sent to SharePoint, but this project could not be read back, so nothing else was changed here. Press Refresh before changing it.'};
+  const have=new Set(allSecs(j).map(({s})=>String(s.templateItemId)));
+  const present=[], msgs=[];
+  plan.creates.forEach(c=>{
+    const lbl='<b>'+esc(c.num+' '+c.name)+'</b>', fa=res.failed.filter(f=>String(f.tplId)===String(c.tplId));
+    if(!have.has(String(c.tplId))){msgs.push(lbl+' was not created. Try again, or add it on the SharePoint site.');return;}
+    present.push(String(c.tplId));
+    if(fa.some(f=>f.stage==='asg')&&c.tasks.length)
+      msgs.push(lbl+' was added, but its tasks were not. Add them on the SharePoint site.');
+    const tf=fa.filter(f=>f.stage==='task');
+    if(tf.length)msgs.push(lbl+' was added without '+(tf.length===1?'this task':'these tasks')+': '+tf.map(f=>esc(f.title)).join(', ')+'. Add them on the SharePoint site.');
+  });
+  return {present,report:msgs.length?`<div class="hint" style="color:#a84a18;padding:0 0 8px">${msgs.join('<br>')}</div>`:''};
+}
+function featureError(r){
+  document.getElementById('dBody').innerHTML=graphErrorHTML(r.error,r.lead||'');
+  document.getElementById('dFoot').innerHTML='<button class="btn" onclick="closeDrawer()">Close</button>';
+}
+const sameIds=(a,b)=>a.length===b.length&&a.slice().sort().join('|')===b.slice().sort().join('|');
+async function applyFeatureSwitch(jobId,key,on){
+  const j=S.jobs.find(x=>x.id===jobId), st=UI.fs, F=window.D2FeaturesCore;
+  if(!featuresAllowed(j)||!st||st.jobId!==jobId||st.key!==F.featureKey(key)||st.on!==!!on)return;
+  const plan=st.plan;
+  const ticked=(kind,list)=>list.filter((x,i)=>{
+    const el=document.querySelector('#dBody input[data-fs="'+kind+'"][data-i="'+i+'"]'); return !el||el.checked;});
+  const secs=ticked('sec',plan.secs), tasks=ticked('task',plan.tasks);
+  if(plan.creates.length&&stopForUnsaved('Turn on '+st.name,'Adding sub-phases from the template'))return;
+  UI.fs=null;
+  /* Rows by their SharePoint id: a create re-reads the project and rebuilds its rows, so the
+     positions the plan was made with may have moved. */
+  const at=(gi,si)=>j.groups[gi].sections[si];
+  const hs=secs.map(x=>({x,id:String(at(x.gi,x.si).base.id)}));
+  const ht=tasks.map(x=>{const s=at(x.gi,x.si),t=s.tasks[x.ti];return {x,id:String(s.base.id),tid:t.spId==null?null:String(t.spId)};});
+  const leftHTML=plan.left.map(x=>featLeftWhy(j,x));   // before a create re-reads the rows
+  let created=[], report='';
+  if(plan.creates.length){
+    document.getElementById('dFoot').innerHTML='<span class="hint">Adding sub-phases in SharePoint…</span>';
+    const r=await createFromTemplate(j,plan.creates.map(c=>c.tplId),st.key);
+    if(r.error){featureError(r);return;}
+    created=r.present; report=r.report;
+  }
+  const byId=id=>allSecs(j).find(({s})=>s.base&&String(s.base.id)===id)||null;
+  /* Switching straight back, before Save, puts the dates back exactly as they were, and takes
+     back the change-order comments the first switch queued, so nothing is sent for either. Only
+     when the same rows are switched back and no date on the project moved in between. */
+  const u=j.featUndo, sids=allSecs(j).map(({s})=>s.sid);
+  const undo=!plan.creates.length&&!!u&&u.key===st.key&&u.on!==!!on
+    &&sameIds(u.secs,hs.map(h=>h.id))&&sameIds(u.tasks,ht.map(h=>h.id+':'+h.tid))
+    &&sids.length===Object.keys(u.after).length&&allSecs(j).every(({s})=>s.sid in u.after&&u.after[s.sid]===(s.start??null));
+  const before={}; allSecs(j).forEach(({s})=>{before[s.sid]=s.start??null;});
+  const touched=new Set();
+  let nSec=0,nTask=0;
+  hs.forEach(h=>{const hit=byId(h.id); if(!hit)return;
+    hit.s.skip=h.x.skip; if(h.x.clearStart&&!undo)hit.s.start=null; touched.add(hit.s); nSec++;});
+  ht.forEach(h=>{const hit=byId(h.id); if(!hit)return;
+    const t=hit.s.tasks.find(t=>h.tid!=null&&String(t.spId)===h.tid)||hit.s.tasks[h.x.ti]; if(!t)return;
+    t.na=h.x.na; t.note=h.x.note; touched.add(hit.s); nTask++;});
+  const order=allSecs(j), newSecs=order.filter(({s})=>created.includes(String(s.templateItemId))).map(x=>x.s);
+  newSecs.forEach(s=>touched.add(s));
+  let comments=[];
+  if(undo){
+    allSecs(j).forEach(({s})=>{s.start=u.before[s.sid];});
+    const drop=new Set(u.comments);
+    S.pendingComments=(S.pendingComments||[]).filter(e=>!drop.has(e.localId));
+    delete j.featUndo;
+  }else{
+    let first=-1;
+    order.forEach((x,i)=>{if(first<0&&(hs.some(h=>byId(h.id)&&byId(h.id).s===x.s)||newSecs.includes(x.s)))first=i;});
+    if(first>=0)reflowFrom(j.id,order[first].gi,order[first].si,null,featureReflowOpts());
+    const body='Change order: '+st.name+' '+(on?'added':'removed');
+    touched.forEach(s=>{const e=queueEntryFor(j,s,'comment',body); if(e)comments.push(e.localId);});
+    if(plan.creates.length)delete j.featUndo;
+    else{
+      const after={}; allSecs(j).forEach(({s})=>{after[s.sid]=s.start??null;});
+      j.featUndo={key:st.key,on:!!on,secs:hs.map(h=>h.id),tasks:ht.map(h=>h.id+':'+h.tid),before,after,comments};
+    }
+  }
+  touch(j); save(); render();
+  const what=[nSec?nOf(nSec,'sub-phase'):'',nTask?nOf(nTask,'task'):''].filter(Boolean).join(' and ');
+  document.getElementById('dTitle').textContent=(on?'Turned on: ':'Turned off: ')+st.name;
+  document.getElementById('dBody').innerHTML=report
+    +`<div class="hint" style="padding:0 0 11px">${undo
+      ?`<b>${esc(st.name)}</b> is back as it was before you switched it. Nothing for it waits for Save.`
+      :(newSecs.length?nOf(newSecs.length,'sub-phase')+' added in SharePoint. ':'')
+        +(what?what+' changed here. ':'')+(newSecs.length||what?'<b>Press Save</b> to send the changes and the change-order note to SharePoint.':'Nothing was changed.')}</div>`
+    +(leftHTML.length?`<div class="fld"><label>Left as it is</label>${leftHTML.map(h=>`<div class="small">${h}</div>`).join('')}</div>`:'');
+  document.getElementById('dFoot').innerHTML=
+    `<button class="btn" onclick="openFeatures('${jobId}')">Back to features</button> <button class="btn" onclick="closeDrawer()">Close</button>`;
+  document.getElementById('drawer').classList.add('open');
+}
+async function addTemplateLines(jobId){
+  const j=S.jobs.find(x=>x.id===jobId); if(!featuresAllowed(j))return;
+  const ids=[...document.querySelectorAll('#dBody input[data-add-tpl]')].filter(el=>el.checked).map(el=>el.dataset.addTpl);
+  if(!ids.length){alert('Tick the sub-phases to add first.');return;}
+  if(stopForUnsaved('Add from the template: '+(j.jobno||j.name),'Adding sub-phases from the template'))return;
+  document.getElementById('dFoot').innerHTML='<span class="hint">Adding sub-phases in SharePoint…</span>';
+  const r=await createFromTemplate(j,ids,null);
+  if(r.error){featureError(r);return;}
+  delete j.featUndo;
+  const order=allSecs(j), first=order.findIndex(({s})=>r.present.includes(String(s.templateItemId)));
+  if(first>=0)reflowFrom(j.id,order[first].gi,order[first].si,null,featureReflowOpts());
+  touch(j); save(); render();
+  document.getElementById('dTitle').textContent='Added from the template: '+(j.jobno||j.name);
+  document.getElementById('dBody').innerHTML=r.report
+    +`<div class="hint" style="padding:0 0 11px">${r.present.length
+      ?nOf(r.present.length,'sub-phase')+' added in SharePoint. Their dates are set here. <b>Press Save</b> to send them.'
+      :'Nothing was added.'}</div>`;
+  document.getElementById('dFoot').innerHTML=
+    `<button class="btn" onclick="openFeatures('${jobId}')">Back to features</button> <button class="btn" onclick="closeDrawer()">Close</button>`;
+  document.getElementById('drawer').classList.add('open');
+}
+
 /* ---- Completing a project (Spec A, decided 2026-09-28) ----
    Offered only on an Active project whose every sub-phase is installer-signed or not
    applicable. PM sign-off does not count: nothing reads it. A completed project stays in
@@ -2259,6 +2486,7 @@ function applyJobPayload(existing,inj){
        a project shows exactly the sub-phases SharePoint holds for it, whatever the template says
        today. Refresh already warns that unsaved edits are overwritten; nothing else is lost. */
     j.groups=groupsFromPayload(inj);
+    delete j.featUndo;   // a feature switch can only be undone exactly against the rows it was made on
     /* Still being built by D2 - New Pool. Read off New Pool Requests on the
        Graph path; the REST export does not carry it, so it reads false. */
     j.building=!!inj.building;
