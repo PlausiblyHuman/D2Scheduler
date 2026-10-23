@@ -2051,8 +2051,15 @@ function unsavedWhere(j){
   /* A queued reject rides the sign-off set as a bare `rejecting` flag so its ticks can go with
      it. The flag alone is the queue again, not a change on screen, so only real sign-off or tick
      changes count here. */
+  /* Task ticks under a sub-phase SharePoint holds as signed, with no reopen or rejection in the
+     same Save, are refused by every Save (sign-off locks the checklist), so they can never be
+     saved and must not block. 2026-10-23: unticking Installer, ticking the tasks and ticking
+     Installer again on 45 signed sub-phases of 25-2004 blocked every Activate. */
+  const signedInSp=new Set(allSecs(j).filter(({s})=>s.base&&s.base.inst).map(({s})=>String(s.base.id)));
   buildSignoffSet().filter(same).forEach(p=>p.sections.forEach(s=>{
-    if(s.inst||s.pm||(s.tasks&&s.tasks.length))at.add(s.num);
+    // A reopen needs no test here: an Installer change on the row already counts as unsaved.
+    const unsaveable=signedInSp.has(String(s.id))&&!s.rejecting;
+    if(s.inst||s.pm||(s.tasks&&s.tasks.length&&!unsaveable))at.add(s.num);
   }));
   const nums=[...at].sort((a,b)=>String(a).localeCompare(String(b),undefined,{numeric:true}));
   if(buildJobStartChanges().some(same))nums.push('start date');

@@ -1,47 +1,57 @@
 [
- {
-  "label": "Reject offered on an unsaved tick",
-  "find": "${s.inst&&s.base&&s.base.inst?`<button class=\"btn\" onclick=\"queueReject()\"",
-  "replace": "${s.inst?`<button class=\"btn\" onclick=\"queueReject()\""
- },
- {
-  "label": "queueReject accepts an unsaved tick",
-  "find": "  if(!sb||!sb.inst){alert(",
-  "replace": "  if(false){alert("
- },
- {
-  "label": "queue counted as unsaved again",
-  "find": "function hasUnsaved(j){ return unsavedWhere(j).length>0; }",
-  "replace": "function hasUnsaved(j){ return unsavedWhere(j).length>0||buildRejectionSet().some(p=>String(p.jobno)===String(j.jobno)); }"
- },
- {
-  "label": "bare rejecting flag counted",
-  "find": "    if(s.inst||s.pm||(s.tasks&&s.tasks.length))at.add(s.num);",
-  "replace": "    at.add(s.num);"
- },
- {
-  "label": "Mark complete ignores its own queue",
-  "find": "'Marking a project complete',j))return;",
-  "replace": "'Marking a project complete'))return;"
- },
- {
-  "label": "queue of every project stops Mark complete",
-  "find": "  const nums=new Set((S.pendingComments||[]).filter(e=>String(e.jobno)===String(j.jobno)).map(e=>e.num));",
-  "replace": "  const nums=new Set((S.pendingComments||[]).map(e=>e.num));"
- },
- {
-  "label": "sub-phase not named",
-  "find": "  const where=unsaved.map(x=>esc(x.j.jobno)+': '+x.at.map(esc).join(', ')).join('; ');",
-  "replace": "  const where=unsaved.map(x=>esc(x.j.jobno)).join(', ');"
- },
- {
-  "label": "start date not named",
-  "find": "  if(buildJobStartChanges().some(same))nums.push('start date');",
-  "replace": "  if(buildJobStartChanges().some(same))nums.push('');"
- },
- {
-  "label": "queued sub-phase not named",
-  "find": "(sub-phase ${queued.map(esc).join(', ')})",
-  "replace": "(sub-phase)"
- }
+  {
+    "label": "Reject offered on an unsaved tick",
+    "find": "${s.inst&&s.base&&s.base.inst?`<button class=\"btn\" onclick=\"queueReject()\"",
+    "replace": "${s.inst?`<button class=\"btn\" onclick=\"queueReject()\""
+  },
+  {
+    "label": "queueReject accepts an unsaved tick",
+    "find": "  if(!sb||!sb.inst){alert(",
+    "replace": "  if(false){alert("
+  },
+  {
+    "label": "queue counted as unsaved again",
+    "find": "function hasUnsaved(j){ return unsavedWhere(j).length>0; }",
+    "replace": "function hasUnsaved(j){ return unsavedWhere(j).length>0||buildRejectionSet().some(p=>String(p.jobno)===String(j.jobno)); }"
+  },
+  {
+    "label": "bare rejecting flag counted",
+    "find": "if(s.inst||s.pm||(s.tasks&&s.tasks.length&&!unsaveable))at.add(s.num);",
+    "replace": "at.add(s.num);"
+  },
+  {
+    "label": "Mark complete ignores its own queue",
+    "find": "'Marking a project complete',j))return;",
+    "replace": "'Marking a project complete'))return;"
+  },
+  {
+    "label": "queue of every project stops Mark complete",
+    "find": "  const nums=new Set((S.pendingComments||[]).filter(e=>String(e.jobno)===String(j.jobno)).map(e=>e.num));",
+    "replace": "  const nums=new Set((S.pendingComments||[]).map(e=>e.num));"
+  },
+  {
+    "label": "sub-phase not named",
+    "find": "  const where=unsaved.map(x=>esc(x.j.jobno)+': '+x.at.map(esc).join(', ')).join('; ');",
+    "replace": "  const where=unsaved.map(x=>esc(x.j.jobno)).join(', ');"
+  },
+  {
+    "label": "start date not named",
+    "find": "  if(buildJobStartChanges().some(same))nums.push('start date');",
+    "replace": "  if(buildJobStartChanges().some(same))nums.push('');"
+  },
+  {
+    "label": "queued sub-phase not named",
+    "find": "(sub-phase ${queued.map(esc).join(', ')})",
+    "replace": "(sub-phase)"
+  },
+  {
+    "label": "unsaveable ticks still block",
+    "find": "if(s.inst||s.pm||(s.tasks&&s.tasks.length&&!unsaveable))at.add(s.num);",
+    "replace": "if(s.inst||s.pm||(s.tasks&&s.tasks.length))at.add(s.num);"
+  },
+  {
+    "label": "every tick treated as unsaveable",
+    "find": "const unsaveable=signedInSp.has(String(s.id))&&",
+    "replace": "const unsaveable=true||signedInSp.has(String(s.id))&&"
+  }
 ]
