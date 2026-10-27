@@ -3126,12 +3126,30 @@ at the default 800x600 two Board-centring checks fail on any version.
 ## PROJECTS OWN THEIR STRUCTURE: step 1 (columns + backfill) done 2026-10-21
 
 Spec `docs/specs/2026-10-21-projects-own-structure-design.md` (B + C from the 2026-10-21 meeting with
-Don; scope note `docs/2026-10-21-flexible-templates-scope.md`). Step 1 is live. **Step 2 is built and
-tested, NOT deployed** (see below). **Step 3 is live and verified** (see below). **Step 4 is built,
-reviewed and verified live on throwaway projects, NOT deployed** (next section). Steps 2 and 4 deploy
-together, **and wait for Don's list of optional features (Shane, 2026-10-23)**: without it the
-`+ Job` checklist and the Features drawer have nothing to show. Until then urgent fixes ship as
-hotfixes on the live build (see "A SECOND STUCK STATE").
+Don; scope note `docs/2026-10-21-flexible-templates-scope.md`). **All four steps are live as of
+2026-10-27 (`deploy/2026-10-27b`, commit `711decf`).** Step 1 (columns and backfill) 2026-10-21;
+step 3 (the three flows) 2026-10-21; steps 2 and 4 (the planner laying projects out from their own
+rows, the Features drawer, the `+ Job` feature checklist, Update from template) deployed 2026-10-27
+with the 2026-10-23 full-localStorage fix. Gates before the deploy: 33 of 33 harnesses, oracle 15 of
+16, shakedown 48 of 48 with a clean console. After it: every path 302, `/auth-redirect.html` 200,
+`/.auth/login/github` 404, and all five served files **hash-identical to the working copy** read
+back through the wall (`groupsFromPayload`, `refreshOneProject`, `D2FeaturesCore`,
+`planStructureCreates`, `applyStructureCreates` all present).
+
+**The hold on this deploy (Don's list of optional features) was lifted 2026-10-27 by Shane, who
+reframed it: there is no list to manage. A feature is a template row.** Don adds the optional
+sub-phase to Sub-phase Template with `Optional = Yes` and a `Feature` name (blank means the row's
+title is the feature), and tags any task in Task Template with that `Feature` name; `+ Job` and the
+Features drawer read the template on Refresh and `D2 - New Pool` reads it live. Until he adds one,
+both controls show nothing, which is the intended state. **The deploy had to land before his first
+template edit**, because the previous live build still laid every project out from the template and
+matched rows by number, so a new template row showed as an empty line on every existing project.
+Three follow-ups this creates: a half-page in the guide on the fields a template row needs (Build
+type, Sequence, number, name, phase name, crew code, trade or skill, days, Optional, Feature; nothing
+validates the crew code or catches a Sequence clash); the template-list permissions gate (Don and
+David edit, members read; decided 2026-09-21, still not applied); and the Build phases editor as a
+later nicety, not a prerequisite. If Amy's Rev4 load is close, load it before Don starts adding
+rows; otherwise his rows are carried into the Rev4 load by editing in place.
 
 **Also built 2026-10-23, on the branch:** the planner keeps working when the browser's
 localStorage is full (`save()` catches the quota error and the header says this browser is not
@@ -3144,7 +3162,7 @@ export `flows/exports/D2-New-Pool-2026-10-23.json`, backup
 no-drift check against it; not yet exercised by a live build); and all 402 mutation anchors land
 again (ten had gone stale).
 
-### Step 4: optional features and Update from template (built 2026-10-22, verified live 2026-10-23)
+### Step 4: optional features and Update from template (built 2026-10-22, verified live 2026-10-23, deployed 2026-10-27 as `deploy/2026-10-27b`)
 
 Spec `docs/specs/2026-10-22-step4-features-design.md` (extends the parent), plan
 `docs/superpowers/plans/2026-10-22-step4-features.md`. Rev4 mapping for Amy:
@@ -3226,7 +3244,8 @@ Exports `flows/exports/*-2026-10-21.json`.
   `stratirus@d2pools.com`. FlowAgent still reports `'az' is not recognized` until the Claude desktop
   app is restarted, because its process started before the install.
 
-**Step 2, the planner lays a SharePoint project out from its own rows.** `groupsFromPayload` in
+**Step 2, the planner lays a SharePoint project out from its own rows (deployed 2026-10-27 as
+`deploy/2026-10-27b`).** `groupsFromPayload` in
 `web/index.html` rebuilds `j.groups` on every load from the payload's sections (Sequence order, phases
 as consecutive runs of the sub-phase number, named from the row's `phase`) and the checklist
 one-for-one from the row's own Tasks. The by-number `bySec` match, the name-then-position task match

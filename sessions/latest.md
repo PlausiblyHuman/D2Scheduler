@@ -5,8 +5,10 @@ reopening) and ship it as a hotfix; then design the ghost calendar fix and scope
 All three done; the calendar design was recorded rather than built, because the calendar is not in
 use and was switched off instead.
 
-**Time:** 09:12–14:05 local, 1.25 h billable (D2). One gap 09:54–13:43 left unreviewed for Shane;
-the evidence points to away (another contract active 77 min, "what's next?" on return).
+**Time:** 09:12–15:16 local, 2.00 h billable in 3 blocks (D2), raw 1.63 h. One gap 09:54–13:43 left
+unreviewed for Shane; the evidence points to away (another contract active 77 min, "what's next?"
+on return). Tokens: 3,426 in / 55,366,036 cached / 138,419 out, 131 messages, fable-5-1 and
+opus-5-5, no subagents.
 
 **Files touched:**
 - `web/writeback-core.js` (`isPlainTick`; `planTaskTicks` lets a plain tick through under a sign-off)
@@ -43,7 +45,28 @@ the evidence points to away (another contract active 77 min, "what's next?" on r
   size of delete/rename, notes per task, punch list (recommend items as one-day sub-phases through
   the existing create path) and PM-addable trades, the order, and five questions for Don.
 
+**Later the same session: steps 2 and 4 deployed (`deploy/2026-10-27b`, `711decf`).**
+- Shane reframed the hold: there is no list of optional features to manage; Don adds the optional
+  sub-phases and tasks to the templates himself and marks them Optional. That is how the build
+  already works, and it means the deploy had to go in before his first template edit (the old
+  live build laid projects out from the template and matched by number).
+- Gates: 33 of 33 harnesses, oracle 15 of 16, shakedown 48 of 48 with a clean console. Shane ran
+  the deploy (`C:\Users\shane\Downloads\Deploy-D2Planner-2026-10-27b.ps1`); the first "done" came
+  while the upload was still running, so the checks were re-run after it finished.
+- Verified: every path 302, `/auth-redirect.html` 200, `/.auth/login/github` 404; all five served
+  files hash-identical to the working copy, read back through the wall from the browser pane;
+  `groupsFromPayload`, `refreshOneProject`, `D2FeaturesCore`, `planStructureCreates` and
+  `applyStructureCreates` present. A live Refresh from the pane was not possible: the pane blocks
+  the Microsoft sign-in pop-up, and the planner's blocked-popup notice worked as designed. The
+  first live Refresh of the new build is Shane's, in his own browser.
+- Email draft for the 8 AM meeting with Don is in the chat transcript (what changed this week,
+  six decisions to bring); item 3 and the first ask reworded for the template-row framing.
+- Left alone on purpose: the three dialogs that mention the shared calendar (`complete.js` pins
+  the wording).
+
 **Decisions made:**
+- Don defines optional features by marking template rows Optional; no feature list is kept
+  anywhere else. Steps 2 and 4 deploy on that basis, before his first template edit.
 - A plain tick passes under a sign-off; unticks and N/A changes do not (Shane's 23 Oct rule, settled
   in the build). The canvas app keeps locking the whole checklist until crew leads come on.
 - Calendar Sync off until a user asks for the calendar; ghost fix deferred with the design recorded.
@@ -61,14 +84,18 @@ the evidence points to away (another contract active 77 min, "what's next?" on r
 
 **TimeTrack draft (not posted):**
 - Client notes: "Project managers can now tick checklist items under a signed-off sub-phase
-  without reopening it; the fix is live. The shared calendar feed is paused until it is wanted, and
-  the next round of requests is scoped with questions ready for Don."
+  without reopening it. Optional features and change orders on live projects are live: add an
+  optional sub-phase to the template and it appears on new and existing projects. The shared
+  calendar feed is paused until it is wanted."
 - Internal: Session 7a0e072b · D2Scheduler · canvas-app-handoff · sessions/2026-10-27a-signed-tick-hotfix-calendar-off.md ·
   Commits cc4d3c8 07a5d10 2b91a85 93dc65e d844eeb 01a8d66 · Shipped deploy/2026-10-27 (hotfix/signed-tick) ·
   Tenant: D2 - Calendar Sync stopped · Decisions: plain tick only; calendar off · Blocked/next: Don's
-  feature list, then steps 2 and 4 deploy · Time: 1.01 h Claude + 0 gap + 0 manual = 1.01 raw → 1.25 h
-  in 2 blocks · Tokens: 2,546 in / 37,030,382 cached / 107,223 out · fable-5-1, opus-5-5 · subagents 0
+  Don adds optional features to the templates; guide section and permissions gate next ·
+  Shipped: also deploy/2026-10-27b (steps 2 and 4) · Time: 1.63 h Claude + 0 gap + 0 manual = 1.63
+  raw → 2.00 h in 3 blocks · Tokens: 3,426 in / 55,366,036 cached / 138,419 out · fable-5-1,
+  opus-5-5 · subagents 0
 
 **Next action:**
-Get Don's optional-feature list and his answers to the scope note's five questions; then deploy steps
-2 and 4 and start delete/rename.
+After the 8 AM meeting with Don: write the half-page guide section on adding an optional feature
+to the templates, apply the template-list permissions gate (Don and David edit), and start
+delete/rename. Confirm the 09:54–13:43 gap and post 2.00 h.
