@@ -2930,9 +2930,9 @@ Shane's 2026-10-23 rule change, built in the planner only. **Shipped the 10-23 w
 harness fix (`8e350c8`, also `07a5d10` on `canvas-app-handoff`), tag `deploy/2026-10-27`, so steps 2
 and 4 stayed out. Shane ran the deploy: the permission classifier refused it through Desktop
 Commander as well as Bash. Wall re-checked anonymously after deploy: all paths 302,
-`/auth-redirect.html` 200, `/.auth/login/github` 404. **The page content behind the wall was not read
-back** (no signed-in browser in the session); confirm by opening a signed sub-phase on the hosted
-planner and seeing the "Signed off. You can still tick a task as done" hint.
+`/auth-redirect.html` 200, `/.auth/login/github` 404. The served build was then read back through
+the wall from a signed-in browser pane: `lockedTick` and `isPlainTick` present, the new hint and
+results copy in the HTML, step 2's `groupsFromPayload` absent.
 
 One branch difference the cherry-pick exposed: before step 2 the checklist comes from the template
 and a payload task is matched by name, so a harness task with a made-up name gets no row id on the
