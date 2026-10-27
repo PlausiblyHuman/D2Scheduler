@@ -16,7 +16,7 @@
   },
   {
     "label": "bare rejecting flag counted",
-    "find": "if(s.inst||s.pm||(s.tasks&&s.tasks.length&&!unsaveable))at.add(s.num);",
+    "find": "if(s.inst||s.pm||(s.tasks&&s.tasks.some(saveable)))at.add(s.num);",
     "replace": "at.add(s.num);"
   },
   {
@@ -46,12 +46,22 @@
   },
   {
     "label": "unsaveable ticks still block",
-    "find": "if(s.inst||s.pm||(s.tasks&&s.tasks.length&&!unsaveable))at.add(s.num);",
+    "find": "if(s.inst||s.pm||(s.tasks&&s.tasks.some(saveable)))at.add(s.num);",
     "replace": "if(s.inst||s.pm||(s.tasks&&s.tasks.length))at.add(s.num);"
   },
   {
-    "label": "every tick treated as unsaveable",
-    "find": "const unsaveable=signedInSp.has(String(s.id))&&",
-    "replace": "const unsaveable=true||signedInSp.has(String(s.id))&&"
+    "label": "every task change treated as locked",
+    "find": "const locked=signedInSp.has(String(s.id))&&",
+    "replace": "const locked=true||signedInSp.has(String(s.id))&&"
+  },
+  {
+    "label": "plain tick under a sign-off not counted",
+    "find": "const saveable=t=>!locked||C.isPlainTick(t);",
+    "replace": "const saveable=t=>!locked;"
+  },
+  {
+    "label": "any change under a sign-off counted",
+    "find": "const saveable=t=>!locked||C.isPlainTick(t);",
+    "replace": "const saveable=t=>true;"
   }
 ]

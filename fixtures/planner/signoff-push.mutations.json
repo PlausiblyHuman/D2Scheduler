@@ -1,0 +1,57 @@
+[
+  {
+    "label": "a signed checklist disables every box",
+    "find": "${lockedTick(s,t,!t.done)?'disabled':''}",
+    "replace": "${s.inst?'disabled':''}"
+  },
+  {
+    "label": "a signed checklist disables nothing",
+    "find": "${lockedTick(s,t,!t.done)?'disabled':''}",
+    "replace": "${''}"
+  },
+  {
+    "label": "a loaded done box stays live under a sign-off",
+    "find": "${lockedTick(s,t,!t.done)?'disabled':''}",
+    "replace": "${lockedTick(s,t,true)?'disabled':''}"
+  },
+  {
+    "label": "tick handler allows an untick under a sign-off",
+    "find": "function lockedTick(s,t,v){ return !!s.inst && !((v&&!t.na) || (!v&&t.base&&!t.base.done)); }",
+    "replace": "function lockedTick(s,t,v){ return !!s.inst && !((!t.na) || (!v&&t.base&&!t.base.done)); }"
+  },
+  {
+    "label": "tick handler allows ticking an N/A task under a sign-off",
+    "find": "function lockedTick(s,t,v){ return !!s.inst && !((v&&!t.na) || (!v&&t.base&&!t.base.done)); }",
+    "replace": "function lockedTick(s,t,v){ return !!s.inst && !((v) || (!v&&t.base&&!t.base.done)); }"
+  },
+  {
+    "label": "an unsaved tick cannot be undone",
+    "find": "function lockedTick(s,t,v){ return !!s.inst && !((v&&!t.na) || (!v&&t.base&&!t.base.done)); }",
+    "replace": "function lockedTick(s,t,v){ return !!s.inst && !((v&&!t.na) || false); }"
+  },
+  {
+    "label": "a saved tick can be undone",
+    "find": "function lockedTick(s,t,v){ return !!s.inst && !((v&&!t.na) || (!v&&t.base&&!t.base.done)); }",
+    "replace": "function lockedTick(s,t,v){ return !!s.inst && !((v&&!t.na) || (!v)); }"
+  },
+  {
+    "label": "all/none handler allows none under a sign-off",
+    "find": "function allTasks(v){if(checklistLocked(v))return;",
+    "replace": "function allTasks(v){if(checklistLocked(true))return;"
+  },
+  {
+    "label": "N/A toggle allowed under a sign-off",
+    "find": "function toggleNA(ti){\n  if(checklistLocked())return;",
+    "replace": "function toggleNA(ti){\n  if(false)return;"
+  },
+  {
+    "label": "the lock hint says nothing about unticking",
+    "find": "Signed off. You can still tick a task as done. To untick a task\n        or change N/A,",
+    "replace": "Signed off. To change the checklist,"
+  },
+  {
+    "label": "none offered under a sign-off",
+    "find": "all</a>${s.inst?'':` /",
+    "replace": "all</a>${false?'':` /"
+  }
+]

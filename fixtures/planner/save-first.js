@@ -42,12 +42,12 @@ const foot = () => win.document.getElementById('dFoot').textContent;
 const N2004 = '25-2004 Oden - Nitch', N2048 = '26-2048', N2010 = '25-2010';
 const sec = (num, id, inst, start, tasks) => ({ num, id, seq: 1, crewId: 'office', start: start || '2025-08-21', days: 2,
   inst, pm: inst, locked: false, skip: false, tasks: tasks || [] });
-const task = (id, title) => ({ id, seq: 1, title, done: false, na: false });
+const task = (id, title, done) => ({ id, seq: 1, title, done: !!done, na: false });
 const payload = () => ({ app: 'D2 Pool Build Scheduler', kind: 'd2-sharepoint-export', exported: '2026-10-10', site: 'x', nonWork: [],
   jobs: [
     { id: 55, jobno: N2004, name: 'Nitch', start: '2025-05-08', status: 'Planned',
-      sections: [sec('6.3', 2250, true), sec('6.4', 2252, true, null, [task(9001, 'Surface cleaning')]),
-                 sec('7.0', 2251, false, null, [task(9002, 'Warranty walk')])] },
+      sections: [sec('6.3', 2250, true), sec('6.4', 2252, true, null, [task(9001, 'Surface cleaning'), task(9003, 'Final rinse', true)]),
+                 sec('7.0', 2251, false, null, [task(9002, 'Warranty walk'), task(9004, 'Warranty call', true)])] },
     { id: 60, jobno: N2048, name: 'Other', start: '2026-10-12', status: 'Planned',
       sections: [sec('1.1', 3000, false, '2026-10-12')] },
     // Active and fully signed, so Mark complete is offered.
@@ -110,27 +110,40 @@ const payload = () => ({ app: 'D2 Pool Build Scheduler', kind: 'd2-sharepoint-ex
 
   // ---- Fix 4 (2026-10-23): ticks Save can never land do not block -----------------------
   /* Don, 2026-10-23: on 45 signed sub-phases of 25-2004 he unticked Installer, ticked the
-     tasks and ticked Installer again. Save refuses a task change under a sub-phase SharePoint
-     holds as signed unless the same Save reopens it (sign-off locks the checklist), so every
-     Save refused them, they stayed on screen, and every Activate said Save first. */
-  const s64 = hit(N2004, '6.4').s, t64 = s64.tasks[0];
-  ok('the signed sub-phase carries its task with a row id', !!t64 && t64.spId != null && s64.base.inst === true,
-     JSON.stringify(t64));
+     tasks and ticked Installer again. Save then refused every task change under a sub-phase
+     SharePoint holds as signed, so they stayed on screen and every Activate said Save first.
+     Since 2026-10-27 a plain tick lands under a sign-off, so Don's sequence IS saveable and
+     must count; what Save still refuses, an untick or an N/A change under a sign-off, must not. */
+  const s64 = hit(N2004, '6.4').s, t64 = s64.tasks[0], d64 = s64.tasks[1];
+  ok('the signed sub-phase carries its tasks with row ids', !!t64 && t64.spId != null && s64.base.inst === true
+     && !!d64 && d64.done === true && d64.base && d64.base.done === true, JSON.stringify(s64.tasks));
   s64.inst = false; t64.done = true; s64.inst = true;          // Don's sequence
-  ok('ticks under a signed sub-phase, with no reopen, are not an unsaved change', !hasUnsaved(job(N2004)),
+  ok('a plain tick under a signed sub-phase, with no reopen, IS an unsaved change (Save lands it)',
+     E('unsavedWhere')(job(N2004)).includes('6.4'), E('unsavedWhere')(job(N2004)).join(','));
+  act('activatePool', job(N2048).id);
+  ok('so Activate stops and names it', /Save first/.test(body()) && /6\.4/.test(body()), body().slice(0, 160));
+  E('closeDrawer')();
+  t64.done = false;
+  d64.done = false;                                            // an untick under a sign-off: Save always refuses it
+  ok('an untick under a signed sub-phase, with no reopen, is not an unsaved change', !hasUnsaved(job(N2004)),
      E('unsavedWhere')(job(N2004)).join(','));
   act('activatePool', job(N2048).id);
   ok('so Activate on another project is offered', /Activate pool/.test(foot()) && !/Save first/.test(body()), body().slice(0, 160));
   E('closeDrawer')();
-  s64.inst = false;                                            // a real reopen rides with the ticks: Save can land it
-  ok('a reopen with ticks is still an unsaved change', E('unsavedWhere')(job(N2004)).includes('6.4'),
+  s64.inst = false;                                            // a real reopen rides with the untick: Save can land it
+  ok('a reopen with an untick is still an unsaved change', E('unsavedWhere')(job(N2004)).includes('6.4'),
      E('unsavedWhere')(job(N2004)).join(','));
-  s64.inst = true; t64.done = false;
+  s64.inst = true; d64.done = true;
   const t70 = hit(N2004, '7.0').s.tasks[0];
   t70.done = true;                                             // a tick on an unsigned sub-phase: Save can land it
   ok('a tick on an unsigned sub-phase is still an unsaved change', E('unsavedWhere')(job(N2004)).includes('7.0'),
      E('unsavedWhere')(job(N2004)).join(','));
   t70.done = false;
+  const d70 = hit(N2004, '7.0').s.tasks[1];
+  d70.done = false;                                            // an untick on an unsigned sub-phase: Save can land it
+  ok('an untick on an unsigned sub-phase is still an unsaved change', E('unsavedWhere')(job(N2004)).includes('7.0'),
+     E('unsavedWhere')(job(N2004)).join(','));
+  d70.done = true;
   ok('back to nothing unsaved', !hasUnsaved(job(N2004)));
 
   // ---- Mark complete still stops for an entry queued on THAT project --------------------

@@ -211,12 +211,15 @@ closed there.
   restricting *who may* is a later switch, not a redesign.
 
   **AMENDED 2026-10-23 by Shane: a PM can tick tasks under a signed sub-phase without reopening
-  it. NOT BUILT YET.** Don is signing off finished projects whole (31 to 45 sub-phases a save) and
-  wants their checklists to show done; the lock made him untick Installer, tick, and re-tick, and
-  the refused ticks blocked every Activate (see "A SECOND STUCK STATE" below). Still to settle when
-  building it: whether unticking a task under a signed sub-phase is also allowed (the original case
-  for the lock was a silent untick under an attestation), and the matching change in the canvas app
-  and `planTaskTicks`, which refuses these writes today.
+  it. BUILT IN THE PLANNER 2026-10-27, not yet deployed.** Don is signing off finished projects
+  whole (31 to 45 sub-phases a save) and wants their checklists to show done; the lock made him
+  untick Installer, tick, and re-tick, and the refused ticks blocked every Activate (see "A SECOND
+  STUCK STATE" below). Settled when building it: **only a plain tick (to do to Done, on a task that
+  is not N/A) passes under a sign-off.** Unticking a saved task, and setting or clearing N/A, still
+  need a reopen, because the lock exists to stop a silent untick under an attestation and an N/A
+  changes what the attestation covers. See "A PLAIN TICK LANDS UNDER A SIGN-OFF" below. **The
+  canvas app still refuses every task change under a sign-off**; it was left alone because the
+  pilot runs on the planner and nobody is on the app.
 
 ## Staging / integration contracts
 
@@ -2919,6 +2922,28 @@ a new 6.4 Equipment Gas hook-up with renumbering, PM-addable trades, a Phase 10 
 per-project optional sub-phases (fence type, auto cover), archive/warranty tagging, and deleting or
 renaming a project. Four revised template workbooks were attached (Gunite Rev3, Fiberglass,
 Open Structures, Enclosed Structures). None of the rest is scoped yet (Fiberglass is delivered, see "BUILD TYPES").
+
+## A PLAIN TICK LANDS UNDER A SIGN-OFF — built 2026-10-27, NOT deployed
+
+Shane's 2026-10-23 rule change, built in the planner only. `D2WritebackCore.isPlainTick(t)` is
+the one test, used in three places so they cannot disagree: `planTaskTicks` writes a plain tick
+under a sub-phase SharePoint holds as signed and refuses everything else `signed-off`, as before;
+the drawer (`lockedTick`) keeps a to-do box live under a sign-off, locks a loaded done box and an
+N/A box, hides the N/A links and "none", and says what is locked; and `unsavedWhere` counts a plain
+tick under a sign-off as unsaved (Save lands it now) while an untick or N/A change under one still
+does not block Activate (Save still refuses it). A tick not yet saved can be undone in the drawer,
+since that only puts the box back to what SharePoint holds. The Save results say "signed off, so
+reopen it before unticking a task or changing N/A".
+
+Don's 10-23 sequence (untick Installer, tick, re-tick Installer) therefore now stops Activate with
+"Save first", and a Save clears it: that is the correct outcome, not the stuck state, because the
+ticks land. Pinned by `writeback-core.js` (+8), `signoff-push.js` (+10, the real drawer and Save
+path), `save-first.js` (+3), `rejections.js` (its reopen cases now use an untick, since a tick no
+longer needs one); 4 new core mutations, 11 drawer mutations in `signoff-push.mutations.json`, 2
+new in `save-first.mutations.json`, all red. Checked in a real browser on the demo payload.
+
+**Not done:** the canvas app (`scr_Tasks.pa.yaml`) still locks the whole checklist under a
+sign-off; change it with the next app batch if crew leads ever come on. Guide v9 gains this item.
 
 ## A SECOND STUCK STATE BLOCKED EVERY ACTIVATE — fixed and deployed 2026-10-23 (`deploy/2026-10-23`)
 
