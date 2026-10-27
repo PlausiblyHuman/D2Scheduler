@@ -476,6 +476,28 @@ model could not express, because it implied we were mid-Phase-C and on schedule.
   without any REST work by us. The gap that remains is the browser tool itself never writing
   to Lists; live pools are still edited directly in Lists.
 - **Teams channels.** Deferred post-pilot 2026-09-05; every flow delivers by email instead.
+- **Ghost calendar events: designed, not built, and the calendar itself is switched off. Decided
+  2026-10-27 by Shane.** `D2 - Calendar Sync` is `Stopped` until a user asks for the group calendar
+  (nobody opens it today), so an event stranded by `D2 - Delete Pool` costs nothing until then, and
+  on that day a one-off Graph clean-up (as on 2026-09-25, 184 events) puts the calendar right in
+  minutes. The design to build when the calendar matters, so it is not re-derived: Calendar Sync
+  already holds the Groups connection, so `HttpRequestV2` on `shared_office365groups` fits without
+  the new-connector problem that stopped the Delete Pool attempt. On the 04:30 **full sweep only**,
+  after `Guard_in_scope_complete` has passed and the row-based `For_each_orphan` has run, enumerate
+  `GET /v1.0/groups/<id>/events?$select=id,categories&$top=500` through `@odata.nextLink`, diff
+  against every `CalendarEventId` held in Assignments (all rows carrying one, any status, so an
+  event the row path is about to delete is never deleted twice), and delete only events carrying a
+  **`categories` stamp** (`D2 Build Scheduler`) that `Compose_event_body` writes on every create and
+  update, so a meeting someone adds by hand is never touched; the first full sweep after the change
+  stamps every existing event through `Update_event`. Refuse the whole batch, with an email to
+  D2 Bot and a `Failed` terminate, when the ghost count exceeds a ceiling of 100 (two deleted
+  projects' worth), since a large count is likelier a broken "what should exist" read than a real
+  mass delete. **Capture before trusting:** the connector forwards a Graph event resource, but
+  `categories` has not been captured on a real create or update; prove it on a probe and read the
+  event back. Verify the way the 09-28 guards were: a disarmed copy forced to full mode, a throwaway
+  Active project deleted through Delete Pool to make real ghosts, and a hand-made event on the
+  calendar that must survive. The edit goes through the Dataverse `clientdata` PATCH + `PublishXml`
+  route (`edit_flow` could not save this flow on 2026-09-28), run by Shane.
 - **A Work Calendar top-up flow.** The list was extended by hand to **2029-12-30** on
   2026-09-08b, so this is no longer near-term, but it still expires and nothing still maintains
   it. A yearly recurrence appending the next year's Sundays and holidays closes it permanently.
@@ -1549,7 +1571,7 @@ covers two flows, the daily and weekly summaries.):**
 | 11 | Reschedule Pool | Started | **Cursor fix applied and verified both directions 2026-09-15b — a pinned row can no longer drag the reflow cursor backwards; see business rule 3.** **NEW 2026-09-09, verified.** `D2 - Reschedule Pool`, flowId `2f2cde97-e0fd-5c5c-934a-02f09a1d83a5` (Dataverse workflowid `210f1d70-e2ab-f111-aaab-6045bd0196b3`). Triggered by a new row in **Reschedule Requests**. Walks a job's assignments from a given `Sequence` forward, recomputing working-day spans, skipping rows that are `Locked` or already signed off. See **Staging / integration contracts** for the `Planned`/`Locked`/`SuppressReconcileUntil` mechanics and Known bugs and gotchas for the platform constraints found building it. **Hardened the same day in the final whole-branch review:** the reflow-walk `Foreach` now carries `concurrency: {repetitions: 1}` like every other variable-mutating loop in this flow (it always ran sequentially; this closes the gap between "does" and "is guaranteed to"); the mid-run failure email now names how many sub-phases already moved and says to re-raise the same request from the same `FromSequence` (the walk is idempotent); and `Send_completion_email`, `Send_failure_email_guard` and `Send_failure_email_action` all gained the PM -> requester -> `stratirus@d2pools.com` fallback that `Send_conflict_alert_email` already had, so a blank `Author.Email` (plausible per the UPN-vs-`mail` note above) can no longer produce a silent `400 To Field cannot be null or empty` on the very email meant to explain a failure. |
 
 | 12 | Conflict Flag | Started | **NEW 2026-09-09, verified.** `D2 - Conflict Flag`, flowId `972c139d-e55f-6743-a76c-fbd2f08eeb45` (Dataverse workflowid `f0dd9a1d-8bac-f111-aaab-002248043e80`). Nightly 05:00 Central. Annotates `Assignments.ConflictWith` so a crew double-book is visible in SharePoint and not only in email; unlike the alerting flows it deliberately covers `Planned` pools too, so a PM can see collisions while choosing dates. Was missing from this table until 2026-09-10. |
-| 13 | Calendar Sync | Started | **Reports only on the 04:30 full sweep or a real change, since 2026-09-15** -- `Send_report` sits inside `Condition_should_report`. **NEW 2026-09-10, verified.** `D2 - Calendar Sync`, flowId / workflowEntityId `f890f891-48ad-f111-aaab-6045bd0196b3`. Nightly 04:30 Central. Writes one all-day event per in-scope Assignment to the **M365 group calendar** behind the site. See "Group calendar" below. |
+| 13 | Calendar Sync | **Stopped** | **SWITCHED OFF 2026-10-27 on Shane's call: nobody at D2 opens the group calendar (Don works entirely in the planner), and the 04:30 full sweep was rewriting every Active sub-phase's event daily out of D2 Bot's one request allowance for a calendar nobody reads.** Stopped through FlowAgent `disable_flow` (ProcessSimple id `8070fa64-4cbc-f422-2245-e1d2bc39e985`), read back `Stopped`. Turn it back on only when a user asks for the calendar; a Recurrence trigger replays nothing, and the first full sweep brings the calendar current from the rows, but ghost events from projects deleted meanwhile need the one-off Graph clean-up (see Phase G). The planner's Activate, Back to planning and Mark complete dialogs still say entries reach or leave the shared calendar; harmless copy while it is off, to fix with the next deploy. **Reports only on the 04:30 full sweep or a real change, since 2026-09-15** -- `Send_report` sits inside `Condition_should_report`. **NEW 2026-09-10, verified.** `D2 - Calendar Sync`, flowId / workflowEntityId `f890f891-48ad-f111-aaab-6045bd0196b3`. Nightly 04:30 Central. Writes one all-day event per in-scope Assignment to the **M365 group calendar** behind the site. See "Group calendar" below. |
 | 14 | Crew Trade Check | Started | **NEW 2026-09-11, verified both directions.** `D2 - Crew Trade Check`, flowId / workflowEntityId `a5f50628-eead-f111-aaac-6045bd0195dd`. Nightly 05:15 Central. Joins `Assignments.Crew` -> `Crews.CrewID` -> `Crew-Trades` -> `Assignments.Trade` and writes `Assignments.TradeMismatch`, which is **the first thing in this system to enforce business rule 1**. Writes only rows that changed, so a clean night writes nothing. See below for the lookup-shape trap it cost, and for what it does NOT cover. |
 
 **CALENDAR SYNC IS NOW INCREMENTAL, and runs hourly (2026-09-10).** Trigger fires at **04:30 plus
@@ -1815,7 +1837,9 @@ of deleting every event on the calendar if the "what should exist" side is ever 
 is the same hazard already documented for `Filter_orphans` on incremental runs, but worse, because
 enumeration means it no longer needs a row to find an event. Any implementation needs: full-sweep
 runs only (never incremental), a guard that refuses to delete when the Assignments read returned
-zero rows, and probably a cap on how many events one run may delete.
+zero rows, and probably a cap on how many events one run may delete. **Designed in full on
+2026-10-27 and deliberately not built, because the calendar is switched off until a user asks for
+it; the design is recorded under Phase G ("Ghost calendar events").**
 
 **THE PLANNER IS DISTRIBUTED AS A SHAREPOINT DOWNLOAD, not a hosted page. Decided by Shane
 2026-09-11, and the constraint that forced it is the same custom-script block as ever.**
