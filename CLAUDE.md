@@ -2945,7 +2945,10 @@ and this change. Don's 2026-10-10 email also asks for: punch-list items, notes p
 a new 6.4 Equipment Gas hook-up with renumbering, PM-addable trades, a Phase 10 Specialty structures,
 per-project optional sub-phases (fence type, auto cover), archive/warranty tagging, and deleting or
 renaming a project. Four revised template workbooks were attached (Gunite Rev3, Fiberglass,
-Open Structures, Enclosed Structures). None of the rest is scoped yet (Fiberglass is delivered, see "BUILD TYPES").
+Open Structures, Enclosed Structures). **Scoped 2026-10-27 in `docs/2026-10-27-don-asks-scope.md`:**
+where each ask stands, the shape and size of delete/rename, notes per task, punch list and
+PM-addable trades, the recommended order, and the five questions to put to Don in one message
+(Fiberglass is delivered, see "BUILD TYPES").
 
 ## A PLAIN TICK LANDS UNDER A SIGN-OFF — built and deployed as a hotfix 2026-10-27 (`deploy/2026-10-27`)
 
