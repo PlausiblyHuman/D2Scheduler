@@ -131,15 +131,38 @@ win.alert = () => {}; win.confirm = () => true;
   ok('N/A with a reason is recorded, trimmed', A.tasks[2].na === true && A.tasks[2].note === 'Owner supplying this', JSON.stringify(A.tasks[2]));
   win.alert = () => {};
 
-  // D is signed: its checklist is locked in the UI...
+  // D is signed. Its checklist takes a plain tick (Shane, 2026-10-23) and nothing else:
+  // a done task cannot be unticked and N/A cannot change without a reopen.
+  D.tasks[1].done = true; D.tasks[1].base.done = true; liveTask(D, 1).Complete = true;   // loaded as done
+  D.tasks[2].na = true; D.tasks[2].note = 'Spa not on this pool'; D.tasks[2].base.na = true; D.tasks[2].base.note = 'Spa not on this pool';
+  liveTask(D, 2).NotApplicable = true; liveTask(D, 2).Note = 'Spa not on this pool';   // loaded as N/A
   win.editSec(j.id, secs[3].gi, secs[3].si);
   const dBoxes = [...win.document.querySelectorAll('#tasks .tk input[type=checkbox]')];
-  ok('a signed-off checklist renders locked', dBoxes.length > 0 && dBoxes.every(b => b.disabled)
-     && !win.document.querySelector('#tasks a.natog') && !!win.document.getElementById('tasksLocked'));
-  win.eval('tick(0,true)'); win.eval('allTasks(true)');
-  ok('...and its handlers refuse too', D.tasks.every(t => !t.done));
-  // ...and if a change reaches the change set anyway, the save refuses it.
-  D.tasks[0].done = true;
+  ok('a signed-off checklist keeps its to-do boxes live', dBoxes.length > 2 && !dBoxes[0].disabled, String(dBoxes[0] && dBoxes[0].disabled));
+  ok('...locks a done box and an N/A box', dBoxes[1].disabled && dBoxes[2].disabled);
+  ok('...offers no N/A control and says what is locked', !win.document.querySelector('#tasks a.natog')
+     && /untick a task|unticking/i.test((win.document.getElementById('tasksLocked') || {}).textContent || ''),
+     (win.document.getElementById('tasksLocked') || {}).textContent);
+  ok('...and offers "all" but not "none"', /\ball\b/.test(win.document.getElementById('dBody').textContent)
+     && !/\bnone\b/.test(win.document.getElementById('dBody').textContent));
+  win.eval('tick(1,false)'); win.eval('allTasks(false)');
+  ok('an untick is refused by the handlers', D.tasks[1].done === true);
+  win.eval('toggleNA(2)'); win.eval('toggleNA(3)'); win.eval('tick(2,true)');
+  ok('an N/A change is refused by the handlers, ticking an N/A task included',
+     D.tasks[2].na === true && !D.tasks[2].done && D.tasks[3].na === false, JSON.stringify(D.tasks[2]));
+  win.eval('tick(0,true)');
+  ok('a plain tick goes through the handler', D.tasks[0].done === true);
+  win.eval('tick(0,false)');
+  ok('an unsaved tick can be undone (it only goes back to what SharePoint holds)', D.tasks[0].done === false);
+  win.eval('tick(0,true)');
+  win.editSec(j.id, secs[3].gi, secs[3].si);
+  {
+    const again = [...win.document.querySelectorAll('#tasks .tk input[type=checkbox]')];
+    ok('after a re-render the unsaved tick stays live and the loaded one stays locked',
+       again[0].checked && !again[0].disabled && again[1].checked && again[1].disabled);
+  }
+  // An untick that reaches the change set anyway is refused at Save; the tick lands.
+  D.tasks[1].done = false;
   // E: tick the first line (matched by name) and the renamed third (matched by position).
   // F: tick the line that was both moved and renamed (no row id).
   E.tasks[0].done = true; E.tasks[2].done = true; F.tasks[0].done = true;
@@ -174,7 +197,7 @@ win.alert = () => {}; win.confirm = () => true;
   // ---- preview label ----
   win.openSavePreview();
   const label = win.document.querySelector('#dFoot button.p').textContent.trim();
-  ok('the Save button counts sign-off and checklist changes', /Save 12 sign-off and checklist changes to SharePoint/.test(label), label);
+  ok('the Save button counts sign-off and checklist changes', /Save 13 sign-off and checklist changes to SharePoint/.test(label), label);
   ok('...and never says "0 edits"', !/\b0 edits?\b/.test(label), label);
 
   await win.confirmSaveByPush();
@@ -202,7 +225,12 @@ win.alert = () => {}; win.confirm = () => true;
     ok('the untouched imported N/A is not rewritten', !taskP.some(p => p.id === String(A.tasks[5].spId)));
   }
 
-  ok('a task change under a standing sign-off is never written', !taskP.some(p => p.id === String(D.tasks[0].spId)));
+  ok('a plain tick under a standing sign-off is written, with no reopen',
+     taskP.some(p => p.id === String(D.tasks[0].spId) && p.body.Complete === true) && body(D).InstallerSignOff === undefined,
+     JSON.stringify(body(D)));
+  ok('an untick under a standing sign-off is never written', !taskP.some(p => p.id === String(D.tasks[1].spId)));
+  ok("D's counter counts the tick that landed and the done task it refused to clear",
+     body(D).TasksComplete === 2 && body(D).TasksTotal === D.tasks.length, body(D).TasksComplete + '/' + body(D).TasksTotal);
   ok('a tick on a reordered line is written to the row with its name',
      taskP.some(p => p.id === '5400' && p.body.Complete === true) && !taskP.some(p => p.id === '5401'));
   ok('a tick on a renamed-in-place line is written to its own row', taskP.some(p => p.id === '5402' && p.body.Complete === true));

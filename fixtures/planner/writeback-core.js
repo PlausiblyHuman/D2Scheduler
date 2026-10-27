@@ -306,19 +306,42 @@ ok('titleMatches rejects the same sub-phase number on a different job',
 
   t = C.planTaskTicks(tpool([{ id: 900, title: 'A', from: { done: false, na: false }, to: { done: true, na: false } }]),
                       liveTasks, WHO);
-  // Sign-off locks the checklist (decided 2026-09-06).
+  // Sign-off locks the checklist (decided 2026-09-06), except for a plain tick
+  // (Shane, 2026-10-23): to do -> Done on a task that is not N/A lands without a
+  // reopen. Unticking, and setting or clearing N/A, still need one.
   {
     const tick = [{ id: 900, title: 'A', from: { done: false, na: false }, to: { done: true, na: false } }];
-    const sp = (inst) => [{ jobno: 'D2-1042', sections: [{ id: '10', num: '2.1', inst, tasks: tick }] }];
+    const untick = [{ id: 900, title: 'A', from: { done: true, na: false }, to: { done: false, na: false } }];
+    const setNa = [{ id: 901, title: 'B', from: { done: false, na: false }, to: { done: false, na: true, note: 'Not on this pool' } }];
+    const clearNa = [{ id: 901, title: 'B', from: { done: false, na: true, note: 'x' }, to: { done: false, na: false, note: '' } }];
+    const tickNa = [{ id: 901, title: 'B', from: { done: false, na: true, note: 'x' }, to: { done: true, na: false, note: '' } }];
+    const sp = (inst, tasks) => [{ jobno: 'D2-1042', sections: [{ id: '10', num: '2.1', inst, tasks: tasks || tick }] }];
     const signed = { '10': { InstallerSignOff: true } }, open = { '10': { InstallerSignOff: false } };
+    const liveDone = { '900': { Complete: true, NotApplicable: false }, '901': { Complete: false, NotApplicable: true, Note: 'x' } };
     let r = C.planTaskTicks(sp(null), liveTasks, Object.assign({ liveAsgById: signed }, WHO));
-    ok('a task change under a standing sign-off is REFUSED',
+    ok('a plain tick under a standing sign-off is WRITTEN, with no reopen',
+       r.writes.length === 1 && r.refusals.length === 0 && r.writes[0].fields.Complete === true
+       && !!r.writes[0].fields.CompletedOn, JSON.stringify(r));
+    r = C.planTaskTicks(sp(null, untick), liveDone, Object.assign({ liveAsgById: signed }, WHO));
+    ok('an UNTICK under a standing sign-off is REFUSED',
        r.writes.length === 0 && r.refusals.length === 1 && r.refusals[0].reason === 'signed-off', JSON.stringify(r));
-    r = C.planTaskTicks(sp({ from: true, to: false }), liveTasks, Object.assign({ liveAsgById: signed }, WHO));
-    ok('...but allowed when the same save reopens it', r.writes.length === 1 && r.refusals.length === 0, JSON.stringify(r));
+    r = C.planTaskTicks(sp(null, setNa), liveTasks, Object.assign({ liveAsgById: signed }, WHO));
+    ok('setting N/A under a standing sign-off is REFUSED',
+       r.writes.length === 0 && r.refusals.length === 1 && r.refusals[0].reason === 'signed-off', JSON.stringify(r));
+    r = C.planTaskTicks(sp(null, clearNa), liveDone, Object.assign({ liveAsgById: signed }, WHO));
+    ok('clearing N/A under a standing sign-off is REFUSED',
+       r.writes.length === 0 && r.refusals.length === 1 && r.refusals[0].reason === 'signed-off', JSON.stringify(r));
+    r = C.planTaskTicks(sp(null, tickNa), liveDone, Object.assign({ liveAsgById: signed }, WHO));
+    ok('ticking an N/A task under a standing sign-off is REFUSED (it clears the N/A)',
+       r.writes.length === 0 && r.refusals.length === 1 && r.refusals[0].reason === 'signed-off', JSON.stringify(r));
+    r = C.planTaskTicks(sp({ from: true, to: false }, untick), liveDone, Object.assign({ liveAsgById: signed }, WHO));
+    ok('...but an untick is allowed when the same save reopens it', r.writes.length === 1 && r.refusals.length === 0, JSON.stringify(r));
     r = C.planTaskTicks(sp({ from: false, to: true }), liveTasks, Object.assign({ liveAsgById: open }, WHO));
     ok('...and allowed on the normal path: tick the tasks, then sign, in one save',
        r.writes.length === 1 && r.refusals.length === 0, JSON.stringify(r));
+    ok('isPlainTick is exported and tells a plain tick from everything else',
+       typeof C.isPlainTick === 'function' && C.isPlainTick(tick[0]) && !C.isPlainTick(untick[0])
+       && !C.isPlainTick(setNa[0]) && !C.isPlainTick(clearNa[0]) && !C.isPlainTick(tickNa[0]));
   }
   ok('a plain tick on a task that was never N/A leaves Note alone',
      !('Note' in t.writes[0].fields), JSON.stringify(t.writes[0].fields));

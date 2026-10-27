@@ -516,6 +516,18 @@
     return writes;
   }
 
+  /* The one change a checklist takes under a standing sign-off (Shane,
+     2026-10-23): a plain tick, to do -> Done, on a task that is not N/A. Don
+     signs finished projects whole and then wants their checklists to read
+     done; making him reopen 45 sub-phases to tick them produced the stuck
+     state of 2026-10-23. Unticking, and setting or clearing N/A, still need a
+     reopen: the lock exists to stop a silent untick under an attestation, and
+     an N/A changes what the attestation covers. The planner's drawer and its
+     "Save first" guard use this same test. */
+  function isPlainTick(t) {
+    return !t.from.done && !!t.to.done && !t.from.na && !t.to.na;
+  }
+
   /* One write per task row whose state actually changed. Compare-before-write
      per task, same as every other path here: a tick somebody else made after
      this planner loaded is refused, not overwritten. */
@@ -529,8 +541,9 @@
     /* Sign-off locks the checklist (decided 2026-09-06). A task change on a
        sub-phase SharePoint holds as signed is refused unless this same save
        reopens it -- otherwise the attestation says "signed, 5 of 6" while the
-       rows underneath say something else. Only enforced when the caller passes
-       the live assignment rows. */
+       rows underneath say something else. A plain tick is the exception (see
+       isPlainTick). Only enforced when the caller passes the live assignment
+       rows. */
     var liveAsg = opts.liveAsgById || null;
 
     (pools || []).forEach(function (p) {
@@ -559,7 +572,7 @@
           var naChanged = !!t.from.na !== !!t.to.na;
           if (!doneChanged && !naChanged) return;
 
-          if (lockedBySignoff) {
+          if (lockedBySignoff && !isPlainTick(t)) {
             refusals.push(Object.assign({}, where, { col: 'Complete', reason: 'signed-off' }));
             return;
           }
@@ -610,7 +623,7 @@
     ALLOWLIST: ALLOWLIST, FIELD_DEFS: FIELD_DEFS, titleMatches: titleMatches,
     jobKey: jobKey, suppressUntil: suppressUntil, planEdits: planEdits,
     planCreates: planCreates, day: day,
-    planSignoffs: planSignoffs, planTaskTicks: planTaskTicks,
+    planSignoffs: planSignoffs, planTaskTicks: planTaskTicks, isPlainTick: isPlainTick,
     appendReopen: appendReopen, centralStamp: centralStamp, settleCounters: settleCounters,
     planRejections: planRejections, appendRejected: appendRejected
   };

@@ -1,0 +1,6 @@
+[
+ {"label": "plain-tick exception removed (every change under a sign-off refused)", "find": "if (lockedBySignoff && !isPlainTick(t)) {", "replace": "if (lockedBySignoff) {"},
+ {"label": "sign-off lock removed entirely", "find": "if (lockedBySignoff && !isPlainTick(t)) {", "replace": "if (false) {"},
+ {"label": "isPlainTick accepts an untick", "find": "return !t.from.done && !!t.to.done && !t.from.na && !t.to.na;", "replace": "return !!t.from.done !== !!t.to.done;"},
+ {"label": "isPlainTick ignores N/A", "find": "return !t.from.done && !!t.to.done && !t.from.na && !t.to.na;", "replace": "return !t.from.done && !!t.to.done;"}
+]

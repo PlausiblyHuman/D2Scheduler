@@ -1598,12 +1598,12 @@ function editSec(jobId,gi,si){
     <div class="fld"><label>Crew availability on these dates</label><div id="avail" class="small"></div></div>
     ${commentsHTML(j,s)}
     <div class="fld"><label>Checklist — ${c.done}/${c.n}${c.na?` · ${c.na} N/A`:''}
-      ${s.inst?'':`<a href="#" class="small" style="text-transform:none" onclick="allTasks(true);return false">all</a> /
+      <a href="#" class="small" style="text-transform:none" onclick="allTasks(true);return false">all</a>${s.inst?'':` /
       <a href="#" class="small" style="text-transform:none" onclick="allTasks(false);return false">none</a>`}</label>
-      ${s.inst?`<div class="hint" id="tasksLocked" style="padding:0 0 6px">Signed off, so the checklist is locked. To change it,
-        untick Installer sign-off and save this panel first. Once saved, that is recorded as a reopen.</div>`:''}
+      ${s.inst?`<div class="hint" id="tasksLocked" style="padding:0 0 6px">Signed off. You can still tick a task as done. To untick a task
+        or change N/A, untick Installer sign-off and save this panel first. Once saved, that is recorded as a reopen.</div>`:''}
       <div id="tasks">${s.tasks.map((t,ti)=>`<div class="tk${t.done?' done':''}${t.na&&!t.done?' na':''}">
-        <input type="checkbox" ${t.done?'checked':''} ${s.inst?'disabled':''} onchange="tick(${ti},this.checked)"><span>${esc(t.t)}${t.na&&t.note?` <span class="muted small">(${esc(t.note)})</span>`:''}</span>
+        <input type="checkbox" ${t.done?'checked':''} ${lockedTick(s,t,!t.done)?'disabled':''} onchange="tick(${ti},this.checked)"><span>${esc(t.t)}${t.na&&t.note?` <span class="muted small">(${esc(t.note)})</span>`:''}</span>
         ${s.inst?(t.na?`<span class="small natog" title="Not applicable${t.note?': '+esc(t.note):''}">N/A</span>`:'')
         :`<a href="#" class="small natog" title="${t.na?'Not applicable'+(t.note?': '+esc(t.note):', no reason recorded')+'. Click to undo.':'Not applicable on this pool. You will be asked why.'}"
            onclick="toggleNA(${ti});return false">${t.na?'N/A ✕':'N/A'}</a>`}</div>`).join('')||'<span class="muted small">No tasks.</span>'}</div></div>`;
@@ -1695,10 +1695,14 @@ function unqueueEntry(localId){
   S.pendingComments=(S.pendingComments||[]).filter(e=>e.localId!==localId);
   save();if(CUR)editSec(CUR.jobId,CUR.gi,CUR.si);render();
 }
-/* Sign-off locks the checklist. The controls render disabled; these guards
-   stop anything that reaches the handlers anyway. */
-function checklistLocked(){ if(cur().inst){ editSec(CUR.jobId,CUR.gi,CUR.si); return true; } return false; }
-function tick(ti,v){if(checklistLocked())return;const t=cur().tasks[ti];t.done=v;if(v){t.na=false;t.note='';}touch(S.jobs.find(x=>x.id===CUR.jobId));save();}
+/* Sign-off locks the checklist, except for a plain tick: to do -> Done on a task that is not
+   N/A may be made under a sign-off without reopening it (Shane, 2026-10-23; Save lands it, see
+   isPlainTick in writeback-core.js). A tick not yet saved may be undone, since that only puts
+   the box back to what SharePoint holds. Unticking a saved task and N/A changes render
+   disabled; these guards stop anything that reaches the handlers anyway. */
+function lockedTick(s,t,v){ return !!s.inst && !((v&&!t.na) || (!v&&t.base&&!t.base.done)); }
+function checklistLocked(allowed){ if(cur().inst&&!allowed){ editSec(CUR.jobId,CUR.gi,CUR.si); return true; } return false; }
+function tick(ti,v){const s=cur(),t=s.tasks[ti];if(checklistLocked(!lockedTick(s,t,v)))return;t.done=v;if(v){t.na=false;t.note='';}touch(S.jobs.find(x=>x.id===CUR.jobId));save();}
 /* N/A asks why, and a blank answer changes nothing. The reason is Don's rule and
    the field app's: N/A is the honest alternative to a false tick only while it
    has to say why, or marking everything N/A becomes a way round the sign-off. */
@@ -1716,7 +1720,7 @@ function toggleNA(ti){
   }
   touch(S.jobs.find(x=>x.id===CUR.jobId));save();editSec(CUR.jobId,CUR.gi,CUR.si);
 }
-function allTasks(v){if(checklistLocked())return;cur().tasks.forEach(t=>{if(!t.na)t.done=v;});touch(S.jobs.find(x=>x.id===CUR.jobId));save();editSec(CUR.jobId,CUR.gi,CUR.si);}
+function allTasks(v){if(checklistLocked(v))return;cur().tasks.forEach(t=>{if(!t.na)t.done=v;});touch(S.jobs.find(x=>x.id===CUR.jobId));save();editSec(CUR.jobId,CUR.gi,CUR.si);}
 function showAvail(){
   const s=cur(),start=document.getElementById('fStart').value,days=+document.getElementById('fDays').value||1;
   const el=document.getElementById('avail');
@@ -2051,15 +2055,18 @@ function unsavedWhere(j){
   /* A queued reject rides the sign-off set as a bare `rejecting` flag so its ticks can go with
      it. The flag alone is the queue again, not a change on screen, so only real sign-off or tick
      changes count here. */
-  /* Task ticks under a sub-phase SharePoint holds as signed, with no reopen or rejection in the
-     same Save, are refused by every Save (sign-off locks the checklist), so they can never be
-     saved and must not block. 2026-10-23: unticking Installer, ticking the tasks and ticking
-     Installer again on 45 signed sub-phases of 25-2004 blocked every Activate. */
+  /* An untick or an N/A change under a sub-phase SharePoint holds as signed, with no reopen or
+     rejection in the same Save, is refused by every Save (sign-off locks the checklist), so it
+     can never be saved and must not block. 2026-10-23: unticking Installer, ticking the tasks and
+     ticking Installer again on 45 signed sub-phases of 25-2004 blocked every Activate. A plain
+     tick under a sign-off lands since 2026-10-27, so it counts. */
   const signedInSp=new Set(allSecs(j).filter(({s})=>s.base&&s.base.inst).map(({s})=>String(s.base.id)));
+  const C=window.D2WritebackCore;
   buildSignoffSet().filter(same).forEach(p=>p.sections.forEach(s=>{
     // A reopen needs no test here: an Installer change on the row already counts as unsaved.
-    const unsaveable=signedInSp.has(String(s.id))&&!s.rejecting;
-    if(s.inst||s.pm||(s.tasks&&s.tasks.length&&!unsaveable))at.add(s.num);
+    const locked=signedInSp.has(String(s.id))&&!s.rejecting;
+    const saveable=t=>!locked||C.isPlainTick(t);
+    if(s.inst||s.pm||(s.tasks&&s.tasks.some(saveable)))at.add(s.num);
   }));
   const nums=[...at].sort((a,b)=>String(a).localeCompare(String(b),undefined,{numeric:true}));
   if(buildJobStartChanges().some(same))nums.push('start date');
@@ -3022,7 +3029,7 @@ function showPushResult(out,err){
         r.reason==='no-user'?'could not identify your SharePoint account, so nothing was signed'
         :`loaded ${r.loaded}, now ${r.nowLive}`)),
       so.tPlan.refusals.map(r=>row(r.jobno+' '+r.num,'task: '+(r.task||''),
-        r.reason==='signed-off'?'signed off, so reopen it before changing the checklist'
+        r.reason==='signed-off'?'signed off, so reopen it before unticking a task or changing N/A'
         :'changed in SharePoint since you loaded')),
       so.sPlan.errors.map(e=>row(e.jobno+' '+e.num,'sign-off',e.reason)),
       so.tPlan.errors.map(e=>row(e.jobno+' '+e.num,'task: '+(e.task||''),
