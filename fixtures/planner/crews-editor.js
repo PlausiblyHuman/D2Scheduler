@@ -320,6 +320,96 @@ ok('slugCode keeps counting past a second collision', C.slugCode('Dig', ['dig', 
     win.close(); win2.close();
   }
 
+  // ---------------------------------------------------------------- Part D: Crews tab editor
+  {
+    const fs = require('fs'), path = require('path');
+    const { JSDOM, VirtualConsole } = require('jsdom');
+    const WEB = path.join(__dirname, '..', '..', 'web');
+    const FX = JSON.parse(fs.readFileSync(path.join(__dirname, 'live-payloads-graph.json'), 'utf8'));
+    const HOST = 'https://mango-sky-0d6904310.5.azurestaticapps.net';
+    const CODES = FX.crews.map(r => r.fields.CrewID).filter(c => c !== 'campos');
+    const MSAL = `<script>window.msal={PublicClientApplication:class{constructor(){} getActiveAccount(){return {username:'cody@d2pools.com'};} setActiveAccount(){} getAllAccounts(){return [{username:'cody@d2pools.com'}];} acquireTokenSilent(){return Promise.resolve({accessToken:'t'});} loginPopup(){return Promise.resolve({accessToken:'t',account:{username:'cody@d2pools.com'}});}}};</script>`;
+    const bootD = () => {
+      const inline = f => '<script>' + fs.readFileSync(path.join(WEB, f), 'utf8') + '</script>';
+      const html = fs.readFileSync(path.join(WEB, 'index.html'), 'utf8')
+        .replace('<script src="vendor/msal-browser.min.js"></script>', MSAL)
+        .replace('<script src="features-core.js"></script>', inline('features-core.js'))
+        .replace('<script src="template-check-core.js"></script>', inline('template-check-core.js'))
+        .replace('<script src="graph-to-planner.js"></script>', inline('graph-to-planner.js'))
+        .replace('<script src="writeback-core.js"></script>', inline('writeback-core.js'))
+        .replace('<script src="graph-writeback.js"></script>', inline('graph-writeback.js'))
+        .replace('</body>', `<script>Object.defineProperty(window,'S',{get:()=>S,configurable:true});window.crew=crew;window.ratingFor=ratingFor;window.qualified=qualified;window.D2_GRAPH=D2_GRAPH;window.importFromD2Payload=importFromD2Payload;window.refreshLive=refreshLive;window.setTab=t=>{TAB=t;render();};</script></body>`);
+      const vc = new VirtualConsole();
+      const dom = new JSDOM(html, { runScripts: 'dangerously', pretendToBeVisual: true, url: HOST + '/', virtualConsole: vc,
+        beforeParse(w) {
+          w.fetch = u => {
+            u = String(u);
+            const json = (status, body) => Promise.resolve({ ok: status < 300, status, json: () => Promise.resolve(body), text: () => Promise.resolve('') });
+            if (u.endsWith('/.auth/me')) return json(200, { clientPrincipal: { identityProvider: 'aad', userDetails: 'cody@d2pools.com' } });
+            if (u.startsWith('https://graph.microsoft.com/v1.0/sites/netorgft15040037.sharepoint.com:')) return json(200, { id: FX.siteId, webUrl: FX.site });
+            if (u.includes('User Information List')) return json(200, { value: [] });
+            if (/\/lists\/[^/]+\/columns/.test(u)) return json(200, { value: [{ name: 'Title' }, { name: 'Crew', choice: { choices: CODES } }] });
+            const L = w.D2_GRAPH && w.D2_GRAPH.lists;
+            if (L) for (const k of Object.keys(L)) if (u.includes('/lists/' + L[k] + '/items')) return json(200, { value: FX[k] || [] });
+            if (/\/lists\/[^/]+\/items/.test(u)) return json(200, { value: [] });
+            return json(404, {});
+          };
+        } });
+      const w = dom.window; w.alert = () => {}; w.confirm = () => true;
+      return w;
+    };
+    const wait = ms => new Promise(r => setTimeout(r, ms));
+    const win = bootD();
+    for (let t = 0; t < 150 && typeof win.refreshLive !== 'function'; t++) await wait(100);
+    await wait(1500);
+    await win.refreshLive(true);
+    for (let t = 0; t < 150 && !(win.S.crews.length === 14 && win.S.crews.every(c => c.spId) && win.S.trades && win.S.trades.length === 26); t++) await wait(100);
+    await wait(500);
+    win.setTab('crews');
+    const S = win.S;
+    const main = () => win.document.getElementById('main').textContent;
+    const chipFor = (crewId, code) => win.document.querySelector(`.chip[data-crew="${crewId}"][data-skill="${code}"]`);
+    const payloadWithOneJob = { kind: 'd2-sharepoint-export', exported: '2026-10-29', nonWork: [], jobs: [{ id: 1, jobno: 'T-1', name: 'T one', addr: '', city: '', start: '2026-11-02', status: 'Planned', pm: 'x', sections: [] }] };
+
+    ok('D: no delete control anywhere on the Crews tab', !/delCrew|✕/.test(win.document.getElementById('main').innerHTML));
+    ok('D: a held chip shows its word', !!chipFor('harrison', 'plumbing') && /First choice/.test(chipFor('harrison', 'plumbing').textContent));
+    ok('D: clicking cycles 3,2,1,0,off', (() => { const seq = []; for (let i = 0; i < 5; i++) { chipFor('harrison', 'plumbing').click(); seq.push(win.ratingFor(win.crew('harrison'), 'plumbing')); } return seq.join(',') === '2,1,0,,3'; })());
+    ok('D: an off chip starts at First choice when clicked', (() => { const c = win.crew('harrison'); delete c.ratings.gas; win.render(); chipFor('harrison', 'gas').click(); return win.ratingFor(c, 'gas') === 3; })());
+    ok('D: overall control writes c.overall and the crew stays on the list', (() => { const n = S.crews.length; win.setOverall('stl', 0); return win.crew('stl').overall === 0 && S.crews.length === n && win.crew('stl').active !== false; })());
+    ok('D: buckets have no chips or overall control', !chipFor('office', 'dig') && !win.document.getElementById('main').innerHTML.includes("setOverall('office'"));
+    ok('D: Skill Coverage omits a crew rated Never for the skill', (() => {
+      win.crew('stl').ratings.shotcrete = 0; win.render();
+      const rows = [...win.document.querySelectorAll('tr')].filter(r => r.firstElementChild && r.firstElementChild.textContent.trim() === 'Shotcrete / Gunite');
+      return rows.length === 1 && !/STL Shotcrete/.test(rows[0].textContent); })());
+    ok('D: Skill Coverage suffixes the rating word', (() => {
+      win.crew('harrison').ratings.plumbing = 2; win.render();
+      const rows = [...win.document.querySelectorAll('tr')].filter(r => r.firstElementChild && r.firstElementChild.textContent.trim() === 'Plumbing');
+      return rows.length === 1 && /Harrison \+2 · Second choice/.test(rows[0].textContent); })());
+    ok('D: a Subcontractor tick on an existing crew asks first and Cancel changes nothing', (() => { let q = ''; win.confirm = m => { q = m; return false; }; win.setCrew('devon', 'unlimited', true); return win.crew('devon').unlimited === false && /no longer count as busy/.test(q); })());
+    ok('D: a confirmed Subcontractor tick lands and unticking asks too', (() => { win.confirm = () => true; win.setCrew('devon', 'unlimited', true); const r = win.crew('devon').unlimited === true; let q = ''; win.confirm = m => { q = m; return true; }; win.setCrew('devon', 'unlimited', false); return r && win.crew('devon').unlimited === false && /count as busy again/.test(q); })());
+    ok('D: + Skill refuses a duplicate ignoring case, spaces and punctuation', (() => { win.prompt = () => 'DIG /  excavation'; let msg = ''; win.alert = m => msg = m; win.addSkill(); return /already on the list/.test(msg) && S.trades.length === 26; })());
+    ok('D: + Skill adds a trade with a code and the next sort', (() => { win.prompt = () => 'Electrical'; win.addSkill(); const t = S.trades.find(x => x.label === 'Electrical'); return t && t.code === 'electrical' && t.isNew && t.sort === 27; })());
+    ok('D: + Crew refuses a taken code', (() => { const answers = ['Devon Two', 'devon']; win.prompt = () => answers.shift(); let msg = ''; win.alert = m => msg = m; const n = S.crews.length; win.addCrew(); return /already taken/.test(msg) && S.crews.length === n; })());
+    ok('D: + Crew adds a local crew at overall 3 with no skills', (() => { const answers = ['Lopez +2', 'lopez', '3', 'Lopez, Ana, Raul']; win.prompt = () => answers.shift(); win.confirm = () => false; win.addCrew(); const c = win.crew('lopez'); return c && c.spId === null && c.isNew && c.overall === 3 && Object.keys(c.ratings).length === 0 && c.unlimited === false && c.size === 3 && c.members.length === 3; })());
+    ok('D: Save is enabled by a crew change alone', (() => { win.render(); return !win.document.getElementById('saveBtn').disabled; })());
+    ok('D: buildCrewChanges words the changes', (() => {
+      const b = win.buildCrewChanges();
+      return b.count === b.lines.length && b.lines.includes('Harrison +2, Plumbing: First choice to Second choice') && b.lines.includes('STL Shotcrete: overall Never') && b.lines.includes('New skill: Electrical') && b.lines.includes('New crew: Lopez +2, code lopez'); })());
+    ok('D: buildCrewChanges local shape feeds planCrewEdits', (() => {
+      const b = win.buildCrewChanges();
+      return b.local.trades.length === 1 && b.local.trades[0].code === 'electrical' && b.local.crews.some(c => c.id === 'lopez' && c.isNew) && b.local.crews.some(c => c.id === 'stl' && c.overall === 0 && c.base.overall === 3) && !b.local.crews.some(c => c.id === 'office'); })());
+    ok('D: stopForUnsaved names the Crews tab', (() => { win.stopForUnsaved('Activate', 'Activating'); const t = win.document.getElementById('dBody').textContent; return /Crews tab/.test(t) && /Activating reloads the crew list/.test(t); })());
+    ok('D: the Refresh warning counts crew changes', (() => { let text = ''; win.confirm = t => { text = t; return false; }; win.importFromD2Payload(payloadWithOneJob, false); return /changes? on the Crews tab/.test(text); })());
+    ok('D: on a downloaded copy the controls are disabled and nothing counts', (() => {
+      const real = win.graphModeAvailable; win.graphModeAvailable = () => false; win.render();
+      const m = win.document.getElementById('main');
+      const r = m.textContent.includes('Crew changes are not saved from a downloaded copy. Use the hosted planner.') && win.crewChangeCount() === 0 && !chipFor('harrison', 'plumbing').hasAttribute('onclick') && [...m.querySelectorAll('select,button,input')].every(e => e.disabled);
+      win.graphModeAvailable = real; win.render(); return r; })());
+    ok('D: the retire hint is on the card', /A crew that should not be used any more is set to Never overall\. It stays on the list\./.test(main()));
+    ok('D: crew and skill names are escaped on the Crews tab', (() => { S.crews[0].name = 'Devon "><svg id="xss-probe"></svg>'; S.trades[0].label = 'Dig <svg id="xss-probe"></svg>'; win.render(); return win.document.getElementById('xss-probe') === null; })());
+    win.close();
+  }
+
   if (fail) { console.log('\nFAILED'); process.exit(1); }
   console.log('\nall passed');
 })();

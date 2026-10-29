@@ -24,7 +24,9 @@ const PLANNER = path.resolve(__dirname, '../../web/index.html');
 let fail = 0;
 const ok = (l, c, d = '') => { console.log((c ? 'PASS' : 'FAIL') + ' · ' + l + (d ? '  [' + d + ']' : '')); if (!c) fail = 1; };
 
-const html = fs.readFileSync(PLANNER, 'utf8').replace('</body>',
+const html = fs.readFileSync(PLANNER, 'utf8')
+  .replace('<script src="writeback-core.js"></script>', '<script>' + fs.readFileSync(path.resolve(__dirname, '../../web/writeback-core.js'), 'utf8') + '</script>')
+  .replace('</body>',
   `<script>window.__x=()=>{window.S=S;window.allSecs=allSecs;window.importFromD2=importFromD2;
     window.SEED_TEMPLATE=SEED_TEMPLATE;window.sgHTML=sgHTML;window.poolHasBaseline=poolHasBaseline;
     window.buildChangeSet=buildChangeSet;window.buildSignoffSet=buildSignoffSet;};</script><script>__x();</script></body>`);
@@ -88,17 +90,26 @@ const titles = markup => {
      win.buildSignoffSet().some(p => p.sections.some(s => s.inst && s.inst.to === true)));
   sec.inst = false;
 
-  // ------------------------------- delete a crew (stays linked, sends) -------
+  // ------------------------------- crews tab: retire hint and Subcontractor claim -------
   j = await load();
-  let crewAsk = '';
-  win.confirm = m => { crewAsk = m; return true; };
-  win.eval("delCrew('devon')");
-  ok('delete-crew: the dialog says Save sends the cleared crews', /pressing Save afterwards sends that to SharePoint/.test(crewAsk),
-     crewAsk.replace(/\s+/g, ' ').slice(0, 200));
-  ok('delete-crew: the dialog counts the sub-phases it clears', /taken off \d+ sub-phases/.test(crewAsk));
-  const csCrew = win.buildChangeSet();
-  ok('delete-crew claim holds: Save would send Crew for the cleared rows',
-     csCrew.length === 1 && csCrew[0].sections.some(s => s.fields.Crew && s.fields.Crew.from === 'devon'), csCrew.length + ' pool(s)');
+  win.graphModeAvailable = () => true;
+  win.setCrew('devon', 'unlimited', false);
+  win.eval("TAB='crews';render()");
+  const hint = 'A crew that should not be used any more is set to Never overall. It stays on the list.';
+  ok('retire hint: the Crews tab says a Never crew stays on the list', win.document.getElementById('main').textContent.includes(hint));
+  const crewsBefore = S.crews.length;
+  win.setOverall('devon', 0);
+  ok('retire hint claim holds: Never overall leaves the crew on the list', S.crews.length === crewsBefore && S.crews.some(c => c.id === 'devon'));
+  win.setOverall('devon', 3);
+  let subAsk = '';
+  win.confirm = m => { subAsk = m; return true; };
+  const busyBefore = win.eval('busyMap')().has('devon');
+  win.setCrew('devon', 'unlimited', true);
+  const busyAfter = win.eval('busyMap')().has('devon');
+  ok('subcontractor: the dialog says the crew no longer counts as busy', /no longer count as busy/.test(subAsk), subAsk);
+  ok('subcontractor claim holds: a confirmed tick takes the crew out of the busy map', busyBefore === true && busyAfter === false && S.crews.find(c => c.id === 'devon').unlimited === true,
+     busyBefore + ' -> ' + busyAfter);
+  win.setCrew('devon', 'unlimited', false);
 
   win.graphModeAvailable = realMode;
   console.log(fail ? '\nFAILED' : '\nall passed');

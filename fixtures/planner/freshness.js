@@ -15,7 +15,7 @@ const ok = (l, c, d = '') => { console.log((c ? 'PASS' : 'FAIL') + ' · ' + l + 
 const html = fs.readFileSync(PLANNER, 'utf8').replace('</body>',
   `<script>window.__x=()=>{window.S=S;window.allSecs=allSecs;window.importFromD2=importFromD2;
     window.autoSchedule=autoSchedule;window.SEED_TEMPLATE=SEED_TEMPLATE;
-    window.divergedSecs=divergedSecs;window.delCrew=delCrew;window.render=render;window.setZoom=setZoom;window.save=save;};</script><script>__x();</script></body>`);
+    window.divergedSecs=divergedSecs;window.render=render;window.setZoom=setZoom;window.save=save;};</script><script>__x();</script></body>`);
 const vc = new VirtualConsole(); vc.on('jsdomError', e => console.log('[jsdom]', e.message));
 const dom = new JSDOM(html, { runScripts: 'dangerously', pretendToBeVisual: true, url: 'http://localhost/', virtualConsole: vc });
 const win = dom.window;
@@ -119,19 +119,6 @@ win.confirm = () => true; win.alert = () => {};
   win.allSecs(j2)[1].s.tasks[0].done = true;
   ok('a task tick is NOT divergence', win.divergedSecs(j2).length === 1,
      win.divergedSecs(j2).length + ' diverged');
-
-  // Fix round 1 (2026-09-11): delCrew mutates crewId/locked directly on every
-  // section on the deleted crew, across every pool, with no autoSchedule() call
-  // to fall back on. It must call touch() itself, or a crew deletion guts a
-  // pool's assignments while touchedAt -- and therefore the header and the
-  // "edited here" badge -- stays silent. divergedSecs and touchedAt must agree:
-  // sections diverging with no touchedAt is exactly the false-freshness failure.
-  ok('before delCrew, still not marked edited', !j2.touchedAt, String(j2.touchedAt));
-  win.delCrew('devon');
-  const afterDelCrew = win.divergedSecs(j2).length;
-  ok('delCrew marks the pool edited', !!j2.touchedAt, String(j2.touchedAt));
-  ok('delCrew divergence agrees with touchedAt', afterDelCrew > 0 && !!j2.touchedAt,
-     afterDelCrew + ' diverged, touchedAt=' + String(j2.touchedAt));
 
   win.autoSchedule();
   ok('Auto-Schedule marks the pool edited', !!S.jobs.find(x => x.jobno === 'D2-1042').touchedAt,

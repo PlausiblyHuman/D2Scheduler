@@ -46,6 +46,11 @@ input[type=checkbox]{width:auto;accent-color:var(--accent);cursor:pointer}
 .chip{display:inline-block;padding:1px 7px;border-radius:999px;font-size:11px;font-weight:600;border:1px solid transparent}
 .skill{background:#eef2ff;color:#3730a3;margin:1px 3px 1px 0;cursor:pointer;user-select:none;border-color:#e0e7ff}
 .skill.off{background:#f3f4f6;color:#9ca3af;border-color:#e5e7eb}
+.skill.r3{background:#e7f2ef;color:#0b594b;border-color:#b9d8d0}
+.skill.r2{background:#e0f2fe;color:#075985;border-color:#bae6fd}
+.skill.r1{background:#fef3c7;color:#92400e;border-color:#fde68a}
+.skill.r0{background:#fbeee6;color:#a84a18;border-color:#f0c9b0}
+.skill.dis{cursor:default}
 .sub{background:#f1f5f9;color:#475569;border-color:#e2e8f0}
 .chip.jb{margin-left:6px;text-transform:none;letter-spacing:0}
 .chip.rej{background:#fbeee6;color:#a84a18;border-color:#f0c9b0}
@@ -1069,7 +1074,8 @@ function render(){
      from a downloaded copy. */
   const pendingSignoffs=graphModeAvailable()?signoffChangeCount(buildSignoffSet()):0;
   const pendingRejections=graphModeAvailable()?rejectionChangeCount(buildRejectionSet()):0;
-  if(saveBtn)saveBtn.disabled=(totalDiverged===0&&queuedCreates===0&&pendingSignoffs===0&&pendingRejections===0);
+  const pendingCrews=crewChangeCount();
+  if(saveBtn)saveBtn.disabled=(totalDiverged===0&&queuedCreates===0&&pendingSignoffs===0&&pendingRejections===0&&pendingCrews===0);
   document.getElementById('main').innerHTML=
     ({board:vBoard,crewboard:vCrewBoard,dispatch:vDispatch,signoff:vSignoff,jobs:vJobs,crews:vCrews,phases:vPhases})[TAB]();
   document.querySelectorAll('input[data-ind]').forEach(el=>el.indeterminate=true);
@@ -1590,25 +1596,42 @@ function vJobs(){
 }
 function setPmFilter(name){UI.pmFilter=name||'';render();}
 
+/* The Crews tab edits SharePoint's crews, skills and ratings; nothing here is saved until Save. A downloaded
+   copy cannot write them, so every control is disabled there. Names are escaped where they are painted. */
+const isBucket=c=>Object.values(FIXED).includes(c.id);
+const jsq=s=>esc(String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'"));
+function crewsEditable(){return graphModeAvailable();}
+function ratingChip(c,s,ed){
+  const r=ratingFor(c,s.id), W=window.D2WritebackCore;
+  return `<span class="chip skill${r==null?' off':' r'+r}${ed?'':' dis'}" data-crew="${esc(c.id)}" data-skill="${esc(s.id)}" title="${esc(s.label)}"${ed?` onclick="cycleRating('${jsq(c.id)}','${jsq(s.id)}')"`:''}>${esc(s.label)}${r==null?'':' · '+W.ratingWord(r)+' · '+r}</span>`;
+}
 function vCrews(){
-  return `<div class="card"><h2>Crews & Skills<span class="sp"></span><button class="btn sm p" onclick="addCrew()">+ Crew</button></h2>
-  <table><thead><tr><th style="width:145px">Crew</th><th style="width:200px">Members</th><th style="width:55px">Size</th><th>Skills — click to toggle</th><th></th></tr></thead><tbody>
-  ${S.crews.map(c=>`<tr>
+  const ed=crewsEditable(), dis=ed?'':' disabled', W=window.D2WritebackCore;
+  const skills=skillList();
+  const row=c=>{
+    if(isBucket(c))return `<tr><td><span class="chip" style="background:${crewColor(c.id)};color:#fff">&nbsp;</span> ${esc(c.name)}
+      ${c.note?`<div class="small muted" style="margin-top:2px">⚠ ${esc(c.note)}</div>`:''}</td><td colspan="5" class="small muted">Fixed bucket: no skills or ratings.</td></tr>`;
+    return `<tr>
     <td><span class="chip" style="background:${crewColor(c.id)};color:#fff">&nbsp;</span>
-      <input value="${esc(c.name)}" onchange="setCrew('${c.id}','name',this.value)" style="width:105px">
+      <input value="${esc(c.name)}" onchange="setCrew('${jsq(c.id)}','name',this.value)" style="width:105px"${dis}>
       ${c.note?`<div class="small muted" style="margin-top:2px">⚠ ${esc(c.note)}</div>`:''}</td>
-    <td><input value="${esc(c.members.join(', '))}" onchange="setCrew('${c.id}','members',this.value)" style="width:190px" placeholder="not specified"></td>
-    <td><input type="number" min="1" value="${c.size==null?'':c.size}" placeholder="?" onchange="setCrew('${c.id}','size',this.value)"></td>
-    <td>${SKILLS.map(s=>`<span class="chip skill${ratingFor(c,s.id)!=null?'':' off'}" onclick="toggleSkill('${c.id}','${s.id}')">${s.label}</span>`).join('')}</td>
-    <td style="text-align:right"><button class="btn sm d" onclick="delCrew('${c.id}')">✕</button></td></tr>`).join('')}
-  </tbody></table></div>
+    <td><input value="${esc(c.members.join(', '))}" onchange="setCrew('${jsq(c.id)}','members',this.value)" style="width:150px" placeholder="not specified"${dis}></td>
+    <td><input type="number" min="1" value="${c.size==null?'':c.size}" placeholder="?" onchange="setCrew('${jsq(c.id)}','size',this.value)"${dis}></td>
+    <td><label class="small"><input type="checkbox"${c.unlimited?' checked':''} onchange="setCrew('${jsq(c.id)}','unlimited',this.checked)"${dis}> Subcontractor</label></td>
+    <td><select onchange="setOverall('${jsq(c.id)}',this.value)"${dis}>${[3,2,1,0].map(n=>`<option value="${n}"${(c.overall==null?3:c.overall)===n?' selected':''}>${esc(W.ratingWord(n))}</option>`).join('')}</select></td>
+    <td>${skills.map(s=>ratingChip(c,s,ed)).join('')}</td></tr>`;};
+  return `<div class="card"><h2>Crews & Skills<span class="sp"></span><button class="btn sm" onclick="addSkill()"${dis}>+ Skill</button> <button class="btn sm p" onclick="addCrew()"${dis}>+ Crew</button></h2>
+  ${ed?'':'<div class="hint">Crew changes are not saved from a downloaded copy. Use the hosted planner.</div>'}
+  <table><thead><tr><th style="width:145px">Crew</th><th style="width:160px">Members</th><th style="width:55px">Size</th><th style="width:105px">Subcontractor</th><th style="width:120px">Overall</th><th>Skills: click to cycle First choice, Second choice, Last resort, Never, off</th></tr></thead><tbody>
+  ${S.crews.map(row).join('')}
+  </tbody></table><div class="hint">A crew that should not be used any more is set to Never overall. It stays on the list.</div></div>
   <div class="card"><h2>Skill Coverage</h2><table><thead><tr><th style="width:160px">Skill</th><th>Qualified crews</th><th style="width:230px">Sub-phases needing it</th></tr></thead><tbody>
-  ${SKILLS.map(s=>{const q=qualified(s.id);
+  ${skills.map(s=>{const q=qualified(s.id);
     const T=S.templates&&Object.keys(S.templates).length?S.templates:{Gunite:templateFor('Gunite')};
     const usedBy=Object.entries(T).map(([t,tpl])=>[t,tpl.flatMap(g=>g.sections.filter(x=>x.skill===s.id).map(x=>x.num))]).filter(([,a])=>a.length);
     const used=usedBy.map(([t,a])=>(Object.keys(T).length>1?esc(t)+': ':'')+a.map(esc).join(', '));
-    return `<tr><td>${s.label}</td>
-      <td>${q.length?q.map(c=>`<span class="chip" style="background:${crewColor(c.id)};color:#fff">${esc(c.name)}</span>`).join(' '):'<span class="err-txt">none</span>'}</td>
+    return `<tr><td>${esc(s.label)}</td>
+      <td>${q.length?q.map(c=>`<span class="chip" style="background:${crewColor(c.id)};color:#fff">${esc(c.name)} · ${esc(W.ratingWord(ratingFor(c,s.id)))}</span>`).join(' '):'<span class="err-txt">none</span>'}</td>
       <td class="small ${used.length?'muted':'err-txt'}">${used.length?used.join(' · '):'not mapped to any sub-phase yet'}</td></tr>`;}).join('')}
   </tbody></table><div class="hint">A skill with no sub-phase is a trade you have crews for but no place in the build template — the trade is set on the sub-phase template in SharePoint, which Don and David maintain.</div></div>`;
 }
@@ -2490,7 +2513,8 @@ function queuedOn(j){
 function stopForUnsaved(title,doing,completing){
   const unsaved=S.jobs.map(j=>({j,at:unsavedWhere(j)})).filter(x=>x.at.length);
   const queued=completing?queuedOn(completing):[];
-  if(!unsaved.length&&!queued.length)return false;
+  const crewN=crewChangeCount();
+  if(!unsaved.length&&!queued.length&&!crewN)return false;
   const where=unsaved.map(x=>esc(x.j.jobno)+': '+x.at.map(esc).join(', ')).join('; ');
   document.getElementById('dTitle').textContent=title;
   document.getElementById('dBody').innerHTML=
@@ -2499,7 +2523,8 @@ function stopForUnsaved(title,doing,completing){
      schedule, which would lose them. Press Save, then try again.</div>`:'')
     +(queued.length?`<div class="hint" style="padding:0 0 11px"><strong>Save first.</strong> There are comments or rejections
      on this project waiting for Save (sub-phase ${queued.map(esc).join(', ')}). Completing it would drop them.
-     Press Save, or remove them in that sub-phase's panel, then try again.</div>`:'');
+     Press Save, or remove them in that sub-phase's panel, then try again.</div>`:'')
+    +(crewN?`<div class="hint" style="padding:0 0 11px"><strong>Save first.</strong> There are changes on the Crews tab that are not in SharePoint yet (${crewN}). ${doing} reloads the crew list, which would lose them.</div>`:'');
   document.getElementById('dFoot').innerHTML='<button class="btn" onclick="closeDrawer()">Close</button>';
   document.getElementById('drawer').classList.add('open');
   return true;
@@ -2562,24 +2587,83 @@ function reopenProject(jobno){
      <button class="btn" onclick="closeDrawer()">Cancel</button>`;
   document.getElementById('drawer').classList.add('open');
 }
-function setCrew(id,k,v){const c=crew(id);
-  if(k==='members')c.members=v.split(',').map(x=>x.trim()).filter(Boolean);
+function setCrew(id,k,v){const c=crew(id); if(!c||!crewsEditable())return;
+  if(k==='unlimited'){
+    const want=!!v; if(want===!!c.unlimited)return;
+    if(!c.isNew&&!confirm(want
+      ? c.name+' will no longer count as busy and can be on several projects the same day. Continue?'
+      : c.name+' will count as busy again, so double-bookings on it will be flagged. Continue?')){render();return;}
+    c.unlimited=want;
+  }
+  else if(k==='members')c.members=v.split(',').map(x=>x.trim()).filter(Boolean);
   else if(k==='size')c.size=(v===''||v==null)?null:Math.max(1,+v||1);else c[k]=v;save();render();}
-function toggleSkill(id,sk){const c=crew(id);c.ratings=c.ratings||{};if(ratingFor(c,sk)!=null)delete c.ratings[sk];else c.ratings[sk]=3;save();render();}
-function addCrew(){S.crews.push({id:'c'+Math.random().toString(36).slice(2,7),name:'New Crew',members:[],size:1,ratings:{},overall:3});render();}
-function delCrew(id){
-  const n=S.jobs.reduce((k,j)=>k+allSecs(j).filter(({s})=>s.crewId===id).length,0);
-  if(!confirm('Delete this crew from the planner?'+String.fromCharCode(10,10)
-    +'It is taken off '+n+' sub-phase'+(n===1?'':'s')+' across every pool on this screen, and pressing Save '
-    +'afterwards sends that to SharePoint, leaving that work with no crew. The crew list itself is kept in '
-    +'this browser only. Press Refresh to get the live schedule back.'))return;
-  S.crews=S.crews.filter(c=>c.id!==id);
-  S.jobs.forEach(j=>{
-    let hit=false;
-    allSecs(j).forEach(({s})=>{if(s.crewId===id){s.crewId=null;s.locked=false;hit=true;}});
-    if(hit)touch(j);
+/* off -> First choice (3) -> 2 -> 1 -> Never (0) -> off */
+function cycleRating(id,code){const c=crew(id); if(!c||!crewsEditable())return;
+  c.ratings=c.ratings||{}; const r=ratingFor(c,code);
+  if(r==null)c.ratings[code]=3; else if(r===0)delete c.ratings[code]; else c.ratings[code]=r-1;
+  save();render();}
+/* Never overall keeps the crew on every list; only assignment stops using it. */
+function setOverall(id,n){const c=crew(id); if(!c||!crewsEditable())return; c.overall=Number(n); save();render();}
+function addSkill(){
+  if(!crewsEditable())return;
+  const label=(prompt('Name of the new skill')||'').trim(); if(!label)return;
+  const W=window.D2WritebackCore, k=W.skillKey(label), trades=S.trades=S.trades||[];
+  const hit=trades.find(t=>W.skillKey(t.label)===k||W.skillKey(t.code)===k);
+  if(hit){alert('That skill is already on the list as "'+hit.label+'".');return;}
+  const code=W.slugCode(label,trades.map(t=>t.code)); if(!code){alert('A skill name needs at least one letter or digit.');return;}
+  trades.push({code,label,sort:trades.reduce((m,t)=>Math.max(m,Number(t.sort)||0),0)+1,spId:null,isNew:true});
+  save();render();}
+function addCrew(){
+  if(!crewsEditable())return;
+  const W=window.D2WritebackCore;
+  const name=(prompt('Name of the new crew, for example Lopez +2')||'').trim(); if(!name)return;
+  const entered=prompt('Crew code (lower-case letters and digits)',W.slugCode(name,S.crews.map(c=>c.id))||''); if(entered==null)return;
+  const code=W.skillKey(entered);
+  if(!code||crew(code)){alert('A crew code is lower-case letters and digits, and '+(code||entered)+' is already taken.');return;}
+  const sz=prompt('How many people?','1'); if(sz==null)return;
+  const unlimited=!!confirm('Is this a subcontractor (never double-booked)?');
+  const mem=prompt('Members, separated by commas',''); if(mem==null)return;
+  const members=mem.split(',').map(x=>x.trim()).filter(Boolean);
+  const size=Math.max(1,+sz||members.length||1);
+  S.crews.push({id:code,spId:null,isNew:true,name,members,size,unlimited,active:true,note:'',overall:3,ratings:{},ctIds:{}});
+  save();render();}
+/* Everything on the Crews tab that is not in SharePoint yet, in the two shapes the rest needs: `local` for
+   planCrewEdits and `lines` for the preview. A bucket crew is never edited, and a seed crew that was never
+   loaded from SharePoint (no row id) cannot be written, so neither counts. */
+function buildCrewChanges(){
+  const W=window.D2WritebackCore, lines=[], local={trades:[],crews:[]};
+  const nm=code=>{const t=skillList().find(x=>x.id===code);return t?t.label:code;};
+  const word=n=>n==null?'not held':W.ratingWord(n);
+  (S.trades||[]).filter(t=>t.isNew&&!t.spId).forEach(t=>{
+    local.trades.push({code:t.code,label:t.label,sort:t.sort,spId:null,isNew:true});
+    lines.push('New skill: '+t.label);});
+  S.crews.forEach(c=>{
+    if(isBucket(c))return;
+    const isNew=!!c.isNew&&!c.spId;
+    if(!isNew&&(!c.spId||!c.base))return;
+    const b=c.base||{ratings:{}}, mine=[];
+    if(isNew)mine.push('New crew: '+c.name+', code '+c.id);
+    else{
+      const norm=v=>v==null?'':String(v);
+      if(norm(c.name)!==norm(b.name))mine.push(c.name+': name changed');
+      if(norm(c.size)!==norm(b.size))mine.push(c.name+': size changed');
+      if(!!c.unlimited!==!!b.unlimited)mine.push(c.name+': subcontractor changed');
+      if((c.members||[]).join(', ')!==(b.members||[]).join(', '))mine.push(c.name+': members changed');
+      if(norm(c.note)!==norm(b.note))mine.push(c.name+': note changed');
+      if((c.overall==null?3:c.overall)!==(b.overall==null?3:b.overall))mine.push(c.name+': overall '+W.ratingWord(c.overall));
+    }
+    const was=b.ratings||{}, now=c.ratings||{}, codes=new Set(Object.keys(was).concat(Object.keys(now)));
+    codes.forEach(code=>{
+      const w=was[code]==null?null:was[code], n=now[code]==null?null:now[code];
+      if(w!==n)mine.push(c.name+', '+nm(code)+': '+word(w)+' to '+word(n));});
+    if(!mine.length)return;
+    mine.forEach(l=>lines.push(l));
+    local.crews.push({id:c.id,spId:c.spId||null,isNew,name:c.name,size:c.size,unlimited:!!c.unlimited,members:(c.members||[]).slice(),
+      note:c.note||'',overall:c.overall==null?3:c.overall,ratings:Object.assign({},c.ratings),ctIds:Object.assign({},c.ctIds||{}),base:c.base});
   });
-  render();}
+  return {local,lines,count:lines.length};
+}
+function crewChangeCount(){return graphModeAvailable()?buildCrewChanges().count:0;}
 /* ===================== import from the SharePoint site =====================
    Reads the payload produced by sharepoint/export-to-planner.js and MERGES it
    into whatever is already in this browser.
@@ -2757,8 +2841,12 @@ function importFromD2Payload(d,silent){
        and never said that, which made a Refresh a silent way to lose an
        afternoon of re-sequencing. Count it and say so. */
     const pendingSecs=S.jobs.reduce((n,j)=>n+divergedSecs(j).length,0);
-    const pendingWarn=pendingSecs
-      ? '\n\nYou have unsaved changes to '+pendingSecs+' sub-phase'+(pendingSecs===1?'':'s')
+    const pendingCrewN=crewChangeCount();
+    const pendingBits=[];
+    if(pendingSecs)pendingBits.push('unsaved changes to '+pendingSecs+' sub-phase'+(pendingSecs===1?'':'s'));
+    if(pendingCrewN)pendingBits.push(pendingBits.length?pendingCrewN+' change'+(pendingCrewN===1?'':'s')+' on the Crews tab':pendingCrewN+' unsaved change'+(pendingCrewN===1?'':'s')+' on the Crews tab');
+    const pendingWarn=pendingBits.length
+      ? '\n\nYou have '+pendingBits.join(' and ')
         +'. Loading will overwrite them. Press Cancel and Save first if you want to keep them.'
       : '';
     if(!silent&&!confirm(
