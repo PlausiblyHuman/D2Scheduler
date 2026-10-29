@@ -153,5 +153,111 @@ ok('slugCode keeps counting past a second collision', C.slugCode('Dig', ['dig', 
     J(r.ops.map(o => o.kind)) === '["trade-create","crew-create","crew-patch","ct-create","ct-patch","ct-delete"]' && r.refusals.length === 0, J(r.ops.map(o => o.kind)));
 }
 
-if (fail) { console.log('\nFAILED'); process.exit(1); }
-console.log('\nall passed');
+// ---------------------------------------------------------------- Part B: Graph write
+// Every body is compared with a request body captured live on 2026-10-29
+// (fixtures/planner/crew-capture.json), never retyped here.
+(async () => {
+  const GW = require('../../web/graph-writeback.js');
+  const CAP = require('./crew-capture.json');
+  const cap = name => CAP.requests.find(r => r.op === name);
+  const L = { trades: CAP.lists.trades, crews: CAP.lists.crews, ct: CAP.lists.ct };
+  const mkCtx = (script, extra) => {
+    const calls = [];
+    const fetchImpl = async (url, init) => {
+      const call = { method: init.method, url: url.replace(/^.*\/sites\/SITE/, ''), body: init.body == null ? undefined : JSON.parse(init.body) };
+      calls.push(call);
+      const s = script(call) || {};
+      const status = s.status || (call.method === 'POST' ? 201 : call.method === 'DELETE' ? 204 : 200);
+      return { ok: status < 300, status, json: async () => (s.json !== undefined ? s.json : (call.method === 'POST' ? { id: s.id || '1' } : {})) };
+    };
+    return { calls, ctx: Object.assign({ token: 'T', siteId: 'SITE', lists: L, crewSpIdByCode: {}, tradeSpIdByCode: {}, fetchImpl, sleep: async () => {} }, extra || {}) };
+  };
+  const idByList = c => (c.url.includes(L.trades) ? '27' : c.url.includes(L.crews) ? '15' : '53');
+  const ops = [
+    { kind: 'trade-create', label: 'ZZ Capture Skill', code: 'zzcapture', sort: 999 },
+    { kind: 'crew-create', id: 'zzcapture', fields: cap('crew-create').body.fields },
+    { kind: 'ct-create', crewCode: 'zzcapture', tradeCode: 'zzcapture', rating: 2 },
+    { kind: 'ct-patch', spId: '53', crewCode: 'zzcapture', tradeCode: 'zzcapture', rating: 1 },
+    { kind: 'crew-patch', spId: '15', id: 'zzcapture', fields: { Members: 'A, B, C' } },
+    { kind: 'ct-delete', spId: '53', crewCode: 'zzcapture', tradeCode: 'zzcapture' }
+  ];
+
+  ok('applyCrewOps and the body builders are exported', typeof GW.applyCrewOps === 'function' && typeof GW.ctBody === 'function'
+    && typeof GW.tradeBody === 'function' && typeof GW.crewBody === 'function' && typeof GW.ctPatchBody === 'function');
+  if (typeof GW.applyCrewOps !== 'function') { console.log('\nFAILED'); process.exit(1); }
+
+  // pure bodies against the capture
+  ok('tradeBody equals the captured Trades POST body', J(GW.tradeBody(ops[0])) === J(cap('trade-create').body), J(GW.tradeBody(ops[0])));
+  ok('crewBody equals the captured Crews POST body', J(GW.crewBody(ops[1])) === J(cap('crew-create').body), J(GW.crewBody(ops[1])));
+  ok('ctBody equals the captured Crew-Trades POST body (lookup ids are strings)', J(GW.ctBody(ops[2], 15, 27)) === J(cap('ct-create').body), J(GW.ctBody(ops[2], 15, 27)));
+  ok('ctBody Title is lower case crew-trade', GW.ctBody({ crewCode: 'Devon', tradeCode: 'HardScape', rating: 3 }, '1', '2').fields.Title === 'devon-hardscape');
+  ok('ctPatchBody equals the captured PATCH body', J(GW.ctPatchBody(ops[3])) === J(cap('ct-patch').body), J(GW.ctPatchBody(ops[3])));
+
+  // a full happy run
+  {
+    const { calls, ctx } = mkCtx(c => ({ id: idByList(c) }));
+    const r = await GW.applyCrewOps(ctx, ops);
+    ok('happy run: six calls in op order', J(calls.map(c => c.method)) === '["POST","POST","POST","PATCH","PATCH","DELETE"]', J(calls.map(c => c.method)));
+    ok('happy run: every captured body matches, field for field',
+      J(calls[0].body) === J(cap('trade-create').body) && J(calls[1].body) === J(cap('crew-create').body)
+      && J(calls[2].body) === J(cap('ct-create').body) && J(calls[3].body) === J(cap('ct-patch').body)
+      && J(calls[4].body) === J(cap('crew-patch').body), J(calls.map(c => c.body)));
+    ok('happy run: URLs match the captured paths',
+      calls[0].url === cap('trade-create').url && calls[1].url === cap('crew-create').url && calls[2].url === cap('ct-create').url
+      && calls[3].url === cap('ct-patch').url && calls[4].url === cap('crew-patch').url, J(calls.map(c => c.url)));
+    ok('ct-create used the ids the same batch just created (strings)', calls[2].body.fields.CrewLookupId === '15' && calls[2].body.fields.TradeLookupId === '27'
+      && typeof calls[2].body.fields.CrewLookupId === 'string');
+    ok('DELETE goes to /items/{id}, not /fields, with no body',
+      calls[5].url === cap('ct-delete').url && !/\/fields$/.test(calls[5].url) && calls[5].body === undefined, J(calls[5]));
+    ok('a 204 DELETE counts as done', r.done.length === 6 && r.failed.length === 0 && r.skipped.length === 0
+      && r.done[5].op === ops[5] && r.done[5].id === '53', J(r));
+    ok('creates report the new row id, patches the spId', r.done[0].id === '27' && r.done[1].id === '15' && r.done[2].id === '53' && r.done[3].id === '53' && r.done[4].id === '15');
+  }
+
+  // ct-create against rows that already exist (ids from the live read)
+  {
+    const { calls, ctx } = mkCtx(() => ({ id: '90' }), { crewSpIdByCode: { devon: '11' }, tradeSpIdByCode: { dig: '2' } });
+    const r = await GW.applyCrewOps(ctx, [{ kind: 'ct-create', crewCode: 'devon', tradeCode: 'dig', rating: 3 }]);
+    ok('ct-create resolves ids from the live maps', r.done.length === 1 && calls[0].body.fields.CrewLookupId === '11' && calls[0].body.fields.TradeLookupId === '2'
+      && calls[0].body.fields.Preference === 3, J(calls));
+  }
+
+  // the Crews POST fails: dependent ct-create skipped, later ct-patch still runs
+  {
+    const { calls, ctx } = mkCtx(c => (c.method === 'POST' && c.url.includes(L.crews) ? { status: 403, json: { error: { code: 'accessDenied' } } } : { id: idByList(c) }));
+    const r = await GW.applyCrewOps(ctx, ops.slice(0, 4));
+    ok('403 on Crews POST is a failure with status and parsed detail', r.failed.length === 1 && r.failed[0].op === ops[1] && r.failed[0].status === 403
+      && r.failed[0].detail && r.failed[0].detail.error.code === 'accessDenied', J(r.failed));
+    ok('its dependent ct-create is skipped depends-on-failed, with no call made',
+      r.skipped.length === 1 && r.skipped[0].op === ops[2] && r.skipped[0].reason === 'depends-on-failed' && calls.length === 3, J(r.skipped));
+    ok('a later ct-patch still runs and lands in done', r.done.some(d => d.op === ops[3]) && calls[2].method === 'PATCH');
+    ok('the trade create before the failure is still done', r.done.some(d => d.op === ops[0] && d.id === '27'));
+  }
+
+  // a ct-create with no id anywhere is skipped, not sent
+  {
+    const { calls, ctx } = mkCtx(() => ({}));
+    const r = await GW.applyCrewOps(ctx, [{ kind: 'ct-create', crewCode: 'ghost', tradeCode: 'dig', rating: 2 }]);
+    ok('a ct-create with an unknown crew is skipped without a call', r.skipped.length === 1 && calls.length === 0 && r.done.length === 0);
+  }
+
+  // a failed DELETE is a failure; the loop goes on
+  {
+    const { calls, ctx } = mkCtx(c => (c.method === 'DELETE' ? { status: 404, json: { error: 'gone' } } : {}));
+    const r = await GW.applyCrewOps(ctx, [ops[5], ops[4]]);
+    ok('a failed DELETE is recorded and the next op still runs', r.failed.length === 1 && r.failed[0].status === 404 && r.done.length === 1 && calls.length === 2);
+  }
+
+  // POST goes through the 429 retry
+  {
+    let n = 0;
+    const waits = [];
+    const { calls, ctx } = mkCtx(() => (++n === 1 ? { status: 429 } : { id: '27' }));
+    ctx.sleep = async ms => { waits.push(ms); };
+    const r = await GW.applyCrewOps(ctx, [ops[0]]);
+    ok('a 429 on a POST is retried', r.done.length === 1 && calls.length === 2 && waits.length === 1, J({ calls: calls.length, waits }));
+  }
+
+  if (fail) { console.log('\nFAILED'); process.exit(1); }
+  console.log('\nall passed');
+})();

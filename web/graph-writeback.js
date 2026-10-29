@@ -42,6 +42,7 @@
       items: function (listId) { return site + '/lists/' + listId + '/items'; },
       item: function (listId, id) { return site + '/lists/' + listId + '/items/' + id; },
       fields: function (listId, id) { return site + '/lists/' + listId + '/items/' + id + '/fields'; },
+      columns: function (listId) { return site + '/lists/' + listId + '/columns'; },
       // Hidden system list, but readable over Graph by name on this site.
       userInfo: site + '/lists/User Information List/items'
         + '?$expand=fields($select=id,Title,Name,EMail)&$top=500'
@@ -283,7 +284,89 @@
     return { created: created, failed: failed };
   }
 
+  /* ---- Trades, Crews and Crew-Trades writes (applyCrewOps) ----
+   * EVERY SHAPE BELOW WAS CAPTURED LIVE ON 2026-10-29 and is pinned in
+   * fixtures/planner/crew-capture.json (the harness compares each body with it):
+   *   Trades POST       {fields:{Title, TradeCode, SortOrder}}
+   *   Crews POST        {fields:{Title, CrewID, Size, Unlimited, Active, Members, Notes, Preference}}
+   *   Crew-Trades POST  {fields:{Title:'<crew>-<trade>', CrewLookupId:'<str>', TradeLookupId:'<str>', Preference:<n>}}
+   *   PATCH             /items/{id}/fields with just the changed fields (Preference is a number)
+   *   DELETE            /items/{id}, no body, 204
+   * Lookup ids are STRINGS on the wire. Ops come from planCrewEdits in
+   * web/writeback-core.js. */
+  function tradeBody(op) {
+    return { fields: { Title: op.label, TradeCode: op.code, SortOrder: op.sort } };
+  }
+  function crewBody(op) { return { fields: op.fields }; }
+  function ctBody(op, crewSpId, tradeSpId) {
+    return { fields: {
+      Title: (String(op.crewCode) + '-' + String(op.tradeCode)).toLowerCase(),
+      CrewLookupId: String(crewSpId),
+      TradeLookupId: String(tradeSpId),
+      Preference: op.rating
+    } };
+  }
+  function ctPatchBody(op) { return { Preference: op.rating }; }
+
+  /* Apply the ops in the order given. A failure is recorded and the loop
+     carries on; only a ct-create whose crew or skill row does not exist (and
+     was not created earlier in this batch) is skipped, since it has nothing to
+     point at. ctx = {token, siteId, lists:{crews, ct, trades}, crewSpIdByCode,
+     tradeSpIdByCode, fetchImpl, sleep}. */
+  async function applyCrewOps(ctx, ops) {
+    var f = ctx.fetchImpl || (typeof fetch !== 'undefined' ? fetch : null);
+    if (!f) throw new Error('No fetch implementation available.');
+    var sleep = ctx.sleep || function (ms) { return new Promise(function (res) { setTimeout(res, ms); }); };
+    var U = urls(ctx.siteId);
+    var done = [], failed = [], skipped = [];
+    var crewIds = {}, tradeIds = {};
+    Object.keys(ctx.crewSpIdByCode || {}).forEach(function (k) { crewIds[k] = String(ctx.crewSpIdByCode[k]); });
+    Object.keys(ctx.tradeSpIdByCode || {}).forEach(function (k) { tradeIds[k] = String(ctx.tradeSpIdByCode[k]); });
+
+    async function fail(op, r) {
+      var detail = null;
+      try { detail = await r.json(); } catch (e) { /* a non-JSON error body is still a failure */ }
+      failed.push({ op: op, status: r.status, detail: detail });
+    }
+    async function create(op, listId, body) {
+      var r = await postRetrying(f, sleep, U.items(listId), ctx.token, body);
+      var row = null;
+      if (r.ok) { try { row = await r.json(); } catch (e) { row = null; } }
+      if (!r.ok || !row || row.id == null) { await fail(op, r.ok ? { status: r.status, json: async function () { return null; } } : r); return null; }
+      done.push({ op: op, id: String(row.id) });
+      return String(row.id);
+    }
+    async function patch(op, listId, body) {
+      var r = await f(U.fields(listId, op.spId), { method: 'PATCH', headers: headers(ctx.token), body: JSON.stringify(body) });
+      if (r.ok) done.push({ op: op, id: String(op.spId) }); else await fail(op, r);
+    }
+
+    for (var i = 0; i < (ops || []).length; i++) {
+      var op = ops[i];
+      if (op.kind === 'trade-create') {
+        var tid = await create(op, ctx.lists.trades, tradeBody(op));
+        if (tid) tradeIds[op.code] = tid;
+      } else if (op.kind === 'crew-create') {
+        var cid = await create(op, ctx.lists.crews, crewBody(op));
+        if (cid) crewIds[op.id] = cid;
+      } else if (op.kind === 'crew-patch') {
+        await patch(op, ctx.lists.crews, op.fields);
+      } else if (op.kind === 'ct-create') {
+        var cs = crewIds[op.crewCode], ts = tradeIds[op.tradeCode];
+        if (!cs || !ts) { skipped.push({ op: op, reason: 'depends-on-failed' }); continue; }
+        await create(op, ctx.lists.ct, ctBody(op, cs, ts));
+      } else if (op.kind === 'ct-patch') {
+        await patch(op, ctx.lists.ct, ctPatchBody(op));
+      } else if (op.kind === 'ct-delete') {
+        var dr = await f(U.item(ctx.lists.ct, op.spId), { method: 'DELETE', headers: headers(ctx.token) });
+        if (dr.ok) done.push({ op: op, id: String(op.spId) }); else await fail(op, dr);
+      }
+    }
+    return { done: done, failed: failed, skipped: skipped };
+  }
+
   return {
+    tradeBody: tradeBody, crewBody: crewBody, ctBody: ctBody, ctPatchBody: ctPatchBody, applyCrewOps: applyCrewOps,
     structureTaskBody: structureTaskBody, applyStructureCreates: applyStructureCreates,
     urls: urls, headers: headers, resolveSiteUserId: resolveSiteUserId,
     patchBody: patchBody, createBody: createBody, statusBody: statusBody,
