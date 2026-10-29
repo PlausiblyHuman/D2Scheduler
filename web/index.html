@@ -1688,6 +1688,7 @@ function vCrews(){
     return `<tr>
     <td><span class="chip" style="background:${crewColor(c.id)};color:#fff">&nbsp;</span>
       <input value="${esc(c.name)}" onchange="setCrew('${jsq(c.id)}','name',this.value)" style="width:105px"${dis}>
+      <div class="small muted" style="margin-top:2px"><span class="crew-code">${esc(c.id)}</span>${assignable(c)?'':` <span class="chip notlisted" title="Press Refresh in a few minutes, once the crew list has been updated.">not on the crew list yet</span>`}</div>
       ${c.note?`<div class="small muted" style="margin-top:2px">⚠ ${esc(c.note)}</div>`:''}</td>
     <td><input value="${esc(c.members.join(', '))}" onchange="setCrew('${jsq(c.id)}','members',this.value)" style="width:150px" placeholder="not specified"${dis}></td>
     <td><input type="number" min="1" value="${c.size==null?'':c.size}" placeholder="?" onchange="setCrew('${jsq(c.id)}','size',this.value)"${dis}></td>

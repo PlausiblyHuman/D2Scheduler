@@ -384,6 +384,10 @@ ok('slugCode keeps counting past a second collision', C.slugCode('Dig', ['dig', 
     ok('D: clicking cycles 3,2,1,0,off', (() => { const seq = []; for (let i = 0; i < 5; i++) { chipFor('harrison', 'plumbing').click(); seq.push(win.ratingFor(win.crew('harrison'), 'plumbing')); } return seq.join(',') === '2,1,0,,3'; })());
     ok('D: an off chip starts at First choice when clicked', (() => { const c = win.crew('harrison'); delete c.ratings.gas; win.render(); chipFor('harrison', 'gas').click(); return win.ratingFor(c, 'gas') === 3; })());
     ok('D: overall control writes c.overall and the crew stays on the list', (() => { const n = S.crews.length; win.setOverall('stl', 0); return win.crew('stl').overall === 0 && S.crews.length === n && win.crew('stl').active !== false; })());
+    const rowOf = id => { const el = win.document.querySelector(`.chip[data-crew="${id}"]`); return el && el.closest('tr'); };
+    ok('D: the crew code is shown as plain text beside the name', (() => { const r = rowOf('harrison'), c = r && r.querySelector('.crew-code'); return !!c && c.textContent === 'harrison' && !c.querySelector('input,select') && !r.querySelector('input[value="harrison"]'); })());
+    ok('D: a crew missing from the Assignments choices carries the not-on-the-crew-list mark with the Refresh hint', (() => { const m = rowOf('campos') && rowOf('campos').querySelector('.notlisted'); return !!m && m.textContent === 'not on the crew list yet' && m.title === 'Press Refresh in a few minutes, once the crew list has been updated.'; })());
+    ok('D: an assignable crew carries no such mark', !rowOf('harrison').querySelector('.notlisted') && !rowOf('devon').querySelector('.notlisted'));
     ok('D: buckets have no chips or overall control', !chipFor('office', 'dig') && !win.document.getElementById('main').innerHTML.includes("setOverall('office'"));
     ok('D: Skill Coverage omits a crew rated Never for the skill', (() => {
       win.crew('stl').ratings.shotcrete = 0; win.render();
