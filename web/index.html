@@ -685,7 +685,7 @@ const AUTO_RULES=[
   'Inside a pool, sub-phases run in order. Each one starts on the first working day after the one before it finishes.',
   'Anything <b>locked</b> or already <b>signed off</b> is never moved. The schedule flows around it.',
   'Anything marked <b>not applicable</b> is skipped entirely.',
-  'For every other sub-phase it looks at the crews that hold the required trade, and gives it to the <b>least loaded</b> one that is free for the whole span.',
+  'For every other sub-phase it looks at the crews that hold the required trade, and gives it to the <b>highest-rated</b> one that is free for the whole span, the least loaded among equals.',
   'Among the crews free that day, the <b>higher-rated</b> one wins. It never waits for a better crew; every place it settled for a lower rating is listed for you to decide.',
   'If no qualified crew is free, it tries the next working day, and keeps going until one is.',
   'Subcontractors and the office buckets are capacity-exempt: they are never counted as busy and never block a date.',
@@ -1696,9 +1696,9 @@ function vCrews(){
     <td>${skills.map(s=>ratingChip(c,s,ed)).join('')}</td></tr>`;};
   return `<div class="card"><h2>Crews & Skills<span class="sp"></span><button class="btn sm" onclick="addSkill()"${dis}>+ Skill</button> <button class="btn sm p" onclick="addCrew()"${dis}>+ Crew</button></h2>
   ${ed?'':'<div class="hint">Crew changes are not saved from a downloaded copy. Use the hosted planner.</div>'}
-  <table><thead><tr><th style="width:145px">Crew</th><th style="width:160px">Members</th><th style="width:55px">Size</th><th style="width:105px">Subcontractor</th><th style="width:120px">Overall</th><th>Skills: click to cycle First choice, Second choice, Last resort, Never, off</th></tr></thead><tbody>
+  <table><thead><tr><th style="width:145px">Crew</th><th style="width:160px">Members</th><th style="width:55px">Size</th><th style="width:105px">Subcontractor</th><th style="width:120px">Overall</th><th>Skills: click to cycle ${[3,2,1,0].map(n=>W.ratingWord(n)).join(', ')}, off</th></tr></thead><tbody>
   ${S.crews.map(row).join('')}
-  </tbody></table><div class="hint">A crew that should not be used any more is set to Never overall. It stays on the list.</div></div>
+  </tbody></table><div class="hint">A crew that should not be used any more is set to ${W.ratingWord(0)} overall. It stays on the list.</div></div>
   <div class="card"><h2>Skill Coverage</h2><table><thead><tr><th style="width:160px">Skill</th><th>Qualified crews</th><th style="width:230px">Sub-phases needing it</th></tr></thead><tbody>
   ${skills.map(s=>{const q=qualified(s.id);
     const T=S.templates&&Object.keys(S.templates).length?S.templates:{Gunite:templateFor('Gunite')};
@@ -2671,12 +2671,12 @@ function setCrew(id,k,v){const c=crew(id); if(!c||!crewsEditable())return;
   }
   else if(k==='members')c.members=v.split(',').map(x=>x.trim()).filter(Boolean);
   else if(k==='size')c.size=(v===''||v==null)?null:Math.max(1,+v||1);else c[k]=v;save();render();}
-/* off -> First choice (3) -> 2 -> 1 -> Never (0) -> off */
+/* off -> rating 3 -> 2 -> 1 -> 0 -> off */
 function cycleRating(id,code){const c=crew(id); if(!c||!crewsEditable())return;
   c.ratings=c.ratings||{}; const r=ratingFor(c,code);
   if(r==null)c.ratings[code]=3; else if(r===0)delete c.ratings[code]; else c.ratings[code]=r-1;
   save();render();}
-/* Never overall keeps the crew on every list; only assignment stops using it. */
+/* An overall rating of 0 keeps the crew on every list; only assignment stops using it. */
 function setOverall(id,n){const c=crew(id); if(!c||!crewsEditable())return; c.overall=Number(n); save();render();}
 function addSkill(){
   if(!crewsEditable())return;
@@ -3693,8 +3693,9 @@ function showPushResult(out,err){
     body.innerHTML=
       (out.cwError?`<div class="hint" style="color:#a84a18">Crew and skill changes were not saved:
         ${esc(out.cwError.message||'unknown error')}</div>`:'')
-     +(cwForbidden?`<div class="hint" style="color:#a84a18">Changes to crews and skills are limited to the people set up to make them; nothing was changed.</div>`:'')
+     +(cwForbidden?`<div class="hint" style="color:#a84a18">Changes to crews and skills are limited to the people set up to make them; ${cwRows.length?'the refused changes were not made.':'nothing was changed.'}</div>`:'')
      +sec('Crews and skills saved',cwRows,'')
+     +(cw&&cw.res.done.some(d=>d.op.kind==='crew-create')?`<div class="hint">A new crew can be assigned a few minutes after Save, once the crew list has been updated. Press Refresh then.</div>`:'')
      +sec('Crews and skills NOT saved',cwBad,'#a84a18')
      +(out.jsError?`<div class="hint" style="color:#a84a18">Project start dates were not saved:
         ${esc(out.jsError.message||'unknown error')}</div>`:'')

@@ -496,6 +496,8 @@ ok('slugCode keeps counting past a second collision', C.slugCode('Dig', ['dig', 
     const dBody = win => win.document.getElementById('dBody').textContent;
     const count = (t, s) => t.split(s).length - 1;
     const S403 = 'Changes to crews and skills are limited to the people set up to make them; nothing was changed.';
+    const S403_MIXED = 'Changes to crews and skills are limited to the people set up to make them; the refused changes were not made.';
+    const NEWCREW = 'A new crew can be assigned a few minutes after Save, once the crew list has been updated. Press Refresh then.';
     const NOT_YET = 'Campos +2 is not on the crew list yet. Press Refresh in a few minutes, then try again.';
 
     // ---- scenario 1: everything lands
@@ -521,7 +523,8 @@ ok('slugCode keeps counting past a second collision', C.slugCode('Dig', ['dig', 
       ok('E: the three lists are read fresh before the first write', ['trades', 'crews', 'ct'].every(k => { const g = calls.findIndex(c => c.method === 'GET' && c.list === k); return g > -1 && g < calls.findIndex(c => c.method !== 'GET'); }));
       ok('E: the new crew rating points at the new rows', (() => { const p = calls.find(c => c.method === 'POST' && c.list === 'ct'); return !!p && p.body.fields.Preference === 3 && p.body.fields.Title === 'lopez-electrical' && p.body.fields.CrewLookupId === '102' && p.body.fields.TradeLookupId === '101'; })(), J(calls.find(c => c.method === 'POST' && c.list === 'ct')));
       ok('E: results say each change in words', ['Electrical', 'new skill', 'Lopez +2', 'new crew', 'Harrison +2, Plumbing', 'rating', 'First choice to Second choice', 'Lopez +2, Electrical', 'not held to First choice'].every(x => t.includes(x)), t.slice(0, 600));
-      ok('E: no 403 sentence when everything landed', !t.includes(S403));
+      ok('E: no 403 sentence when everything landed', !t.includes(S403) && !t.includes(S403_MIXED));
+      ok('E: the Save results say once that a new crew needs a Refresh', count(t, NEWCREW) === 1, 'count=' + count(t, NEWCREW));
       ok('E: PENDING_CREWS is null afterwards', win.pendingCrews() === null);
       ok('E: a Save with writes re-reads and the crews come back from SharePoint', win.S.crews.length === 14 && !win.crew('lopez'));
       win.close();
@@ -560,7 +563,8 @@ ok('slugCode keeps counting past a second collision', C.slugCode('Dig', ['dig', 
       await win.confirmSaveByPush();
       const t = dBody(win);
       ok('E: a 403 attempts the crew, skips the dependent rating, patches the other', writes(calls).join(',') === 'POST trades,POST crews,PATCH ct', writes(calls).join(','));
-      ok('E: the 403 sentence appears exactly once', count(t, S403) === 1, 'count=' + count(t, S403));
+      ok('E: a 403 where some changes landed says the refused ones were not made, exactly once', count(t, S403_MIXED) === 1 && !t.includes(S403), 'count=' + count(t, S403_MIXED));
+      ok('E: no new-crew sentence when the crew was refused', !t.includes(NEWCREW));
       ok('E: a skipped rating says what it waited for', t.includes('not written because Lopez +2 failed') && count(t, 'not written because') === 1, t.slice(0, 500));
       ok('E: the 403 is not repeated as HTTP 403 per op', !t.includes('HTTP 403'));
       ok('E: the rating patch that did land is reported', t.includes('First choice to Second choice'));
@@ -576,6 +580,7 @@ ok('slugCode keeps counting past a second collision', C.slugCode('Dig', ['dig', 
       calls.length = 0;
       await win.confirmSaveByPush();
       const t = dBody(win);
+      ok('E: when nothing lands the 403 sentence is the original, once', count(t, S403) === 1 && !t.includes(S403_MIXED), 'count=' + count(t, S403));
       ok('E: when nothing lands there is no re-read', calls.filter(c => c.method === 'GET' && c.list === 'crews').length === 1, calls.filter(c => c.list === 'crews').map(c => c.method).join(','));
       ok('E: the on-screen crew changes remain', !!win.crew('lopez') && win.crew('lopez').isNew && win.ratingFor(win.crew('harrison'), 'plumbing') === 2 && win.S.trades.some(x => x.code === 'electrical'));
       ok('E: all-403 shows the sentence once', count(t, S403) === 1, 'count=' + count(t, S403));
