@@ -73,14 +73,15 @@ const LISTS = {
   spt: '453e7cd5-f84a-4e2a-9372-73f26019e3f0',     // Sub-phase Template
   tpt: '61824add-8eaa-4b1b-aed7-a202204bf9f5',     // Task Template
   trades: '05038f7f-a6cb-4f57-b1a1-3ff9c7126ba5',
-  crews: '45e9ff1f-bf36-4ab5-929d-25ab9a80d460'      // Crews, read for the template check
+  crews: '45e9ff1f-bf36-4ab5-929d-25ab9a80d460',     // Crews, read for the template check
+  ct: '32c6154d-2572-4dfd-877a-18fa20a3a07e'         // Crew-Trades
 };
 
 /* --merge: copy ONLY these keys from the posted capture into the two existing fixtures and
    leave jobs/asg/tasks/cal alone. The existing pools in those fixtures are frozen demo data;
    a wholesale recapture would replace them with live client data. */
 const MERGE = process.argv.includes('--merge');
-const MERGE_KEYS = ['spt', 'tpt', 'trades'];
+const MERGE_KEYS = ['spt', 'tpt', 'trades', 'crews', 'ct'];
 
 function page() {
   return fs.readFileSync(PAGE_FILE, 'utf8')
@@ -174,5 +175,5 @@ const server = http.createServer((req, res) => {
 ensureMsal().then(() => server.listen(PORT, () => {
   console.log('Capture server on http://localhost:' + PORT + '/');
   console.log('Open that URL and click "Sign in and capture".');
-  console.log('Read-only: GETs against Microsoft Graph, one local file written' + (MERGE ? ' (--merge: only spt, tpt, trades are merged into the two fixtures).' : '.'));
+  console.log('Read-only: GETs against Microsoft Graph, one local file written' + (MERGE ? ' (--merge: only spt, tpt, trades, crews, ct are merged into the two fixtures).' : '.'));
 })).catch(e => { console.error('startup failed:', e.message); process.exit(1); });

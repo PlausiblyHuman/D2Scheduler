@@ -114893,5 +114893,794 @@
     "_ComplianceTagUserId": ""
    }
   }
+ ],
+ "ct": [
+  {
+   "id": "2",
+   "fields": {
+    "Title": "devon-hardscape",
+    "Preference": 3,
+    "ID": 2,
+    "id": "2",
+    "CrewLookupId": "5",
+    "TradeLookupId": "11"
+   }
+  },
+  {
+   "id": "3",
+   "fields": {
+    "Title": "devon-landscaping",
+    "Preference": 3,
+    "ID": 3,
+    "id": "3",
+    "CrewLookupId": "5",
+    "TradeLookupId": "20"
+   }
+  },
+  {
+   "id": "4",
+   "fields": {
+    "Title": "guillermo-tile",
+    "Preference": 3,
+    "ID": 4,
+    "id": "4",
+    "CrewLookupId": "2",
+    "TradeLookupId": "19"
+   }
+  },
+  {
+   "id": "5",
+   "fields": {
+    "Title": "devon-walls",
+    "Preference": 3,
+    "ID": 5,
+    "id": "5",
+    "CrewLookupId": "5",
+    "TradeLookupId": "13"
+   }
+  },
+  {
+   "id": "6",
+   "fields": {
+    "Title": "guillermo-hardscape",
+    "Preference": 3,
+    "ID": 6,
+    "id": "6",
+    "CrewLookupId": "2",
+    "TradeLookupId": "11"
+   }
+  },
+  {
+   "id": "7",
+   "fields": {
+    "Title": "guillermo-coping",
+    "Preference": 3,
+    "ID": 7,
+    "id": "7",
+    "CrewLookupId": "2",
+    "TradeLookupId": "18"
+   }
+  },
+  {
+   "id": "8",
+   "fields": {
+    "Title": "devon-drainage",
+    "Preference": 3,
+    "ID": 8,
+    "id": "8",
+    "CrewLookupId": "5",
+    "TradeLookupId": "2"
+   }
+  },
+  {
+   "id": "9",
+   "fields": {
+    "Title": "guillermo-walls",
+    "Preference": 3,
+    "ID": 9,
+    "id": "9",
+    "CrewLookupId": "2",
+    "TradeLookupId": "13"
+   }
+  },
+  {
+   "id": "10",
+   "fields": {
+    "Title": "guillermo-finishgrade",
+    "Preference": 3,
+    "ID": 10,
+    "id": "10",
+    "CrewLookupId": "2",
+    "TradeLookupId": "4"
+   }
+  },
+  {
+   "id": "11",
+   "fields": {
+    "Title": "guillermo-grade",
+    "Preference": 3,
+    "ID": 11,
+    "id": "11",
+    "CrewLookupId": "2",
+    "TradeLookupId": "5"
+   }
+  },
+  {
+   "id": "12",
+   "fields": {
+    "Title": "guillermo-drainage",
+    "Preference": 3,
+    "ID": 12,
+    "id": "12",
+    "CrewLookupId": "2",
+    "TradeLookupId": "2"
+   }
+  },
+  {
+   "id": "13",
+   "fields": {
+    "Title": "guillermo-dig",
+    "Preference": 3,
+    "ID": 13,
+    "id": "13",
+    "CrewLookupId": "2",
+    "TradeLookupId": "3"
+   }
+  },
+  {
+   "id": "14",
+   "fields": {
+    "Title": "cirilo-coping",
+    "Preference": 3,
+    "ID": 14,
+    "id": "14",
+    "CrewLookupId": "6",
+    "TradeLookupId": "18"
+   }
+  },
+  {
+   "id": "15",
+   "fields": {
+    "Title": "cirilo-veneer",
+    "Preference": 3,
+    "ID": 15,
+    "id": "15",
+    "CrewLookupId": "6",
+    "TradeLookupId": "22"
+   }
+  },
+  {
+   "id": "16",
+   "fields": {
+    "Title": "cirilo-tile",
+    "Preference": 3,
+    "ID": 16,
+    "id": "16",
+    "CrewLookupId": "6",
+    "TradeLookupId": "19"
+   }
+  },
+  {
+   "id": "17",
+   "fields": {
+    "Title": "cirilo-cmu",
+    "Preference": 3,
+    "ID": 17,
+    "id": "17",
+    "CrewLookupId": "6",
+    "TradeLookupId": "15"
+   }
+  },
+  {
+   "id": "18",
+   "fields": {
+    "Title": "cirilo-drainage",
+    "Preference": 3,
+    "ID": 18,
+    "id": "18",
+    "CrewLookupId": "6",
+    "TradeLookupId": "2"
+   }
+  },
+  {
+   "id": "19",
+   "fields": {
+    "Title": "cirilo-grade",
+    "Preference": 3,
+    "ID": 19,
+    "id": "19",
+    "CrewLookupId": "6",
+    "TradeLookupId": "5"
+   }
+  },
+  {
+   "id": "20",
+   "fields": {
+    "Title": "cirilo-hardscape",
+    "Preference": 3,
+    "ID": 20,
+    "id": "20",
+    "CrewLookupId": "6",
+    "TradeLookupId": "11"
+   }
+  },
+  {
+   "id": "21",
+   "fields": {
+    "Title": "saul-finishgrade",
+    "Preference": 3,
+    "ID": 21,
+    "id": "21",
+    "CrewLookupId": "1",
+    "TradeLookupId": "4"
+   }
+  },
+  {
+   "id": "22",
+   "fields": {
+    "Title": "saul-grade",
+    "Preference": 3,
+    "ID": 22,
+    "id": "22",
+    "CrewLookupId": "1",
+    "TradeLookupId": "5"
+   }
+  },
+  {
+   "id": "23",
+   "fields": {
+    "Title": "saul-waterline",
+    "Preference": 3,
+    "ID": 23,
+    "id": "23",
+    "CrewLookupId": "1",
+    "TradeLookupId": "16"
+   }
+  },
+  {
+   "id": "24",
+   "fields": {
+    "Title": "saul-gas",
+    "Preference": 3,
+    "ID": 24,
+    "id": "24",
+    "CrewLookupId": "1",
+    "TradeLookupId": "9"
+   }
+  },
+  {
+   "id": "25",
+   "fields": {
+    "Title": "saul-dig",
+    "Preference": 3,
+    "ID": 25,
+    "id": "25",
+    "CrewLookupId": "1",
+    "TradeLookupId": "3"
+   }
+  },
+  {
+   "id": "26",
+   "fields": {
+    "Title": "antonio-hardscape",
+    "Preference": 3,
+    "ID": 26,
+    "id": "26",
+    "CrewLookupId": "4",
+    "TradeLookupId": "11"
+   }
+  },
+  {
+   "id": "27",
+   "fields": {
+    "Title": "antonio-materials",
+    "Preference": 3,
+    "ID": 27,
+    "id": "27",
+    "CrewLookupId": "4",
+    "TradeLookupId": "25"
+   }
+  },
+  {
+   "id": "28",
+   "fields": {
+    "Title": "campos-hardscape",
+    "Preference": 3,
+    "ID": 28,
+    "id": "28",
+    "CrewLookupId": "7",
+    "TradeLookupId": "11"
+   }
+  },
+  {
+   "id": "29",
+   "fields": {
+    "Title": "campos-demolition",
+    "Preference": 3,
+    "ID": 29,
+    "id": "29",
+    "CrewLookupId": "7",
+    "TradeLookupId": "6"
+   }
+  },
+  {
+   "id": "30",
+   "fields": {
+    "Title": "antonio-sealant",
+    "Preference": 3,
+    "ID": 30,
+    "id": "30",
+    "CrewLookupId": "4",
+    "TradeLookupId": "21"
+   }
+  },
+  {
+   "id": "31",
+   "fields": {
+    "Title": "campos-masonry",
+    "Preference": 3,
+    "ID": 31,
+    "id": "31",
+    "CrewLookupId": "7",
+    "TradeLookupId": "24"
+   }
+  },
+  {
+   "id": "32",
+   "fields": {
+    "Title": "campos-veneer",
+    "Preference": 3,
+    "ID": 32,
+    "id": "32",
+    "CrewLookupId": "7",
+    "TradeLookupId": "22"
+   }
+  },
+  {
+   "id": "33",
+   "fields": {
+    "Title": "antonio-pavers",
+    "Preference": 3,
+    "ID": 33,
+    "id": "33",
+    "CrewLookupId": "4",
+    "TradeLookupId": "14"
+   }
+  },
+  {
+   "id": "34",
+   "fields": {
+    "Title": "harrison-dig",
+    "Preference": 3,
+    "ID": 34,
+    "id": "34",
+    "CrewLookupId": "3",
+    "TradeLookupId": "3"
+   }
+  },
+  {
+   "id": "35",
+   "fields": {
+    "Title": "harrison-automation",
+    "Preference": 3,
+    "ID": 35,
+    "id": "35",
+    "CrewLookupId": "3",
+    "TradeLookupId": "12"
+   }
+  },
+  {
+   "id": "36",
+   "fields": {
+    "Title": "harrison-rebar",
+    "Preference": 3,
+    "ID": 36,
+    "id": "36",
+    "CrewLookupId": "3",
+    "TradeLookupId": "7"
+   }
+  },
+  {
+   "id": "37",
+   "fields": {
+    "Title": "george-cmu",
+    "Preference": 3,
+    "ID": 37,
+    "id": "37",
+    "CrewLookupId": "9",
+    "TradeLookupId": "15"
+   }
+  },
+  {
+   "id": "38",
+   "fields": {
+    "Title": "harrison-plumbing",
+    "Preference": 3,
+    "ID": 38,
+    "id": "38",
+    "CrewLookupId": "3",
+    "TradeLookupId": "10"
+   }
+  },
+  {
+   "id": "39",
+   "fields": {
+    "Title": "harrison-poolschool",
+    "Preference": 3,
+    "ID": 39,
+    "id": "39",
+    "CrewLookupId": "3",
+    "TradeLookupId": "26"
+   }
+  },
+  {
+   "id": "40",
+   "fields": {
+    "Title": "george-masonry",
+    "Preference": 3,
+    "ID": 40,
+    "id": "40",
+    "CrewLookupId": "9",
+    "TradeLookupId": "24"
+   }
+  },
+  {
+   "id": "41",
+   "fields": {
+    "Title": "harrison-form",
+    "Preference": 3,
+    "ID": 41,
+    "id": "41",
+    "CrewLookupId": "3",
+    "TradeLookupId": "8"
+   }
+  },
+  {
+   "id": "42",
+   "fields": {
+    "Title": "stl-form",
+    "Preference": 3,
+    "ID": 42,
+    "id": "42",
+    "CrewLookupId": "11",
+    "TradeLookupId": "8"
+   }
+  },
+  {
+   "id": "43",
+   "fields": {
+    "Title": "stl-plumbing",
+    "Preference": 3,
+    "ID": 43,
+    "id": "43",
+    "CrewLookupId": "11",
+    "TradeLookupId": "10"
+   }
+  },
+  {
+   "id": "44",
+   "fields": {
+    "Title": "armondo-hardscape",
+    "Preference": 3,
+    "ID": 44,
+    "id": "44",
+    "CrewLookupId": "12",
+    "TradeLookupId": "11"
+   }
+  },
+  {
+   "id": "45",
+   "fields": {
+    "Title": "stl-dig",
+    "Preference": 3,
+    "ID": 45,
+    "id": "45",
+    "CrewLookupId": "11",
+    "TradeLookupId": "3"
+   }
+  },
+  {
+   "id": "46",
+   "fields": {
+    "Title": "stl-pebbletech",
+    "Preference": 3,
+    "ID": 46,
+    "id": "46",
+    "CrewLookupId": "11",
+    "TradeLookupId": "23"
+   }
+  },
+  {
+   "id": "47",
+   "fields": {
+    "Title": "stl-rebar",
+    "Preference": 3,
+    "ID": 47,
+    "id": "47",
+    "CrewLookupId": "11",
+    "TradeLookupId": "7"
+   }
+  },
+  {
+   "id": "48",
+   "fields": {
+    "Title": "stl-shotcrete",
+    "Preference": 3,
+    "ID": 48,
+    "id": "48",
+    "CrewLookupId": "11",
+    "TradeLookupId": "1"
+   }
+  },
+  {
+   "id": "49",
+   "fields": {
+    "Title": "armondo-coping",
+    "Preference": 3,
+    "ID": 49,
+    "id": "49",
+    "CrewLookupId": "12",
+    "TradeLookupId": "18"
+   }
+  },
+  {
+   "id": "50",
+   "fields": {
+    "Title": "brothers-pebbletech",
+    "Preference": 3,
+    "ID": 50,
+    "id": "50",
+    "CrewLookupId": "8",
+    "TradeLookupId": "23"
+   }
+  },
+  {
+   "id": "51",
+   "fields": {
+    "Title": "brothers-plaster",
+    "Preference": 3,
+    "ID": 51,
+    "id": "51",
+    "CrewLookupId": "8",
+    "TradeLookupId": "17"
+   }
+  },
+  {
+   "id": "52",
+   "fields": {
+    "Title": "stl-plaster",
+    "Preference": 3,
+    "ID": 52,
+    "id": "52",
+    "CrewLookupId": "11",
+    "TradeLookupId": "17"
+   }
+  }
+ ],
+ "crews": [
+  {
+   "id": "1",
+   "fields": {
+    "Title": "Saul +2",
+    "CrewID": "saul",
+    "Size": 3,
+    "Unlimited": false,
+    "Active": true,
+    "LeadEmail": null,
+    "Notes": "Finish Grade assumed",
+    "Preference": 3,
+    "Members": "Saul, Sergio E, Miguel",
+    "ID": 1,
+    "id": "1"
+   }
+  },
+  {
+   "id": "2",
+   "fields": {
+    "Title": "Guillermo +2",
+    "CrewID": "guillermo",
+    "Size": 3,
+    "Unlimited": false,
+    "Active": true,
+    "LeadEmail": null,
+    "Notes": "Finish Grade assumed",
+    "Preference": 3,
+    "Members": "Guillermo, Sergio R, Valentine",
+    "ID": 2,
+    "id": "2"
+   }
+  },
+  {
+   "id": "3",
+   "fields": {
+    "Title": "Harrison +2",
+    "CrewID": "harrison",
+    "Size": 3,
+    "Unlimited": false,
+    "Active": true,
+    "LeadEmail": null,
+    "Notes": "Third member unidentified",
+    "Preference": 3,
+    "Members": "Harrison, Ian, ?",
+    "ID": 3,
+    "id": "3"
+   }
+  },
+  {
+   "id": "4",
+   "fields": {
+    "Title": "Antonio +1",
+    "CrewID": "antonio",
+    "Size": 2,
+    "Unlimited": false,
+    "Active": true,
+    "LeadEmail": null,
+    "Notes": "Hardscape only if supervised",
+    "Preference": 3,
+    "Members": "Antonio, brother",
+    "ID": 4,
+    "id": "4"
+   }
+  },
+  {
+   "id": "5",
+   "fields": {
+    "Title": "Devon Crew +3",
+    "CrewID": "devon",
+    "Size": 4,
+    "Unlimited": false,
+    "Active": true,
+    "LeadEmail": null,
+    "Notes": null,
+    "Preference": 3,
+    "Members": "Devon, Martin, Ocoundo, Eric",
+    "ID": 5,
+    "id": "5"
+   }
+  },
+  {
+   "id": "6",
+   "fields": {
+    "Title": "Cirilo +2",
+    "CrewID": "cirilo",
+    "Size": 3,
+    "Unlimited": false,
+    "Active": true,
+    "LeadEmail": null,
+    "Notes": "Light grading only — no finish grade",
+    "Preference": 3,
+    "Members": "Cirilo, Yair, Marbin",
+    "ID": 6,
+    "id": "6"
+   }
+  },
+  {
+   "id": "7",
+   "fields": {
+    "Title": "Campos +2",
+    "CrewID": "campos",
+    "Size": 3,
+    "Unlimited": false,
+    "Active": true,
+    "LeadEmail": null,
+    "Notes": "Other 2 members unidentified",
+    "Preference": 3,
+    "Members": "Campos, ?, ?",
+    "ID": 7,
+    "id": "7"
+   }
+  },
+  {
+   "id": "8",
+   "fields": {
+    "Title": "Brothers Crew",
+    "CrewID": "brothers",
+    "Size": null,
+    "Unlimited": true,
+    "Active": true,
+    "LeadEmail": null,
+    "Notes": "Subcontractor — Unlimited",
+    "Preference": 3,
+    "Members": null,
+    "ID": 8,
+    "id": "8"
+   }
+  },
+  {
+   "id": "9",
+   "fields": {
+    "Title": "George Crew",
+    "CrewID": "george",
+    "Size": null,
+    "Unlimited": true,
+    "Active": true,
+    "LeadEmail": null,
+    "Notes": "Subcontractor — Unlimited capacity per Rev D patch",
+    "Preference": 3,
+    "Members": null,
+    "ID": 9,
+    "id": "9"
+   }
+  },
+  {
+   "id": "10",
+   "fields": {
+    "Title": "Subcontractor",
+    "CrewID": "subcon",
+    "Size": null,
+    "Unlimited": true,
+    "Active": true,
+    "LeadEmail": null,
+    "Notes": "Generic bucket — Unlimited",
+    "Preference": 3,
+    "Members": null,
+    "ID": 10,
+    "id": "10"
+   }
+  },
+  {
+   "id": "11",
+   "fields": {
+    "Title": "STL Shotcrete",
+    "CrewID": "stl",
+    "Size": null,
+    "Unlimited": true,
+    "Active": true,
+    "LeadEmail": null,
+    "Notes": "Subcontractor — Unlimited · advanced pebbletech",
+    "Preference": 3,
+    "Members": null,
+    "ID": 11,
+    "id": "11"
+   }
+  },
+  {
+   "id": "12",
+   "fields": {
+    "Title": "Armondo Crew",
+    "CrewID": "armondo",
+    "Size": null,
+    "Unlimited": true,
+    "Active": true,
+    "LeadEmail": null,
+    "Notes": "Subcontractor — Unlimited",
+    "Preference": 3,
+    "Members": null,
+    "ID": 12,
+    "id": "12"
+   }
+  },
+  {
+   "id": "13",
+   "fields": {
+    "Title": "Unassigned",
+    "CrewID": "unassigned",
+    "Size": null,
+    "Unlimited": true,
+    "Active": true,
+    "LeadEmail": null,
+    "Notes": "Needs an owner — triage before work comes up",
+    "Preference": 3,
+    "Members": null,
+    "ID": 13,
+    "id": "13"
+   }
+  },
+  {
+   "id": "14",
+   "fields": {
+    "Title": "Main Office",
+    "CrewID": "office",
+    "Size": null,
+    "Unlimited": true,
+    "Active": true,
+    "LeadEmail": null,
+    "Notes": "Back-office / admin — Unlimited",
+    "Preference": 3,
+    "Members": null,
+    "ID": 14,
+    "id": "14"
+   }
+  }
  ]
 }
