@@ -40,7 +40,7 @@
   {"label": "Never overall also deactivates the crew", "find": "c.overall=Number(n); save();render();}", "replace": "c.overall=Number(n); if(c.overall===0)c.active=false; save();render();}"},
   {"label": "PENDING_CREWS is not cleared before the push", "find": "const crewLocal=PENDING_CREWS; PENDING_CREWS=null;", "replace": "const crewLocal=PENDING_CREWS;"},
   {"label": "PENDING_CREWS set in file mode too", "find": "const crewCh=graphModeAvailable()?buildCrewChanges():", "replace": "const crewCh=buildCrewChanges()||"},
-  {"label": "403 wording replaced by the code", "find": "Changes to crews and skills are limited to the people set up to make them; nothing was changed.</div>`:'')", "replace": "HTTP 403</div>`:'')"},
+  {"label": "403 wording replaced by the code", "find": "limited to the people set up to make them; ${cwRows.length?'the refused changes were not made.':'nothing was changed.'}</div>`:'')", "replace": "HTTP 403</div>`:'')"},
   {"label": "403 repeated per op", "find": "cw.res.failed.filter(f=>f.status!==403).map(", "replace": "cw.res.failed.map("},
   {"label": "403 only recognised for a different status", "find": "cw.res.failed.some(f=>f.status===403)", "replace": "cw.res.failed.some(f=>f.status===401)"},
   {"label": "a skipped op reported as saved", "find": "'not written because '+(crewOk?cwSkill(k.op.tradeCode):cwCrew(k.op.crewCode))+' failed'", "replace": "'saved'"},
@@ -66,7 +66,12 @@
   {"label": "Never-overall suffix dropped", "find": "{t:` (rated ${W.ratingWord(0)} overall)`,d:false}", "replace": "{t:'',d:false}"},
   {"label": "unassignable option not disabled", "find": "return {t:' (not on the crew list yet)',d:true};", "replace": "return {t:' (not on the crew list yet)',d:false};"},
   {"label": "inline picker not using the shared helper", "find": "${crewPickerHTML(s,null,false)}", "replace": "<optgroup label=\"Qualified\"></optgroup>"},
-  {"label": "unassignable finding missing", "find": "else if(!assignable(c))add('err','unassignable'", "replace": "else if(false)add('err','unassignable'"},
-  {"label": "rated Never for wording dropped", "find": "ratingFor(c,s.skill)===0?` (rated ${W.ratingWord(0)} for ${skillLabel(s.skill)})`", "replace": "ratingFor(c,s.skill)===0?''"},
-  {"label": "unqual fix text unchanged", "find": "fix:`Pick a crew from the ${window.D2WritebackCore.ratingWord(3)} or ${window.D2WritebackCore.ratingWord(2)} group on the row.`};", "replace": "fix:'Pick a crew from the Qualified list on the row.'};"}
+  {"label": "unassignable finding missing", "find": "if(rs==='unassignable')add('err','unassignable'", "replace": "if(false)add('err','unassignable'"},
+  {"label": "rated Never for wording dropped", "find": "const why=rs==='never-trade'?` (rated ${W.ratingWord(0)} for ${skillLabel(s.skill)})`", "replace": "const why=rs==='never-trade'?''"},
+  {"label": "unqual fix text unchanged", "find": "fix:`Pick a crew from the ${window.D2WritebackCore.ratingWord(3)} or ${window.D2WritebackCore.ratingWord(2)} group on the row.`};", "replace": "fix:'Pick a crew from the Qualified list on the row.'};"},
+  {"label": "crewReason: a rating of 0 on the trade not recognised", "find": "if(r===0)return 'never-trade';", "replace": "if(false)return 'never-trade';"},
+  {"label": "crewReason: overall 0 not recognised", "find": "if(r!=null&&c.overall===0)return 'never-overall';", "replace": "if(false)return 'never-overall';"},
+  {"label": "crewReason: unassignable crew reads ok", "find": "if(isQualified(c,sk))return assignable(c)?'ok':'unassignable';", "replace": "if(isQualified(c,sk))return 'ok';"},
+  {"label": "seed crews recoloured by list position", "find": "(SEED_COLOR[id]||PALETTE[i%PALETTE.length])", "replace": "PALETTE[i%PALETTE.length]"},
+  {"label": "non-seed crews all grey", "find": "(SEED_COLOR[id]||PALETTE[i%PALETTE.length])", "replace": "(SEED_COLOR[id]||'#94a3b8')"}
 ]

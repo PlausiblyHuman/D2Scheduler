@@ -277,7 +277,7 @@ ok('slugCode keeps counting past a second collision', C.slugCode('Dig', ['dig', 
         .replace('<script src="graph-to-planner.js"></script>', inline('graph-to-planner.js'))
         .replace('<script src="writeback-core.js"></script>', inline('writeback-core.js'))
         .replace('<script src="graph-writeback.js"></script>', inline('graph-writeback.js'))
-        .replace('</body>', `<script>Object.defineProperty(window,'S',{get:()=>S,configurable:true});window.crew=crew;window.ratingFor=ratingFor;window.qualified=qualified;window.isQualified=isQualified;window.assignable=assignable;window.skillLabel=skillLabel;window.skillList=skillList;window.importFromD2Payload=importFromD2Payload;window.refreshLive=refreshLive;window.D2_GRAPH=D2_GRAPH;</script></body>`);
+        .replace('</body>', `<script>Object.defineProperty(window,'S',{get:()=>S,configurable:true});window.crew=crew;window.ratingFor=ratingFor;window.qualified=qualified;window.isQualified=isQualified;window.assignable=assignable;window.skillLabel=skillLabel;window.skillList=skillList;window.importFromD2Payload=importFromD2Payload;window.refreshLive=refreshLive;window.D2_GRAPH=D2_GRAPH;window.crewColor=crewColor;</script></body>`);
       const vc = new VirtualConsole();
       const dom = new JSDOM(html, { runScripts: 'dangerously', pretendToBeVisual: true, url: HOST + '/', virtualConsole: vc,
         beforeParse(w) {
@@ -318,6 +318,12 @@ ok('slugCode keeps counting past a second collision', C.slugCode('Dig', ['dig', 
     ok('overall 1 changes nothing', (() => { const c = win.crew('stl'); c.overall = 1; return win.qualified('shotcrete').some(x => x.id === 'stl'); })());
     ok('a code not in the Assignments dropdown is not assignable and not offered', !win.assignable(win.crew('campos')) && !win.qualified('demolition').some(c => c.id === 'campos'));
     ok('FIXED codes still map to their bucket crew only', win.qualified('@office').length === 1 && win.qualified('@office')[0].id === 'office');
+    ok('after a Refresh every seed crew keeps the colour it had before it, whatever order SharePoint lists them in', (() => {
+      const P = ['#2563eb', '#0891b2', '#7c3aed', '#db2777', '#ea580c', '#16a34a', '#ca8a04', '#475569', '#be123c', '#0d9488', '#4338ca', '#a16207'];
+      const seed = ['devon', 'guillermo', 'cirilo', 'saul', 'antonio', 'campos', 'harrison', 'george', 'armondo', 'stl', 'brothers'];
+      const bad = seed.filter((id, i) => win.crewColor(id) !== P[i]);
+      return bad.length === 0 && win.crewColor('subcon') === '#0369a1' && win.crewColor('unassigned') === '#dc2626' && win.crewColor('lopez') === '#94a3b8'; })());
+    ok('a crew that is not a seed crew falls back to its index in the list', (() => { win.S.crews.push({ id: 'zz-new', name: 'ZZ', ratings: {}, overall: 3, members: [] }); const c = win.crewColor('zz-new'); win.S.crews.pop(); return /^#[0-9a-f]{6}$/.test(c) && c !== '#94a3b8'; })());
     ok('bucket crews keep their colour', win.crew('office').color === '#334155');
     ok('an empty Crews read keeps the previous crews', (() => { const n = S.crews.length; win.importFromD2Payload({ kind: 'd2-sharepoint-export', jobs: [], crewRows: null }, true); return S.crews.length === n; })());
     ok('unreadable columns make every crew assignable', (() => { win.importFromD2Payload({ kind: 'd2-sharepoint-export', jobs: [], assignableCodes: null }, true); return S.assignableCodes === null && win.assignable(win.crew('campos')); })());

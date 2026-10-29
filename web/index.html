@@ -333,6 +333,17 @@ const isQualified=(c,sk)=>!sk?true:(FIXED[sk]?c.id===FIXED[sk]:(ratingFor(c,sk)>
 const ratingFor=(c,sk)=>(c&&c.ratings&&Object.prototype.hasOwnProperty.call(c.ratings,sk))?c.ratings[sk]:null;
 /* Offered in the Assignments Crew dropdown. Unknown (columns unreadable) counts as yes, so a failed read never greys every crew. */
 const assignable=c=>!Array.isArray(S.assignableCodes)||S.assignableCodes.includes(c.id);
+/* Why a crew is, or is not, offered for a trade: 'ok', 'unassignable' (qualified but not in the Assignments
+   Crew dropdown yet), 'never-trade' / 'never-overall' (a rating of 0), or 'no-row' (does not hold it). The two
+   pickers and Schedule Check all read this one decision. */
+function crewReason(c,sk){
+  if(!sk)return 'no-row';
+  if(isQualified(c,sk))return assignable(c)?'ok':'unassignable';
+  if(!FIXED[sk]){const r=ratingFor(c,sk);
+    if(r===0)return 'never-trade';
+    if(r!=null&&c.overall===0)return 'never-overall';}
+  return 'no-row';
+}
 /* A crew from before ratings existed held skills as a list; each becomes a rating of 3. */
 function migrateCrew(c){
   if(Array.isArray(c.skills)){c.ratings=c.ratings||{};c.skills.forEach(k=>{if(!(k in c.ratings))c.ratings[k]=3;});delete c.skills;}
@@ -488,8 +499,11 @@ const save=()=>{
   storageNote();
 };
 const crew=id=>S.crews.find(c=>c.id===id);
+/* A seed crew keeps the colour of its seed position, whatever order SharePoint lists the crews in, so the
+   first hosted Refresh does not recolour every bar. Any other code falls back to its place in the list. */
+const SEED_COLOR=Object.fromEntries(SEED_CREWS.map((c,i)=>[c.id,PALETTE[i%PALETTE.length]]));
 const crewColor=id=>{const c=crew(id);if(c&&c.color)return c.color;
-  const i=S.crews.findIndex(x=>x.id===id);return i<0?'#94a3b8':PALETTE[i%PALETTE.length];};
+  const i=S.crews.findIndex(x=>x.id===id);return i<0?'#94a3b8':(SEED_COLOR[id]||PALETTE[i%PALETTE.length]);};
 function qualified(sk){
   if(FIXED[sk]){const c=fixedCrew(sk);return c?[c]:[];}
   return S.crews.filter(c=>ratingFor(c,sk)>0&&c.overall!==0&&assignable(c));
@@ -510,10 +524,12 @@ function crewPickerHTML(s,qualExtra,noSkillNote){
       if(g.length)html+=`<optgroup label="${W.ratingWord(r)}">${g.map(okOpt).join('')}</optgroup>`;});
   }else if(ready.length)html+=`<optgroup label="Qualified">${ready.map(okOpt).join('')}</optgroup>`;
   const why=c=>{
-    if(sk&&isQualified(c,sk)&&!assignable(c))return {t:' (not on the crew list yet)',d:true};
-    if(rated&&ratingFor(c,sk)===0)return {t:` (rated ${W.ratingWord(0)})`,d:false};
-    if(rated&&c.overall===0&&ratingFor(c,sk)!=null)return {t:` (rated ${W.ratingWord(0)} overall)`,d:false};
-    return {t:sk&&noSkillNote?' — no '+skillLabel(sk):'',d:false};
+    switch(crewReason(c,sk)){
+      case 'unassignable':return {t:' (not on the crew list yet)',d:true};
+      case 'never-trade':return {t:` (rated ${W.ratingWord(0)})`,d:false};
+      case 'never-overall':return {t:` (rated ${W.ratingWord(0)} overall)`,d:false};
+      default:return {t:sk&&noSkillNote?' — no '+skillLabel(sk):'',d:false};
+    }
   };
   if(other.length)html+=`<optgroup label="⚠ Not qualified">${other.map(c=>{const w=why(c);return opt(c,w.t,w.d);}).join('')}</optgroup>`;
   return html;
@@ -624,7 +640,7 @@ function autoScheduleRun(){
 /* Where Auto-Schedule settled for a lower rating because the better crew was busy
    that day. Built from the state AFTER the run, over the sub-phases it placed. */
 function yourCalls(){
-  const out=[], W=window.D2WritebackCore;
+  const out=[], busy=busyMap();   // once per run: the better crew is never the chosen crew, so no self-exclusion is needed
   const rt=(c,sk)=>{const r=ratingFor(c,sk);return r==null?3:r;};
   S.jobs.forEach(j=>{
     if(frozen(j))return;
@@ -635,7 +651,6 @@ function yourCalls(){
       const best=Math.max(...q.map(c=>rt(c,s.skill)));
       const mine=rt(got,s.skill);
       if(mine>=best)return;
-      const busy=busyMap({jobId:j.id,gi,si});
       const better=q.filter(c=>rt(c,s.skill)===best).map(c=>{
         const set=busy.get(c.id); let d=nextWork(s.start), free=null;
         for(let t=0;t<600&&free===null;t++){
@@ -694,7 +709,7 @@ const AUTO_RULES=[
 ];
 
 function openAutoPreview(moves,pinned,settled,skipped,calls){
-  calls=calls||[]; const RW=window.D2WritebackCore.ratingWord;
+  calls=calls||[]; const RW=n=>window.D2WritebackCore.ratingWord(n);   // resolved when the calls table renders
   const byPool={};
   moves.forEach(m=>{(byPool[m.jobno]=byPool[m.jobno]||{pool:m.pool,rows:[]}).rows.push(m);});
   const cname=id=>{const c=id?crew(id):null;return c?c.name:(id?id:'Unassigned');};
@@ -998,12 +1013,13 @@ function conflicts(){
         add('err','nocrew',`<b>${ref}</b> — no crew assigned${q.length?'':` and <u>no crew has the ${skillLabel(s.skill)} skill</u>`}.`);}
       if(s.skill&&s.crewId){const c=crew(s.crewId);
         if(!c)add('err','gone',`<b>${ref}</b> — assigned crew no longer exists.`);
-        else if(!isQualified(c,s.skill)){
-          const W=window.D2WritebackCore, rated=!FIXED[s.skill]&&ratingFor(c,s.skill)!=null;
-          const why=!rated?'':ratingFor(c,s.skill)===0?` (rated ${W.ratingWord(0)} for ${skillLabel(s.skill)})`
-            :c.overall===0?` (rated ${W.ratingWord(0)} overall)`:'';
-          add('err','unqual',`<b>${ref}</b> — ${esc(c.name)} is not qualified for ${skillLabel(s.skill)}${why}.`);}
-        else if(!assignable(c))add('err','unassignable',`<b>${ref}</b> — ${esc(c.name)} is not on the crew list yet; press Refresh in a few minutes.`);}
+        else{const rs=crewReason(c,s.skill);
+          if(rs==='unassignable')add('err','unassignable',`<b>${ref}</b> — ${esc(c.name)} is not on the crew list yet; press Refresh in a few minutes.`);
+          else if(rs!=='ok'){
+            const W=window.D2WritebackCore;
+            const why=rs==='never-trade'?` (rated ${W.ratingWord(0)} for ${skillLabel(s.skill)})`
+              :rs==='never-overall'?` (rated ${W.ratingWord(0)} overall)`:'';
+            add('err','unqual',`<b>${ref}</b> — ${esc(c.name)} is not qualified for ${skillLabel(s.skill)}${why}.`);}}}
       if(s.crewId==='unassigned')add('warn','unassigned',`<b>${ref}</b> — sitting in <b>Unassigned</b>. Give it Main Office, a Subcontractor, or a field crew.`);
       if(prevEnd&&s.start<=prevEnd)add('err','order',`<b>${ref}</b> — starts ${pretty(s.start)}, on or before the prior sub-phase ends (${pretty(prevEnd)}).`,{act:{jobId:j.id,gi,si}});
       const end=workSpan(s.start,s.days).pop();
