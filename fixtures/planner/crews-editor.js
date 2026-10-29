@@ -258,6 +258,68 @@ ok('slugCode keeps counting past a second collision', C.slugCode('Dig', ['dig', 
     ok('a 429 on a POST is retried', r.done.length === 1 && calls.length === 2 && waits.length === 1, J({ calls: calls.length, waits }));
   }
 
+  // ---------------------------------------------------------------- Part C: planner read
+  {
+    const fs = require('fs'), path = require('path');
+    const { JSDOM, VirtualConsole } = require('jsdom');
+    const WEB = path.join(__dirname, '..', '..', 'web');
+    const FX = JSON.parse(fs.readFileSync(path.join(__dirname, 'live-payloads-graph.json'), 'utf8'));
+    const HOST = 'https://mango-sky-0d6904310.5.azurestaticapps.net';
+    const CODES = FX.crews.map(r => r.fields.CrewID).filter(c => c !== 'campos');
+    const MSAL = `<script>window.msal={PublicClientApplication:class{constructor(){} getActiveAccount(){return {username:'cody@d2pools.com'};} setActiveAccount(){} getAllAccounts(){return [{username:'cody@d2pools.com'}];} acquireTokenSilent(){return Promise.resolve({accessToken:'t'});} loginPopup(){return Promise.resolve({accessToken:'t',account:{username:'cody@d2pools.com'}});}}};</script>`;
+    const bootC = stored => {
+      const inline = f => '<script>' + fs.readFileSync(path.join(WEB, f), 'utf8') + '</script>';
+      const html = fs.readFileSync(path.join(WEB, 'index.html'), 'utf8')
+        .replace('<script src="vendor/msal-browser.min.js"></script>', MSAL)
+        .replace('<script src="features-core.js"></script>', inline('features-core.js'))
+        .replace('<script src="template-check-core.js"></script>', inline('template-check-core.js'))
+        .replace('<script src="graph-to-planner.js"></script>', inline('graph-to-planner.js'))
+        .replace('<script src="writeback-core.js"></script>', inline('writeback-core.js'))
+        .replace('<script src="graph-writeback.js"></script>', inline('graph-writeback.js'))
+        .replace('</body>', `<script>Object.defineProperty(window,'S',{get:()=>S,configurable:true});window.crew=crew;window.ratingFor=ratingFor;window.qualified=qualified;window.isQualified=isQualified;window.assignable=assignable;window.skillLabel=skillLabel;window.skillList=skillList;window.importFromD2Payload=importFromD2Payload;window.refreshLive=refreshLive;window.D2_GRAPH=D2_GRAPH;</script></body>`);
+      const vc = new VirtualConsole();
+      const dom = new JSDOM(html, { runScripts: 'dangerously', pretendToBeVisual: true, url: HOST + '/', virtualConsole: vc,
+        beforeParse(w) {
+          if (stored) w.localStorage.setItem('poolsched.v6', JSON.stringify(stored));
+          w.fetch = u => {
+            u = String(u);
+            const json = (status, body) => Promise.resolve({ ok: status < 300, status, json: () => Promise.resolve(body), text: () => Promise.resolve('') });
+            if (u.endsWith('/.auth/me')) return json(200, { clientPrincipal: { identityProvider: 'aad', userDetails: 'cody@d2pools.com' } });
+            if (u.startsWith('https://graph.microsoft.com/v1.0/sites/netorgft15040037.sharepoint.com:')) return json(200, { id: FX.siteId, webUrl: FX.site });
+            if (u.includes('User Information List')) return json(200, { value: [] });
+            if (/\/lists\/[^/]+\/columns/.test(u)) return json(200, { value: [{ name: 'Title' }, { name: 'Crew', choice: { choices: CODES } }] });
+            const L = w.D2_GRAPH && w.D2_GRAPH.lists;
+            if (L) for (const k of Object.keys(L)) if (u.includes('/lists/' + L[k] + '/items')) return json(200, { value: FX[k] || [] });
+            if (/\/lists\/[^/]+\/items/.test(u)) return json(200, { value: [] });
+            return json(404, {});
+          };
+        } });
+      const w = dom.window; w.alert = () => {}; w.confirm = () => true;
+      return w;
+    };
+    const wait = ms => new Promise(r => setTimeout(r, ms));
+    const win = bootC(); await wait(1200);
+    await win.refreshLive(true); await wait(900);
+    const S = win.S;
+    ok('S.crews comes from SharePoint after Refresh', S.crews.length === 14 && S.crews.every(c => c.spId));
+    ok('harrison plumbing rating 3, base recorded', win.ratingFor(win.crew('harrison'), 'plumbing') === 3 && win.crew('harrison').base.ratings.plumbing === 3);
+    ok('S.trades has 26 skills and skillLabel reads them', S.trades.length === 26 && win.skillLabel('plumbing') === 'Plumbing');
+    ok('skillLabel and skillList follow the Trades list', (() => { const t = S.trades.find(x => x.code === 'dig'); t.label = 'Dig Renamed'; return win.skillLabel('dig') === 'Dig Renamed' && win.skillList().length === 26 && win.skillList().some(x => x.id === 'dig' && x.label === 'Dig Renamed'); })());
+    ok('a crew rated 0 for a trade is not qualified for it', (() => { win.crew('harrison').ratings.plumbing = 0; return !win.qualified('plumbing').some(c => c.id === 'harrison') && !win.isQualified(win.crew('harrison'), 'plumbing'); })());
+    ok('a crew at overall 0 is qualified for nothing', (() => { const c = win.crew('stl'); c.overall = 0; return !win.qualified('shotcrete').some(x => x.id === 'stl') && !win.isQualified(c, 'shotcrete'); })());
+    ok('overall 1 changes nothing', (() => { const c = win.crew('stl'); c.overall = 1; return win.qualified('shotcrete').some(x => x.id === 'stl'); })());
+    ok('a code not in the Assignments dropdown is not assignable and not offered', !win.assignable(win.crew('campos')) && !win.qualified('demolition').some(c => c.id === 'campos'));
+    ok('FIXED codes still map to their bucket crew only', win.qualified('@office').length === 1 && win.qualified('@office')[0].id === 'office');
+    ok('bucket crews keep their colour', win.crew('office').color === '#334155');
+    ok('an empty Crews read keeps the previous crews', (() => { const n = S.crews.length; win.importFromD2Payload({ kind: 'd2-sharepoint-export', jobs: [], crewRows: null }, true); return S.crews.length === n; })());
+    ok('unreadable columns make every crew assignable', (() => { win.importFromD2Payload({ kind: 'd2-sharepoint-export', jobs: [], assignableCodes: null }, true); return S.assignableCodes === null && win.assignable(win.crew('campos')); })());
+    const win2 = bootC({ crews: [{ id: 'devon', name: 'Devon Crew +3', members: [], size: 4, skills: ['dig'] }], jobs: [], settings: {}, templates: {}, pendingCreates: [], pendingComments: [] });
+    await wait(600);
+    ok('a stored legacy crew with a skills array migrates to ratings of 3', (() => {
+      const c = win2.crew('devon'); return !!c && c.ratings && c.ratings.dig === 3 && c.overall === 3 && c.skills === undefined; })());
+    win.close(); win2.close();
+  }
+
   if (fail) { console.log('\nFAILED'); process.exit(1); }
   console.log('\nall passed');
 })();

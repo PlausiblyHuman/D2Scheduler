@@ -143,14 +143,14 @@ console.log(`Template: ${totalSubs} sub-phases, ${totalTasks} tasks\n`);
   const orph=[];
   TPL.forEach(g=>g.sections.forEach(s=>{
     if(!s.skill||win.FIXED[s.skill])return;
-    if(S.crews.filter(c=>c.skills.includes(s.skill)).length===0)orph.push(`${s.num} ${s.name} (${s.skill})`);
+    if(S.crews.filter(c=>(c.ratings||{})[s.skill]>0).length===0)orph.push(`${s.num} ${s.name} (${s.skill})`);
   }));
   check('Every trade-tagged sub-phase has qualified crew', orph.length===0, orph.length?`${orph.length} orphans, e.g. ${orph[0]}`:'covered');
 }
 // 11) Every declared trade used
 {
   const inU=new Set(); TPL.forEach(g=>g.sections.forEach(s=>{if(s.skill)inU.add(s.skill);}));
-  const decl=new Set(); S.crews.forEach(c=>c.skills.forEach(k=>decl.add(k)));
+  const decl=new Set(); S.crews.forEach(c=>Object.keys(c.ratings||{}).forEach(k=>decl.add(k)));
   const un=[...decl].filter(k=>!inU.has(k));
   check('Every declared trade used by a sub-phase', un.length===0, un.length?`${un.length} unmapped: ${un.slice(0,6).join(', ')}`:'all used');
 }

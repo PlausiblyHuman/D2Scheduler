@@ -100,7 +100,7 @@ function lay(j, from, crewFor) {
   ok('the fix names the other crews that hold the trade', alts.length > 0 && alts.every(n => fixTxt.includes(n)), fixTxt);
   ok('and not the double-booked crew itself', !fixTxt.split(': ').slice(1).join(': ').split('.')[0].includes(dupCrew.name), fixTxt);
   {
-    const solo = Object.entries(S.crews.reduce((m, c) => { (c.skills || []).forEach(k => { (m[k] = m[k] || []).push(c); }); return m; }, {})).find(([k, cs]) => cs.length === 1 && !cs[0].unlimited);
+    const solo = Object.entries(S.crews.reduce((m, c) => { Object.keys(c.ratings || {}).forEach(k => { (m[k] = m[k] || []).push(c); }); return m; }, {})).find(([k, cs]) => cs.length === 1 && !cs[0].unlimited);
     const g = solo && w.checkGroups([{ kind: 'double', lvl: 'err', crewId: solo[1][0].id, day: '2027-01-04', jobs: ['T-8', 'T-9'], skills: [solo[0]], msg: 'm' }])[0];
     ok('with no other crew holding the trade, the fix says stagger the dates', !!g && /No other crew holds/.test(g.fix), g && g.fix);
   }

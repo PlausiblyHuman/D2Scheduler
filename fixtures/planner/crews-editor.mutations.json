@@ -1,0 +1,16 @@
+[
+  {"label": "qualified ignores overall 0", "find": "ratingFor(c,sk)>0&&c.overall!==0&&assignable(c)", "replace": "ratingFor(c,sk)>0&&assignable(c)"},
+  {"label": "qualified ignores a 0 rating", "find": "ratingFor(c,sk)>0&&c.overall!==0&&assignable(c)", "replace": "ratingFor(c,sk)!=null&&c.overall!==0&&assignable(c)"},
+  {"label": "qualified ignores assignability", "find": "ratingFor(c,sk)>0&&c.overall!==0&&assignable(c)", "replace": "ratingFor(c,sk)>0&&c.overall!==0"},
+  {"label": "isQualified ignores overall 0", "find": "(ratingFor(c,sk)>0&&c.overall!==0));", "replace": "(ratingFor(c,sk)>0));"},
+  {"label": "assignable always true", "find": "const assignable=c=>!Array.isArray(S.assignableCodes)||S.assignableCodes.includes(c.id);", "replace": "const assignable=c=>true;"},
+  {"label": "assignable false when columns unreadable", "find": "const assignable=c=>!Array.isArray(S.assignableCodes)||S.assignableCodes.includes(c.id);", "replace": "const assignable=c=>Array.isArray(S.assignableCodes)&&S.assignableCodes.includes(c.id);"},
+  {"label": "an empty Crews read replaces S.crews", "find": "if(Array.isArray(d.crewRows))S.crews=d.crewRows.map(crewFromRow);", "replace": "S.crews=(d.crewRows||[]).map(crewFromRow);"},
+  {"label": "skillLabel ignores S.trades", "find": "return esc((skillList().find(s=>s.id===id)||{}).label || '—');", "replace": "return esc((SKILLS.find(s=>s.id===id)||{}).label || '—');"},
+  {"label": "skillList ignores S.trades", "find": "return (S&&Array.isArray(S.trades)&&S.trades.length)?S.trades.map(t=>({id:t.code,label:t.label})):SKILLS;", "replace": "return SKILLS;"},
+  {"label": "legacy migration dropped from load", "find": "(S.crews||[]).forEach(migrateCrew);", "replace": ""},
+  {"label": "migration keeps the skills array", "find": "c.skills.forEach(k=>{if(!(k in c.ratings))c.ratings[k]=3;});delete c.skills;", "replace": "c.skills.forEach(k=>{if(!(k in c.ratings))c.ratings[k]=3;});"},
+  {"label": "base not recorded on a crew from SharePoint", "find": "  c.base={name:c.name,size:c.size,unlimited:c.unlimited,members:c.members.slice(),note:c.note,overall:c.overall,ratings:Object.assign({},c.ratings)};", "replace": ""},
+  {"label": "bucket crew colour dropped", "find": "if(seed&&seed.color)c.color=seed.color;", "replace": ""},
+  {"label": "trades not stored", "find": "if(Array.isArray(d.tradeRows))S.trades=", "replace": "if(false)S.trades="}
+]

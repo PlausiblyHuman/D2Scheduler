@@ -274,7 +274,11 @@ const SKILLS = [
 function skillLabel(id){
   if(!id)return '—';
   if(FIXED[id]){const c=fixedCrew(id);return esc(c?c.name:id);}
-  return esc((SKILLS.find(s=>s.id===id)||{}).label || '—');
+  return esc((skillList().find(s=>s.id===id)||{}).label || '—');
+}
+/* The skills on offer: the Trades list from SharePoint after a Refresh, the built-in list otherwise. */
+function skillList(){
+  return (S&&Array.isArray(S.trades)&&S.trades.length)?S.trades.map(t=>({id:t.code,label:t.label})):SKILLS;
 }
 const PALETTE=['#2563eb','#0891b2','#7c3aed','#db2777','#ea580c','#16a34a','#ca8a04','#475569','#be123c','#0d9488','#4338ca','#a16207'];
 const SEED_CREWS = [
@@ -313,12 +317,24 @@ const SEED_CREWS = [
 ];
 /* Sub-phases can require a trade (matched to qualified crews) or be pinned
    straight to one of the three buckets above via these @-codes. */
+SEED_CREWS.forEach(migrateCrew);
 const FIXED={'@office':'office','@sub':'subcon','@unassigned':'unassigned'};
 const fixedCrew=sk=>FIXED[sk]?crew(FIXED[sk]):null;
 /* Must agree with qualified(), which for a FIXED code only ever offers the one
    bucket crew that code names -- an unlimited crew outside that bucket is not
    a qualified stand-in just because it is capacity-exempt. */
-const isQualified=(c,sk)=>!sk?true:(FIXED[sk]?c.id===FIXED[sk]:c.skills.includes(sk));
+const isQualified=(c,sk)=>!sk?true:(FIXED[sk]?c.id===FIXED[sk]:(ratingFor(c,sk)>0&&c.overall!==0));
+/* A rating is 0..3 (3 first choice, 0 never), or null when the crew does not hold the skill. */
+const ratingFor=(c,sk)=>(c&&c.ratings&&Object.prototype.hasOwnProperty.call(c.ratings,sk))?c.ratings[sk]:null;
+/* Offered in the Assignments Crew dropdown. Unknown (columns unreadable) counts as yes, so a failed read never greys every crew. */
+const assignable=c=>!Array.isArray(S.assignableCodes)||S.assignableCodes.includes(c.id);
+/* A crew from before ratings existed held skills as a list; each becomes a rating of 3. */
+function migrateCrew(c){
+  if(Array.isArray(c.skills)){c.ratings=c.ratings||{};c.skills.forEach(k=>{if(!(k in c.ratings))c.ratings[k]=3;});delete c.skills;}
+  if(!c.ratings)c.ratings={};
+  if(c.overall==null)c.overall=3;
+  return c;
+}
 
 /* ============================== dates ============================== */
 const pad=n=>String(n).padStart(2,'0');
@@ -432,7 +448,7 @@ function jobBadge(j){
   return bt+`<span class="chip jb ${cls}" title="Jobs.Status in SharePoint">${esc(j.status)}</span>`+building+edited;
 }
 function load(){
-  try{const raw=localStorage.getItem(KEY);if(raw){S=JSON.parse(raw);S.settings=S.settings||{};S.pendingCreates=S.pendingCreates||[];S.pendingComments=S.pendingComments||[];if(S.template){delete S.template;/* the per-browser copy was never authoritative; a Refresh loads the real templates */} S.templates=S.templates||{};(S.jobs||[]).forEach(j=>{delete j.creating;/* a page closed mid-create */});syncNonWork();sortJobsByNumber();return;}}catch(e){}
+  try{const raw=localStorage.getItem(KEY);if(raw){S=JSON.parse(raw);S.settings=S.settings||{};S.pendingCreates=S.pendingCreates||[];S.pendingComments=S.pendingComments||[];if(S.template){delete S.template;/* the per-browser copy was never authoritative; a Refresh loads the real templates */} S.templates=S.templates||{};(S.crews||[]).forEach(migrateCrew);(S.jobs||[]).forEach(j=>{delete j.creating;/* a page closed mid-create */});syncNonWork();sortJobsByNumber();return;}}catch(e){}
   S={crews:JSON.parse(JSON.stringify(SEED_CREWS)),templates:{},jobs:[],settings:{},pendingCreates:[],pendingComments:[]};
   /* NO DEMO POOLS. Removed 2026-09-11.
      This used to seed Harrison Residence, Vasquez Pool & Spa and Bell Canyon
@@ -471,7 +487,7 @@ const crewColor=id=>{const c=crew(id);if(c&&c.color)return c.color;
   const i=S.crews.findIndex(x=>x.id===id);return i<0?'#94a3b8':PALETTE[i%PALETTE.length];};
 function qualified(sk){
   if(FIXED[sk]){const c=fixedCrew(sk);return c?[c]:[];}
-  return S.crews.filter(c=>c.skills.includes(sk));
+  return S.crews.filter(c=>ratingFor(c,sk)>0&&c.overall!==0&&assignable(c));
 }
 const allSecs=j=>j.groups.flatMap((g,gi)=>g.sections.map((s,si)=>({g,gi,s,si})));
 
@@ -1374,7 +1390,7 @@ function vCrewBoard(){
       let n=0;while(k+n<ax.days.length&&cells[k+n]&&cells[k+n]!=='DBL'&&!cells[k+n].many&&cells[k+n].s===v.s)n++;
       html+=`<td colspan="${n}" style="padding:0"><div class="bar" style="background:${crewColor(c.id)}" onclick="editSec('${v.j.id}',${v.gi},${v.si})">${esc(v.j.name)} — ${esc(v.s.num)} ${esc(v.s.name)}</div></td>`;k+=n;
     }
-    return `<tr><td class="nm"><b>${esc(c.name)}</b><div class="muted small">${c.skills.map(skillLabel).join(', ')}</div></td>${html}</tr>`;
+    return `<tr><td class="nm"><b>${esc(c.name)}</b><div class="muted small">${Object.keys(c.ratings||{}).filter(k=>c.ratings[k]>0).map(skillLabel).join(', ')}</div></td>${html}</tr>`;
   }).join('');
   const max=Math.max(1,...Object.values(load));
   return `<div class="card"><h2>Crew Board — who is where<span class="sp"></span>${boardControls(false)}</h2>
@@ -1583,7 +1599,7 @@ function vCrews(){
       ${c.note?`<div class="small muted" style="margin-top:2px">⚠ ${esc(c.note)}</div>`:''}</td>
     <td><input value="${esc(c.members.join(', '))}" onchange="setCrew('${c.id}','members',this.value)" style="width:190px" placeholder="not specified"></td>
     <td><input type="number" min="1" value="${c.size==null?'':c.size}" placeholder="?" onchange="setCrew('${c.id}','size',this.value)"></td>
-    <td>${SKILLS.map(s=>`<span class="chip skill${c.skills.includes(s.id)?'':' off'}" onclick="toggleSkill('${c.id}','${s.id}')">${s.label}</span>`).join('')}</td>
+    <td>${SKILLS.map(s=>`<span class="chip skill${ratingFor(c,s.id)!=null?'':' off'}" onclick="toggleSkill('${c.id}','${s.id}')">${s.label}</span>`).join('')}</td>
     <td style="text-align:right"><button class="btn sm d" onclick="delCrew('${c.id}')">✕</button></td></tr>`).join('')}
   </tbody></table></div>
   <div class="card"><h2>Skill Coverage</h2><table><thead><tr><th style="width:160px">Skill</th><th>Qualified crews</th><th style="width:230px">Sub-phases needing it</th></tr></thead><tbody>
@@ -2549,8 +2565,8 @@ function reopenProject(jobno){
 function setCrew(id,k,v){const c=crew(id);
   if(k==='members')c.members=v.split(',').map(x=>x.trim()).filter(Boolean);
   else if(k==='size')c.size=(v===''||v==null)?null:Math.max(1,+v||1);else c[k]=v;save();render();}
-function toggleSkill(id,sk){const c=crew(id);c.skills=c.skills.includes(sk)?c.skills.filter(x=>x!==sk):[...c.skills,sk];save();render();}
-function addCrew(){S.crews.push({id:'c'+Math.random().toString(36).slice(2,7),name:'New Crew',members:[],size:1,skills:[]});render();}
+function toggleSkill(id,sk){const c=crew(id);c.ratings=c.ratings||{};if(ratingFor(c,sk)!=null)delete c.ratings[sk];else c.ratings[sk]=3;save();render();}
+function addCrew(){S.crews.push({id:'c'+Math.random().toString(36).slice(2,7),name:'New Crew',members:[],size:1,ratings:{},overall:3});render();}
 function delCrew(id){
   const n=S.jobs.reduce((k,j)=>k+allSecs(j).filter(({s})=>s.crewId===id).length,0);
   if(!confirm('Delete this crew from the planner?'+String.fromCharCode(10,10)
@@ -2696,6 +2712,14 @@ function applyJobPayload(existing,inj){
    written to produce byte-for-byte the same structure from two different
    surfaces. This function does not know or care which one produced its
    argument. */
+function crewFromRow(r){
+  const seed=SEED_CREWS.find(x=>x.id===r.id);
+  const c={id:r.id,spId:r.spId,name:r.name,members:(r.members||[]).slice(),size:r.size,unlimited:!!r.unlimited,active:!!r.active,
+    note:r.note||'',overall:r.overall==null?3:r.overall,ratings:Object.assign({},r.ratings),ctIds:Object.assign({},r.ctIds)};
+  if(seed&&seed.color)c.color=seed.color;
+  c.base={name:c.name,size:c.size,unlimited:c.unlimited,members:c.members.slice(),note:c.note,overall:c.overall,ratings:Object.assign({},c.ratings)};
+  return c;
+}
 function importFromD2Payload(d,silent){
     if(!d||d.kind!=='d2-sharepoint-export'||!Array.isArray(d.jobs)){
       alert('That is not a schedule export.\n\nUse Refresh with the file downloaded from the site.');return;}
@@ -2703,6 +2727,10 @@ function importFromD2Payload(d,silent){
     if(d.templates&&typeof d.templates==='object'){const t={};Object.keys(d.templates).forEach(k=>{if(Array.isArray(d.templates[k])&&d.templates[k].length)t[k]=tplFromPayload(d.templates[k]);});if(Object.keys(t).length){S.templates=t;S.templatesFrom=new Date().toISOString();}}
     if(d.templateRows&&typeof d.templateRows==='object')S.templateRows=d.templateRows;
     if(Array.isArray(d.crews))S.crewCodes=d.crews;
+    /* An empty Crews read arrives as null and leaves the crews alone, so a failed read never wipes them. */
+    if(Array.isArray(d.crewRows))S.crews=d.crewRows.map(crewFromRow);
+    if(Array.isArray(d.tradeRows))S.trades=d.tradeRows.map(t=>({spId:t.spId,code:t.code,label:t.label,sort:t.sort}));
+    S.assignableCodes=Array.isArray(d.assignableCodes)?d.assignableCodes:null;
     let added=0,updated=0,secs=0;
     const plan=d.jobs.map(inj=>{
       const existing=S.jobs.find(j=>String(j.jobno)===String(inj.jobno));
@@ -3541,7 +3569,9 @@ const D2_GRAPH={
     // Templates and the Trades lookup, read whole on Refresh (2026-10-13); same GUIDs as capture-graph.js.
     spt:'453e7cd5-f84a-4e2a-9372-73f26019e3f0', tpt:'61824add-8eaa-4b1b-aed7-a202204bf9f5', trades:'05038f7f-a6cb-4f57-b1a1-3ff9c7126ba5',
     // The Crews list, read on Refresh only so the Build phases tab can check template crew codes against it.
-    crews:'45e9ff1f-bf36-4ab5-929d-25ab9a80d460'
+    crews:'45e9ff1f-bf36-4ab5-929d-25ab9a80d460',
+    // Crew-Trades: the per-crew, per-skill ratings, read on Refresh with the Crews list.
+    ct:'32c6154d-2572-4dfd-877a-18fa20a3a07e'
   }
 };
 function graphModeAvailable(){
@@ -3777,13 +3807,15 @@ async function loadFromD2ViaGraph(silent,opts){
   const rows=await Promise.all(keys.map(k=>
     graphPageAll(base+D2_GRAPH.lists[k]+'/items?$expand=fields&$top=500',tok)
       /* The Crews list only feeds the template check, so an unreadable one costs the check and never the Refresh. */
-      .catch(e=>{if(k==='crews')return [];throw e;})));
+      .catch(e=>{if(k==='crews'||k==='ct')return [];throw e;})));
   const graphPayload={site:site.webUrl};
   keys.forEach((k,i)=>{graphPayload[k]=rows[i];});
   const live=(graphPayload.jobs||[]).filter(r=>!R.isComplete(r.fields&&r.fields.Status));
   const lr=await R.readLive({jobs:live, pageAll:u=>graphPageAll(u,tok),
     asgItems:base+D2_GRAPH.lists.asg+'/items', taskItems:base+D2_GRAPH.lists.tasks+'/items'});
   graphPayload.asg=lr.asg; graphPayload.tasks=lr.tasks;
+  /* Which crew codes the Assignments Crew dropdown accepts; null when unreadable, which counts as all of them. */
+  graphPayload.asgColumns=await graphPageAll(base+D2_GRAPH.lists.asg+'/columns',tok).catch(()=>null);
   LAST_GRAPH={site:graphPayload.site, siteId:site.id, base, cal:graphPayload.cal, req:graphPayload.req};
   /* PM names and the + Job people list come from the User Information List,
      read once here. A failure costs only the names, never the Refresh: the
