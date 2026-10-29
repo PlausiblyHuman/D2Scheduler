@@ -4,6 +4,11 @@ Rebuilds the Assignments.Crew Choice list AND its validation formula from every 
 a Crews row is created or modified (the SharePoint GetOnUpdatedItems trigger fires on creates too).
 Runs as D2 Bot through the SharePoint connection.
 
+The sync NEVER REMOVES a code: Compose_all_codes is union(existing Choices, codes from Crews) and
+that union is what is written to both the choices and the formula. An old assignment can still carry a
+deleted crew's code, and a code dropped from the validation formula would make that row unsavable.
+Removing a code is a manual MERGE by hand, never this flow.
+
 Never writes SchemaXml: that clobbers choices and silently wipes ValidationFormula. The MERGE sends
 Choices, ValidationFormula and ValidationMessage only.
 
@@ -92,16 +97,14 @@ def build():
     )
     guard_codes_expr = (
         "@or(greater(length(body('Filter_bad_codes')), 0), "
-        "less(length(body('Select_codes')), 1), "
-        "less(length(body('Select_codes')), " + CHOICES_NOW + "))"
+        "less(length(body('Select_codes')), 1))"
     )
     email_body_1 = (
         "<p>D2 - Crew Sync read the Crews list and did not touch Assignments.Crew.</p>"
         "<p>Codes read (@{length(body('Select_codes'))}): @{join(body('Select_codes'), ', ')}</p>"
         "<p>Bad codes: @{join(body('Filter_bad_codes'), ', ')}</p>"
         "<p>Choices on Assignments.Crew now: @{" + CHOICES_NOW + "}</p>"
-        "<p>A code must be non-empty, lower case, with no spaces or quotes, and the list must not be "
-        "shorter than the choices already on the column.</p>"
+        "<p>A code must be non-empty, lower case, with no spaces or quotes.</p>"
     )
     email_body_2 = (
         "<p>D2 - Crew Sync wrote the Assignments.Crew field and the read-back did not match.</p>"
@@ -122,13 +125,13 @@ def build():
         "@{string(setProperty(setProperty(setProperty("
         "json('{\"__metadata\":{\"type\":\"SP.FieldChoice\"}}'), "
         "'Choices', setProperty(json('{\"__metadata\":{\"type\":\"Collection(Edm.String)\"}}'), "
-        "'results', body('Select_codes'))), "
+        "'results', outputs('Compose_all_codes'))), "
         "'ValidationFormula', outputs('Compose_formula')), "
         "'ValidationMessage', outputs('Compose_message')))}"
     )
     message_expr = (
         "@concat('Crew must be one of the codes from the Crews list, lower case, no spaces: ', "
-        "join(body('Select_codes'), ', '), "
+        "join(outputs('Compose_all_codes'), ', '), "
         "'. Use the short code (devon), never the display name (Devon Crew +3). "
         "A code that is not on this list matches nothing: the row would be skipped by dispatch and "
         "by conflict detection, silently.')"
@@ -161,8 +164,13 @@ def build():
             'inputs': {'from': "@body('Select_codes')", 'where': bad_codes_where},
         },
         'Get_crew_field': _get_field('Filter_bad_codes'),
-        'Guard_codes': {
+        'Compose_all_codes': {
             'runAfter': {'Get_crew_field': ['Succeeded']},
+            'type': 'Compose',
+            'inputs': "@union(coalesce(body('Get_crew_field')?['Choices'], json('[]')), body('Select_codes'))",
+        },
+        'Guard_codes': {
+            'runAfter': {'Compose_all_codes': ['Succeeded']},
             'type': 'If',
             'expression': guard_codes_expr,
             'actions': {
@@ -179,7 +187,7 @@ def build():
         'Select_formula_terms': {
             'runAfter': {'Guard_codes': ['Succeeded']},
             'type': 'Select',
-            'inputs': {'from': "@body('Select_codes')", 'select': "@concat('[Crew]=\"', item(), '\"')"},
+            'inputs': {'from': "@outputs('Compose_all_codes')", 'select': "@concat('[Crew]=\"', item(), '\"')"},
         },
         'Compose_formula': {
             'runAfter': {'Select_formula_terms': ['Succeeded']},
@@ -214,7 +222,7 @@ def build():
         'Filter_missing_written': {
             'runAfter': {'Get_crew_field_after': ['Succeeded']},
             'type': 'Query',
-            'inputs': {'from': "@body('Select_codes')", 'where': missing_where},
+            'inputs': {'from': "@outputs('Compose_all_codes')", 'where': missing_where},
         },
         'Guard_written': {
             'runAfter': {'Filter_missing_written': ['Succeeded']},

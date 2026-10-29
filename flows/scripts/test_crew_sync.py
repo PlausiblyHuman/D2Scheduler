@@ -15,7 +15,7 @@ assert trig['inputs']['parameters']['table'] == '45e9ff1f-bf36-4ab5-929d-25ab9a8
 assert trig['inputs']['host']['operationId'] == 'GetOnUpdatedItems'
 
 a = d['actions']
-for k in ['Get_crews', 'Select_codes', 'Filter_bad_codes', 'Get_crew_field', 'Guard_codes',
+for k in ['Get_crews', 'Select_codes', 'Filter_bad_codes', 'Get_crew_field', 'Compose_all_codes', 'Guard_codes',
           'Select_formula_terms', 'Compose_formula', 'Compose_message', 'Merge_crew_field',
           'Get_crew_field_after', 'Filter_missing_written', 'Guard_written']:
     assert k in a, k
@@ -44,11 +44,24 @@ for g, em in (('Guard_codes', 'Send_failure_email'), ('Guard_written', 'Send_fai
 assert a['Guard_codes']['actions']['Send_failure_email']['inputs']['parameters']['emailMessage/Subject'] == 'D2 Crew Sync stopped: crew codes not written'
 
 # the guard reads the bare (bracketless) form SharePoint stores in the read-back
-assert 'Crew=\\"' in json.dumps(a['Filter_missing_written']) or "Crew=\"" in json.dumps(a['Filter_missing_written']), 'formula check'
+assert 'Crew=\\"' in json.dumps(a['Filter_missing_written']), 'formula check'
 assert 'Choices' in json.dumps(a['Filter_missing_written']) and 'ValidationFormula' in json.dumps(a['Filter_missing_written'])
 
+# union rule: the sync never removes a code
+assert a['Compose_all_codes']['inputs'] == "@union(coalesce(body('Get_crew_field')?['Choices'], json('[]')), body('Select_codes'))"
+assert a['Compose_all_codes']['runAfter'] == {'Get_crew_field': ['Succeeded']}
+assert a['Guard_codes']['runAfter'] == {'Compose_all_codes': ['Succeeded']}
+assert "less(length(body('Select_codes')), length(" not in a['Guard_codes']['expression']
+assert 'Filter_bad_codes' in a['Guard_codes']['expression'] and "less(length(body('Select_codes')), 1)" in a['Guard_codes']['expression']
+ALL = "outputs('Compose_all_codes')"
+assert ALL in a['Select_formula_terms']['inputs']['from']
+assert ALL in a['Filter_missing_written']['inputs']['from']
+assert ALL in a['Compose_message']['inputs']
+assert "'results', " + ALL in body
+assert 'InitializeVariable' not in dumped
+
 # chain: each action runs after the one before
-chain = ['Get_crews', 'Select_codes', 'Filter_bad_codes', 'Get_crew_field', 'Guard_codes',
+chain = ['Get_crews', 'Select_codes', 'Filter_bad_codes', 'Get_crew_field', 'Compose_all_codes', 'Guard_codes',
          'Select_formula_terms', 'Compose_formula', 'Compose_message', 'Merge_crew_field',
          'Get_crew_field_after', 'Filter_missing_written', 'Guard_written']
 assert a[chain[0]]['runAfter'] == {}
