@@ -1,4 +1,5 @@
 [
+  {"label": "failed Crew-Trades read loads crews with no skills", "find": "if(k==='ct'){console.warn('Crew-Trades read failed, so the crews were kept as they were:',e&&e.message||e);return null;}", "replace": "if(k==='ct')return [];"},
   {"label": "qualified ignores overall 0", "find": "ratingFor(c,sk)>0&&c.overall!==0&&assignable(c)", "replace": "ratingFor(c,sk)>0&&assignable(c)"},
   {"label": "qualified ignores a 0 rating", "find": "ratingFor(c,sk)>0&&c.overall!==0&&assignable(c)", "replace": "ratingFor(c,sk)!=null&&c.overall!==0&&assignable(c)"},
   {"label": "qualified ignores assignability", "find": "ratingFor(c,sk)>0&&c.overall!==0&&assignable(c)", "replace": "ratingFor(c,sk)>0&&c.overall!==0"},

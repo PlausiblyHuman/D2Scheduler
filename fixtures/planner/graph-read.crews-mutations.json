@@ -53,5 +53,20 @@
   "label": "payload drops assignableCodes",
   "find": "      assignableCodes: assignableCodesFrom(graph.asgColumns),\n",
   "replace": ""
+ },
+ {
+  "label": "ct read failure (null) no longer keeps the crews",
+  "find": "if (!Array.isArray(ctRows)) { warn('Crew-Trades read failed, keeping the previous crews'); return null; }",
+  "replace": "ctRows = ctRows || [];"
+ },
+ {
+  "label": "empty ct with crews and trades no longer a broken read",
+  "find": "if (!ctRows.length && Array.isArray(tradeRows) && tradeRows.length) {",
+  "replace": "if (false) {"
+ },
+ {
+  "label": "unjoined ct rows no longer keep the crews",
+  "find": "if (ctRows.length && !ctRows.some(r => bySp.has(key(((r && r.fields) || {}).CrewLookupId)))) {",
+  "replace": "if (false) {"
  }
 ]

@@ -1,0 +1,7 @@
+[
+ {
+  "label": "crews kept but trades and assignable codes replaced",
+  "find": "if(d.crewRows!==null){",
+  "replace": "if(true){"
+ }
+]

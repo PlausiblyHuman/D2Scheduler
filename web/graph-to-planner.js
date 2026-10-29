@@ -204,6 +204,10 @@
   function crewRowsFrom(crewRows, ctRows, tradeRows) {
     if (!Array.isArray(crewRows) || !crewRows.length) return null;
     const warn = m => { if (typeof console !== 'undefined' && console.warn) console.warn('graph-to-planner: ' + m); };
+    /* A failed or unjoined Crew-Trades read keeps the previous crews (null)
+       rather than loading crews with no skills. */
+    if (!Array.isArray(ctRows)) { warn('Crew-Trades read failed, keeping the previous crews'); return null; }
+    if (!ctRows.length && Array.isArray(tradeRows) && tradeRows.length) { warn('Crew-Trades came back empty while Crews and Trades have rows, keeping the previous crews'); return null; }
     const tradeCode = new Map((tradeRows || []).map(t => [key(((t && t.fields) || {}).id), ((t && t.fields) || {}).TradeCode]));
     const out = crewRows.map(r => {
       const f = (r && r.fields) || {};
@@ -214,7 +218,8 @@
         note: f.Notes == null ? '' : String(f.Notes), overall: normRating(f.Preference), ratings: {}, ctIds: {} };
     });
     const bySp = new Map(out.map(c => [c.spId, c]));
-    (ctRows || []).forEach(r => {
+    if (ctRows.length && !ctRows.some(r => bySp.has(key(((r && r.fields) || {}).CrewLookupId)))) { warn('no Crew-Trades row joins a crew, keeping the previous crews'); return null; }
+    ctRows.forEach(r => {
       const f = (r && r.fields) || {};
       const crew = bySp.get(key(f.CrewLookupId)), code = tradeCode.get(key(f.TradeLookupId));
       if (!crew || !code) { warn('Crew-Trades row ' + key(f.id != null ? f.id : r && r.id) + ' joins to no ' + (!crew ? 'crew' : 'trade')); return; }

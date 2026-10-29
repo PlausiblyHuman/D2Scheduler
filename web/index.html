@@ -2887,8 +2887,11 @@ function importFromD2Payload(d,silent){
     if(Array.isArray(d.crews))S.crewCodes=d.crews;
     /* An empty Crews read arrives as null and leaves the crews alone, so a failed read never wipes them. */
     if(Array.isArray(d.crewRows))S.crews=d.crewRows.map(crewFromRow);
-    if(Array.isArray(d.tradeRows))S.trades=d.tradeRows.map(t=>({spId:t.spId,code:t.code,label:t.label,sort:t.sort}));
-    S.assignableCodes=Array.isArray(d.assignableCodes)?d.assignableCodes:null;
+    /* When the crews were kept (crewRows null), the skills and the assignable codes that go with them are kept too. */
+    if(d.crewRows!==null){
+      if(Array.isArray(d.tradeRows))S.trades=d.tradeRows.map(t=>({spId:t.spId,code:t.code,label:t.label,sort:t.sort}));
+      S.assignableCodes=Array.isArray(d.assignableCodes)?d.assignableCodes:null;
+    }
     let added=0,updated=0,secs=0;
     const plan=d.jobs.map(inj=>{
       const existing=S.jobs.find(j=>String(j.jobno)===String(inj.jobno));
@@ -3280,7 +3283,9 @@ async function pushCrewChanges(siteId,tok,local){
   const crewRows=await rd('crews'), ctRows=await rd('ct'), tradeRows=await rd('trades');
   const live={
     trades:R.tradeRowsFrom(tradeRows),
-    crews:R.crewRowsFrom(crewRows,ctRows,tradeRows)||[],
+    crews:(()=>{const m=R.crewRowsFrom(crewRows,ctRows,tradeRows);
+      if(!m&&crewRows.length)throw new Error('Crew-Trades could not be read cleanly, so nothing was changed. Press Refresh and try again.');
+      return m||[];})(),
     ct:ctRows.map(r=>{const f=r.fields||{};
       return {spId:String(f.id),crewSpId:String(f.CrewLookupId),tradeSpId:String(f.TradeLookupId),rating:R.normRating(f.Preference)};})
   };
@@ -4051,8 +4056,12 @@ async function loadFromD2ViaGraph(silent,opts){
   const keys=Object.keys(D2_GRAPH.lists).filter(k=>k!=='asg'&&k!=='tasks');
   const rows=await Promise.all(keys.map(k=>
     graphPageAll(base+D2_GRAPH.lists[k]+'/items?$expand=fields&$top=500',tok)
-      /* The Crews list only feeds the template check, so an unreadable one costs the check and never the Refresh. */
-      .catch(e=>{if(k==='crews'||k==='ct')return [];throw e;})));
+      /* An unreadable Crews list costs the template check and the crews, never the Refresh. An unreadable
+         Crew-Trades list is null, not empty, so the mapper keeps the previous crews instead of loading crews with no skills. */
+      .catch(e=>{
+        if(k==='ct'){console.warn('Crew-Trades read failed, so the crews were kept as they were:',e&&e.message||e);return null;}
+        if(k==='crews')return [];
+        throw e;})));
   const graphPayload={site:site.webUrl};
   keys.forEach((k,i)=>{graphPayload[k]=rows[i];});
   const live=(graphPayload.jobs||[]).filter(r=>!R.isComplete(r.fields&&r.fields.Status));

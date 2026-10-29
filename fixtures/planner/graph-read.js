@@ -226,7 +226,7 @@ const totalNa = p => p.jobs.reduce((n, j) => n + j.sections.reduce((m, s) => m +
 
   /* ---- 2. import the Graph-derived payload into the real planner ---- */
   let html = fs.readFileSync(PLANNER, 'utf8').replace('</body>',
-    `<script>window.__x=()=>{window.S=S;window.importFromD2=importFromD2;window.allSecs=allSecs;window.autoSchedule=autoSchedule;};</script><script>__x();</script></body>`);
+    `<script>window.__x=()=>{window.S=S;window.importFromD2=importFromD2;window.importFromD2Payload=importFromD2Payload;window.allSecs=allSecs;window.autoSchedule=autoSchedule;};</script><script>__x();</script></body>`);
   const vc = new VirtualConsole(); vc.on('jsdomError', e => console.log('[jsdom]', e.message));
   const dom = new JSDOM(html, { runScripts: 'dangerously', pretendToBeVisual: true, url: 'http://localhost/', virtualConsole: vc });
   const win = dom.window;
@@ -349,6 +349,19 @@ const totalNa = p => p.jobs.reduce((n, j) => n + j.sections.reduce((m, s) => m +
     ok('a crew code with stray spaces is trimmed', M.crewRowsFrom([{id:'1',fields:{id:'1',CrewID:' x ',Title:'X'}}],[],[])[0].id === 'x');
     const p = M.toPlannerPayload(Object.assign({}, G, { asgColumns: [{name:'Crew',choice:{choices:['harrison']}}] }));
     ok('payload carries crewRows, tradeRows and assignableCodes', p.crewRows.length === 14 && p.tradeRows.length === 26 && p.assignableCodes[0] === 'harrison');
+    ok('a failed Crew-Trades read (null) keeps the previous crews: crewRows null', M.crewRowsFrom(G.crews, null, G.trades) === null && M.crewRowsFrom(G.crews, null, []) === null);
+    ok('Crew-Trades rows that join no crew keep the previous crews: crewRows null',
+       M.crewRowsFrom(G.crews, [{ id: '1', fields: { id: '1', CrewLookupId: '99999', TradeLookupId: '1' } }], G.trades) === null);
+    ok('crews present with an empty Crew-Trades list and trades present is a broken read: crewRows null', M.crewRowsFrom(G.crews, [], G.trades) === null);
+    ok('the payload carries crewRows null for each of them', [null, [], [{ id: '1', fields: { id: '1', CrewLookupId: '99999' } }]]
+       .every(ct => M.toPlannerPayload(Object.assign({}, G, { ct })).crewRows === null));
+    {
+      const before = JSON.stringify(win.S.crews), codesBefore = JSON.stringify(win.S.assignableCodes), tradesBefore = JSON.stringify(win.S.trades);
+      ok('the planner holds rated crews from the good import', win.S.crews.length === 14 && Object.keys(win.S.crews.find(c => c.id === 'harrison').ratings).length > 0);
+      win.importFromD2Payload(M.toPlannerPayload(Object.assign({}, G, { ct: null, asgColumns: [{ name: 'Crew', choice: { choices: ['x'] } }] })), true);
+      ok('after a payload with a failed Crew-Trades read S.crews keeps its ratings', JSON.stringify(win.S.crews) === before);
+      ok('and S.trades and S.assignableCodes are kept with them', JSON.stringify(win.S.trades) === tradesBefore && win.S.trades.length === 26 && JSON.stringify(win.S.assignableCodes) === codesBefore);
+    }
     ok('payload still carries crews as codes for the template check', Array.isArray(p.crews) && p.crews.includes('harrison'));
   }
 

@@ -36,6 +36,8 @@ python fixtures/planner/mutate.py fixtures/planner/graph-write.js  web/graph-wri
 python fixtures/planner/mutate.py fixtures/planner/signin.js       web/index.html
 python fixtures/planner/mutate.py fixtures/planner/office-views.js web/index.html --json fixtures/planner/office-views.mutations.json
 python fixtures/planner/mutate.py fixtures/planner/office-views.js web/graph-to-planner.js --json fixtures/planner/office-views.g2p-mutations.json
+python fixtures/planner/mutate.py fixtures/planner/graph-read.js web/graph-to-planner.js --json fixtures/planner/graph-read.crews-mutations.json
+python fixtures/planner/mutate.py fixtures/planner/graph-read.js web/index.html --json fixtures/planner/graph-read.html-mutations.json
 ```
 
 A crash counts as red. A mutation whose anchor text is missing is reported

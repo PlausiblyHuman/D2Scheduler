@@ -267,6 +267,7 @@ ok('slugCode keeps counting past a second collision', C.slugCode('Dig', ['dig', 
     const HOST = 'https://mango-sky-0d6904310.5.azurestaticapps.net';
     const CODES = FX.crews.map(r => r.fields.CrewID).filter(c => c !== 'campos');
     const MSAL = `<script>window.msal={PublicClientApplication:class{constructor(){} getActiveAccount(){return {username:'cody@d2pools.com'};} setActiveAccount(){} getAllAccounts(){return [{username:'cody@d2pools.com'}];} acquireTokenSilent(){return Promise.resolve({accessToken:'t'});} loginPopup(){return Promise.resolve({accessToken:'t',account:{username:'cody@d2pools.com'}});}}};</script>`;
+    let failCt = false;
     const bootC = stored => {
       const inline = f => '<script>' + fs.readFileSync(path.join(WEB, f), 'utf8') + '</script>';
       const html = fs.readFileSync(path.join(WEB, 'index.html'), 'utf8')
@@ -289,6 +290,7 @@ ok('slugCode keeps counting past a second collision', C.slugCode('Dig', ['dig', 
             if (u.includes('User Information List')) return json(200, { value: [] });
             if (/\/lists\/[^/]+\/columns/.test(u)) return json(200, { value: [{ name: 'Title' }, { name: 'Crew', choice: { choices: CODES } }] });
             const L = w.D2_GRAPH && w.D2_GRAPH.lists;
+            if (L && failCt && u.includes('/lists/' + L.ct + '/items')) return json(500, {});
             if (L) for (const k of Object.keys(L)) if (u.includes('/lists/' + L[k] + '/items')) return json(200, { value: FX[k] || [] });
             if (/\/lists\/[^/]+\/items/.test(u)) return json(200, { value: [] });
             return json(404, {});
@@ -303,6 +305,12 @@ ok('slugCode keeps counting past a second collision', C.slugCode('Dig', ['dig', 
     const S = win.S;
     ok('S.crews comes from SharePoint after Refresh', S.crews.length === 14 && S.crews.every(c => c.spId));
     ok('harrison plumbing rating 3, base recorded', win.ratingFor(win.crew('harrison'), 'plumbing') === 3 && win.crew('harrison').base.ratings.plumbing === 3);
+    ok('a Refresh whose Crew-Trades read fails keeps the previous crews, ratings and skills', await (async () => {
+      const before = JSON.stringify(S.crews), tb = JSON.stringify(S.trades);
+      const warns = []; const ow = win.console.warn; win.console.warn = (...a) => { warns.push(a.join(' ')); };
+      failCt = true; try { await win.refreshLive(true); await wait(900); } finally { failCt = false; win.console.warn = ow; }
+      return warns.some(m => /so the crews were kept as they were/.test(m)) && JSON.stringify(S.crews) === before && JSON.stringify(S.trades) === tb && win.ratingFor(win.crew('harrison'), 'plumbing') === 3;
+    })());
     ok('S.trades has 26 skills and skillLabel reads them', S.trades.length === 26 && win.skillLabel('plumbing') === 'Plumbing');
     ok('skillLabel and skillList follow the Trades list', (() => { const t = S.trades.find(x => x.code === 'dig'); t.label = 'Dig Renamed'; return win.skillLabel('dig') === 'Dig Renamed' && win.skillList().length === 26 && win.skillList().some(x => x.id === 'dig' && x.label === 'Dig Renamed'); })());
     ok('a crew rated 0 for a trade is not qualified for it', (() => { win.crew('harrison').ratings.plumbing = 0; return !win.qualified('plumbing').some(c => c.id === 'harrison') && !win.isQualified(win.crew('harrison'), 'plumbing'); })());
