@@ -93,8 +93,8 @@
   "web/index.html": [
     {
       "label": "the thread is merged rather than replaced, so deleted entries linger",
-      "find": "        s.thread=Array.isArray(is.thread)?is.thread:[];",
-      "replace": "        if(Array.isArray(is.thread)&&is.thread.length)s.thread=is.thread; else s.thread=s.thread||[];"
+      "find": "      s.thread=Array.isArray(is.thread)?is.thread:[];",
+      "replace": "      s.thread=Array.isArray(is.thread)?is.thread:[{id:'stale',kind:'Comment',body:'stale',by:'x',at:''}];"
     },
     {
       "label": "the comments read has no catch, so it can fail Refresh",
@@ -108,8 +108,8 @@
     },
     {
       "label": "rejected is not cleared when the payload drops it",
-      "find": "        s.rejected=!!is.rejected;",
-      "replace": "        if(is.rejected)s.rejected=true;"
+      "find": "      s.rejected=!!is.rejected;",
+      "replace": "      if(is.rejected)s.rejected=true;"
     },
     {
       "label": "comment bodies are not escaped",
@@ -183,8 +183,8 @@
     },
     {
       "label": "queued comments do not make Save live",
-      "find": "&&pendingSignoffs===0&&pendingRejections===0);",
-      "replace": "&&pendingSignoffs===0);"
+      "find": "&&pendingRejections===0&&pendingCrews===0);",
+      "replace": "&&pendingCrews===0);"
     },
     {
       "label": "queued comments are not counted on the confirm button",

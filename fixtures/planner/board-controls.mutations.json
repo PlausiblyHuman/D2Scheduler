@@ -11,8 +11,8 @@
  },
  {
   "label": "skill labels lose the chip class",
-  "find": "<span class=\"chip skill${c.skills.includes(s.id)?'':' off'}\"",
-  "replace": "<span class=\"skill${c.skills.includes(s.id)?'':' off'}\""
+  "find": "return `<span class=\"chip skill${r==null?",
+  "replace": "return `<span class=\"skill${r==null?"
  },
  {
   "label": "building flag never imported",

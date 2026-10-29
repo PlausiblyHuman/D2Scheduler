@@ -51,8 +51,8 @@
  },
  {
   "label": "unreadable crews list fails the Refresh",
-  "find": ".catch(e=>{if(k==='crews')return [];throw e;})",
-  "replace": ""
+  "find": "        if(k==='crews')return [];\n        throw e;",
+  "replace": "        throw e;"
  },
  {
   "label": "an unread Crews list reads as a clean template",

@@ -11,13 +11,13 @@
  },
  {
   "label": "crew change not recorded",
-  "find": "if(k==='crew'){ s.crewId=v||null; touch(j); save(); render(); return; }",
-  "replace": "if(k==='crew'){ render(); return; }"
+  "find": "s.crewId=v||null; touch(j); save(); render(); return; }",
+  "replace": "render(); return; }"
  },
  {
   "label": "crew change reflows the project",
-  "find": "if(k==='crew'){ s.crewId=v||null; touch(j); save(); render(); return; }",
-  "replace": "if(k==='crew'){ s.crewId=v||null; touch(j); reflowFrom(jobId,gi,si); s.start=nextWork(addCal(s.start,1)); save(); render(); return; }"
+  "find": "s.crewId=v||null; touch(j); save(); render(); return; }",
+  "replace": "s.crewId=v||null; touch(j); reflowFrom(jobId,gi,si); s.start=nextWork(addCal(s.start,1)); save(); render(); return; }"
  },
  {
   "label": "days change does not reflow",
@@ -41,13 +41,13 @@
  },
  {
   "label": "crew names unescaped in the dropdown",
-  "find": "const opt=c=>`<option value=\"${c.id}\"${s.crewId===c.id?' selected':''}>${esc(c.name)}</option>`;",
-  "replace": "const opt=c=>`<option value=\"${c.id}\"${s.crewId===c.id?' selected':''}>${c.name}</option>`;"
+  "find": "${esc(c.name)}${suffix}</option>`;",
+  "replace": "${c.name}${suffix}</option>`;"
  },
  {
   "label": "Not qualified crews offered as qualified",
-  "find": "const cands=s.skill?qualified(s.skill):[],other=S.crews.filter(c=>!cands.includes(c));\n  const opt=",
-  "replace": "const cands=S.crews.slice(),other=[];\n  const opt="
+  "find": "const ready=cands.filter(c=>assignable(c)), other=S.crews.filter(c=>!ready.includes(c));",
+  "replace": "const ready=S.crews.slice(), other=[];"
  },
  {
   "label": "controls placed inside the clickable name",
