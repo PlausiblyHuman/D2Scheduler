@@ -72,7 +72,8 @@ const LISTS = {
   cal: 'd36758cf-9d27-4342-84e4-817f8dcfa2ba',
   spt: '453e7cd5-f84a-4e2a-9372-73f26019e3f0',     // Sub-phase Template
   tpt: '61824add-8eaa-4b1b-aed7-a202204bf9f5',     // Task Template
-  trades: '05038f7f-a6cb-4f57-b1a1-3ff9c7126ba5'
+  trades: '05038f7f-a6cb-4f57-b1a1-3ff9c7126ba5',
+  crews: '45e9ff1f-bf36-4ab5-929d-25ab9a80d460'      // Crews, read for the template check
 };
 
 /* --merge: copy ONLY these keys from the posted capture into the two existing fixtures and

@@ -2950,6 +2950,124 @@ where each ask stands, the shape and size of delete/rename, notes per task, punc
 PM-addable trades, the recommended order, and the five questions to put to Don in one message
 (Fiberglass is delivered, see "BUILD TYPES").
 
+## THE 28 OCTOBER MEETING: decisions that bind, and guide Version 9 (28 October) drafted
+
+Record: `docs/2026-10-28-status-meeting-notes.md` (from the Teams recording's Stream transcript and
+the Facilitator's Loop notes, both read headlessly through Claude in Chrome; the memory note
+`teams-meeting-artifacts-access` has the route). Follow-up design and the questions for D2:
+`docs/2026-10-28-questions-solutions-plans.md`. Decisions from Don and David, 8 AM Central:
+
+- **Optional features are feature templates on a basic pool template**, picked per project, and
+  reusable standalone on an existing pool. That is the model built on 2026-10-27b. Don's first
+  list: auto cover, water feature, fire feature, spa, diving board, grotto, slide. Water-feature
+  variants stay under one feature. Don builds the rows himself on the SharePoint template lists.
+- **The Features drawer was empty on Don's screen because it had nothing to offer**: no template
+  row is Optional yet and his Gunite projects already carry every Gunite row (or he had not pressed
+  Refresh since the deploy, which shows "Press Refresh first"). Not a defect. The guide now says so.
+- **Skills and crew preferences** (to build, 2 to 3 sessions): Don adds skills; each crew gets a
+  preference per skill, 0 to 3, and an overall 0 to 3 that overrides; 0 means never used, and the
+  crew stays on the list. SharePoint becomes the one copy (Trades, Crew-Trades, Crews), the Crews
+  tab edits it, Auto-Schedule picks by preference tier then load.
+- **Job numbers come from the tool**: `YY-NNNN`, contract year plus one more than the highest
+  existing number; no type letter in the number; feature tags shown on the job instead.
+- **Mark complete gets an admin override** for Don and David; PMs still need every sub-phase signed.
+- **Payment draws are a soft gate**, a red flag that never blocks scheduling. Design waits on what
+  triggers a draw and who marks it received (recommendation: a Draws list, not template rows).
+- **Don warns before adding or removing more than two or three projects in a day.**
+- **A programmatic reset later**, keeping a named list of projects and rebuilding the Fiberglass
+  jobs that were loaded as Gunite; not before the features and Rev4 are in.
+- **Calendar stays paused**; Don had never found it and uses the planner as his calendar.
+
+**Shane's rulings the same afternoon, on the open design questions** (recorded in
+`docs/2026-10-28-questions-solutions-plans.md` sections 1 to 3):
+
+- **Preference scale: 3 is first choice, 1 last resort, 0 never.** Not A-B-C order.
+- **Overall crew preference: only a 0 overrides.** An overall of 1 to 3 is stored and shown but
+  changes no scheduling decision; 0 excludes the crew everywhere and keeps its row.
+- **Subcontractors are rated like any crew**, and stay capacity-exempt.
+- **Build the skills editor before chasing Don's trade mapping**; he does the mapping in the tool.
+- **Job numbers are generated at `+ Job`** as the meeting decided (`YY-NNNN`, contract year typed).
+- **Draws are template rows, not a Draws list.** That needs **zero-day sub-phases** (WP6, approved
+  2026-09-25, never built) in the planner, `D2 - New Pool` and `D2 - Reschedule Pool` first.
+- **Mark complete: the admin override now AND a `Closeout` status later** (off dispatch, alerts
+  and compliance; still listed), once Don has used the override.
+- **The reset follows Don's keeper list**, whatever a project's history.
+- **Build the "wait your turn" gate in `D2 - New Pool` in November**; it retires the "warn before
+  2 or 3 projects a day" rule.
+- **Design everything for reuse by Plumbline**, built here for D2 first.
+- **The guide waits for the next major version.** Version 9 stays on the private copy; nothing is
+  published or sent until the skills, numbers and draws work ships. The draft message to Don and
+  David goes only after Shane edits it.
+
+**THE TEMPLATE LISTS ARE GATED, applied live 2026-10-28 (item 1 of the revised order).**
+`Sub-phase Template` and `Task Template` no longer inherit the site's permissions. Read back from
+the lists after the write, and checked with SharePoint's own `getusereffectivepermissions`:
+
+| Principal | On both lists | Effective |
+|---|---|---|
+| D2 Build Scheduler Owners (group 3) | Full Control | D2 Bot (the connection every flow runs as) still edits and manages the lists |
+| D2 Build Scheduler Members (group 5) | **Read** (was Edit through the site) | Cody: view yes, edit no |
+| D2 Build Scheduler Visitors (group 4) | Read | unchanged |
+| Don Borgeson (site user 16) | **Edit**, named | view and edit |
+| David Taylor (site user 13) | **Edit**, named | view and edit |
+
+Every other list still inherits. The planner needed nothing: the Build phases tab has been
+read-only since 2026-10-13, and Refresh only reads the two lists, which Members still can.
+`D2 - New Pool` reads them as D2 Bot, an owner. Script: `sharepoint/gate-template-lists.js`
+(console paste, dry run by default, `window.D2_GATE_WRITE = true` to apply; reads every role, group
+and user id off the site; idempotent, a second dry run planned nothing). **A new crew-lead or office
+account that should edit templates is added as a named Edit on both lists by re-running it with the
+UPN added to `EDITORS`.** Don's `contact@d2pools.com` duplicate and David's `#ext#` guest never match
+the claim filter.
+
+**THE BUILD PHASES TAB CHECKS THE TEMPLATES, built 2026-10-28 (item 1, second half; NOT yet
+deployed).** On every Refresh the planner now also reads the Crews list (`D2_GRAPH.lists.crews`,
+with its own catch so an unreadable list costs the check and never the Refresh) and keeps the raw
+template rows (`S.templateRows`, `S.crewCodes`, emitted by `graph-to-planner.js` as `templateRows`
+and `crews`). `web/template-check-core.js` (pure, Node-testable) judges them and `vPhases` draws a
+collapsed card above the Build phases table: "Templates check out: 91 sub-phases and 543 tasks
+across both build types, nothing to fix" or "Template check: N issues to fix (E errors, W
+warnings)", opening to one line per issue with the row in bold, what is wrong and what to do, in
+Don's words, grouped by build type. Errors (a new project would fail or build wrong): a crew code
+not on the Crews list, a blank or shared Sequence, a blank or shared sub-phase number, a blank
+name, a Trade pointing at no Trades row, a task under no sub-phase or under one of the other build
+type. Warnings: no trade and no skill, Days blank or below 1 (0 is a warning, not an error, since
+zero-day rows are coming for draws), one phase spelled two ways, two feature names that differ only
+in spacing or case, numbers going backwards in Sequence order. **With no crew codes the crew rule
+stays quiet and the card says "crew codes not checked"**, so an unread Crews list never reads as a
+clean template. Absent entirely on a downloaded copy or an older payload.
+
+**The live templates checked out clean on 2026-10-28: 0 errors, 0 warnings over 91 / 543 rows
+with the 14 live crew codes, and dropping one code from the list raised 17 errors**, so the clean
+result is not vacuous. Pinned by `fixtures/planner/template-check.js` (71 assertions: every rule
+both ways, the mapping, the live fixture, the card in the real page including escaping of a crew
+code carrying markup) with three mutation files (core, mapper, page). `fixtures/planner/
+capture-graph.js` now captures the Crews list too. **A crew-code typo is an error because the
+`Assignments.Crew` validation formula refuses unknown codes, so `D2 - New Pool`'s `Create_assignment`
+fails on that row**; the check catches it before a project is raised.
+
+**The proxy-flow recipe is now committed: `tools/sp-proxy.js`.** It runs any `sharepoint/*.js`
+console script under Node with `fetch` forwarded to a throwaway Request-triggered flow (the recipe
+in "A REQUEST-TRIGGERED FLOW IS A GENERIC SHAREPOINT REST PROXY"), so a script written for the site
+console also runs headlessly as D2 Bot. `--write` sets the script's write flag. The flow itself is
+still created per session (`create_flow`, `PublishXml`, `publish_flow`, `listCallbackUrl` with
+`--query response.value`) and deleted at the end; on 2026-10-28 `list_flows` returned the Dataverse
+workflowid for it and that same id worked in the `listCallbackUrl` path. **`az rest --body @file`
+needs a Windows path (`C:/...`), not a Git Bash `/c/...` path**: the latter reaches Dataverse as an
+empty body and fails `Stream was not readable`, which reads like a server fault.
+
+**Guide Version 9, 28 October 2026, is published on the PRIVATE copy** (`UoeNwV4i4EQQaQgSuJCqiJ`,
+https://claude.ai/artifact/UoeNwV4i4EQQaQgSuJCqiJ), by the exact-match patch
+`scratchpad/patch-guide-v9.py` over the 5 October draft: an Optional features section (switch on
+and off, New in the template, the half page on adding a feature to the templates with the fields
+a row needs), build type at `+ Job`, Build phases read-only, the plain-tick rule, reject only on a
+saved sign-off, calendar paused, three new traps and four help rows. The client copy
+(`a84a2e1a-…`, MnJkMLwg3LHXpv9g74SiV2) is still Version 8 and is not touched without Shane's
+explicit approval. **Verify the template column display names on the live list before the client
+copy goes out**: the guide names `SubPhaseNumber`, `DefaultCrew`, `DurationDays`, `Skill`,
+`Optional`, `Feature`, `Build Type`, `Phase Name`, `Sequence`, `Trade` as the provisioning scripts
+created them; the browser pane holds no SharePoint session, so they were not read back today.
+
 ## A PLAIN TICK LANDS UNDER A SIGN-OFF — built and deployed as a hotfix 2026-10-27 (`deploy/2026-10-27`)
 
 Shane's 2026-10-23 rule change, built in the planner only. **Shipped the 10-23 way:** branch

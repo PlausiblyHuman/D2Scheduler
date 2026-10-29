@@ -10,7 +10,10 @@
  * sign-off comment thread and the three rejection columns below, which are
  * Graph-only by design (per the reject-with-comments spec, 2026-09-21): the
  * REST export path and the file:// fallback never carry them, and the
- * importer must cope with their absence rather than require them.
+ * importer must cope with their absence rather than require them. Two more
+ * Graph-only keys since 2026-10-28: `templateRows` (the raw template rows for
+ * web/template-check-core.js) and `crews` (the codes on the Crews list). Both
+ * are absent from the REST export and optional on import.
  *
  * WHY THIS FILE IS SEPARATE FROM export-to-planner.js, not a second code path
  * inside it: Graph and REST are read from different runtimes (a hosted app
@@ -147,6 +150,35 @@
     return out;
   }
 
+  /* The raw template rows, normalised for web/template-check-core.js. Kept apart from
+     templatesFrom because the check must see rows that template shaping would drop or
+     reorder (a blank Sequence, an orphan task, an unknown crew). Never throws. */
+  function templateRowsFrom(sptRows, tptRows, tradeRows) {
+    const num = v => (v == null || v === '' || !Number.isFinite(Number(v)) ? null : Number(v));
+    const str = v => (v == null ? null : String(v));
+    const spt = (sptRows || []).map(r => {
+      const f = (r && r.fields) || {};
+      const feat = String(f.Feature == null ? '' : f.Feature).trim();
+      return { id: key(f.id != null ? f.id : r && r.id), buildType: normType(f.BuildType), num: str(f.SubPhaseNumber) || '',
+        name: str(f.Title) || '', phase: str(f.PhaseName) || '', seq: num(f.Sequence),
+        crew: String(f.DefaultCrew == null ? '' : f.DefaultCrew).trim(),
+        tradeId: f.TradeLookupId != null ? key(f.TradeLookupId) : null,
+        skill: f.Skill != null && String(f.Skill).trim() ? String(f.Skill).trim() : null,
+        days: num(f.DurationDays), optional: !!f.Optional, feature: feat || null };
+    });
+    const tpt = (tptRows || []).map(r => {
+      const f = (r && r.fields) || {};
+      const feat = String(f.Feature == null ? '' : f.Feature).trim();
+      return { id: key(f.id != null ? f.id : r && r.id), buildType: normType(f.BuildType), title: str(f.Title) || '',
+        subId: f.SubPhaseLookupId != null ? key(f.SubPhaseLookupId) : null, seq: num(f.Sequence), feature: feat || null };
+    });
+    const trades = (tradeRows || []).map(r => { const f = (r && r.fields) || {}; return { id: key(f.id != null ? f.id : r && r.id), code: f.TradeCode || null }; });
+    return { spt, tpt, trades };
+  }
+  function crewCodesFrom(crewRows) {
+    return (crewRows || []).map(r => String(((r && r.fields) || {}).CrewID == null ? '' : r.fields.CrewID).trim()).filter(Boolean);
+  }
+
   function toPlannerPayload(graph, opts) {
     graph = graph || {};
     const includeComplete = !!(opts && opts.includeComplete);
@@ -235,6 +267,8 @@
       site: graph.site || SITE_DEFAULT,
       nonWork: [...new Set(cal.map(c => day(c.fields.Date)).filter(Boolean))].sort(),
       templates: templatesFrom(graph.spt, graph.tpt, graph.trades),
+      templateRows: templateRowsFrom(graph.spt, graph.tpt, graph.trades),
+      crews: crewCodesFrom(graph.crews),
       jobs: jobs.map(j => {
         const jf = j.fields;
         const jobId = key(jf.id);
@@ -367,5 +401,5 @@
     return { asg: [].concat(...results.map(r => r.asg)), tasks: [].concat(...results.map(r => r.tasks)) };
   }
 
-  return { toPlannerPayload, normType, templatesFrom, isComplete, asgUrl, taskUrls, readLive, TASK_CHAIN_MAX };
+  return { toPlannerPayload, normType, templatesFrom, templateRowsFrom, crewCodesFrom, isComplete, asgUrl, taskUrls, readLive, TASK_CHAIN_MAX };
 });

@@ -1,0 +1,62 @@
+[
+ {
+  "label": "card rendered without templateRows",
+  "find": "if(typeof window.D2TemplateCheck==='undefined'||!S.templateRows)return '';",
+  "replace": "if(typeof window.D2TemplateCheck==='undefined')return '';"
+ },
+ {
+  "label": "esc removed on the ref",
+  "find": "<b>${esc(i.ref)}</b> ${esc(i.msg)}",
+  "replace": "<b>${i.ref}</b> ${esc(i.msg)}"
+ },
+ {
+  "label": "esc removed on the message",
+  "find": "<b>${esc(i.ref)}</b> ${esc(i.msg)}",
+  "replace": "<b>${esc(i.ref)}</b> ${i.msg}"
+ },
+ {
+  "label": "crews GUID removed",
+  "find": "crews:'45e9ff1f-bf36-4ab5-929d-25ab9a80d460'",
+  "replace": "crews_off:'45e9ff1f-bf36-4ab5-929d-25ab9a80d460'"
+ },
+ {
+  "label": "template rows not stored",
+  "find": "if(d.templateRows&&typeof d.templateRows==='object')S.templateRows=d.templateRows;",
+  "replace": "/*off*/"
+ },
+ {
+  "label": "crew codes not stored",
+  "find": "if(Array.isArray(d.crews))S.crewCodes=d.crews;",
+  "replace": "/*off*/"
+ },
+ {
+  "label": "crews not passed to check",
+  "find": "crews:S.crewCodes||[]",
+  "replace": "crews:[]"
+ },
+ {
+  "label": "open state ignored",
+  "find": "const n=res.issues.length, open=UI.tplChkOpen?'open':'';",
+  "replace": "const n=res.issues.length, open='';"
+ },
+ {
+  "label": "card below the table",
+  "find": "return templateCheckCard()+`<div class=\"card\"><h2>Build phases",
+  "replace": "return `<div class=\"card\"><h2>Build phases"
+ },
+ {
+  "label": "summary count wrong",
+  "find": "${n} issue${n===1?'':'s'} to fix",
+  "replace": "${n+1} issue${n===1?'':'s'} to fix"
+ },
+ {
+  "label": "unreadable crews list fails the Refresh",
+  "find": ".catch(e=>{if(k==='crews')return [];throw e;})",
+  "replace": ""
+ },
+ {
+  "label": "an unread Crews list reads as a clean template",
+  "find": "const noCrews=!(S.crewCodes||[]).length;",
+  "replace": "const noCrews=false;"
+ }
+]

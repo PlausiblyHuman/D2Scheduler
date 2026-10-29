@@ -1,0 +1,42 @@
+[
+ {
+  "label": "crews dropped",
+  "find": "      crews: crewCodesFrom(graph.crews),\n",
+  "replace": ""
+ },
+ {
+  "label": "crew not trimmed",
+  "find": "String(((r && r.fields) || {}).CrewID == null ? '' : r.fields.CrewID).trim()",
+  "replace": "String(((r && r.fields) || {}).CrewID == null ? '' : r.fields.CrewID)"
+ },
+ {
+  "label": "spt crew not trimmed",
+  "find": "crew: String(f.DefaultCrew == null ? '' : f.DefaultCrew).trim(),",
+  "replace": "crew: String(f.DefaultCrew == null ? '' : f.DefaultCrew),"
+ },
+ {
+  "label": "days not numeric",
+  "find": "days: num(f.DurationDays),",
+  "replace": "days: f.DurationDays == null ? null : f.DurationDays,"
+ },
+ {
+  "label": "task subId not keyed",
+  "find": "subId: f.SubPhaseLookupId != null ? key(f.SubPhaseLookupId) : null, seq: num(f.Sequence), feature: feat || null };",
+  "replace": "subId: f.SubPhaseLookupId != null ? f.SubPhaseLookupId : null, seq: num(f.Sequence), feature: feat || null };"
+ },
+ {
+  "label": "templateRows not emitted",
+  "find": "      templateRows: templateRowsFrom(graph.spt, graph.tpt, graph.trades),\n",
+  "replace": ""
+ },
+ {
+  "label": "trade id not keyed",
+  "find": "return { id: key(f.id != null ? f.id : r && r.id), code: f.TradeCode || null };",
+  "replace": "return { id: f.id, code: f.TradeCode || null };"
+ },
+ {
+  "label": "blank sequence read as 0",
+  "find": "const num = v => (v == null || v === '' || !Number.isFinite(Number(v)) ? null : Number(v));",
+  "replace": "const num = v => Number(v) || 0;"
+ }
+]

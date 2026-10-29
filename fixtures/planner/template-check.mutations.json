@@ -1,0 +1,152 @@
+[
+ {
+  "label": "crew rule off",
+  "find": "!crews.has(low(r.crew)))",
+  "replace": "false)"
+ },
+ {
+  "label": "crew compare case-sensitive",
+  "find": "!crews.has(low(r.crew)))",
+  "replace": "!crews.has(txt(r.crew)))"
+ },
+ {
+  "label": "crew rule fires with no crews list",
+  "find": "txt(r.crew) && crews.size &&",
+  "replace": "txt(r.crew) &&"
+ },
+ {
+  "label": "seq-blank off",
+  "find": "if (!finite(r.seq))",
+  "replace": "if (false)"
+ },
+ {
+  "label": "num-blank off",
+  "find": "if (!txt(r.num))\n          add('error', 'num-blank'",
+  "replace": "if (false)\n          add('error', 'num-blank'"
+ },
+ {
+  "label": "name-blank off",
+  "find": "if (!txt(r.name))",
+  "replace": "if (false)"
+ },
+ {
+  "label": "trade-unknown off",
+  "find": "!trades.has(String(r.tradeId)))",
+  "replace": "false)"
+ },
+ {
+  "label": "seq-dup threshold",
+  "find": "if (rs.length > 1)\n          add('error', 'seq-dup'",
+  "replace": "if (rs.length > 2)\n          add('error', 'seq-dup'"
+ },
+ {
+  "label": "seq-dup across types",
+  "find": "const rows = spt.filter(r => r.buildType === type);",
+  "replace": "const rows = spt.slice();"
+ },
+ {
+  "label": "num-dup off",
+  "find": "if (rs.length > 1)\n          add('error', 'num-dup'",
+  "replace": "if (false)\n          add('error', 'num-dup'"
+ },
+ {
+  "label": "skill-blank ignores skill",
+  "find": "&& !txt(r.skill))",
+  "replace": "&& true)"
+ },
+ {
+  "label": "skill-blank ignores pseudo crews",
+  "find": "PSEUDO_CREWS.indexOf(low(r.crew)) < 0 &&",
+  "replace": "true &&"
+ },
+ {
+  "label": "days-bad allows 0",
+  "find": "|| d < 1)",
+  "replace": "|| d < 0)"
+ },
+ {
+  "label": "days-bad off for blank",
+  "find": "!Number.isFinite(d) ||",
+  "replace": "false ||"
+ },
+ {
+  "label": "phase disagree needs 3",
+  "find": "if (names.size > 1)",
+  "replace": "if (names.size > 2)"
+ },
+ {
+  "label": "phase blank counted",
+  "find": "if (!txt(r.num) || !txt(r.phase)) return;",
+  "replace": "if (!txt(r.num)) return;"
+ },
+ {
+  "label": "near-dup off",
+  "find": "if (ds.length > 1)",
+  "replace": "if (false)"
+ },
+ {
+  "label": "near-dup compares raw key",
+  "find": "const c = k.replace(/[^a-z0-9]/g, '');",
+  "replace": "const c = k;"
+ },
+ {
+  "label": "task features not counted",
+  "find": "tpt.forEach(t => note(t.feature));",
+  "replace": ""
+ },
+ {
+  "label": "optional blank feature not title",
+  "find": "note(txt(r.feature) || r.name)",
+  "replace": "note(txt(r.feature))"
+ },
+ {
+  "label": "plain rows counted as features",
+  "find": "if (r.optional) note",
+  "replace": "if (true) note"
+ },
+ {
+  "label": "order compares as text",
+  "find": "const x = txt(a).split('.').map(Number), y = txt(b).split('.').map(Number);",
+  "replace": "const x = txt(a).split('.'), y = txt(b).split('.');"
+ },
+ {
+  "label": "seq-order unsorted",
+  "find": "slice().sort((a, b) => Number(a.seq) - Number(b.seq))",
+  "replace": "slice()"
+ },
+ {
+  "label": "seq-order reports every pair",
+  "find": "          break;\n",
+  "replace": "          \n"
+ },
+ {
+  "label": "orphan off",
+  "find": "if (!parent) {",
+  "replace": "if (false) {"
+ },
+ {
+  "label": "type mismatch off",
+  "find": "else if (parent.buildType !== t.buildType)",
+  "replace": "else if (false)"
+ },
+ {
+  "label": "errors not first",
+  "find": "const rank = l => (l === 'error' ? 0 : 1);",
+  "replace": "const rank = l => 0;"
+ },
+ {
+  "label": "build type order dropped",
+  "find": "|| String(a.buildType).localeCompare(String(b.buildType))",
+  "replace": ""
+ },
+ {
+  "label": "seq order dropped",
+  "find": "|| (a._seq === b._seq ? 0 : a._seq < b._seq ? -1 : 1)",
+  "replace": ""
+ },
+ {
+  "label": "counts wrong",
+  "find": "return { issues, errors, warnings: issues.length - errors };",
+  "replace": "return { issues, errors, warnings: issues.length };"
+ }
+]
