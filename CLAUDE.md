@@ -3016,7 +3016,7 @@ crew dropdown is maintained by a flow, not the planner.
   `package.json`. Flow tests `test_crew_sync.py` and `test_crew_trade_check_preferences.py`.
   `tools/planner-shakedown.js` gained a Crews tab pass and a `higher-rated` check.
 - Deploy: (controller fills in: tag, wall checks, served-file hashes)
-- Live verification: (controller fills in)
+- Live verification, 2026-10-29 (flow half; the hosted-planner half follows the deploy): `D2 - Crew Trade Check` was exercised on a throwaway Planned project (`TEST-9950`, PM D2 Bot) with three plumbing rows on a throwaway crew `zztest` created over REST; `D2 - Crew Sync` added the code to the Assignments column within a minute. Rated Never for plumbing, one run flagged exactly those three rows `Crew zztest is rated Never for Plumbing` and nothing else ("3 flagged, 0 cleared, from 51 qualification pairs"); with the plumbing rating restored and the crew rated Never overall, the next run left them flagged and wrote nothing (the overall path; a restored rating alone would have cleared them). The clear path was NOT re-verified: the third and fourth runs froze mid-loop because four whole-list runs of about 5,000 actions each had exhausted D2 Bot's daily action allowance, and were cancelled. Rows, job, crew and column were put back (14 codes) and the tenant read back at its counts. LESSON: a whole-list flow is verified at most once a day on the live flow; for both-way checks use a disarmed copy filtered to the throwaway job, as the 2026-09-28 guard checks did. Exhausting the allowance throttles EVERY D2 flow for the rolling 24 hours.
 
 ## THE 28 OCTOBER MEETING: decisions that bind, and guide Version 9 (28 October) drafted
 
