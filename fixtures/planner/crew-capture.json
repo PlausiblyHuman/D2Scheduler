@@ -1,0 +1,107 @@
+{
+ "source": "Live Microsoft Graph writes from the hosted planner page, signed in as stratirus@d2pools.com (D2 Bot), 2026-10-29. Task 4 of docs/superpowers/plans/2026-10-29-skills-and-crew-preferences.md.",
+ "note": "Throwaway rows on Trades, Crews and Crew-Trades: created, patched, read back and deleted in one pass. Responses are trimmed to status plus the row's own fields (system fields and @odata keys dropped). Every lookup is written and read as a string; Preference is a number; Members is one string. The Assignments columns read shows the Crew column's choices but NO validation block (Graph returns validation null for this column even though a formula is stored), so the planner's assignable-codes check must rely on choice.choices alone. No Assignments row was written.",
+ "capturedAt": "2026-10-29T17:03:20.133Z",
+ "siteId": "netorgft15040037.sharepoint.com,1a90e0a0-7c38-4e08-bd08-38784b1304a0,14d022b7-a08f-4f7b-b7d4-512c5518fd96",
+ "user": "stratirus@d2pools.com",
+ "lists": {
+  "trades": "05038f7f-a6cb-4f57-b1a1-3ff9c7126ba5",
+  "crews": "45e9ff1f-bf36-4ab5-929d-25ab9a80d460",
+  "ct": "32c6154d-2572-4dfd-877a-18fa20a3a07e",
+  "asg": "49ef7006-d3fe-40a7-a52f-c4c18545bd35"
+ },
+ "ctTitleConvention": "<crewCode>-<tradeCode>, lower case, e.g. devon-hardscape",
+ "requests": [
+  {
+   "op": "trade-create",
+   "method": "POST",
+   "url": "/lists/05038f7f-a6cb-4f57-b1a1-3ff9c7126ba5/items",
+   "body": {"fields": {"Title": "ZZ Capture Skill", "TradeCode": "zzcapture", "SortOrder": 999}},
+   "response": {"status": 201, "id": "27", "fields": {"id": "27", "Title": "ZZ Capture Skill", "TradeCode": "zzcapture", "SortOrder": 999}}
+  },
+  {
+   "op": "crew-create",
+   "method": "POST",
+   "url": "/lists/45e9ff1f-bf36-4ab5-929d-25ab9a80d460/items",
+   "body": {"fields": {"Title": "ZZ Capture +1", "CrewID": "zzcapture", "Size": 2, "Unlimited": false, "Active": true, "Members": "A, B", "Notes": "", "Preference": 3}},
+   "response": {"status": 201, "id": "15", "fields": {"id": "15", "Title": "ZZ Capture +1", "CrewID": "zzcapture", "Size": 2, "Unlimited": false, "Active": true, "Members": "A, B", "Preference": 3}}
+  },
+  {
+   "op": "ct-create",
+   "method": "POST",
+   "url": "/lists/32c6154d-2572-4dfd-877a-18fa20a3a07e/items",
+   "body": {"fields": {"Title": "zzcapture-zzcapture", "CrewLookupId": "15", "TradeLookupId": "27", "Preference": 2}},
+   "response": {"status": 201, "id": "53", "fields": {"id": "53", "Title": "zzcapture-zzcapture", "CrewLookupId": "15", "TradeLookupId": "27", "Preference": 2}}
+  },
+  {
+   "op": "ct-patch",
+   "method": "PATCH",
+   "url": "/lists/32c6154d-2572-4dfd-877a-18fa20a3a07e/items/53/fields",
+   "body": {"Preference": 1},
+   "response": {"status": 200, "fields": {"id": "53", "Title": "zzcapture-zzcapture", "CrewLookupId": "15", "TradeLookupId": "27", "Preference": 1}}
+  },
+  {
+   "op": "crew-patch",
+   "method": "PATCH",
+   "url": "/lists/45e9ff1f-bf36-4ab5-929d-25ab9a80d460/items/15/fields",
+   "body": {"Members": "A, B, C"},
+   "response": {"status": 200, "fields": {"id": "15", "Title": "ZZ Capture +1", "CrewID": "zzcapture", "Size": 2, "Unlimited": false, "Active": true, "Members": "A, B, C", "Preference": 3}}
+  },
+  {
+   "op": "trade-read",
+   "method": "GET",
+   "url": "/lists/05038f7f-a6cb-4f57-b1a1-3ff9c7126ba5/items/27?$expand=fields",
+   "response": {"status": 200}
+  },
+  {
+   "op": "crew-read",
+   "method": "GET",
+   "url": "/lists/45e9ff1f-bf36-4ab5-929d-25ab9a80d460/items/15?$expand=fields",
+   "response": {"status": 200}
+  },
+  {
+   "op": "ct-read",
+   "method": "GET",
+   "url": "/lists/32c6154d-2572-4dfd-877a-18fa20a3a07e/items/53?$expand=fields",
+   "response": {"status": 200}
+  },
+  {
+   "op": "asg-columns",
+   "method": "GET",
+   "url": "/lists/49ef7006-d3fe-40a7-a52f-c4c18545bd35/columns",
+   "response": {"status": 200, "note": "59 columns; trimmed to the Crew column, see crewColumn"}
+  },
+  {
+   "op": "ct-delete",
+   "method": "DELETE",
+   "url": "/lists/32c6154d-2572-4dfd-877a-18fa20a3a07e/items/53",
+   "response": {"status": 204}
+  },
+  {
+   "op": "crew-delete",
+   "method": "DELETE",
+   "url": "/lists/45e9ff1f-bf36-4ab5-929d-25ab9a80d460/items/15",
+   "response": {"status": 204}
+  },
+  {
+   "op": "trade-delete",
+   "method": "DELETE",
+   "url": "/lists/05038f7f-a6cb-4f57-b1a1-3ff9c7126ba5/items/27",
+   "response": {"status": 204}
+  }
+ ],
+ "readBack": {
+  "trade": {"id": "27", "fields": {"id": "27", "Title": "ZZ Capture Skill", "TradeCode": "zzcapture", "SortOrder": 999, "AuthorLookupId": "7", "EditorLookupId": "7"}},
+  "crew": {"id": "15", "fields": {"id": "15", "Title": "ZZ Capture +1", "CrewID": "zzcapture", "Size": 2, "Unlimited": false, "Active": true, "Members": "A, B, C", "Preference": 3, "AuthorLookupId": "7", "EditorLookupId": "7"}},
+  "ct": {"id": "53", "fields": {"id": "53", "Title": "zzcapture-zzcapture", "CrewLookupId": "15", "TradeLookupId": "27", "Preference": 1, "AuthorLookupId": "7", "EditorLookupId": "7"}}
+ },
+ "crewColumn": {
+  "name": "Crew",
+  "displayName": "Crew",
+  "columnCount": 59,
+  "allowTextEntry": false,
+  "choiceCount": 14,
+  "choices": ["antonio", "armondo", "brothers", "campos", "cirilo", "devon", "george", "guillermo", "harrison", "office", "saul", "stl", "subcon", "unassigned"],
+  "validation": null
+ }
+}
