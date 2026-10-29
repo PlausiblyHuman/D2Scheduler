@@ -1353,7 +1353,10 @@ function inlineSet(jobId,gi,si,k,v){
   const j=S.jobs.find(x=>x.id===jobId); if(!j)return;
   const s=j.groups[gi]&&j.groups[gi].sections[si];
   if(!s||!inlineEditable(j,s)){render();return;}
-  if(k==='crew'){ s.crewId=v||null; touch(j); save(); render(); return; }
+  if(k==='crew'){
+    const cc=v?crew(v):null;
+    if(cc&&!assignable(cc)&&v!==s.crewId){ alert(cc.name+' is not on the crew list yet. Press Refresh in a few minutes, then try again.'); render(); return; }
+    s.crewId=v||null; touch(j); save(); render(); return; }
   if(k==='days') s.days=Math.max(1,+v||1);
   else if(k==='start') s.start=v?nextWork(v):null;
   else return;
@@ -1867,7 +1870,9 @@ function showAvail(){
 }
 function saveSec(reflow){
   const j=S.jobs.find(x=>x.id===CUR.jobId),g=j.groups[CUR.gi],s=g.sections[CUR.si];
-  s.crewId=document.getElementById('fCrew').value||null;
+  const picked=document.getElementById('fCrew').value, pc=picked?crew(picked):null;
+  if(pc&&!assignable(pc)&&picked!==s.crewId){ alert(pc.name+' is not on the crew list yet. Press Refresh in a few minutes, then try again.'); return; }
+  s.crewId=picked||null;
   const st=document.getElementById('fStart').value;s.start=st?nextWork(st):null;
   s.days=Math.max(1,+document.getElementById('fDays').value||1);
   // Only a checkbox that actually moved away from what was shown on open is a
@@ -3194,6 +3199,31 @@ async function pushChangeSet(pools,alsoJobnos){
   return {plan,res,siteId,tok,liveById};
 }
 
+/* Skills, crews and ratings, in the same Save. The three lists are read fresh
+   here, immediately before writing, so planCrewEdits compares against what
+   SharePoint holds now and not against the last Refresh. Ops that need a skill
+   or crew created earlier in the batch name it by code; applyCrewOps resolves
+   the ids as each create lands. */
+async function pushCrewChanges(siteId,tok,local){
+  const G=window.D2GraphWriteback, C=window.D2WritebackCore, R=window.D2GraphToPlanner;
+  const L=D2_GRAPH.lists, U=G.urls(siteId);
+  const rd=k=>graphPageAll(U.items(L[k])+'?$expand=fields&$top=500',tok);
+  const crewRows=await rd('crews'), ctRows=await rd('ct'), tradeRows=await rd('trades');
+  const live={
+    trades:R.tradeRowsFrom(tradeRows),
+    crews:R.crewRowsFrom(crewRows,ctRows,tradeRows)||[],
+    ct:ctRows.map(r=>{const f=r.fields||{};
+      return {spId:String(f.id),crewSpId:String(f.CrewLookupId),tradeSpId:String(f.TradeLookupId),rating:R.normRating(f.Preference)};})
+  };
+  const plan=C.planCrewEdits(local,live,{});
+  const crewSpIdByCode={}, tradeSpIdByCode={};
+  live.crews.forEach(c=>{crewSpIdByCode[c.id]=String(c.spId);});
+  live.trades.forEach(t=>{tradeSpIdByCode[t.code]=String(t.spId);});
+  const res=await G.applyCrewOps({token:tok,siteId,lists:{crews:L.crews,ct:L.ct,trades:L.trades},
+    crewSpIdByCode,tradeSpIdByCode},plan.ops);
+  return {plan,res,local,crewSpIdByCode,tradeSpIdByCode};
+}
+
 /* Same fresh-read discipline as pushChangeSet, on the Jobs list. The row is
    found by JobNumber, exactly as Activate finds it; the live StartDate must
    still read what was loaded or the write is refused with both values. No
@@ -3233,7 +3263,7 @@ function wbFmt(col,v){
   if(col==='Locked'||col==='NotApplicable')return v?'Yes':'No';
   return String(v);
 }
-let PENDING_CHANGESET=null, PENDING_CREATES=null, PENDING_SIGNOFFS=null, PENDING_REJECTIONS=null, PENDING_JOBSTARTS=null;
+let PENDING_CHANGESET=null, PENDING_CREATES=null, PENDING_SIGNOFFS=null, PENDING_REJECTIONS=null, PENDING_JOBSTARTS=null, PENDING_CREWS=null;
 /* The preview a PM must confirm before anything downloads. Grouped by pool,
    one line per changed field, naming the field and the loaded value next to
    the new one -- a count is not enough to see "this is about to move 46
@@ -3250,8 +3280,9 @@ function openSavePreview(){
   const rops=graphModeAvailable()?buildRejectionSet():[];
   const rCount=rejectionChangeCount(rops);
   const jobStarts=graphModeAvailable()?buildJobStartChanges():[];   // the console applier cannot write Jobs
+  const crewCh=graphModeAvailable()?buildCrewChanges():{local:null,lines:[],count:0};   // crews and skills write over Graph only
   const totalSecs=pools.reduce((n,p)=>n+p.sections.length,0);
-  if(!totalSecs&&!creates.length&&!soCount&&!rCount&&!jobStarts.length){alert('Nothing to push -- no pool has changed here since the last Refresh, and no new pool is queued.');return;}
+  if(!totalSecs&&!creates.length&&!soCount&&!rCount&&!jobStarts.length&&!crewCh.count){alert('Nothing to push -- no pool has changed here since the last Refresh, and no new pool is queued.');return;}
   const skipped=S.jobs.filter(j=>!poolHasBaseline(j));
   const canPush=graphModeAvailable();
   const st=saveStaleness(Date.now());
@@ -3274,6 +3305,12 @@ function openSavePreview(){
         +`${skipped.length===1?'is':'are'} excluded from the edits above — use the +Job form to request a new pool instead: `
         +skipped.map(j=>esc(j.jobno||j.name)).join(', ')+'.':''}
     </div>`+
+    (crewCh.count?`<div class="fld"><label>Crews and skills (${crewCh.count})</label>
+      <div class="hint" style="padding:0 0 6px">
+        Written to the crew and skill lists in SharePoint under your name. Anything changed there since you loaded is refused rather than overwritten.
+        ${crewCh.local.crews.some(c=>c.isNew)?'A new crew can be assigned a few minutes after Save, once the crew list has been updated. Press Refresh then.':''}
+      </div>
+      <table><tbody>${crewCh.lines.map(l=>`<tr><td class="small">${esc(l)}</td></tr>`).join('')}</tbody></table></div>`:'')+
     (soCount?`<div class="fld"><label>Sign-off and checklist (${soCount})</label>
       <div class="hint" style="padding:0 0 6px">
         A sign-off is written with <b>your name and the time</b>, not as a bare flag.
@@ -3336,6 +3373,7 @@ function openSavePreview(){
   if(soCount)pushParts.push(plural(soCount,'sign-off and checklist change'));
   if(rCount)pushParts.push(`${rCount} ${rCount===1?'comment or rejection':'comments and rejections'}`);
   if(jobStarts.length)pushParts.push(plural(jobStarts.length,'project start'));
+  if(crewCh.count)pushParts.push(plural(crewCh.count,'crew and skill change'));
   const pushLabel=pushParts.length
     ? `Save ${pushParts.join(' and ')} to SharePoint`+(creates.length?` and request ${plural(creates.length,'new pool')}`:'')
     : `Request ${plural(creates.length,'new pool')}`;
@@ -3352,6 +3390,7 @@ function openSavePreview(){
   PENDING_SIGNOFFS=sops;
   PENDING_REJECTIONS=rops;
   PENDING_JOBSTARTS=jobStarts;
+  PENDING_CREWS=canPush&&crewCh.count?crewCh.local:null;
   document.getElementById('drawer').classList.add('open');
 }
 /* Save's two endings. Graph mode writes; otherwise the change-set downloads
@@ -3408,10 +3447,17 @@ async function pushCreates(siteId,tok,creates){
 
 async function confirmSaveByPush(){
   const pools=PENDING_CHANGESET||[], creates=PENDING_CREATES||[];
+  /* Taken and cleared up front: a second press of Save must not write the same crew changes twice. */
+  const crewLocal=PENDING_CREWS; PENDING_CREWS=null;
   document.getElementById('dFoot').innerHTML='<span class="hint">Saving…</span>';
   let out=null,err=null;
   try{
     out=await pushChangeSet(pools,[...(PENDING_SIGNOFFS||[]),...(PENDING_REJECTIONS||[])].map(p=>p.jobno));
+    /* Crews, skills and ratings, with the same site and token. */
+    if(crewLocal){
+      try{ out.cw=await pushCrewChanges(out.siteId,out.tok,crewLocal); }
+      catch(e){ out.cwError=e; }
+    }
     /* Project start dates, on the Jobs list, one field with its own compare. */
     if(PENDING_JOBSTARTS&&PENDING_JOBSTARTS.length){
       try{ out.js=await pushJobStarts(out.siteId,out.tok,PENDING_JOBSTARTS); }
@@ -3464,7 +3510,8 @@ async function confirmSaveByPush(){
   const anyWrite = out && (out.res.written.length
     || (out.js && out.js.res.written.length)
     || (out.so && (out.so.sRes.written.length || out.so.tRes.written.length))
-    || (out.rj && out.rj.rRes.done.length));
+    || (out.rj && out.rj.rRes.done.length)
+    || (out.cw && out.cw.res.done.length));
   if(anyWrite){ try{ await loadFromD2ViaGraph(true); }catch(e){} }
 }
 
@@ -3533,8 +3580,49 @@ function showPushResult(out,err){
         `loaded ${pretty(r.loaded)}, now ${r.nowLive?pretty(r.nowLive):'blank'}, wanted ${pretty(r.wanted)}`)),
       js.plan.errors.map(e=>row(e.jobno,'project start',e.reason==='row-missing'?'no longer in SharePoint':e.reason)),
       js.res.failed.map(f=>row(f.jobno,'project start','HTTP '+f.status))):[];
+    /* Crews, skills and ratings, in words. A 403 means the account is not one
+       of the people set up to edit these lists: said once, not once per write. */
+    const cw=out.cw, W=window.D2WritebackCore;
+    const cwCrew=code=>{const c=(cw&&cw.local.crews.find(x=>x.id===code))||crew(code);return c?c.name:String(code);};
+    const cwSkill=code=>{const t=skillList().find(x=>x.id===code);return t?t.label:String(code);};
+    const cwWord=n=>n==null?'not held':W.ratingWord(n);
+    const cwBase=(cc,tc)=>{const c=cw&&cw.local.crews.find(x=>x.id===cc),b=c&&c.base&&c.base.ratings;return b&&b[tc]!=null?b[tc]:null;};
+    const CW_FIELD={Title:'name',Size:'size',Unlimited:'subcontractor',Members:'members',Notes:'note',Preference:'overall'};
+    const cwPair=(cc,tc)=>cwCrew(cc)+', '+cwSkill(tc);
+    const cwDesc=op=>{
+      if(op.kind==='trade-create')return [op.label,'new skill','added'];
+      if(op.kind==='crew-create')return [cwCrew(op.id),'new crew','added, code '+op.id];
+      if(op.kind==='crew-patch')return [cwCrew(op.id),Object.keys(op.fields).map(k=>CW_FIELD[k]||k).join(', '),'changed'];
+      if(op.kind==='ct-create')return [cwPair(op.crewCode,op.tradeCode),'rating','not held to '+cwWord(op.rating)];
+      if(op.kind==='ct-patch')return [cwPair(op.crewCode,op.tradeCode),'rating',cwWord(cwBase(op.crewCode,op.tradeCode))+' to '+cwWord(op.rating)];
+      return [cwPair(op.crewCode,op.tradeCode),'rating',cwWord(cwBase(op.crewCode,op.tradeCode))+' to not held'];
+    };
+    const CW_WHY={'already-exists':'already exists','code-exists':'code taken','duplicate-skill':'skill already on the list',
+      'row-missing':'no longer in SharePoint','skill-refused':'not written because the new skill was refused',
+      'crew-refused':'not written because the new crew was refused','unknown-skill':'skill is not on the list'};
+    const cwRefusal=r=>{
+      const a=r.kind==='trade-create'?String(r.wanted):r.kind==='crew-create'||r.kind==='crew-patch'?cwCrew(r.crew):cwPair(r.crew,r.trade);
+      const b=r.kind==='trade-create'?'new skill':r.kind==='crew-create'?'new crew':r.kind==='crew-patch'?(CW_FIELD[r.field]||'crew'):'rating';
+      const why=r.reason==='diverged'
+        ? (r.kind==='crew-patch'?'changed in SharePoint since you loaded':`loaded ${cwWord(r.loaded)}, now ${cwWord(r.nowLive)}`)
+        : (CW_WHY[r.reason]||r.reason);
+      return row(a,b,why);
+    };
+    const cwForbidden=!!(cw&&cw.res.failed.some(f=>f.status===403));
+    const cwRows=cw?cw.res.done.map(d=>row(...cwDesc(d.op))):[];
+    const cwBad=cw?[].concat(
+      cw.plan.refusals.map(cwRefusal),
+      cw.res.failed.filter(f=>f.status!==403).map(f=>{const d=cwDesc(f.op);return row(d[0],d[1],'HTTP '+f.status);}),
+      cw.res.skipped.map(k=>{const d=cwDesc(k.op);
+        const crewOk=cw.crewSpIdByCode[k.op.crewCode]||cw.res.done.some(x=>x.op.kind==='crew-create'&&x.op.id===k.op.crewCode);
+        return row(d[0],d[1],'not written because '+(crewOk?cwSkill(k.op.tradeCode):cwCrew(k.op.crewCode))+' failed');})):[];
     body.innerHTML=
-      (out.jsError?`<div class="hint" style="color:#a84a18">Project start dates were not saved:
+      (out.cwError?`<div class="hint" style="color:#a84a18">Crew and skill changes were not saved:
+        ${esc(out.cwError.message||'unknown error')}</div>`:'')
+     +(cwForbidden?`<div class="hint" style="color:#a84a18">Changes to crews and skills are limited to the people set up to make them; nothing was changed.</div>`:'')
+     +sec('Crews and skills saved',cwRows,'')
+     +sec('Crews and skills NOT saved',cwBad,'#a84a18')
+     +(out.jsError?`<div class="hint" style="color:#a84a18">Project start dates were not saved:
         ${esc(out.jsError.message||'unknown error')}</div>`:'')
      +sec('Project start saved',jsRows,'')
      +sec('Project start NOT saved — changed in SharePoint since you loaded',jsBad,'#a84a18')
@@ -3563,7 +3651,7 @@ function showPushResult(out,err){
           No pool was requested. ${esc(out.createError.message)}</div>`:'')
      +(!res.written.length&&!plan.refusals.length&&!plan.errors.length&&!res.failed.length&&!out.creates
        &&!soRows.length&&!soBad.length&&!out.soError&&!rjRows.length&&!rjBad.length&&!out.rjError
-       &&!jsRows.length&&!jsBad.length&&!out.jsError
+       &&!jsRows.length&&!jsBad.length&&!out.jsError&&!cwRows.length&&!cwBad.length&&!out.cwError&&!cwForbidden
         ? '<div class="hint">Nothing needed saving.</div>':'');
   }
   document.getElementById('dFoot').innerHTML='<button class="btn p" onclick="closeDrawer()">Close</button>';
@@ -3580,7 +3668,7 @@ function confirmSaveByDownload(){
     const pc=(S.pendingCreates||[]).find(x=>x.jobno===c.jobno&&!x.requestedAt);
     if(pc)pc.requestedAt=now;
   });
-  PENDING_CHANGESET=null; PENDING_CREATES=null; PENDING_SIGNOFFS=null; PENDING_REJECTIONS=null; PENDING_JOBSTARTS=null;
+  PENDING_CHANGESET=null; PENDING_CREATES=null; PENDING_SIGNOFFS=null; PENDING_REJECTIONS=null; PENDING_JOBSTARTS=null; PENDING_CREWS=null;
   save();
   closeDrawer();render();
 }

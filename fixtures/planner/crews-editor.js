@@ -410,6 +410,204 @@ ok('slugCode keeps counting past a second collision', C.slugCode('Dig', ['dig', 
     win.close();
   }
 
+  // ---------------------------------------------------------------- Part E: Save
+  {
+    const fs = require('fs'), path = require('path');
+    const { JSDOM, VirtualConsole } = require('jsdom');
+    const WEB = path.join(__dirname, '..', '..', 'web');
+    const FX = JSON.parse(fs.readFileSync(path.join(__dirname, 'live-payloads-graph.json'), 'utf8'));
+    const HOST = 'https://mango-sky-0d6904310.5.azurestaticapps.net';
+    const CODES = FX.crews.map(r => r.fields.CrewID).filter(c => c !== 'campos');
+    const MSAL = `<script>window.msal={PublicClientApplication:class{constructor(){} getActiveAccount(){return {username:'cody@d2pools.com'};} setActiveAccount(){} getAllAccounts(){return [{username:'cody@d2pools.com'}];} acquireTokenSilent(){return Promise.resolve({accessToken:'t'});} loginPopup(){return Promise.resolve({accessToken:'t',account:{username:'cody@d2pools.com'}});}}};</script>`;
+    const wait = ms => new Promise(r => setTimeout(r, ms));
+    // calls collects every list request; fail403 names the list keys whose writes answer 403
+    const bootE = (calls, fail403) => {
+      const inline = f => '<script>' + fs.readFileSync(path.join(WEB, f), 'utf8') + '</script>';
+      const html = fs.readFileSync(path.join(WEB, 'index.html'), 'utf8')
+        .replace('<script src="vendor/msal-browser.min.js"></script>', MSAL)
+        .replace('<script src="features-core.js"></script>', inline('features-core.js'))
+        .replace('<script src="template-check-core.js"></script>', inline('template-check-core.js'))
+        .replace('<script src="graph-to-planner.js"></script>', inline('graph-to-planner.js'))
+        .replace('<script src="writeback-core.js"></script>', inline('writeback-core.js'))
+        .replace('<script src="graph-writeback.js"></script>', inline('graph-writeback.js'))
+        .replace('</body>', `<script>Object.defineProperty(window,'S',{get:()=>S,configurable:true});window.crew=crew;window.ratingFor=ratingFor;window.D2_GRAPH=D2_GRAPH;window.refreshLive=refreshLive;window.setTab=t=>{TAB=t;render();};window.pendingCrews=()=>PENDING_CREWS;window.touch=touch;</script></body>`);
+      const vc = new VirtualConsole();
+      const dom = new JSDOM(html, { runScripts: 'dangerously', pretendToBeVisual: true, url: HOST + '/', virtualConsole: vc,
+        beforeParse(w) {
+          let seq = 100;
+          w.fetch = (u, o) => {
+            u = String(u); const method = (o && o.method) || 'GET';
+            const json = (status, body) => Promise.resolve({ ok: status < 300, status, json: () => Promise.resolve(body), text: () => Promise.resolve('') });
+            if (u.endsWith('/.auth/me')) return json(200, { clientPrincipal: { identityProvider: 'aad', userDetails: 'cody@d2pools.com' } });
+            if (u.startsWith('https://graph.microsoft.com/v1.0/sites/netorgft15040037.sharepoint.com:')) return json(200, { id: FX.siteId, webUrl: FX.site });
+            if (u.includes('User Information List')) return json(200, { value: [] });
+            if (/\/lists\/[^/]+\/columns/.test(u)) return json(200, { value: [{ name: 'Title' }, { name: 'Crew', choice: { choices: CODES } }] });
+            const L = w.D2_GRAPH && w.D2_GRAPH.lists;
+            const key = L && Object.keys(L).find(k => u.includes('/lists/' + L[k] + '/'));
+            if (method !== 'GET') {
+              let body = null; try { body = JSON.parse(o.body); } catch (e) { /* DELETE has none */ }
+              calls.push({ method, list: key, body });
+              if (key && fail403[key]) return json(403, { error: { code: 'accessDenied' } });
+              return json(method === 'POST' ? 201 : method === 'DELETE' ? 204 : 200, method === 'POST' ? { id: String(++seq), fields: {} } : {});
+            }
+            if (key && /\/items/.test(u)) { calls.push({ method, list: key }); return json(200, { value: FX[key] || [] }); }
+            if (/\/lists\/[^/]+\/items/.test(u)) return json(200, { value: [] });
+            return json(404, {});
+          };
+        } });
+      const w = dom.window; w.alert = () => {}; w.confirm = () => true;
+      return w;
+    };
+    const fresh = async (fail403 = {}) => {
+      const calls = [];
+      const win = bootE(calls, fail403);
+      for (let t = 0; t < 150 && typeof win.refreshLive !== 'function'; t++) await wait(100);
+      await wait(1500);
+      await win.refreshLive(true);
+      for (let t = 0; t < 150 && !(win.S.crews.length === 14 && win.S.crews.every(c => c.spId) && win.S.trades && win.S.trades.length === 26); t++) await wait(100);
+      await wait(500);
+      win.setTab('crews');
+      calls.length = 0;
+      return { win, calls };
+    };
+    // a new skill, a new crew holding it, and harrison's plumbing chip moved one step
+    const edit = win => {
+      win.prompt = () => 'Electrical'; win.addSkill();
+      const answers = ['Lopez +2', 'lopez', '3', 'Lopez, Ana, Raul']; win.prompt = () => answers.shift(); win.confirm = () => false; win.addCrew(); win.confirm = () => true;
+      win.render();
+      win.cycleRating('lopez', 'electrical');
+      win.cycleRating('harrison', 'plumbing');
+    };
+    const editableSec = win => {
+      for (const j of win.S.jobs) for (let gi = 0; gi < j.groups.length; gi++) for (let si = 0; si < j.groups[gi].sections.length; si++) {
+        const s = j.groups[gi].sections[si]; if (!s.skip && !s.locked && !s.inst && !j.building) return { j, gi, si, s };
+      }
+      return null;
+    };
+    const writes = calls => calls.filter(c => c.method !== 'GET').map(c => c.method + ' ' + c.list);
+    const dBody = win => win.document.getElementById('dBody').textContent;
+    const count = (t, s) => t.split(s).length - 1;
+    const S403 = 'Changes to crews and skills are limited to the people set up to make them; nothing was changed.';
+    const NOT_YET = 'Campos +2 is not on the crew list yet. Press Refresh in a few minutes, then try again.';
+
+    // ---- scenario 1: everything lands
+    {
+      const { win, calls } = await fresh();
+      edit(win);
+      const e = editableSec(win), keep = e.s.crewId;
+      e.s.crewId = keep === 'saul' ? 'devon' : 'saul'; win.touch(e.j);
+      win.openSavePreview();
+      let t = dBody(win);
+      const n = win.buildCrewChanges().count;
+      ok('E: preview has a Crews and skills section with the count', t.includes('Crews and skills (' + n + ')') && n >= 4, 'n=' + n);
+      ok('E: preview lists the changes in words', t.includes('New skill: Electrical') && t.includes('New crew: Lopez +2, code lopez') && t.includes('Harrison +2, Plumbing: First choice to Second choice') && t.includes('Lopez +2, Electrical: not held to First choice'));
+      ok('E: the new-crew sentence is shown', t.includes('A new crew can be assigned a few minutes after Save, once the crew list has been updated. Press Refresh then.'));
+      ok('E: crews and skills come before the schedule pools', t.indexOf('Crews and skills') > -1 && t.search(/\u2014 \d+ sub-phase/) > t.indexOf('Crews and skills'), t.indexOf('Crews and skills') + ' vs ' + t.search(/\u2014 \d+ sub-phase/));
+      ok('E: PENDING_CREWS is set from the editor', !!win.pendingCrews() && win.pendingCrews().crews.length === 2 && win.pendingCrews().trades.length === 1);
+      e.s.crewId = keep; win.touch(e.j);
+      calls.length = 0;
+      win.openSavePreview();
+      await win.confirmSaveByPush();
+      t = dBody(win);
+      ok('E: writes in order trade, crew, rating create, rating patch', writes(calls).join(',') === 'POST trades,POST crews,POST ct,PATCH ct', writes(calls).join(','));
+      ok('E: the three lists are read fresh before the first write', ['trades', 'crews', 'ct'].every(k => { const g = calls.findIndex(c => c.method === 'GET' && c.list === k); return g > -1 && g < calls.findIndex(c => c.method !== 'GET'); }));
+      ok('E: the new crew rating points at the new rows', (() => { const p = calls.find(c => c.method === 'POST' && c.list === 'ct'); return !!p && p.body.fields.Preference === 3 && p.body.fields.Title === 'lopez-electrical' && p.body.fields.CrewLookupId === '102' && p.body.fields.TradeLookupId === '101'; })(), J(calls.find(c => c.method === 'POST' && c.list === 'ct')));
+      ok('E: results say each change in words', ['Electrical', 'new skill', 'Lopez +2', 'new crew', 'Harrison +2, Plumbing', 'rating', 'First choice to Second choice', 'Lopez +2, Electrical', 'not held to First choice'].every(x => t.includes(x)), t.slice(0, 600));
+      ok('E: no 403 sentence when everything landed', !t.includes(S403));
+      ok('E: PENDING_CREWS is null afterwards', win.pendingCrews() === null);
+      ok('E: a Save with writes re-reads and the crews come back from SharePoint', win.S.crews.length === 14 && !win.crew('lopez'));
+      win.close();
+    }
+
+    // ---- scenario 1b: no new crew, no sentence
+    {
+      const { win } = await fresh();
+      win.cycleRating('harrison', 'plumbing');
+      win.openSavePreview();
+      const t = dBody(win);
+      ok('E: a preview with no new crew omits the sentence', t.includes('Crews and skills (1)') && !t.includes('A new crew can be assigned'), t.slice(0, 300));
+      win.crew('devon').name = 'Devon <svg id="xss-probe2"></svg>';
+      win.openSavePreview();
+      ok('E: crew names in the preview lines are escaped', win.document.getElementById('xss-probe2') === null && dBody(win).includes('Devon <svg id="xss-probe2"></svg>: name changed'));
+      win.close();
+    }
+
+    // ---- scenario 1c: a downloaded copy never offers crew changes
+    {
+      const { win } = await fresh();
+      edit(win);
+      const e = editableSec(win);
+      e.s.crewId = e.s.crewId === 'saul' ? 'devon' : 'saul'; win.touch(e.j);
+      win.graphModeAvailable = () => false;
+      win.openSavePreview();
+      ok('E: on a downloaded copy the preview has no crew section and nothing is queued', !dBody(win).includes('Crews and skills') && win.pendingCrews() === null, dBody(win).slice(0, 200));
+      win.close();
+    }
+
+    // ---- scenario 2: the Crews POST answers 403, the other writes land
+    {
+      const { win, calls } = await fresh({ crews: true });
+      edit(win);
+      win.openSavePreview();
+      await win.confirmSaveByPush();
+      const t = dBody(win);
+      ok('E: a 403 attempts the crew, skips the dependent rating, patches the other', writes(calls).join(',') === 'POST trades,POST crews,PATCH ct', writes(calls).join(','));
+      ok('E: the 403 sentence appears exactly once', count(t, S403) === 1, 'count=' + count(t, S403));
+      ok('E: a skipped rating says what it waited for', t.includes('not written because Lopez +2 failed') && count(t, 'not written because') === 1, t.slice(0, 500));
+      ok('E: the 403 is not repeated as HTTP 403 per op', !t.includes('HTTP 403'));
+      ok('E: the rating patch that did land is reported', t.includes('First choice to Second choice'));
+      ok('E: PENDING_CREWS is null after a partial failure', win.pendingCrews() === null);
+      win.close();
+    }
+
+    // ---- scenario 2b: nothing lands at all, so no re-read and the edits stay
+    {
+      const { win, calls } = await fresh({ crews: true, trades: true, ct: true });
+      edit(win);
+      win.openSavePreview();
+      calls.length = 0;
+      await win.confirmSaveByPush();
+      const t = dBody(win);
+      ok('E: when nothing lands there is no re-read', calls.filter(c => c.method === 'GET' && c.list === 'crews').length === 1, calls.filter(c => c.list === 'crews').map(c => c.method).join(','));
+      ok('E: the on-screen crew changes remain', !!win.crew('lopez') && win.crew('lopez').isNew && win.ratingFor(win.crew('harrison'), 'plumbing') === 2 && win.S.trades.some(x => x.code === 'electrical'));
+      ok('E: all-403 shows the sentence once', count(t, S403) === 1, 'count=' + count(t, S403));
+      ok('E: PENDING_CREWS is null after a total failure', win.pendingCrews() === null);
+      ok('E: a retry offers the same changes again', (() => { win.openSavePreview(); return !!win.pendingCrews() && win.pendingCrews().crews.length === 2; })());
+      win.close();
+    }
+
+    // ---- scenario 2c: refusals read in words
+    {
+      const { win } = await fresh();
+      win.S.trades.push({ code: 'plumbing2', label: 'plumbing', sort: 99, spId: null, isNew: true });
+      win.crew('harrison').base.ratings.plumbing = 2; win.crew('harrison').ratings.plumbing = 1; // live holds 3, so this one has moved
+      win.openSavePreview();
+      await win.confirmSaveByPush();
+      const t = dBody(win);
+      ok('E: a duplicate skill is refused in words', t.includes('skill already on the list'), t.slice(0, 500));
+      ok('E: a rating that moved in SharePoint says loaded and now in words', t.includes('loaded Second choice, now First choice'), t.slice(0, 700));
+      win.close();
+    }
+
+    // ---- scenario 3: a crew not yet in the dropdown cannot be assigned
+    {
+      const { win } = await fresh();
+      const e = editableSec(win), was = e.s.crewId;
+      let msg = ''; win.alert = m => { msg = m; };
+      win.inlineSet(e.j.id, e.gi, e.si, 'crew', 'campos');
+      ok('E: inlineSet refuses a crew that is not assignable, in words', msg === NOT_YET, msg);
+      ok('E: inlineSet leaves the row unchanged', e.s.crewId === was);
+      msg = '';
+      win.editSec(e.j.id, e.gi, e.si);
+      win.document.getElementById('fCrew').value = 'campos';
+      win.saveSec();
+      ok('E: the drawer save refuses it too', msg === NOT_YET && e.s.crewId === was, msg);
+      win.inlineSet(e.j.id, e.gi, e.si, 'crew', 'devon');
+      ok('E: an assignable crew still saves', e.s.crewId === 'devon');
+      win.close();
+    }
+  }
+
   if (fail) { console.log('\nFAILED'); process.exit(1); }
   console.log('\nall passed');
 })();
