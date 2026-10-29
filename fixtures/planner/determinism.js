@@ -26,6 +26,13 @@ const win = dom.window;
   // 46 x 3 = 138 scale this harness was originally built against, so the
   // crew-load tiebreak this test exists to catch actually has candidates to
   // tie.
+  // Ratings: crews that share a skill carry different ratings, so the rating sort key
+  // (not only the load tiebreak) is exercised by the three runs below.
+  const rate = (id, sk, n) => { const c = S.crews.find(x => x.id === id); if (c && c.ratings) c.ratings[sk] = n; };
+  rate('harrison', 'dig', 2); rate('saul', 'dig', 1); rate('guillermo', 'dig', 3);
+  const rated = S.crews.filter(c => c.ratings && c.ratings.dig != null).map(c => c.ratings.dig);
+  console.log('(dig ratings in play: ' + rated.join(',') + ')');
+  if (new Set(rated).size < 2) { console.log('FAIL: ratings not seeded'); process.exit(2); }
   if (S.jobs.length === 0) {
     for (let i = 0; i < 3; i++) { S.jobs.push(win.newJob('New Job','','','','','2026-09-08')); win.autoSchedule(); }
     console.log(`(harness seeded ${S.jobs.length} pools -- the tool ships with none)`);

@@ -539,11 +539,14 @@ function autoSchedule(){
       const cands=qualified(s.skill);
       if(!cands.length){s.crewId=null;s.start=cursor;cursor=adv(cursor);return;}
       // capacity-exempt bucket: no availability search, it can never be busy
-      if(cands.every(c=>c.unlimited)){s.crewId=cands[0].id;s.start=cursor;cursor=adv(cursor);return;}
+      // A missing rating reads as 3, so an old crew list behaves as before.
+      const rt=c=>{const r=ratingFor(c,s.skill);return r==null?3:r;};
+      if(cands.every(c=>c.unlimited)){s.crewId=[...cands].sort((a,b)=>(rt(b)-rt(a))||a.id.localeCompare(b.id))[0].id;s.start=cursor;cursor=adv(cursor);return;}
       let at=cursor,found=null;
       for(let tries=0;tries<600&&!found;tries++){
         const span=workSpan(at,s.days);
-        for(const c of [...cands].sort((a,b)=>((load[a.id]||0)-(load[b.id]||0))||a.id.localeCompare(b.id))){
+        // Higher rating first, then the less loaded crew, then id so a re-run cannot drift.
+        for(const c of [...cands].sort((a,b)=>(rt(b)-rt(a))||((load[a.id]||0)-(load[b.id]||0))||a.id.localeCompare(b.id))){
           const set=busy.get(c.id)||new Set();
           if(span.every(d=>!set.has(d))){found={c,span};break;}
         }
@@ -578,7 +581,7 @@ function autoScheduleRun(){
   AUTO_SNAP=S.jobs.map(j=>({job:j, touchedAt:j.touchedAt,
     secs:allSecs(j).map(({s})=>({s, crewId:s.crewId, start:s.start}))}));
 
-  autoSchedule();
+  autoSchedule(); const calls=yourCalls();
 
   const moves=[]; let pinned=0, settled=0, skipped=0;
   AUTO_SNAP.forEach(js=>js.secs.forEach(r=>{
@@ -591,7 +594,36 @@ function autoScheduleRun(){
     } else settled++;
   }));
   render();
-  openAutoPreview(moves, pinned, settled, skipped);
+  openAutoPreview(moves, pinned, settled, skipped, calls);
+}
+
+/* Where Auto-Schedule settled for a lower rating because the better crew was busy
+   that day. Built from the state AFTER the run, over the sub-phases it placed. */
+function yourCalls(){
+  const out=[], W=window.D2WritebackCore;
+  const rt=(c,sk)=>{const r=ratingFor(c,sk);return r==null?3:r;};
+  S.jobs.forEach(j=>{
+    if(frozen(j))return;
+    allSecs(j).forEach(({s,gi,si})=>{
+      if(s.skip||s.locked||s.inst||!s.skill||FIXED[s.skill]||!s.crewId||!s.start)return;
+      const got=crew(s.crewId); if(!got)return;
+      const q=qualified(s.skill); if(!q.length)return;
+      const best=Math.max(...q.map(c=>rt(c,s.skill)));
+      const mine=rt(got,s.skill);
+      if(mine>=best)return;
+      const busy=busyMap({jobId:j.id,gi,si});
+      const better=q.filter(c=>rt(c,s.skill)===best).map(c=>{
+        const set=busy.get(c.id); let d=nextWork(s.start), free=null;
+        for(let t=0;t<600&&free===null;t++){
+          if(c.unlimited||!set||!workSpan(d,s.days).some(x=>set.has(x)))free=d;
+          else d=nextWork(addCal(d,1));
+        }
+        return {name:c.name,rating:best,free};
+      });
+      out.push({jobno:j.jobno,pool:j.name,num:s.num,name:s.name,crew:got.name,got:mine,better});
+    });
+  });
+  return out;
 }
 
 function undoAutoSchedule(){
@@ -630,13 +662,15 @@ const AUTO_RULES=[
   'Anything <b>locked</b> or already <b>signed off</b> is never moved. The schedule flows around it.',
   'Anything marked <b>not applicable</b> is skipped entirely.',
   'For every other sub-phase it looks at the crews that hold the required trade, and gives it to the <b>least loaded</b> one that is free for the whole span.',
+  'Among the crews free that day, the <b>higher-rated</b> one wins. It never waits for a better crew; every place it settled for a lower rating is listed for you to decide.',
   'If no qualified crew is free, it tries the next working day, and keeps going until one is.',
   'Subcontractors and the office buckets are capacity-exempt: they are never counted as busy and never block a date.',
   'A sub-phase with no trade set goes to Unassigned rather than guessing.',
   'Sundays and the holidays on the D2 work calendar are never work days.'
 ];
 
-function openAutoPreview(moves,pinned,settled,skipped){
+function openAutoPreview(moves,pinned,settled,skipped,calls){
+  calls=calls||[]; const RW=window.D2WritebackCore.ratingWord;
   const byPool={};
   moves.forEach(m=>{(byPool[m.jobno]=byPool[m.jobno]||{pool:m.pool,rows:[]}).rows.push(m);});
   const cname=id=>{const c=id?crew(id):null;return c?c.name:(id?id:'Unassigned');};
@@ -656,6 +690,14 @@ function openAutoPreview(moves,pinned,settled,skipped){
       </tbody></table></div>`;
   }).join('');
 
+  const callsHtml=calls.length?`<div class="fld"><label>Your call (${calls.length})</label>
+      <div class="hint" style="padding:0 0 6px">Auto-Schedule took the crew that was free on the day. A higher-rated crew could do these later.</div>
+      <table><tbody>${calls.slice(0,CAP).map(c=>`<tr><td class="small" style="white-space:nowrap"><b>${esc(c.num)}</b> ${esc(c.name)}<br><span class="muted">${esc(c.jobno||'')}</span></td>
+        <td class="small">${esc(c.crew)} (${esc(RW(c.got))})</td>
+        <td class="small">${c.better.map(b=>`${esc(b.name)} (${esc(RW(b.rating))}) ${b.free?'free from '+pretty(b.free):'no free day found'}`).join('<br>')}</td></tr>`).join('')}
+      </tbody></table></div>`
+    +(calls.length>CAP?`<div class="hint" style="padding:0 0 11px">and ${calls.length-CAP} more not listed.</div>`:''):'';
+
   document.getElementById('dTitle').textContent='Auto-Schedule';
   document.getElementById('dBody').innerHTML=
     (moves.length
@@ -668,6 +710,7 @@ function openAutoPreview(moves,pinned,settled,skipped){
            ${pinned} ${pinned===1?'is':'are'} locked or signed off and are never moved${skipped?`, ${skipped} not applicable`:''}.</div>`)
     +table
     +(moves.length>CAP?`<div class="hint" style="padding:0 0 11px">and ${moves.length-CAP} more not listed.</div>`:'')
+    +callsHtml
     +`<div class="fld"><label>How Auto-Schedule decides</label>
         <ol class="small" style="margin:0;padding-left:18px;line-height:1.55">
           ${AUTO_RULES.map(r=>`<li style="margin-bottom:3px">${r}</li>`).join('')}

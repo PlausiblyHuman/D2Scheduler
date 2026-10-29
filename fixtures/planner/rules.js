@@ -30,7 +30,8 @@ const ok = (l, c, d = '') => { console.log((c ? 'PASS' : 'FAIL') + ' · ' + l + 
 const html = fs.readFileSync(PLANNER, 'utf8').replace('</body>',
   `<script>window.__x=()=>{window.S=S;window.allSecs=allSecs;window.crew=crew;
     window.isQualified=isQualified;window.qualified=qualified;window.conflicts=conflicts;
-    window.autoSchedule=autoSchedule;window.reflowFrom=reflowFrom;};</script><script>__x();</script></body>`);
+    window.autoSchedule=autoSchedule;window.reflowFrom=reflowFrom;
+    window.yourCalls=yourCalls;window.AUTO_RULES=AUTO_RULES;window.autoScheduleRun=autoScheduleRun;};</script><script>__x();</script></body>`);
 const vc = new VirtualConsole(); vc.on('jsdomError', e => console.log('[jsdom]', e.message));
 const dom = new JSDOM(html, { runScripts: 'dangerously', pretendToBeVisual: true, url: 'http://localhost/', virtualConsole: vc });
 const win = dom.window;
@@ -244,6 +245,82 @@ const mkJob = (o) => Object.assign({ id: 'j' + Math.random().toString(36).slice(
     const { jF, sc } = mkFeat();
     const r = win.reflowFrom(jF.id, 0, 1);
     ok('no opts: behaves as before (starts from the row, today when undated)', sc[1].start && sc[1].start >= '2026-10-22' && r.pinned === 0, sc[1].start);
+  }
+
+  // ====== D-RATING: Auto-Schedule prefers the higher rating on the day, and lists where it settled ======
+  // A synthetic skill no seed crew holds, so qualified() returns exactly our crews.
+  {
+    // jsdom does not fetch <script src>, and the preview words come from writeback-core.js.
+    if (!win.D2WritebackCore) win.eval(fs.readFileSync(path.resolve(__dirname, '../../web/writeback-core.js'), 'utf8'));
+    const SK = 'zz-rating-test', D1 = '2026-03-02', D2 = '2026-03-03'; // Monday, Tuesday, no holidays
+    const savedCrews = S.crews.slice(), savedJobs = S.jobs;
+    const mkCrew = (id, o) => Object.assign({ id, spId: 9000 + id.length, name: 'Crew ' + id, members: [], size: 1,
+      unlimited: false, active: true, note: '', overall: 3, ratings: { [SK]: 3 }, ctIds: {} }, o);
+    // build a world: crews list, plus a locked "busy" row per crew-and-day, plus one open sub-phase on D1
+    const world = (crews, busy) => {
+      S.crews = crews;
+      const jobs = [];
+      (busy || []).forEach(([cid, start, days]) => {
+        const jb = mkJob({ jobno: 'BUSY-' + cid });
+        jb.groups[0].sections.push(mkSec({ num: '0.0', skill: SK, crewId: cid, start, days: days || 1, locked: true }));
+        jobs.push(jb);
+      });
+      const jo = mkJob({ jobno: 'OPEN', start: D1 });
+      jo.groups[0].sections.push(mkSec({ num: '1.0', skill: SK, days: 1 }));
+      jobs.push(jo);
+      S.jobs = jobs;
+      win.autoSchedule();
+      return { sec: jo.groups[0].sections[0], calls: win.yourCalls() };
+    };
+    const A = (o) => mkCrew('zzA', o), B = (o) => mkCrew('zzB', Object.assign({ ratings: { [SK]: 2 } }, o));
+
+    let r = world([A(), B()]);
+    ok('rating: both free, the higher rating (A, 3) is picked', r.sec.crewId === 'zzA' && r.sec.start === D1, r.sec.crewId + ' ' + r.sec.start);
+    ok('rating: nothing to list when the best crew got it', r.calls.length === 0, JSON.stringify(r.calls));
+
+    // the higher rating beats the lighter load, with the id order against it too
+    r = world([mkCrew('zzA', { ratings: { [SK]: 2 } }), mkCrew('zzB', { ratings: { [SK]: 3 } })], [['zzB', '2026-02-02', 5]]);
+    ok('rating: a higher rating beats a lighter load (and id order)', r.sec.crewId === 'zzB', r.sec.crewId);
+
+    r = world([A({ ratings: { [SK]: 2 } }), B()], [['zzA', '2026-02-02', 5]]);
+    ok('rating: equal ratings, the less loaded crew is picked (rule unchanged)', r.sec.crewId === 'zzB', r.sec.crewId);
+
+    r = world([A(), B()], [['zzA', D1, 1]]);
+    ok('rating: A busy, B free: B is picked that same day, start not delayed', r.sec.crewId === 'zzB' && r.sec.start === D1, r.sec.crewId + ' ' + r.sec.start);
+    ok('rating: ...and yourCalls lists it with A and A\'s first free day',
+       r.calls.length === 1 && r.calls[0].num === '1.0' && r.calls[0].better.length === 1
+       && r.calls[0].better[0].name === 'Crew zzA' && r.calls[0].better[0].free === D2 && r.calls[0].got === 2,
+       JSON.stringify(r.calls));
+
+    r = world([A(), B({ ratings: { [SK]: 0 } })], [['zzA', D1, 1]]);
+    ok('rating: a 0 (Never) is never picked even when A is busy, the sub-phase waits for A', r.sec.crewId === 'zzA' && r.sec.start === D2, r.sec.crewId + ' ' + r.sec.start);
+
+    r = world([A({ overall: 0 }), B()]);
+    ok('rating: A at overall 0 is out, B is picked', r.sec.crewId === 'zzB', r.sec.crewId);
+    ok('rating: ...and nothing is listed, B is the best available', r.calls.length === 0, JSON.stringify(r.calls));
+
+    r = world([A({ overall: 1 }), B()]);
+    ok('rating: A at overall 1 is still picked', r.sec.crewId === 'zzA', r.sec.crewId);
+
+    r = world([A(), mkCrew('zzC', { unlimited: true, ratings: { [SK]: 2 } })], [['zzA', D1, 1]]);
+    ok('rating: a lower-rated unlimited crew free that day beats a busy higher-rated field crew', r.sec.crewId === 'zzC' && r.sec.start === D1, r.sec.crewId + ' ' + r.sec.start);
+    ok('rating: ...and is listed', r.calls.length === 1 && r.calls[0].better[0].name === 'Crew zzA' && r.calls[0].better[0].free === D2, JSON.stringify(r.calls));
+
+    r = world([mkCrew('zzC', { unlimited: true, ratings: { [SK]: 2 } }), A({ unlimited: true })]);
+    ok('rating: all-unlimited candidates pick the highest rating', r.sec.crewId === 'zzA', r.sec.crewId);
+
+    // the preview, driven through the real run
+    world([A(), B()], [['zzA', D1, 1]]);
+    S.jobs[S.jobs.length - 1].groups[0].sections[0].crewId = null;       // unplaced again, so the run does the placing
+    S.jobs[S.jobs.length - 1].groups[0].sections[0].start = null;
+    win.autoScheduleRun();
+    const body = win.document.getElementById('dBody').innerHTML;
+    ok('rating: the preview shows a "Your call (1)" group', /Your call \(1\)/.test(body), body.slice(0, 120));
+    ok('rating: ...with the better crew, its word and free date', /Crew zzA \(First choice\) free from/.test(body));
+    ok('rating: ...before the rules list', body.indexOf('Your call') < body.indexOf('How Auto-Schedule decides'));
+    ok('rating: AUTO_RULES says the higher-rated crew wins', win.AUTO_RULES.some(x => /higher-rated/.test(x)));
+
+    S.crews = savedCrews; S.jobs = savedJobs;
   }
 
   process.exit(fail);

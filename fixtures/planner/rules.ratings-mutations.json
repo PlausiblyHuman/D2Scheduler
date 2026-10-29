@@ -1,0 +1,37 @@
+[
+ {
+  "label": "rating sort removed",
+  "find": "(rt(b)-rt(a))||((load[a.id]||0)-(load[b.id]||0))||a.id.localeCompare(b.id))){",
+  "replace": "((load[a.id]||0)-(load[b.id]||0))||a.id.localeCompare(b.id))){"
+ },
+ {
+  "label": "waits for a better crew",
+  "find": "for(const c of [...cands].sort((a,b)=>(rt(b)-rt(a))",
+  "replace": "for(const c of [...cands].filter(c=>rt(c)===Math.max(...cands.map(rt))).sort((a,b)=>(rt(b)-rt(a))"
+ },
+ {
+  "label": "Never (0) not excluded",
+  "find": "ratingFor(c,sk)>0&&c.overall!==0&&assignable(c)",
+  "replace": "ratingFor(c,sk)!=null&&c.overall!==0&&assignable(c)"
+ },
+ {
+  "label": "overall 1 excluding",
+  "find": "ratingFor(c,sk)>0&&c.overall!==0&&assignable(c)",
+  "replace": "ratingFor(c,sk)>0&&c.overall>1&&assignable(c)"
+ },
+ {
+  "label": "Your call computed before the run",
+  "find": "autoSchedule(); const calls=yourCalls();",
+  "replace": "const calls=yourCalls(); autoSchedule();"
+ },
+ {
+  "label": "all-unlimited ignores rating",
+  "find": "s.crewId=[...cands].sort((a,b)=>(rt(b)-rt(a))||a.id.localeCompare(b.id))[0].id;",
+  "replace": "s.crewId=cands[0].id;"
+ },
+ {
+  "label": "the rule line missing",
+  "find": "the <b>higher-rated</b> one wins.",
+  "replace": "the <b>best</b> one wins."
+ }
+]
