@@ -1,83 +1,34 @@
-# 2026-10-28a: meeting record, guide Version 9, follow-up plans
+# 2026-10-29a: skills and crew preferences, built end to end
 
-**Session goal:** prepare Shane for the 8 AM meeting with Don and David, then capture what was
-decided and turn it into the guide update and the next plans. Done: agenda artifact, October hours,
-the meeting record from the Teams recording and Loop notes, guide Version 9 (28 October) on the
-private copy, and the questions, solutions and plans document.
+**Session goal:** design, plan and build item 2 of the 28 October list (skills and crew preferences), with the planner as the one place crews, skills and ratings are kept, subagent-driven with a reviewer per task and a whole-branch review at the end.
 
-**Time:** to fill at close (session continues; Shane remote for the afternoon).
+**Time:** 08:16–17:41 local, 7.50 h billable (D2)
 
 **Files touched:**
-- `docs/2026-10-28-status-meeting-notes.md` (new: decisions, guidance given, asks to scope, commercial)
-- `docs/2026-10-28-questions-solutions-plans.md` (new: questions with defaults, a design per ask,
-  the order and sizes, a draft message to Don and David)
-- `CLAUDE.md` (28 October section: the binding decisions, guide Version 9 published privately)
-- `~/.claude/projects/.../memory/teams-meeting-artifacts-access.md` (the working headless route)
-- Scratchpad, not committed: `d2-guide-v10.html` (the patched guide), `patch-guide-v9.py` (29
-  exact-match edits, each asserted once), `don-oct28-run-sheet.html` (the agenda artifact)
+- `docs/specs/2026-10-29-skills-and-crew-preferences-design.md`, `docs/superpowers/plans/2026-10-29-skills-and-crew-preferences.md` (spec and 15-task plan)
+- `sharepoint/provision-preferences.js`, `sharepoint/stamp-preferences.js`, `sharepoint/gate-template-lists.js` (`--lists`), `tools/sp-proxy.js` (Preference and Members columns, backfill, the Trades/Crews/Crew-Trades gate)
+- `flows/scripts/crew_sync.py` + test, `flows/exports/D2-Crew-Sync-2026-10-29.json` (flow 16, new)
+- `flows/scripts/crew_trade_check_preferences.py` + test + `2026-10-29-crew-trade-check-preferences.py`, `flows/exports/D2-Crew-Trade-Check-2026-10-29.json`, `flows/exports/backups/D2-Crew-Trade-Check-pre-preferences.json` (flow 14 honours ratings)
+- `web/graph-to-planner.js`, `web/writeback-core.js`, `web/graph-writeback.js`, `web/index.html` (read crews/skills/ratings; Crews tab editor; Save pushes crew changes; Auto-Schedule by rating with the Your call list; pickers grouped by rating; Schedule Check reasons; the failed-read guard)
+- `fixtures/planner/crews-editor.js` (Parts A to F) and its three mutation files, `rules.js` + `rules.ratings-mutations.json`, `graph-read.js` + two mutation files, `escaping.js` (repaired and registered), `roundtrip.js`, `determinism.js`, re-anchored `inline-edit`, `board-controls`, `rejections`, `template-check` mutation files, `fixtures/planner/live-payloads-graph*.json` (crews and ct), `fixtures/planner/crew-capture.json`, `package.json`, `fixtures/planner/README.md`
+- `tools/planner-shakedown.js` (Crews tab pass), `CLAUDE.md` (new section, anchored corrections)
 
-**Published:**
-- Agenda for the meeting: https://claude.ai/artifact/9186937XNeLkVtHZtGqDu1 (private)
-- Guide Version 9, 28 October 2026: https://claude.ai/artifact/UoeNwV4i4EQQaQgSuJCqiJ (private
-  copy; the client copy stays at Version 8 until Shane approves)
+**Commits:** 26ba45e spec and plan; 2fe55b5, 8d69555, a5dd493, 4bc364c, a0fd509, 7ecc054, 6b0d569 (Session 1: columns, fixture, gate, write-shape capture, Crew Sync); a9d93b8, 591b359, 3303766, cf516fe, cb89522, c0669f6 (mapper, core, Graph writer, planner read, Crews tab, Save); bbaedef (Auto-Schedule by rating); f6cdd86 (pickers and Schedule Check); 651bfc7, baf51bc (Crew Trade Check); ec83cc6, 92ec22a (shakedown and docs); 4086bd4, d3d1c76, 88744c5, ce8774d, 470ca86, 09ed751, 6978c98 (final review fix wave); bdc01d6 (live verification record)
 
-**Done:**
-- October D2 hours read from TimeTrack: 32.25 h posted against 20 included; 10-27 (2.25 h) and
-  today unposted; 10-05 never posted and needs a number from Shane.
-- The meeting: recording found in OneDrive Recordings (453 MB, Stream expires it in 120 days);
-  Graph transcript access is off for the tenant, so the transcript was harvested from the Stream
-  player's Transcript pane through Claude in Chrome (671 lines), and the Facilitator's Loop page
-  read the same way. Both tabs closed afterwards.
-- Guide edits: Optional features section (switch on and off, New in the template, adding a feature
-  to the templates with the row fields), build type and the Optional features checklist at + Job,
-  Build phases read-only, the plain-tick rule, Reject only on a saved sign-off, calendar paused,
-  three traps, four help rows, contents and footer. Sections balance (25 open, 25 close), one
-  `id="features"`, every anchor resolves.
+**Verification:** `npm test` exit 0 (1,408 PASS, the known oracle line only); shakedown 56 PASS / 0 FAIL, console clean, schedule check on the demo data 0 errors / 86 warnings; every mutation file swept red (crews-editor 75 against index.html, core 14, Graph 11, rules ratings 7, rules 6, graph-read crews 14 and html 1, inline-edit 18, board-controls 31, rejections 33, template-check 12). Live: `D2 - Crew Sync` added a new crew code to the Assignments column within a minute; `D2 - Crew Trade Check` flagged exactly the three throwaway rows for a rating of Never per trade and kept them flagged for Never overall; the clear path was not re-verified (see below). Tenant read back at its baseline afterwards (38 projects, 1,746 assignments, 11,116 tasks, 14 crews, 26 trades, 51 Crew-Trades rows, column at 14 codes).
 
 **Decisions made:**
-- Meeting decisions: `docs/2026-10-28-status-meeting-notes.md` and the CLAUDE.md section.
-- Shane's rulings on the twelve open design questions, taken one by one in the afternoon
-  (CLAUDE.md "Shane's rulings the same afternoon"): preference scale 3 best / 0 never; overall
-  preference only matters at 0; subcontractors rated; editor before mapping; job numbers generated
-  at + Job; draws as template rows (so zero-day sub-phases first); override now and a Closeout
-  status later; reset on Don's keeper list; design for Plumbline reuse; build the New Pool burst
-  gate in November; **the guide waits for the next major version** (Version 9 stays private); the
-  message to Don and David goes after Shane edits it.
-- The build order in the plans document is revised to match; items 1 to 6 are about eight sessions,
-  more than November's 20 hours.
+- Earliest date wins; rating breaks the tie on the day; Auto-Schedule never waits for a better crew and lists where it settled.
+- The Crews tab adds crews and never deletes; a crew is retired with an overall rating of Never.
+- Click-to-cycle chips for ratings; 3 is first choice, 0 is never; only an overall 0 overrides scheduling.
+- The Assignments crew dropdown and its validation formula are maintained by `D2 - Crew Sync` (union of existing choices and the Crews list; never removes a code), not by the planner.
+- The planner is deployed once, after the whole-branch review and its fix wave.
 
 **Open questions / blocked on:**
-- Shane: edit and send the message to Don and David (two lines need updating against the rulings);
-  post the October hours; give the 10-05 figure.
-- Don and David: draws trigger and who marks received (now shapes the template rows), the 3000
-  series question, the keeper list, the scope-note questions.
-- Amy: the seven Rev4 questions and the three files.
-- Template column display names: confirm on the live lists before the guide's next major version
-  goes to the client.
-
-**Item 1 started the same afternoon (Shane: "Start item 1").**
-- **Template lists gated, live.** `sharepoint/gate-template-lists.js` (new) run through a throwaway
-  proxy flow as D2 Bot via the new `tools/sp-proxy.js`: dry run, live write (10 REST calls), read
-  back, and SharePoint's own effective-permission check on both lists: Don and David edit, Cody (a
-  plain member) reads only, D2 Bot still manages. A second dry run planned nothing. Proxy flow
-  deleted afterwards. Recorded in CLAUDE.md ("THE TEMPLATE LISTS ARE GATED").
-- **Template check on the Build phases tab:** built by a subagent from a written brief (new
-  `web/template-check-core.js`, `graph-to-planner.js` emitting `templateRows` and `crews`,
-  `D2_GRAPH.lists.crews`, the card in `vPhases`, harness `fixtures/planner/template-check.js` with
-  three mutation files), then reviewed: the card now says "crew codes not checked" when the Crews
-  list could not be read (assertion and mutation added), and the mapper header names the two new
-  keys. Live template rows (91 / 543 / 26 trades / 14 crews) captured through the proxy and run
-  through the real mapper and check: **0 errors, 0 warnings; 17 errors with one crew code
-  removed**. Card seen rendering in the browser pane on a deliberately broken test template.
-  Not deployed: ships with the next release. Recorded in CLAUDE.md ("THE BUILD PHASES TAB CHECKS
-  THE TEMPLATES").
-
-- **Gates on the check:** `template-check.js` 71 assertions; sweeps 30 of 30 (core), 8 of 8
-  (mapper), 12 of 12 (page) red and reverted green; `npm test` exit 0 with only the known oracle
-  15/16 (Don's 10 unmapped trades); `tools/planner-shakedown.js` in a throwaway headless Chrome,
-  every check PASS, console clean. Nothing committed, nothing deployed.
+- The Static Web App deploy of 6978c98 (plus bdc01d6) is Shane's to run; then the tag `deploy/2026-10-29`, the wall checks, the served-file hashes and the hosted Crews tab checks (`+ Skill`, `+ Crew`, Save, Refresh, overall Never), and the two CLAUDE.md fill-ins.
+- Every D2 flow is throttled for about 24 hours from 20:30 UTC today: four whole-list runs of `D2 - Crew Trade Check` exhausted D2 Bot's daily action allowance. Tonight's nightly runs will be slow. Verify whole-list flows on a disarmed copy filtered to the throwaway project from now on.
+- The clear path of Crew Trade Check (a flagged row whose crew is qualified again) was not re-verified today; the mechanism is unchanged from 2026-09-11.
+- Follow-ups recorded in the review: Crew Sync's bad-code guard is narrower than the spec's `[a-z0-9]` and its terminate message still says "shrunken"; duplicate Crew-Trades pairs and decimal ratings split the planner and the flow; inactive crews are qualified in the planner but not in the flow; an unassignable crew is selectable on a no-trade row; empty crew name or long Members are refused by Graph (HTTP 400) rather than locally; a failed post-Save reload leaves the crew baseline stale; a Part E scenario for a failed Save-time Crew-Trades read; five pre-branch stale mutation anchors (build-type 1, complete 3, graph-read.g2p 1); the guide needs a Crews tab section for the next major version.
 
 **Next action:**
-Commit item 1 (gate script, proxy driver, template check and its harness, the three documents from
-today). Then the skills and preferences spec with the ruled scale (3 best, 0 never) and the
-0-only override, before any code.
+Shane runs the deploy block (CLAUDE.md, "THE HOSTED PLANNER WAS REDEPLOYED"); then tag, wall checks, served hashes, the hosted Crews tab checks with a throwaway skill and crew, the CLAUDE.md fill-ins, and delete the plan workspace.
