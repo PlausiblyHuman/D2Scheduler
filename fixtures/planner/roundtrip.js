@@ -3,7 +3,7 @@ const PLANNER = path.resolve(__dirname,'../../web/index.html');
 const {JSDOM, VirtualConsole} = require('jsdom');
 const fs = require('fs');
 const P = PLANNER;
-let html = fs.readFileSync(P,'utf8').replace('</body>',
+let html = fs.readFileSync(P,'utf8').replace('<script src="writeback-core.js"></script>','<script>'+fs.readFileSync(path.resolve(__dirname,'../../web/writeback-core.js'),'utf8')+'</script>').replace('</body>',
  `<script>window.__x=()=>{window.S=S;window.autoSchedule=autoSchedule;window.importFromD2=importFromD2;window.allSecs=allSecs;window.SEED_TEMPLATE=SEED_TEMPLATE;window.render=render;window.newJob=newJob;};</script><script>__x();</script></body>`);
 const vc=new VirtualConsole(); vc.on('jsdomError',e=>console.log('[jsdom]',e.message));
 const dom=new JSDOM(html,{runScripts:'dangerously',pretendToBeVisual:true,url:'http://localhost/',virtualConsole:vc});

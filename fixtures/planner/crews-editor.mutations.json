@@ -56,5 +56,13 @@
   {"label": "preview lines unescaped", "find": "crewCh.lines.map(l=>`<tr><td class=\"small\">${esc(l)}</td></tr>`)", "replace": "crewCh.lines.map(l=>`<tr><td class=\"small\">${l}</td></tr>`)"},
   {"label": "rating change not worded from base", "find": "cwWord(cwBase(op.crewCode,op.tradeCode))+' to '+cwWord(op.rating)", "replace": "cwWord(op.rating)+' to '+cwWord(op.rating)"},
   {"label": "diverged rating drops the words", "find": "`loaded ${cwWord(r.loaded)}, now ${cwWord(r.nowLive)}`", "replace": "'diverged'"},
-  {"label": "duplicate skill reason shown as a code", "find": "'duplicate-skill':'skill already on the list'", "replace": "'duplicate-skill':'duplicate-skill'"}
+  {"label": "duplicate skill reason shown as a code", "find": "'duplicate-skill':'skill already on the list'", "replace": "'duplicate-skill':'duplicate-skill'"},
+  {"label": "rating groups collapsed into one Qualified group", "find": "html+=`<optgroup label=\"${W.ratingWord(r)}\">", "replace": "html+=`<optgroup label=\"Qualified\">"},
+  {"label": "Never-for-the-trade suffix dropped", "find": "{t:` (rated ${W.ratingWord(0)})`,d:false}", "replace": "{t:'',d:false}"},
+  {"label": "Never-overall suffix dropped", "find": "{t:` (rated ${W.ratingWord(0)} overall)`,d:false}", "replace": "{t:'',d:false}"},
+  {"label": "unassignable option not disabled", "find": "return {t:' (not on the crew list yet)',d:true};", "replace": "return {t:' (not on the crew list yet)',d:false};"},
+  {"label": "inline picker not using the shared helper", "find": "${crewPickerHTML(s,null,false)}", "replace": "<optgroup label=\"Qualified\"></optgroup>"},
+  {"label": "unassignable finding missing", "find": "else if(!assignable(c))add('err','unassignable'", "replace": "else if(false)add('err','unassignable'"},
+  {"label": "rated Never for wording dropped", "find": "ratingFor(c,s.skill)===0?` (rated ${W.ratingWord(0)} for ${skillLabel(s.skill)})`", "replace": "ratingFor(c,s.skill)===0?''"},
+  {"label": "unqual fix text unchanged", "find": "fix:`Pick a crew from the ${window.D2WritebackCore.ratingWord(3)} or ${window.D2WritebackCore.ratingWord(2)} group on the row.`};", "replace": "fix:'Pick a crew from the Qualified list on the row.'};"}
 ]

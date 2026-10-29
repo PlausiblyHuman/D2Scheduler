@@ -494,6 +494,30 @@ function qualified(sk){
   if(FIXED[sk]){const c=fixedCrew(sk);return c?[c]:[];}
   return S.crews.filter(c=>ratingFor(c,sk)>0&&c.overall!==0&&assignable(c));
 }
+/* The two crew pickers (the Board row and the drawer) share these groups. Qualified crews sit under the
+   rating word they hold for the trade, best first; anyone else sits under Not qualified with the reason. The
+   words come from the core only. A crew qualified by rating but not yet in the Assignments Crew dropdown is
+   shown, disabled, under Not qualified: saving it would be refused. */
+function crewPickerHTML(s,qualExtra,noSkillNote){
+  const W=window.D2WritebackCore, sk=s.skill, cands=sk?qualified(sk):[];
+  const rated=!!sk&&!FIXED[sk];
+  const ready=cands.filter(c=>assignable(c)), other=S.crews.filter(c=>!ready.includes(c));
+  const opt=(c,suffix,dis)=>`<option value="${esc(c.id)}"${s.crewId===c.id?' selected':''}${dis?' disabled':''}>${esc(c.name)}${suffix}</option>`;
+  const okOpt=c=>opt(c,qualExtra?qualExtra(c):'',false);
+  let html='';
+  if(rated){
+    [3,2,1].forEach(r=>{const g=ready.filter(c=>ratingFor(c,sk)===r);
+      if(g.length)html+=`<optgroup label="${W.ratingWord(r)}">${g.map(okOpt).join('')}</optgroup>`;});
+  }else if(ready.length)html+=`<optgroup label="Qualified">${ready.map(okOpt).join('')}</optgroup>`;
+  const why=c=>{
+    if(sk&&isQualified(c,sk)&&!assignable(c))return {t:' (not on the crew list yet)',d:true};
+    if(rated&&ratingFor(c,sk)===0)return {t:` (rated ${W.ratingWord(0)})`,d:false};
+    if(rated&&c.overall===0&&ratingFor(c,sk)!=null)return {t:` (rated ${W.ratingWord(0)} overall)`,d:false};
+    return {t:sk&&noSkillNote?' — no '+skillLabel(sk):'',d:false};
+  };
+  if(other.length)html+=`<optgroup label="⚠ Not qualified">${other.map(c=>{const w=why(c);return opt(c,w.t,w.d);}).join('')}</optgroup>`;
+  return html;
+}
 const allSecs=j=>j.groups.flatMap((g,gi)=>g.sections.map((s,si)=>({g,gi,s,si})));
 
 /* ============================== scheduling ============================== */
@@ -974,7 +998,12 @@ function conflicts(){
         add('err','nocrew',`<b>${ref}</b> — no crew assigned${q.length?'':` and <u>no crew has the ${skillLabel(s.skill)} skill</u>`}.`);}
       if(s.skill&&s.crewId){const c=crew(s.crewId);
         if(!c)add('err','gone',`<b>${ref}</b> — assigned crew no longer exists.`);
-        else if(!isQualified(c,s.skill))add('err','unqual',`<b>${ref}</b> — ${esc(c.name)} is not qualified for ${skillLabel(s.skill)}.`);}
+        else if(!isQualified(c,s.skill)){
+          const W=window.D2WritebackCore, rated=!FIXED[s.skill]&&ratingFor(c,s.skill)!=null;
+          const why=!rated?'':ratingFor(c,s.skill)===0?` (rated ${W.ratingWord(0)} for ${skillLabel(s.skill)})`
+            :c.overall===0?` (rated ${W.ratingWord(0)} overall)`:'';
+          add('err','unqual',`<b>${ref}</b> — ${esc(c.name)} is not qualified for ${skillLabel(s.skill)}${why}.`);}
+        else if(!assignable(c))add('err','unassignable',`<b>${ref}</b> — ${esc(c.name)} is not on the crew list yet; press Refresh in a few minutes.`);}
       if(s.crewId==='unassigned')add('warn','unassigned',`<b>${ref}</b> — sitting in <b>Unassigned</b>. Give it Main Office, a Subcontractor, or a field crew.`);
       if(prevEnd&&s.start<=prevEnd)add('err','order',`<b>${ref}</b> — starts ${pretty(s.start)}, on or before the prior sub-phase ends (${pretty(prevEnd)}).`,{act:{jobId:j.id,gi,si}});
       const end=workSpan(s.start,s.days).pop();
@@ -1220,7 +1249,9 @@ function checkText(g){
       fix:'Give it a start on the row, or reset the project from a new start on the Jobs tab.'};
     case 'nocrew': return {title:`${proj}: ${pl(n,'sub-phase has','sub-phases have')} no crew, first <b>${sec}</b>.`,fix:'Pick a crew on the row.'};
     case 'unqual': return {title:`${proj}: ${pl(n,'sub-phase has','sub-phases have')} a crew not qualified for the trade, first <b>${sec}</b>.`,
-      fix:'Pick a crew from the Qualified list on the row.'};
+      fix:`Pick a crew from the ${window.D2WritebackCore.ratingWord(3)} or ${window.D2WritebackCore.ratingWord(2)} group on the row.`};
+    case 'unassignable': return {title:`${proj}: ${pl(n,'sub-phase has','sub-phases have')} a crew that is not on the crew list yet, first <b>${sec}</b>.`,
+      fix:'Press Refresh; the new crew becomes assignable a few minutes after it was saved.'};
     case 'gone': return {title:`${proj}: ${pl(n,'sub-phase is','sub-phases are')} assigned to a crew that no longer exists, first <b>${sec}</b>.`,fix:'Pick a crew on the row.'};
     case 'opentasks': return {title:`${proj}: ${pl(n,'sub-phase is','sub-phases are')} signed off with tasks still unresolved, first <b>${sec}</b>.`,
       fix:'Mark the open tasks Done or N/A in the checklist.'};
@@ -1365,12 +1396,9 @@ function inlineControls(j,gi,si,s,fin,live){
       +`<button type="button" class="ic icv" data-ic="start" title="Start. Click to change; changing it reflows the rest of this project." onclick="icOpen(${a},'start')">${pretty(s.start)}</button>`
       +`<span class="fin" title="Finish, from the start and the days">→ ${s.start?pretty(fin):'—'}</span>`;
   }
-  const cands=s.skill?qualified(s.skill):[],other=S.crews.filter(c=>!cands.includes(c));
-  const opt=c=>`<option value="${c.id}"${s.crewId===c.id?' selected':''}>${esc(c.name)}</option>`;
   return `<select class="ic" data-ic="crew" title="Crew for this sub-phase" onchange="inlineSet('${j.id}',${gi},${si},'crew',this.value)">
       <option value="">— Unassigned —</option>
-      ${cands.length?`<optgroup label="Qualified">${cands.map(opt).join('')}</optgroup>`:''}
-      ${other.length?`<optgroup label="⚠ Not qualified">${other.map(opt).join('')}</optgroup>`:''}</select>`
+      ${crewPickerHTML(s,null,false)}</select>`
     +`<input class="ic" type="number" min="1" data-ic="days" title="Days. Changing it reflows the rest of this project." value="${s.days}" onchange="inlineSet('${j.id}',${gi},${si},'days',this.value)">`
     +`<input class="ic" type="date" data-ic="start" title="Start. Changing it reflows the rest of this project." value="${s.start||''}" onchange="inlineSet('${j.id}',${gi},${si},'start',this.value)">`
     +`<span class="fin" title="Finish, from the start and the days">→ ${s.start?pretty(fin):'—'}</span>`;
@@ -1749,15 +1777,13 @@ function editSec(jobId,gi,si){
   // the dialog for an unrelated field with the box left exactly as shown must
   // not manufacture a Locked write out of what sign-off alone was displaying.
   CUR.origLocked=!!s.locked;
-  const cands=s.skill?qualified(s.skill):[],other=S.crews.filter(c=>!cands.includes(c));
   const c=secCounts(s);
   document.getElementById('dTitle').textContent=`${j.name} › ${s.num} ${s.name}`;
   document.getElementById('dBody').innerHTML=`
     <div class="small muted" style="margin-bottom:9px">Phase ${g.num}.0 ${g.name}</div>
     <div class="fld"><label>Required trade</label>${s.skill?`<span class="chip skill">${skillLabel(s.skill)}</span>`:`<span class="chip sub">No trade set</span>`}</div>
     <div class="fld"><label>Crew</label><select id="fCrew"><option value="">— Unassigned —</option>
-      ${cands.length?`<optgroup label="Qualified">${cands.map(c=>`<option value="${c.id}"${s.crewId===c.id?' selected':''}>${esc(c.name)} (${sizeTxt(c)})</option>`).join('')}</optgroup>`:''}
-      ${other.length?`<optgroup label="⚠ Not qualified">${other.map(c=>`<option value="${c.id}"${s.crewId===c.id?' selected':''}>${esc(c.name)}${s.skill?' — no '+skillLabel(s.skill):''}</option>`).join('')}</optgroup>`:''}
+      ${crewPickerHTML(s,c=>` (${sizeTxt(c)})`,true)}
     </select></div>
     <div class="row"><div class="fld"><label>Start</label><input type="date" id="fStart" value="${s.start||''}"></div>
       <div class="fld"><label>Days</label><input type="number" min="1" id="fDays" value="${s.days}"></div></div>

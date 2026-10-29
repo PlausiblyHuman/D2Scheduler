@@ -31,8 +31,9 @@ const ok = (l, c, d = '') => { console.log((c ? 'PASS' : 'FAIL') + ' · ' + l + 
 
 const PROBE = '<svg id="xss-probe"></svg>';
 
-const html = fs.readFileSync(PLANNER, 'utf8').replace('</body>',
-  `<script>window.__x=()=>{window.S=S;window.allSecs=allSecs;window.newJob=newJob;window.render=render;window.conflicts=conflicts;};</script><script>__x();</script></body>`);
+const CORE = '<script>' + fs.readFileSync(path.resolve(__dirname, '../../web/writeback-core.js'), 'utf8') + '</script>';
+const html = fs.readFileSync(PLANNER, 'utf8').replace('<script src="writeback-core.js"></script>', CORE).replace('</body>',
+  `<script>window.__x=()=>{window.S=S;window.allSecs=allSecs;window.newJob=newJob;window.render=render;window.conflicts=conflicts;window.editSec=editSec;window.icOpen=icOpen;};</script><script>__x();</script></body>`);
 const vc = new VirtualConsole(); vc.on('jsdomError', e => console.log('[jsdom]', e.message));
 const dom = new JSDOM(html, { runScripts: 'dangerously', pretendToBeVisual: true, url: 'http://localhost/', virtualConsole: vc });
 const win = dom.window;
@@ -93,6 +94,32 @@ const tab = t => win.document.querySelector(`#tabs button[data-t="${t}"]`).click
   }
   ok('no tab injects the pool name as markup', leaked.length === 0,
      leaked.length ? 'LEAKS: ' + leaked.join(', ') : tabs.length + ' tabs swept: ' + tabs.join(', '));
+
+  // --- crew names and skill names, on every tab and in an opened drawer. The Crews tab and both
+  // crew pickers paint these; a SharePoint editor can type markup into either.
+  if (!S.trades || !S.trades.length) S.trades = [{ code: 'probe-skill', label: 'Probe', sort: 1, spId: null, isNew: false }];
+  if (S.crews[0]) { S.crews[0].ratings = Object.assign({}, S.crews[0].ratings, { [S.trades[0].code]: 3 }); }
+  ok('the page has a skill and a crew to carry the probe', !!(S.trades && S.trades[0] && S.crews && S.crews[0]));
+  const skillCode = S.trades[0].code;
+  S.trades[0].label = 'Skill ' + PROBE;
+  S.crews[0].name = 'Crew ' + PROBE;
+  const leaked2 = [];
+  for (const t of tabs) {
+    tab(t); win.render();
+    if (win.document.getElementById('xss-probe')) leaked2.push(t);
+  }
+  ok('no tab injects a crew or skill name as markup', leaked2.length === 0, leaked2.length ? 'LEAKS: ' + leaked2.join(', ') : tabs.length + ' tabs swept');
+  const sec = win.allSecs(j)[0];
+  sec.s.skill = skillCode; sec.s.crewId = S.crews[0].id; sec.s.start = sec.s.start || '2026-11-02'; sec.s.skip = false;
+  win.editSec(j.id, sec.gi, sec.si);
+  ok('the drawer picker is built with the probe crew', win.document.getElementById('fCrew').textContent.includes('Crew <svg'), win.document.getElementById('fCrew').textContent.slice(0, 80));
+  ok('the drawer does not inject a crew or skill name as markup', win.document.getElementById('xss-probe') === null);
+  tab('board'); win.render();
+  const cell = win.document.querySelector('.ic-row .ic[data-ic="crew"]');
+  if (cell) win.icOpen(cell, j.id, sec.gi, sec.si, 'crew');
+  ok('the inline picker does not inject a crew or skill name as markup', win.document.getElementById('xss-probe') === null);
+  win.conflicts();
+  ok('Schedule Check does not inject a crew or skill name as markup', win.document.getElementById('xss-probe') === null);
 
   console.log(fail ? '\nFAIL — a pool name reached the DOM as markup.'
                    : '\nPool names are escaped in every renderer.');

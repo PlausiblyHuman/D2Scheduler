@@ -606,6 +606,67 @@ ok('slugCode keeps counting past a second collision', C.slugCode('Dig', ['dig', 
       ok('E: an assignable crew still saves', e.s.crewId === 'devon');
       win.close();
     }
+    // ---------------------------------------------------------------- Part F: pickers and Schedule Check
+    {
+      const { win } = await fresh();
+      win.setTab('board');
+      const fx = win.S.jobs.filter(j => !j.readOnly && !j.building);
+      const found = [];
+      for (const j of fx) for (let gi = 0; gi < j.groups.length; gi++) for (let si = 0; si < j.groups[gi].sections.length; si++) {
+        const s = j.groups[gi].sections[si];
+        if (s.skill === 'plumbing' && !s.skip && !s.locked && !s.inst && found.length < 3 && (!found.length || found[0].j === j)) found.push({ j, gi, si, s });
+      }
+      ok('F: the test project has three editable plumbing sub-phases', found.length === 3, 'found=' + found.length);
+      const { j, gi, si } = found[0];
+      win.crew('campos').ratings.plumbing = 3;
+      win.crew('stl').ratings.plumbing = 2;
+      const NQ = '⚠ Not qualified';
+      const dc = () => win.document.getElementById('fCrew');
+      const optUnder = label => { const g = [...dc().querySelectorAll('optgroup')].find(x => x.label === label); return g ? [...g.querySelectorAll('option')].map(o => o.value) : []; };
+      const optText = code => { const o = dc().querySelector('option[value="' + code + '"]'); return o ? o.textContent : ''; };
+      const W = require('../../web/writeback-core.js');
+      const first = W.ratingWord(3), second = W.ratingWord(2), never = W.ratingWord(0);
+      win.editSec(j.id, gi, si);
+      const groups = [...win.document.querySelectorAll('#fCrew optgroup')].map(g => g.label);
+      ok('F: drawer groups qualified crews by rating word, empty groups omitted', groups.join('|') === [first, second, NQ].join('|'), groups.join('|'));
+      ok('F: harrison is under First choice and stl under Second choice', optUnder(first).includes('harrison') && optUnder(second).includes('stl'));
+      ok('F: qualified options keep the crew size', optText('harrison').includes('(') && optText('harrison').length > 'Harrison'.length, optText('harrison'));
+      ok('F: a crew with no row for the trade keeps the old wording', win.ratingFor(win.crew('devon'), 'plumbing') != null || optText('devon').includes('— no Plumbing'), optText('devon'));
+      ok('F: a crew rated Never for the trade is suffixed in Not qualified', (() => { win.crew('saul').ratings.plumbing = 0; win.editSec(j.id, gi, si); return optUnder(NQ).includes('saul') && optText('saul').includes('(rated ' + never + ')') && !/overall/.test(optText('saul')); })(), optText('saul'));
+      ok('F: a crew at overall Never is suffixed overall', (() => { win.crew('devon').ratings.plumbing = 2; win.crew('devon').overall = 0; win.editSec(j.id, gi, si); return optText('devon').includes('(rated ' + never + ' overall)') && !optUnder(second).includes('devon'); })(), optText('devon'));
+      ok('F: an unassignable crew is disabled with the sentence', dc().querySelector('option[value="campos"]').disabled && /not on the crew list yet/.test(optText('campos')) && optUnder(NQ).includes('campos'), optText('campos'));
+      ok('F: an assignable crew is not disabled', !dc().querySelector('option[value="harrison"]').disabled);
+      ok('F: the inline picker uses the same groups', (() => {
+        win.setTab('board');
+        const cell = win.document.querySelector('.ic-row .ic[data-ic="crew"]');
+        win.icOpen(cell, j.id, gi, si, 'crew');
+        const lab = [...win.document.querySelectorAll('.ic-row select optgroup')].map(g => g.label);
+        const sel = win.document.querySelector('.ic-row select');
+        return lab.join('|') === [first, second, NQ].join('|') && sel.querySelector('option[value="campos"]').disabled && sel.querySelector('option[value="saul"]').textContent.includes('(rated ' + never + ')');
+      })());
+      ok('F: a fixed-bucket skill keeps the single Qualified group', (() => {
+        for (const jj of fx) for (let g2 = 0; g2 < jj.groups.length; g2++) for (let s2 = 0; s2 < jj.groups[g2].sections.length; s2++) {
+          if (jj.groups[g2].sections[s2].skill !== '@office') continue;
+          win.editSec(jj.id, g2, s2);
+          return [...win.document.querySelectorAll('#fCrew optgroup')].map(g => g.label)[0] === 'Qualified';
+        }
+        return false;
+      })());
+      // Schedule Check: one plumbing sub-phase per reason
+      const set = (f, crewId) => { f.s.start = f.s.start || '2026-11-02'; f.s.crewId = crewId; };
+      set(found[0], 'saul'); set(found[1], 'devon'); set(found[2], 'campos');
+      const list = win.conflicts().filter(x => found.some(f => x.pos && x.jobId === f.j.id && x.pos.gi === f.gi && x.pos.si === f.si));
+      const msgs = list.map(x => x.msg + '|' + x.kind);
+      ok('F: Schedule Check says rated Never for the trade', msgs.some(m => m.includes('rated ' + never + ' for Plumbing') && m.endsWith('|unqual')), msgs.join(' // '));
+      ok('F: Schedule Check says rated Never overall', msgs.some(m => m.includes('rated ' + never + ' overall') && m.endsWith('|unqual')), msgs.join(' // '));
+      ok('F: Schedule Check names a not-yet-assignable crew', msgs.some(m => m.includes('is not on the crew list yet; press Refresh in a few minutes.') && m.endsWith('|unassignable')), msgs.join(' // '));
+      const grp = win.checkGroups(list);
+      const gk = k => grp.find(x => x.kind === k) || {};
+      ok('F: unqual fix names the two best groups', gk('unqual').fix === 'Pick a crew from the ' + first + ' or ' + second + ' group on the row.', gk('unqual').fix);
+      ok('F: unassignable groups per project with its fix', grp.filter(x => x.kind === 'unassignable').length === 1 && gk('unassignable').fix === 'Press Refresh; the new crew becomes assignable a few minutes after it was saved.' && /not on the crew list yet/.test(gk('unassignable').title), gk('unassignable').title);
+      ok('F: a qualified, assignable crew raises neither finding', (() => { win.crew('saul').ratings.plumbing = 3; win.crew('saul').overall = 3; set(found[0], 'saul'); return !win.conflicts().some(x => x.jobId === j.id && x.pos && x.pos.gi === gi && x.pos.si === si && (x.kind === 'unqual' || x.kind === 'unassignable')); })());
+      win.close();
+    }
   }
 
   if (fail) { console.log('\nFAILED'); process.exit(1); }
