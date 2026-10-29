@@ -757,6 +757,159 @@
     return { creates: creates, refusals: refusals };
   }
 
+  /* ------------------------------------------------------------------
+   * Crews editor: skills, crews and per-crew ratings (skills-and-crew-preferences).
+   * Pure decisions only; web/graph-writeback.js turns the ops into Graph calls.
+   * ---------------------------------------------------------------- */
+  var RATING_WORDS = { 3: 'First choice', 2: 'Second choice', 1: 'Last resort', 0: 'Never' };
+  function ratingWord(n) { return n == null ? '' : (RATING_WORDS[n] || ''); }
+
+  /* Same three lines as graph-to-planner.js; the browser loads the two files as
+     separate scripts, so each holds a copy and crews-editor.js asserts they agree. */
+  function normRating(v) {
+    if (v == null || v === '' || !Number.isFinite(Number(v))) return 3;
+    return Math.min(3, Math.max(0, Math.round(Number(v))));
+  }
+
+  function skillKey(name) { return String(name).toLowerCase().replace(/[^a-z0-9]/g, ''); }
+
+  function slugCode(name, existingCodes) {
+    var base = skillKey(name);
+    if (!base) return null;
+    var taken = {};
+    (existingCodes || []).forEach(function (c) { taken[String(c)] = true; });
+    var code = base, n = 1;
+    while (taken[code]) { n += 1; code = base + n; }
+    return code;
+  }
+
+  function memList(v) {
+    var a = Array.isArray(v) ? v : String(v == null ? '' : v).split(',');
+    return a.map(function (m) { return String(m).trim(); }).filter(Boolean);
+  }
+
+  /* Crew columns the editor may write, with how each is compared. Equality is
+     on the normalised value, so a live ["A","B"] and a local "A, B" are the
+     same thing. Active is deliberately not here: this module never writes it. */
+  var CREW_FIELDS = [
+    { key: 'name', col: 'Title', norm: function (v) { return v == null ? '' : String(v); } },
+    { key: 'size', col: 'Size', norm: function (v) { return v == null || v === '' || !isFinite(Number(v)) ? null : Number(v); } },
+    { key: 'unlimited', col: 'Unlimited', norm: function (v) { return !!v; } },
+    { key: 'members', col: 'Members', norm: function (v) { return memList(v).join(', '); } },
+    { key: 'note', col: 'Notes', norm: function (v) { return v == null ? '' : String(v); } },
+    { key: 'overall', col: 'Preference', norm: normRating }
+  ];
+
+  /* Turn the Crews tab's local edits plus a fresh read into ordered ops.
+   *
+   * Compare-before-write per FIELD and per rating: the base snapshot taken at
+   * load is what the editor believed; if the live value has moved off it, that
+   * piece is refused and every other piece still lands. A crew whose overall
+   * goes to 0 writes Preference only.
+   * Op order is fixed: trade-create, crew-create, crew-patch, ct-create,
+   * ct-patch, ct-delete. A ct-create for a crew or skill created in the same
+   * batch names it by code; the Graph writer resolves ids after the creates. */
+  function planCrewEdits(local, live, opts) {
+    var S = String;
+    var buckets = { tc: [], cc: [], cp: [], ctc: [], ctp: [], ctd: [] };
+    var refusals = [];
+    var refuse = function (kind, crew, trade, reason, loaded, nowLive, wanted, field) {
+      var r = { kind: kind, crew: crew, trade: trade, reason: reason, loaded: loaded, nowLive: nowLive, wanted: wanted };
+      if (field) r.field = field;
+      refusals.push(r);
+    };
+
+    var liveTrades = (live && live.trades) || [], liveCrews = (live && live.crews) || [], liveCt = (live && live.ct) || [];
+    var tradeById = {}, tradeCodeSet = {};
+    liveTrades.forEach(function (t) { tradeById[S(t.spId)] = t; tradeCodeSet[t.code] = true; });
+    var liveCrewById = {}, liveCrewCodes = {}, crewCodeById = {};
+    liveCrews.forEach(function (c) { liveCrewById[S(c.spId)] = c; liveCrewCodes[c.id] = true; crewCodeById[S(c.spId)] = c.id; });
+    var liveRow = {};
+    liveCt.forEach(function (r) {
+      var cc = crewCodeById[S(r.crewSpId)], t = tradeById[S(r.tradeSpId)];
+      if (cc && t) liveRow[cc + '|' + t.code] = r;
+    });
+
+    // Skills
+    var refusedTrade = {}, newTrade = {};
+    ((local && local.trades) || []).forEach(function (t) {
+      if (!t.isNew || t.spId) return;
+      var k = skillKey(t.label), hit = null;
+      liveTrades.forEach(function (lt) { if (!hit && (skillKey(lt.label) === k || skillKey(lt.code) === k)) hit = lt; });
+      if (hit) {
+        refusedTrade[t.code] = true;
+        refuse('trade-create', null, t.code, 'duplicate-skill', null, hit.label, t.label);
+        return;
+      }
+      newTrade[t.code] = true;
+      buckets.tc.push({ kind: 'trade-create', label: t.label, code: t.code, sort: t.sort });
+    });
+
+    // Crews
+    var refusedCrew = {};
+    var crews = (local && local.crews) || [];
+    crews.forEach(function (c) {
+      if (c.isNew && !c.spId) {
+        if (liveCrewCodes[c.id]) {
+          refusedCrew[c.id] = true;
+          refuse('crew-create', c.id, null, 'code-exists', null, c.id, c.id);
+          return;
+        }
+        buckets.cc.push({ kind: 'crew-create', id: c.id, fields: {
+          Title: c.name, CrewID: c.id, Size: c.size, Unlimited: !!c.unlimited, Active: true,
+          Members: memList(c.members).join(', '), Notes: c.note == null ? '' : S(c.note), Preference: normRating(c.overall) } });
+        return;
+      }
+      var lc = liveCrewById[S(c.spId)];
+      if (!lc) { refusedCrew[c.id] = true; refuse('crew-patch', c.id, null, 'row-missing', null, null, null); return; }
+      var fields = {}, base = c.base || {};
+      CREW_FIELDS.forEach(function (f) {
+        var cur = f.norm(c[f.key]), was = f.norm(base[f.key]);
+        if (cur === was) return;
+        var nowLive = f.norm(lc[f.key]);
+        if (nowLive !== was) { refuse('crew-patch', c.id, null, 'diverged', was, nowLive, cur, f.col); return; }
+        fields[f.col] = cur;
+      });
+      if (Object.keys(fields).length) buckets.cp.push({ kind: 'crew-patch', spId: S(c.spId), id: c.id, fields: fields });
+    });
+
+    // Ratings. Absent and null both mean "no chip".
+    var has = function (o, k) { return o && o[k] !== undefined && o[k] !== null; };
+    crews.forEach(function (c) {
+      var base = (c.base && c.base.ratings) || {}, cur = c.ratings || {};
+      var codes = {};
+      Object.keys(base).concat(Object.keys(cur)).forEach(function (k) { codes[k] = true; });
+      Object.keys(codes).forEach(function (code) {
+        var now = has(cur, code), was = has(base, code);
+        if (refusedCrew[c.id]) {
+          if (now && !was) refuse('ct-create', c.id, code, 'crew-refused', null, null, normRating(cur[code]));
+          return;
+        }
+        var row = liveRow[c.id + '|' + code];
+        if (now && !was) {
+          var want = normRating(cur[code]);
+          if (refusedTrade[code]) { refuse('ct-create', c.id, code, 'skill-refused', null, null, want); return; }
+          if (!tradeCodeSet[code] && !newTrade[code]) { refuse('ct-create', c.id, code, 'unknown-skill', null, null, want); return; }
+          if (row) { refuse('ct-create', c.id, code, 'already-exists', null, row.rating, want); return; }
+          buckets.ctc.push({ kind: 'ct-create', crewCode: c.id, tradeCode: code, rating: want });
+        } else if (now && was) {
+          var to = normRating(cur[code]), from = normRating(base[code]);
+          if (to === from) return;
+          if (!row) { refuse('ct-patch', c.id, code, 'row-missing', from, null, to); return; }
+          if (normRating(row.rating) !== from) { refuse('ct-patch', c.id, code, 'diverged', from, normRating(row.rating), to); return; }
+          buckets.ctp.push({ kind: 'ct-patch', spId: S(row.spId), crewCode: c.id, tradeCode: code, rating: to });
+        } else if (was) {
+          var held = normRating(base[code]);
+          if (!row) return;
+          if (normRating(row.rating) !== held) { refuse('ct-delete', c.id, code, 'diverged', held, normRating(row.rating), null); return; }
+          buckets.ctd.push({ kind: 'ct-delete', spId: S(row.spId), crewCode: c.id, tradeCode: code });
+        }
+      });
+    });
+
+    return { ops: [].concat(buckets.tc, buckets.cc, buckets.cp, buckets.ctc, buckets.ctp, buckets.ctd), refusals: refusals };
+  }
+
   return {
     planStructureCreates: planStructureCreates,
     ALLOWLIST: ALLOWLIST, FIELD_DEFS: FIELD_DEFS, titleMatches: titleMatches,
@@ -764,6 +917,8 @@
     planCreates: planCreates, day: day,
     planSignoffs: planSignoffs, planTaskTicks: planTaskTicks, isPlainTick: isPlainTick,
     appendReopen: appendReopen, centralStamp: centralStamp, settleCounters: settleCounters,
-    planRejections: planRejections, appendRejected: appendRejected
+    planRejections: planRejections, appendRejected: appendRejected,
+    RATING_WORDS: RATING_WORDS, ratingWord: ratingWord, skillKey: skillKey, slugCode: slugCode,
+    normRating: normRating, planCrewEdits: planCrewEdits
   };
 });
