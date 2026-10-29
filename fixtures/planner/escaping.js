@@ -116,9 +116,25 @@ const tab = t => win.document.querySelector(`#tabs button[data-t="${t}"]`).click
   ok('the drawer does not inject a crew or skill name as markup', win.document.getElementById('xss-probe') === null);
   tab('board'); win.render();
   const cell = win.document.querySelector('.ic-row .ic[data-ic="crew"]');
+  ok('the Board has an inline crew control to open', !!cell);
   if (cell) win.icOpen(cell, j.id, sec.gi, sec.si, 'crew');
+  ok('the inline picker is built with the probe crew', !!cell && /Crew <svg/.test(win.document.querySelector('.ic-row select[data-ic="crew"]')?.textContent || ''));
   ok('the inline picker does not inject a crew or skill name as markup', win.document.getElementById('xss-probe') === null);
-  win.conflicts();
+
+  // --- Schedule Check findings that NAME a crew. A single finding in a group paints only its title, so
+  // two of each kind go in the same project: the group then paints every message under "Show all".
+  // unqual: crew 0 rated 0 for the skill. unassignable: crew 1 rated 3 but missing from the Assignments choices.
+  const [c0, c1] = S.crews;
+  c1.name = 'Second ' + PROBE; c1.ratings = Object.assign({}, c1.ratings, { [skillCode]: 3 }); c1.overall = 3;
+  c0.ratings[skillCode] = 0;
+  S.assignableCodes = S.crews.filter(c => c.id !== c1.id).map(c => c.id);
+  const four = win.allSecs(j).slice(0, 4);
+  four.forEach(({ s }, i) => { s.skill = skillCode; s.skip = false; s.locked = false; s.start = '2026-11-0' + (2 + i); s.days = 1; s.crewId = i < 2 ? c0.id : c1.id; });
+  tab('board'); win.render();
+  win.document.querySelector('details.chk > summary').click();
+  const items = [...win.document.querySelectorAll('#main .flag-item')].map(e => e.textContent);
+  ok('Schedule Check paints a not-qualified finding that names the probe crew', items.some(t => /is not qualified for/.test(t) && t.includes('Crew <svg')), items.length + ' findings painted');
+  ok('Schedule Check paints a not-on-the-crew-list finding that names the probe crew', items.some(t => /is not on the crew list yet/.test(t) && t.includes('Second <svg')), items.length + ' findings painted');
   ok('Schedule Check does not inject a crew or skill name as markup', win.document.getElementById('xss-probe') === null);
 
   console.log(fail ? '\nFAIL — a pool name reached the DOM as markup.'
