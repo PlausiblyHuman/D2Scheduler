@@ -1,0 +1,326 @@
+{
+ "flowId": "592b666b-84fd-6a8a-a4ed-056130024f62",
+ "displayName": "D2 - Crew Sync",
+ "workflowEntityId": "dd19c039-bbd3-f111-a05b-6045bd0195dd",
+ "state": "Started",
+ "lastModifiedTime": "2026-10-29T17:23:23Z",
+ "connectionReferences": {
+  "shared_sharepointonline": {
+   "connectionName": "shared-sharepointonl-20b83f29-d689-437e-b1ff-930f7bf3fda4",
+   "connectionReferenceLogicalName": "new_sharedsharepointonline_beb06",
+   "source": "Embedded",
+   "id": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+   "displayName": "SharePoint",
+   "iconUri": "https://static.powerapps.com/resource/ppcr/releases/v1.0.1827/1.0.1827.4913/sharepointonline/icon.png",
+   "brandColor": "",
+   "tier": "Standard",
+   "apiName": "sharepointonline",
+   "isProcessSimpleApiReferenceConversionAlreadyDone": false
+  },
+  "shared_office365": {
+   "connectionName": "shared-office365-0bc14d33-bf94-4439-bdbc-d600759333d5",
+   "connectionReferenceLogicalName": "new_sharedoffice365_4d59e",
+   "source": "Embedded",
+   "id": "/providers/Microsoft.PowerApps/apis/shared_office365",
+   "displayName": "Office 365 Outlook",
+   "iconUri": "https://static.powerapps.com/resource/ppcr/releases/v1.0.1831/1.0.1831.5113/office365/icon.png",
+   "brandColor": "#0078D4",
+   "tier": "Standard",
+   "apiName": "office365",
+   "isProcessSimpleApiReferenceConversionAlreadyDone": false
+  }
+ },
+ "definition": {
+  "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+   "$connections": {
+    "defaultValue": {},
+    "type": "Object"
+   },
+   "$authentication": {
+    "defaultValue": {},
+    "type": "SecureObject"
+   }
+  },
+  "triggers": {
+   "When_a_crew_is_added_or_changed": {
+    "recurrence": {
+     "frequency": "Minute",
+     "interval": 1
+    },
+    "type": "OpenApiConnection",
+    "inputs": {
+     "host": {
+      "connectionName": "shared_sharepointonline",
+      "operationId": "GetOnUpdatedItems",
+      "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+     },
+     "parameters": {
+      "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+      "table": "45e9ff1f-bf36-4ab5-929d-25ab9a80d460"
+     }
+    }
+   }
+  },
+  "actions": {
+   "Get_crews": {
+    "runAfter": {},
+    "type": "OpenApiConnection",
+    "inputs": {
+     "parameters": {
+      "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+      "table": "45e9ff1f-bf36-4ab5-929d-25ab9a80d460",
+      "$top": 500
+     },
+     "host": {
+      "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+      "operationId": "GetItems",
+      "connectionName": "shared_sharepointonline"
+     }
+    }
+   },
+   "Select_codes": {
+    "runAfter": {
+     "Get_crews": [
+      "Succeeded"
+     ]
+    },
+    "type": "Select",
+    "inputs": {
+     "from": "@body('Get_crews')?['value']",
+     "select": "@trim(coalesce(item()?['CrewID'], ''))"
+    }
+   },
+   "Filter_bad_codes": {
+    "runAfter": {
+     "Select_codes": [
+      "Succeeded"
+     ]
+    },
+    "type": "Query",
+    "inputs": {
+     "from": "@body('Select_codes')",
+     "where": "@or(equals(item(), ''), not(equals(item(), toLower(item()))), contains(item(), ' '), contains(item(), '\"'))"
+    }
+   },
+   "Get_crew_field": {
+    "runAfter": {
+     "Filter_bad_codes": [
+      "Succeeded"
+     ]
+    },
+    "type": "OpenApiConnection",
+    "inputs": {
+     "parameters": {
+      "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+      "parameters/method": "GET",
+      "parameters/uri": "_api/web/lists/GetByTitle('Assignments')/fields/getbyinternalnameortitle('Crew')?$select=Choices,ValidationFormula",
+      "parameters/headers": {
+       "Accept": "application/json;odata=nometadata"
+      }
+     },
+     "host": {
+      "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+      "operationId": "HttpRequest",
+      "connectionName": "shared_sharepointonline"
+     }
+    }
+   },
+   "Compose_all_codes": {
+    "runAfter": {
+     "Get_crew_field": [
+      "Succeeded"
+     ]
+    },
+    "type": "Compose",
+    "inputs": "@union(coalesce(body('Get_crew_field')?['Choices'], json('[]')), body('Select_codes'))"
+   },
+   "Guard_codes": {
+    "actions": {
+     "Send_failure_email": {
+      "runAfter": {},
+      "type": "OpenApiConnection",
+      "inputs": {
+       "host": {
+        "connectionName": "shared_office365",
+        "operationId": "SendEmailV2",
+        "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365"
+       },
+       "parameters": {
+        "emailMessage/To": "stratirus@d2pools.com",
+        "emailMessage/Subject": "D2 Crew Sync stopped: crew codes not written",
+        "emailMessage/Body": "<p>D2 - Crew Sync read the Crews list and did not touch Assignments.Crew.</p><p>Codes read (@{length(body('Select_codes'))}): @{join(body('Select_codes'), ', ')}</p><p>Bad codes: @{join(body('Filter_bad_codes'), ', ')}</p><p>Choices on Assignments.Crew now: @{length(coalesce(body('Get_crew_field')?['Choices'], json('[]')))}</p><p>A code must be non-empty, lower case, with no spaces or quotes.</p>",
+        "emailMessage/Importance": "High"
+       }
+      }
+     },
+     "Terminate_bad_codes": {
+      "runAfter": {
+       "Send_failure_email": [
+        "Succeeded"
+       ]
+      },
+      "type": "Terminate",
+      "inputs": {
+       "runStatus": "Failed",
+       "runError": {
+        "code": "BadCrewCodes",
+        "message": "The Crews list gave an empty, malformed or shrunken code list. Nothing was written to Assignments.Crew."
+       }
+      }
+     }
+    },
+    "runAfter": {
+     "Compose_all_codes": [
+      "Succeeded"
+     ]
+    },
+    "else": {
+     "actions": {}
+    },
+    "expression": "@or(greater(length(body('Filter_bad_codes')), 0), less(length(body('Select_codes')), 1))",
+    "type": "If"
+   },
+   "Select_formula_terms": {
+    "runAfter": {
+     "Guard_codes": [
+      "Succeeded"
+     ]
+    },
+    "type": "Select",
+    "inputs": {
+     "from": "@outputs('Compose_all_codes')",
+     "select": "@concat('[Crew]=\"', item(), '\"')"
+    }
+   },
+   "Compose_formula": {
+    "runAfter": {
+     "Select_formula_terms": [
+      "Succeeded"
+     ]
+    },
+    "type": "Compose",
+    "inputs": "@concat('=OR(ISBLANK([Crew]),', join(body('Select_formula_terms'), ','), ')')"
+   },
+   "Compose_message": {
+    "runAfter": {
+     "Compose_formula": [
+      "Succeeded"
+     ]
+    },
+    "type": "Compose",
+    "inputs": "@concat('Crew must be one of the codes from the Crews list, lower case, no spaces: ', join(outputs('Compose_all_codes'), ', '), '. Use the short code (devon), never the display name (Devon Crew +3). A code that is not on this list matches nothing: the row would be skipped by dispatch and by conflict detection, silently.')"
+   },
+   "Merge_crew_field": {
+    "runAfter": {
+     "Compose_message": [
+      "Succeeded"
+     ]
+    },
+    "type": "OpenApiConnection",
+    "inputs": {
+     "parameters": {
+      "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+      "parameters/method": "POST",
+      "parameters/uri": "_api/web/lists/GetByTitle('Assignments')/fields/getbyinternalnameortitle('Crew')",
+      "parameters/headers": {
+       "X-HTTP-Method": "MERGE",
+       "If-Match": "*",
+       "Content-Type": "application/json;odata=verbose",
+       "Accept": "application/json;odata=verbose"
+      },
+      "parameters/body": "@{string(setProperty(setProperty(setProperty(json('{\"__metadata\":{\"type\":\"SP.FieldChoice\"}}'), 'Choices', setProperty(json('{\"__metadata\":{\"type\":\"Collection(Edm.String)\"}}'), 'results', outputs('Compose_all_codes'))), 'ValidationFormula', outputs('Compose_formula')), 'ValidationMessage', outputs('Compose_message')))}"
+     },
+     "host": {
+      "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+      "operationId": "HttpRequest",
+      "connectionName": "shared_sharepointonline"
+     }
+    }
+   },
+   "Get_crew_field_after": {
+    "runAfter": {
+     "Merge_crew_field": [
+      "Succeeded"
+     ]
+    },
+    "type": "OpenApiConnection",
+    "inputs": {
+     "parameters": {
+      "dataset": "https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler",
+      "parameters/method": "GET",
+      "parameters/uri": "_api/web/lists/GetByTitle('Assignments')/fields/getbyinternalnameortitle('Crew')?$select=Choices,ValidationFormula",
+      "parameters/headers": {
+       "Accept": "application/json;odata=nometadata"
+      }
+     },
+     "host": {
+      "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+      "operationId": "HttpRequest",
+      "connectionName": "shared_sharepointonline"
+     }
+    }
+   },
+   "Filter_missing_written": {
+    "runAfter": {
+     "Get_crew_field_after": [
+      "Succeeded"
+     ]
+    },
+    "type": "Query",
+    "inputs": {
+     "from": "@outputs('Compose_all_codes')",
+     "where": "@or(not(contains(coalesce(body('Get_crew_field_after')?['Choices'], json('[]')), item())), not(or(contains(coalesce(body('Get_crew_field_after')?['ValidationFormula'], ''), concat('Crew=\"', item(), '\"')), contains(coalesce(body('Get_crew_field_after')?['ValidationFormula'], ''), concat('[Crew]=\"', item(), '\"')))))"
+    }
+   },
+   "Guard_written": {
+    "actions": {
+     "Send_failure_email_2": {
+      "runAfter": {},
+      "type": "OpenApiConnection",
+      "inputs": {
+       "host": {
+        "connectionName": "shared_office365",
+        "operationId": "SendEmailV2",
+        "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365"
+       },
+       "parameters": {
+        "emailMessage/To": "stratirus@d2pools.com",
+        "emailMessage/Subject": "D2 Crew Sync: crew field not written as expected",
+        "emailMessage/Body": "<p>D2 - Crew Sync wrote the Assignments.Crew field and the read-back did not match.</p><p>Codes read (@{length(body('Select_codes'))}): @{join(body('Select_codes'), ', ')}</p><p>Missing after the write: @{join(body('Filter_missing_written'), ', ')}</p><p>Choices on Assignments.Crew now: @{length(coalesce(body('Get_crew_field_after')?['Choices'], json('[]')))}</p><p>Check the column in SharePoint and re-run sharepoint/guard-crew-values.js if needed.</p>",
+        "emailMessage/Importance": "High"
+       }
+      }
+     },
+     "Terminate_not_written": {
+      "runAfter": {
+       "Send_failure_email_2": [
+        "Succeeded"
+       ]
+      },
+      "type": "Terminate",
+      "inputs": {
+       "runStatus": "Failed",
+       "runError": {
+        "code": "CrewFieldNotWritten",
+        "message": "After the MERGE, Assignments.Crew did not carry every crew code in both its choices and its validation formula."
+       }
+      }
+     }
+    },
+    "runAfter": {
+     "Filter_missing_written": [
+      "Succeeded"
+     ]
+    },
+    "else": {
+     "actions": {}
+    },
+    "expression": "@greater(length(body('Filter_missing_written')), 0)",
+    "type": "If"
+   }
+  },
+  "description": "D2 - Crew Sync"
+ }
+}

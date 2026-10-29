@@ -276,15 +276,18 @@ is flagged on that sub-phase and nothing else changes; setting the rating back c
 column comes back as a number through the connector, and a null is omitted from the row entirely).
 
 **`D2 - Crew Sync`** (new, flow 16). Trigger: SharePoint "When an item is created or modified" on
-Crews. Reads every Crews row, builds the sorted list of codes, and MERGEs the `Assignments.Crew` field
-with `Choices` and the validation formula and message together, through `Send an HTTP request to
-SharePoint` with the `SP.FieldChoice` metadata, exactly the route `sharepoint/guard-crew-values.js`
-uses. Never writes `SchemaXml` (that wipes the formula). Guards, each ending the run Failed with an
-email to `stratirus@d2pools.com` and no write: a code outside `[a-z0-9]`; fewer codes read than the
-column currently holds (a shrinking set is a bad read, not a deleted crew); a Crews read that returns
-nothing. After the write it reads the field back and fails the run if the new code is missing from
-either the choices or the formula. Idempotent: a run with nothing new rewrites the same values. A
-Crews row Don adds on the list by hand is covered the same way.
+Crews. Reads every Crews row, takes the **union** of the codes it finds and the choices the
+`Assignments.Crew` column already holds, and MERGEs the field with `Choices` and the validation
+formula and message together, through `Send an HTTP request to SharePoint` with the `SP.FieldChoice`
+metadata, exactly the route `sharepoint/guard-crew-values.js` uses. Never writes `SchemaXml` (that
+wipes the formula). The union means the flow never removes a code: an old assignment may still carry
+a deleted crew's code, and a code dropped from the formula would make that row unsavable, so a code
+leaves the column only by hand (ruled 2026-10-29 after the first live run, which showed the earlier
+"refuse a shrinking set" guard refusing every run after a row was deleted). Guards, each ending the
+run Failed with an email to `stratirus@d2pools.com` and no write: a code outside `[a-z0-9]`; a Crews
+read that returns nothing. After the write it reads the field back and fails the run if any code is
+missing from either the choices or the formula. Idempotent: a run with nothing new rewrites the same
+values. A Crews row Don adds on the list by hand is covered the same way.
 
 Because the trigger polls, a new crew is assignable a few minutes after Save. Shane accepted that lag
 on 2026-10-29 in preference to a planner-side column write. The planner does not guess at it: on every
@@ -296,8 +299,9 @@ refused locally with "not on the crew list yet, press Refresh in a few minutes" 
 code. The same mark is how a missed sync shows: a crew still not assignable after a later Refresh means
 the flow did not run, and editing any Crews row (a note, say) runs it again, since it rebuilds from all
 rows. A polling trigger that was off replays its events when turned back on, so a stopped flow catches
-up on its own. To remove a test crew: delete its row, then edit any other Crews row so the sync runs
-again and drops the code.
+up on its own. To remove a test crew: delete its row, then rewrite the column by hand with the live
+codes (the proven MERGE body of `Choices`, `ValidationFormula` and `ValidationMessage`, as the
+controller did on 2026-10-29), since the sync never drops a code.
 
 Both flows are exported to `flows/exports/` after verification, the sync's definition kept in
 `flows/scripts/` with an offline structural test like the New Pool ones, and both are added to the
