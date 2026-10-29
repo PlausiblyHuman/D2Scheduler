@@ -2964,7 +2964,7 @@ where each ask stands, the shape and size of delete/rename, notes per task, punc
 PM-addable trades, the recommended order, and the five questions to put to Don in one message
 (Fiberglass is delivered, see "BUILD TYPES").
 
-## SKILLS AND CREW PREFERENCES - built 2026-10-29 (Tasks 1 to 15 of the plan)
+## SKILLS AND CREW PREFERENCES - built 2026-10-29 (Tasks 1 to 15 of `docs/superpowers/plans/2026-10-29-skills-and-crew-preferences.md`)
 
 Spec `docs/specs/2026-10-29-skills-and-crew-preferences-design.md`. The Crews tab became an editor
 over SharePoint, and every crew and crew-to-trade pair carries a rating. Decided 2026-10-29 by
@@ -4437,7 +4437,7 @@ template tab, whatever the template lists' permissions say.
 ~~**DECIDED 2026-09-16b by Shane: PMs keep edit access to both tabs.**~~ Superseded for the Phase Template
 tab on 2026-09-21, above. **Superseded for the Crews tab too on 2026-10-29:** the tab now edits
 SharePoint (skills, ratings, crews) and `Trades`, `Crews` and `Crew-Trades` are gated to Don and
-David. For PMs the rest of this paragraph is history. Do not lock them down or hide
+David. For PMs the rest of this paragraph is history, and its instruction not to lock the Crews tab down no longer applies. Do not lock them down or hide
 them. What protects PMs is honest copy, not removed controls: the dialogs say what reaches SharePoint on
 the next Save (`honest-copy.js` pins that), and the guide says both tabs are per-browser and to ask for
 permanent template or crew-trade changes. Keep both true when either tab changes.

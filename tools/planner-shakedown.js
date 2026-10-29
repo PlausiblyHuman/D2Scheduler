@@ -72,10 +72,16 @@ const ok=(label,cond,detail='')=>{console.log((cond?'PASS':'FAIL')+' · '+label+
  ok('Crews tab has no delete button', await ev("![...document.querySelectorAll('#main button')].some(b=>b.textContent.includes('\\u2715'))")===true);
  ok('Crews tab shows at least one First choice chip', await ev("document.querySelectorAll('#main .chip.skill.r3').length")>0);
  const chipIdx=await ev("[...document.querySelectorAll('#main .chip.skill')].findIndex(x=>x.getAttribute('onclick'))");
- const chipA=await ev(`document.querySelectorAll('#main .chip.skill')[${chipIdx}].textContent`);
- await ev(`document.querySelectorAll('#main .chip.skill')[${chipIdx}].click();'ok'`);await sleep(300);
- const chipB=await ev(`document.querySelectorAll('#main .chip.skill')[${chipIdx}].textContent`);
+ const chipTxt=()=>ev(`(document.querySelectorAll('#main .chip.skill')[${chipIdx}]||{}).textContent`);
+ const chipA=chipIdx>=0?await chipTxt():null;
+ if(chipIdx>=0){await ev(`document.querySelectorAll('#main .chip.skill')[${chipIdx}].click();'ok'`);await sleep(300);}
+ const chipB=chipIdx>=0?await chipTxt():null;
  ok('clicking a skill chip changes its text', chipIdx>=0&&chipA!==chipB, JSON.stringify([chipA,chipB]));
+ // Click the chip round the cycle until it reads as it did, so no edit is left pending.
+ let back=chipB;
+ for(let k=0;k<6&&chipIdx>=0&&back!==chipA;k++){await ev(`document.querySelectorAll('#main .chip.skill')[${chipIdx}].click();'ok'`);await sleep(250);back=await chipTxt();}
+ ok('the chip is cycled back to where it started', chipIdx>=0&&back===chipA, JSON.stringify([chipA,back]));
+ ok('no crew change is left pending', await ev("crewChangeCount()")===0);
  const words=await ev("[3,2,1,0].map(r=>D2WritebackCore.ratingWord(r))");
  const selInfo=await ev(`(()=>{const sels=[...document.querySelectorAll('#main select')].filter(s=>s.options.length===4);
    return sels.map(s=>[...s.options].map(o=>o.textContent.trim()));})()`);
