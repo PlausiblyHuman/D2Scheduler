@@ -75,6 +75,10 @@ The four load-bearing invariants (enforced by the design, not by a database prim
    zero flows, zero views, zero forms, and is not a canvas-app data source; it is not even reachable
    from the site navigation. `Trades` survives only as a lookup display label.
 
+   **Corrected 2026-10-29: the above no longer holds.** The planner reads `Crew-Trades` and `Trades`
+   on every Refresh and writes them on Save, and `D2 - Crew Trade Check` reads the ratings from
+   `Crew-Trades`. See "SKILLS AND CREW PREFERENCES".
+
    **The `Assignments.Crew` guard is a VOCABULARY check, not a qualification check, and this
    distinction is the whole point.** `guard-crew-values.js` writes
    `=OR(ISBLANK([Crew]),[Crew]="antonio",...)` over the 14 crew codes. It asks "is this one of the
@@ -2998,8 +3002,8 @@ crew dropdown is maintained by a flow, not the planner.
   rating per crew, and adds skills and crews. Save pushes crew, skill and rating changes over Graph
   (`planCrewEdits`, `applyCrewOps` in `web/graph-writeback.js`) in order: trade create, crew create,
   crew patch, Crew-Trades create, patch, delete, with per-field compare and refusals in words. A new
-  crew is "not on the crew list yet" until Crew Sync has added its code, and the pickers and Save
-  refuse it until then.
+  crew is "not on the crew list yet" until Crew Sync has added its code, and the inline and drawer
+  setters (`inlineSet`, `saveSec`) refuse the pick until then; Save never sees it.
 - **Scheduling:** Auto-Schedule picks the highest-rated crew among those free on the day, never
   waits for a better crew, and lists every place it settled for a lower rating under "Your call" in
   its preview (rule line "higher-rated"). The two crew pickers group crews by rating word, with
@@ -4401,6 +4405,12 @@ because a pool's lines come from the template. Per-pool checklist edits have no 
 planner; the guide now says to ask for them.
 
 ## THE CREWS AND PHASE TEMPLATE TABS ARE PER-BROWSER COPIES, and the guide had them backwards
+
+**Updated 2026-10-29: the Crews tab is no longer a per-browser copy.** SharePoint is the one copy
+of crews, skills and ratings (see "SKILLS AND CREW PREFERENCES"); Refresh reads them and Save writes
+them. The Phase Template half below still stands. "Deleting a crew" no longer exists: a crew that
+should not be used any more is set to Never overall and stays on the list. The text below is kept
+as the record of the earlier state.
 
 The PM guide said editing the Phase Template "changes what future pools are built from". **It does
 not.** `+ Job` raises a `New Pool Requests` row and `D2 - New Pool` builds from the **SharePoint**
