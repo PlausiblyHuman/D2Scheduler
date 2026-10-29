@@ -1,0 +1,57 @@
+[
+ {
+  "label": "ct join: crew side unnormalised",
+  "find": "bySp.get(key(f.CrewLookupId))",
+  "replace": "bySp.get(f.CrewLookupId)"
+ },
+ {
+  "label": "ct join: trade side unnormalised",
+  "find": "code = tradeCode.get(key(f.TradeLookupId));",
+  "replace": "code = tradeCode.get(f.TradeLookupId);"
+ },
+ {
+  "label": "normRating null reads 0",
+  "find": "if (v == null || v === '' || !Number.isFinite(Number(v))) return 3;",
+  "replace": "if (v == null || v === '' || !Number.isFinite(Number(v))) return 0;"
+ },
+ {
+  "label": "normRating no clamp",
+  "find": "return Math.min(3, Math.max(0, Math.round(Number(v))));",
+  "replace": "return Math.round(Number(v));"
+ },
+ {
+  "label": "members not trimmed",
+  "find": "split(',').map(m => m.trim()).filter(Boolean)",
+  "replace": "split(',').filter(Boolean)"
+ },
+ {
+  "label": "empty guard returns []",
+  "find": "if (!Array.isArray(crewRows) || !crewRows.length) return null;",
+  "replace": "if (!Array.isArray(crewRows) || !crewRows.length) return [];"
+ },
+ {
+  "label": "duplicate keeps higher",
+  "find": "if (rating < crew.ratings[code])",
+  "replace": "if (rating > crew.ratings[code])"
+ },
+ {
+  "label": "crew id not trimmed",
+  "find": "id: String(f.CrewID == null ? '' : f.CrewID).trim(),",
+  "replace": "id: String(f.CrewID == null ? '' : f.CrewID),"
+ },
+ {
+  "label": "assignable ignores column name",
+  "find": "columns.find(x => x && x.name === 'Crew')",
+  "replace": "columns.find(x => x)"
+ },
+ {
+  "label": "payload drops crewRows",
+  "find": "      crewRows: crewRowsFrom(graph.crews, graph.ct, graph.trades),\n",
+  "replace": ""
+ },
+ {
+  "label": "payload drops assignableCodes",
+  "find": "      assignableCodes: assignableCodesFrom(graph.asgColumns),\n",
+  "replace": ""
+ }
+]

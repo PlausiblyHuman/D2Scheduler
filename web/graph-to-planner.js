@@ -13,7 +13,12 @@
  * importer must cope with their absence rather than require them. Two more
  * Graph-only keys since 2026-10-28: `templateRows` (the raw template rows for
  * web/template-check-core.js) and `crews` (the codes on the Crews list). Both
- * are absent from the REST export and optional on import.
+ * are absent from the REST export and optional on import. Three more since
+ * 2026-10-29 (skills and crew preferences): `crewRows` (each crew with its
+ * members, overall preference and per-trade ratings, or null when the Crews
+ * read was empty), `tradeRows` (the Trades list) and `assignableCodes` (the
+ * choices of the Assignments Crew column, or null when that column was not
+ * read). All optional on import; `crews` stays the plain list of codes.
  *
  * WHY THIS FILE IS SEPARATE FROM export-to-planner.js, not a second code path
  * inside it: Graph and REST are read from different runtimes (a hosted app
@@ -179,6 +184,57 @@
     return (crewRows || []).map(r => String(((r && r.fields) || {}).CrewID == null ? '' : r.fields.CrewID).trim()).filter(Boolean);
   }
 
+  /* A preference is a whole number 0..3; 3 is first choice, 0 never. A blank or
+     non-numeric cell reads as 3 so a hand-added row counts as held. */
+  function normRating(v) {
+    if (v == null || v === '' || !Number.isFinite(Number(v))) return 3;
+    return Math.min(3, Math.max(0, Math.round(Number(v))));
+  }
+  function tradeRowsFrom(tradeRows) {
+    const out = (tradeRows || []).map(r => {
+      const f = (r && r.fields) || {};
+      return { spId: key(f.id != null ? f.id : r && r.id), code: f.TradeCode, label: f.Title,
+        sort: f.SortOrder == null || f.SortOrder === '' || !Number.isFinite(Number(f.SortOrder)) ? null : Number(f.SortOrder) };
+    });
+    out.sort((a, b) => (a.sort == null ? Infinity : a.sort) - (b.sort == null ? Infinity : b.sort) || String(a.label || '').localeCompare(String(b.label || '')));
+    return out;
+  }
+  /* Null (not an empty list) when Crews is empty, so a failed read never looks
+     like fourteen crews with no skills. Joins go through key() on both sides. */
+  function crewRowsFrom(crewRows, ctRows, tradeRows) {
+    if (!Array.isArray(crewRows) || !crewRows.length) return null;
+    const warn = m => { if (typeof console !== 'undefined' && console.warn) console.warn('graph-to-planner: ' + m); };
+    const tradeCode = new Map((tradeRows || []).map(t => [key(((t && t.fields) || {}).id), ((t && t.fields) || {}).TradeCode]));
+    const out = crewRows.map(r => {
+      const f = (r && r.fields) || {};
+      const sz = f.Size == null || f.Size === '' || !Number.isFinite(Number(f.Size)) ? null : Number(f.Size);
+      return { spId: key(f.id != null ? f.id : r && r.id), id: String(f.CrewID == null ? '' : f.CrewID).trim(),
+        name: f.Title, size: sz, unlimited: !!f.Unlimited, active: !!f.Active,
+        members: String(f.Members == null ? '' : f.Members).split(',').map(m => m.trim()).filter(Boolean),
+        note: f.Notes == null ? '' : String(f.Notes), overall: normRating(f.Preference), ratings: {}, ctIds: {} };
+    });
+    const bySp = new Map(out.map(c => [c.spId, c]));
+    (ctRows || []).forEach(r => {
+      const f = (r && r.fields) || {};
+      const crew = bySp.get(key(f.CrewLookupId)), code = tradeCode.get(key(f.TradeLookupId));
+      if (!crew || !code) { warn('Crew-Trades row ' + key(f.id != null ? f.id : r && r.id) + ' joins to no ' + (!crew ? 'crew' : 'trade')); return; }
+      const rating = normRating(f.Preference);
+      if (Object.prototype.hasOwnProperty.call(crew.ratings, code)) {
+        warn('duplicate Crew-Trades pair ' + crew.id + '/' + code + ', keeping the lower rating');
+        if (rating < crew.ratings[code]) { crew.ratings[code] = rating; crew.ctIds[code] = key(f.id != null ? f.id : r && r.id); }
+        return;
+      }
+      crew.ratings[code] = rating;
+      crew.ctIds[code] = key(f.id != null ? f.id : r && r.id);
+    });
+    return out;
+  }
+  function assignableCodesFrom(columns) {
+    if (!Array.isArray(columns)) return null;
+    const c = columns.find(x => x && x.name === 'Crew');
+    return c && c.choice && Array.isArray(c.choice.choices) ? c.choice.choices : null;
+  }
+
   function toPlannerPayload(graph, opts) {
     graph = graph || {};
     const includeComplete = !!(opts && opts.includeComplete);
@@ -269,6 +325,9 @@
       templates: templatesFrom(graph.spt, graph.tpt, graph.trades),
       templateRows: templateRowsFrom(graph.spt, graph.tpt, graph.trades),
       crews: crewCodesFrom(graph.crews),
+      crewRows: crewRowsFrom(graph.crews, graph.ct, graph.trades),
+      tradeRows: tradeRowsFrom(graph.trades),
+      assignableCodes: assignableCodesFrom(graph.asgColumns),
       jobs: jobs.map(j => {
         const jf = j.fields;
         const jobId = key(jf.id);
@@ -401,5 +460,5 @@
     return { asg: [].concat(...results.map(r => r.asg)), tasks: [].concat(...results.map(r => r.tasks)) };
   }
 
-  return { toPlannerPayload, normType, templatesFrom, templateRowsFrom, crewCodesFrom, isComplete, asgUrl, taskUrls, readLive, TASK_CHAIN_MAX };
+  return { toPlannerPayload, normType, templatesFrom, templateRowsFrom, crewCodesFrom, crewRowsFrom, tradeRowsFrom, assignableCodesFrom, normRating, isComplete, asgUrl, taskUrls, readLive, TASK_CHAIN_MAX };
 });

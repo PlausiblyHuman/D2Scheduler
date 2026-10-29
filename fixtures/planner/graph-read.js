@@ -324,6 +324,34 @@ const totalNa = p => p.jobs.reduce((n, j) => n + j.sections.reduce((m, s) => m +
     ok('REST payload carries the same templates and types', JSON.stringify(restPayload.templates) === JSON.stringify(T) && restPayload.jobs.every(j => j.buildType === 'Gunite'));
   }
 
+  // ---- crew rows, trade rows, assignable codes (skills and crew preferences, Task 6) ----
+  {
+    const M = require('../../web/graph-to-planner.js');
+    const G = graphLive;
+    const rows = M.crewRowsFrom(G.crews, G.ct, G.trades);
+    ok('14 crew rows from the fixture', rows && rows.length === 14);
+    const h = rows.find(c => c.id === 'harrison');
+    ok('harrison holds plumbing at 3 with a Crew-Trades row id', h.ratings.plumbing === 3 && /^\d+$/.test(h.ctIds.plumbing));
+    ok('harrison overall is 3', h.overall === 3);
+    ok('members split and trimmed', JSON.stringify(h.members) === JSON.stringify(['Harrison','Ian','?']));
+    ok('a null Preference reads as 3', M.normRating(null) === 3 && M.normRating(undefined) === 3 && M.normRating('') === 3);
+    ok('ratings clamp to 0..3 integers', M.normRating(7) === 3 && M.normRating(-1) === 0 && M.normRating('2') === 2);
+    ok('a hand-added ct row with no Preference reads as held at 3',
+       M.crewRowsFrom(G.crews, G.ct.concat([{id:'9999',fields:{id:'9999',CrewLookupId:String(h.spId),TradeLookupId:G.trades.find(t=>t.fields.TradeCode==='tile').fields.id}}]), G.trades).find(c=>c.id==='harrison').ratings.tile === 3);
+    ok('stray spaces and blanks in Members are dropped',
+       M.crewRowsFrom([{id:'1',fields:{id:'1',CrewID:'x',Title:'X',Members:'Devon, , Martin '}}],[],[])[0].members.join('|') === 'Devon|Martin');
+    ok('an empty Crews read yields null, never fourteen crews with no skills', M.crewRowsFrom([], G.ct, G.trades) === null);
+    ok('a duplicate pair keeps the lower rating', (() => { const ct = G.ct.concat([{id:'9998',fields:{id:'9998',CrewLookupId:String(h.spId),TradeLookupId:G.ct.find(r=>String(r.fields.CrewLookupId)===String(h.spId)).fields.TradeLookupId,Preference:0}}]); const c = M.crewRowsFrom(G.crews, ct, G.trades).find(c=>c.id==='harrison'); return Object.values(c.ratings).includes(0); })());
+    ok('trade rows carry code, label and sort', M.tradeRowsFrom(G.trades).every(t => t.code && t.label && typeof t.spId === 'string'));
+    ok('assignable codes come from the Crew column', JSON.stringify(M.assignableCodesFrom([{name:'Title'},{name:'Crew',choice:{choices:['a','b']}}])) === '["a","b"]');
+    ok('no Crew column means null', M.assignableCodesFrom([{name:'Title'}]) === null && M.assignableCodesFrom(null) === null);
+    ok('numeric lookup ids in Crew-Trades rows still join (key() on both sides)', (() => { const tid = G.ct.find(r => String(r.fields.CrewLookupId) === String(h.spId)); const c = M.crewRowsFrom(G.crews, [{id:'7',fields:{id:'7',CrewLookupId:Number(h.spId),TradeLookupId:Number(tid.fields.TradeLookupId),Preference:1}}], G.trades).find(c=>c.id==='harrison'); return Object.values(c.ratings).join() === '1'; })());
+    ok('a crew code with stray spaces is trimmed', M.crewRowsFrom([{id:'1',fields:{id:'1',CrewID:' x ',Title:'X'}}],[],[])[0].id === 'x');
+    const p = M.toPlannerPayload(Object.assign({}, G, { asgColumns: [{name:'Crew',choice:{choices:['harrison']}}] }));
+    ok('payload carries crewRows, tradeRows and assignableCodes', p.crewRows.length === 14 && p.tradeRows.length === 26 && p.assignableCodes[0] === 'harrison');
+    ok('payload still carries crews as codes for the template check', Array.isArray(p.crews) && p.crews.includes('harrison'));
+  }
+
   console.log('\n' + (fail ? 'FAILURES ABOVE' : 'REST and Graph agree: ' + restPayload.jobs.length +
     ' pools, ' + totalTasks(restPayload) + ' tasks, ' + totalDone(restPayload) + ' ticks, ' +
     restPayload.nonWork.length + ' non-work days -- and the Graph payload imports identically.'));
