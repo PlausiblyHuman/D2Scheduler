@@ -4,7 +4,7 @@
  * flow is in CLAUDE.md ("A REQUEST-TRIGGERED FLOW IS A GENERIC SHAREPOINT REST PROXY"); it was never
  * committed before this file, so each session rebuilt it by hand.
  *
- *   D2_PROXY_URL='<callback url>' node tools/sp-proxy.js sharepoint/gate-template-lists.js [--write]
+ *   D2_PROXY_URL='<callback url>' node tools/sp-proxy.js sharepoint/gate-template-lists.js [--write] [--lists a,b,c]
  *
  * The script runs exactly as pasted: `window` exists and carries the flags a script reads
  * (--write sets every window.D2_*_WRITE flag true and window.D2_DRY false), `fetch` is the shim
@@ -46,6 +46,8 @@ async function proxyFetch(u, opts) {
 
 const src = fs.readFileSync(path.resolve(file), 'utf8');
 const window = { D2_DRY: !write };
+const li = process.argv.indexOf('--lists');
+if (li > 0 && process.argv[li + 1]) window.D2_GATE_LISTS = process.argv[li + 1].split(',').map(x => x.trim()).filter(Boolean);
 ['D2_GATE_WRITE', 'D2_WRITE', 'RENUMBER_WRITE'].forEach(k => { window[k] = write; });
 const sandbox = { window, fetch: proxyFetch, console, URL, URLSearchParams, setTimeout, clearTimeout };
 sandbox.globalThis = sandbox; sandbox.self = sandbox;

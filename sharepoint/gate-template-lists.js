@@ -18,6 +18,8 @@
  *   tools/sp-proxy.js runs this same file under Node through a throwaway proxy flow (see CLAUDE.md,
  *   "A REQUEST-TRIGGERED FLOW IS A GENERIC SHAREPOINT REST PROXY").
  *
+ * 2026-10-29: also run with `--lists Crews,Crew-Trades,Trades` (spec 2026-10-29-skills-and-crew-preferences).
+ *
  * SAFETY
  *   - Role ids, group ids and user ids are read from the site, never typed in. Don is matched on the
  *     claim for don@d2pools.com and David on david@d2pools.com; contact@d2pools.com (Don's enabled
@@ -33,7 +35,7 @@
 (async () => {
   const WRITE = typeof window !== 'undefined' && window.D2_GATE_WRITE === true;
   const site = 'https://netorgft15040037.sharepoint.com/sites/D2BuildScheduler';
-  const LISTS = ['Sub-phase Template', 'Task Template'];
+  const LISTS = (typeof window !== 'undefined' && Array.isArray(window.D2_GATE_LISTS) && window.D2_GATE_LISTS.length) ? window.D2_GATE_LISTS : ['Sub-phase Template', 'Task Template'];
   const EDITORS = ['don@d2pools.com', 'david@d2pools.com'];
   const PROBE_MEMBER = 'cody@d2pools.com';          // a plain member: must end with Read, not Edit
   const claim = upn => 'i:0#.f|membership|' + upn;
