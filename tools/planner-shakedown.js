@@ -66,6 +66,25 @@ const ok=(label,cond,detail='')=>{console.log((cond?'PASS':'FAIL')+' · '+label+
    if(c.logs.length>before) ok(`tab ${tab} threw nothing`, false, c.logs.slice(before).join(' | '));
  }
 
+ // Crews tab: skills and ratings editor (no delete, click-to-cycle chips, a rating select per crew).
+ await ev(`document.querySelector('[data-t="crews"]').click();'ok'`);await sleep(550);
+ const crewsBefore=c.logs.length;
+ ok('Crews tab has no delete button', await ev("![...document.querySelectorAll('#main button')].some(b=>b.textContent.includes('\\u2715'))")===true);
+ ok('Crews tab shows at least one First choice chip', await ev("document.querySelectorAll('#main .chip.skill.r3').length")>0);
+ const chipIdx=await ev("[...document.querySelectorAll('#main .chip.skill')].findIndex(x=>x.getAttribute('onclick'))");
+ const chipA=await ev(`document.querySelectorAll('#main .chip.skill')[${chipIdx}].textContent`);
+ await ev(`document.querySelectorAll('#main .chip.skill')[${chipIdx}].click();'ok'`);await sleep(300);
+ const chipB=await ev(`document.querySelectorAll('#main .chip.skill')[${chipIdx}].textContent`);
+ ok('clicking a skill chip changes its text', chipIdx>=0&&chipA!==chipB, JSON.stringify([chipA,chipB]));
+ const words=await ev("[3,2,1,0].map(r=>D2WritebackCore.ratingWord(r))");
+ const selInfo=await ev(`(()=>{const sels=[...document.querySelectorAll('#main select')].filter(s=>s.options.length===4);
+   return sels.map(s=>[...s.options].map(o=>o.textContent.trim()));})()`);
+ ok('every crew has a four-word rating select', selInfo.length>=1&&selInfo.every(o=>JSON.stringify([...o].sort())===JSON.stringify([...words].sort())), selInfo.length+' selects, words='+words.join('/'));
+ ok('Crews tab threw nothing', c.logs.length===crewsBefore, c.logs.slice(crewsBefore).join(' | '));
+ // Put the demo data back as it was.
+ await ev("localStorage.clear();'ok'");
+ await ev(`importFromD2Payload(${JSON.stringify(payload)},true);render();'ok'`);await sleep(500);
+
  // Schedule Check must report, and errors are the number that matters.
  await ev(`document.querySelector('[data-t="board"]').click();'ok'`);await sleep(500);
  const chk=await ev(`(()=>{const o=conflicts();return {err:o.filter(x=>x.lvl==='err').length,warn:o.filter(x=>x.lvl!=='err').length};})()`);
@@ -183,6 +202,7 @@ const ok=(label,cond,detail='')=>{console.log((cond?'PASS':'FAIL')+' · '+label+
  await ev("autoScheduleRun();'ok'");await sleep(800);
  ok('Auto-Schedule reports what it did', /how auto-schedule decides/i.test(
     await ev("document.getElementById('dBody').innerText")));
+ ok('Auto-Schedule rules name the higher-rated preference', /higher-rated/.test(await ev("document.getElementById('dBody').innerText")));
  await ev("closeDrawer();'ok'");await sleep(300);
  const signedAfter=await ev(`S.jobs.flatMap(j=>allSecs(j)).filter(x=>x.s.inst).map(x=>x.s.start).join(',')`);
  ok('Auto-Schedule leaves signed-off work alone', signedBefore===signedAfter);

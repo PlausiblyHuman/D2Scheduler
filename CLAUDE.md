@@ -98,6 +98,13 @@ The four load-bearing invariants (enforced by the design, not by a database prim
    **Don's trade mapping makes this worse, not better.** Closing that gap puts `george` and `armondo`
    into rotation and forces a template regeneration, widening the surface this rule is failing to
    police. See the recommended fix under Known bugs.
+
+   **Rule 1 gained a rating dimension 2026-10-29 (Shane, from the 28 October meeting).** Every
+   crew-to-trade pair and every crew now carries a rating, spelled only in `web/writeback-core.js`
+   (`RATING_WORDS`, `ratingWord`): `First choice` (3), `Second choice` (2), `Last resort` (1),
+   `Never` (0). A crew is qualified for a trade when a `Crew-Trades` row exists, its rating is not
+   0 and the crew's overall rating is not 0; only an overall 0 overrides. Auto-Schedule prefers the
+   higher rating among crews free on the day. See "SKILLS AND CREW PREFERENCES".
 2. **A field crew is never on two pools the same day.** Detection is post-hoc within one Power Automate polling interval (event-driven flow scoped to touched Crew + date range), with a nightly full-sweep safety net. This is "acceptable degradation, not equivalence" vs. the Dataverse alternate-key approach — see Rev D §07 for honest framing.
 3. **Sub-phases run in order — one cannot start before the one before it ends.** Enforced by the
    browser planner's Auto-Schedule; re-enforced by its conflicts checker. **Nothing on the
@@ -773,6 +780,12 @@ resolves to `Error` and Studio shows `Incompatible types for comparison: Text, E
 does **not** by itself dirty the document, so the 1px nudge is still required before Ctrl+S.
 Verified end to end in the **player**, not the download: three rows rendering `Harrison +2`,
 `Saul +2`, `STL Shotcrete`, and the crew picker listing them.
+
+**Updated 2026-10-29: `D2 - Crew Sync` now maintains the `Assignments.Crew` choices and the
+validation formula.** It adds every new `Crews.CrewID` to both, so a crew added in the planner
+becomes assignable without anyone running a script. `sharepoint/guard-crew-values.js` is the manual
+fallback, and the guard stays: it is still the only thing that blocks a bad value written over REST.
+See "SKILLS AND CREW PREFERENCES".
 
 **Related finding, pre-existing and NOT caused by this change:** the `Unassigned` view shows **0 of
 the 41 rows** whose crew is `unassigned`, because its CAML also requires `IsNotNull Trade` and none
@@ -1572,7 +1585,8 @@ covers two flows, the daily and weekly summaries.):**
 
 | 12 | Conflict Flag | Started | **NEW 2026-09-09, verified.** `D2 - Conflict Flag`, flowId `972c139d-e55f-6743-a76c-fbd2f08eeb45` (Dataverse workflowid `f0dd9a1d-8bac-f111-aaab-002248043e80`). Nightly 05:00 Central. Annotates `Assignments.ConflictWith` so a crew double-book is visible in SharePoint and not only in email; unlike the alerting flows it deliberately covers `Planned` pools too, so a PM can see collisions while choosing dates. Was missing from this table until 2026-09-10. |
 | 13 | Calendar Sync | **Stopped** | **SWITCHED OFF 2026-10-27 on Shane's call: nobody at D2 opens the group calendar (Don works entirely in the planner), and the 04:30 full sweep was rewriting every Active sub-phase's event daily out of D2 Bot's one request allowance for a calendar nobody reads.** Stopped through FlowAgent `disable_flow` (ProcessSimple id `8070fa64-4cbc-f422-2245-e1d2bc39e985`), read back `Stopped`. Turn it back on only when a user asks for the calendar; a Recurrence trigger replays nothing, and the first full sweep brings the calendar current from the rows, but ghost events from projects deleted meanwhile need the one-off Graph clean-up (see Phase G). The planner's Activate, Back to planning and Mark complete dialogs still say entries reach or leave the shared calendar; harmless copy while it is off, to fix with the next deploy. **Reports only on the 04:30 full sweep or a real change, since 2026-09-15** -- `Send_report` sits inside `Condition_should_report`. **NEW 2026-09-10, verified.** `D2 - Calendar Sync`, flowId / workflowEntityId `f890f891-48ad-f111-aaab-6045bd0196b3`. Nightly 04:30 Central. Writes one all-day event per in-scope Assignment to the **M365 group calendar** behind the site. See "Group calendar" below. |
-| 14 | Crew Trade Check | Started | **NEW 2026-09-11, verified both directions.** `D2 - Crew Trade Check`, flowId / workflowEntityId `a5f50628-eead-f111-aaac-6045bd0195dd`. Nightly 05:15 Central. Joins `Assignments.Crew` -> `Crews.CrewID` -> `Crew-Trades` -> `Assignments.Trade` and writes `Assignments.TradeMismatch`, which is **the first thing in this system to enforce business rule 1**. Writes only rows that changed, so a clean night writes nothing. See below for the lookup-shape trap it cost, and for what it does NOT cover. |
+| 14 | Crew Trade Check | Started | **Rating of Never, per trade or overall, counts as not qualified since 2026-10-29: it writes `Crew <code> is rated Never for <Trade>`.** **NEW 2026-09-11, verified both directions.** `D2 - Crew Trade Check`, flowId / workflowEntityId `a5f50628-eead-f111-aaac-6045bd0195dd`. Nightly 05:15 Central. Joins `Assignments.Crew` -> `Crews.CrewID` -> `Crew-Trades` -> `Assignments.Trade` and writes `Assignments.TradeMismatch`, which is **the first thing in this system to enforce business rule 1**. Writes only rows that changed, so a clean night writes nothing. See below for the lookup-shape trap it cost, and for what it does NOT cover. |
+| 16 | Crew Sync | Started | **NEW 2026-10-29.** `D2 - Crew Sync`, workflowEntityId `dd19c039-bbd3-f111-a05b-6045bd0195dd`. Triggers on a Crews row created or modified and MERGEs the `Assignments.Crew` column's `Choices`, `ValidationFormula` and `ValidationMessage` with the union of the existing choices and every `Crews.CrewID`. Never removes a code. Fails loud on a bad code or an unwritten choice. Row 15 is `D2 - Snapshot`, recorded in the WP8 backups table. |
 
 **CALENDAR SYNC IS NOW INCREMENTAL, and runs hourly (2026-09-10).** Trigger fires at **04:30 plus
 06:30 to 18:30 Central**, all via one Recurrence with `schedule.hours`.
@@ -2950,6 +2964,56 @@ where each ask stands, the shape and size of delete/rename, notes per task, punc
 PM-addable trades, the recommended order, and the five questions to put to Don in one message
 (Fiberglass is delivered, see "BUILD TYPES").
 
+## SKILLS AND CREW PREFERENCES - built 2026-10-29 (Tasks 1 to 15 of the plan)
+
+Spec `docs/specs/2026-10-29-skills-and-crew-preferences-design.md`. The Crews tab became an editor
+over SharePoint, and every crew and crew-to-trade pair carries a rating. Decided 2026-10-29 by
+Shane: the earliest date wins and rating breaks the tie on the day; the Crews tab adds crews and
+never deletes (retire a crew with an overall of Never); the chips cycle on click; the Assignments
+crew dropdown is maintained by a flow, not the planner.
+
+- **Columns (backfilled 2026-10-29):** `Crew-Trades.Preference` and `Crews.Preference` (Number 0..3,
+  default 3, null reads as 3 everywhere) and `Crews.Members` (Text).
+- **Words:** `First choice` 3, `Second choice` 2, `Last resort` 1, `Never` 0, spelled only in
+  `web/writeback-core.js` (`RATING_WORDS`, `ratingWord`). Only an overall 0 overrides; an overall of
+  1 to 3 is stored and shown and changes nothing. Subcontractors are rated like any crew and stay
+  capacity-exempt. Pseudo-trades keep their bucket crews.
+- **Permissions:** `Trades`, `Crews` and `Crew-Trades` are gated like the template lists (Don and
+  David named Edit, Members Read, Owners Full Control) by `sharepoint/gate-template-lists.js` with
+  `--lists`, applied 2026-10-29.
+- **`D2 - Crew Sync` (flow 16):** see the flow table. Builder `flows/scripts/crew_sync.py`, test
+  `test_crew_sync.py`, export `flows/exports/D2-Crew-Sync-2026-10-29.json`. The MERGE uses
+  `__metadata.type` `SP.FieldChoice`, `X-HTTP-Method MERGE`, `If-Match *`, `odata=verbose`.
+  Removing a code is a manual MERGE. **Platform rule learned: after `update_flow` plus `PublishXml`
+  on a trigger flow, call `publish_flow` again or the trigger does not fire.**
+- **`D2 - Crew Trade Check` (flow 14)** treats a rating of 0, per trade or overall, as not
+  qualified. Pushed 2026-10-29 through the Dataverse clientdata PATCH + PublishXml route
+  (`flows/scripts/2026-10-29-crew-trade-check-preferences.py`, builder
+  `crew_trade_check_preferences.py`, export `flows/exports/D2-Crew-Trade-Check-2026-10-29.json`,
+  backup `backups/D2-Crew-Trade-Check-pre-preferences.json`). A live run read "0 flagged, 0 cleared,
+  from 51 qualification pairs". The both-way check with a rating of 0 is recorded below.
+- **Planner read:** Refresh reads Trades, Crews and Crew-Trades (`crewRowsFrom`, `tradeRowsFrom`) and
+  the assignable codes from the Assignments `Crew` column's choices.
+- **Planner edit:** the Crews tab edits skills (click-to-cycle chips 3, 2, 1, 0, off), an overall
+  rating per crew, and adds skills and crews. Save pushes crew, skill and rating changes over Graph
+  (`planCrewEdits`, `applyCrewOps` in `web/graph-writeback.js`) in order: trade create, crew create,
+  crew patch, Crew-Trades create, patch, delete, with per-field compare and refusals in words. A new
+  crew is "not on the crew list yet" until Crew Sync has added its code, and the pickers and Save
+  refuse it until then.
+- **Scheduling:** Auto-Schedule picks the highest-rated crew among those free on the day, never
+  waits for a better crew, and lists every place it settled for a lower rating under "Your call" in
+  its preview (rule line "higher-rated"). The two crew pickers group crews by rating word, with
+  `(rated Never)`, `(rated Never overall)` and `(not on the crew list yet)` under Not qualified.
+  Schedule Check says `rated Never for <skill>` or `rated Never overall` and raises `unassignable`.
+- **Gates:** `fixtures/planner/crews-editor.js` Parts A to F, with `crews-editor.mutations.json` (66
+  against `web/index.html`), `crews-editor.core-mutations.json` (14), `crews-editor.gw-mutations.json`
+  (11); `rules.js` ratings scenario with `rules.ratings-mutations.json` (7) and `rules.mutations.json`
+  (6); `graph-read.crews-mutations.json` (11); `escaping.js` and `schedulecheck.js` registered in
+  `package.json`. Flow tests `test_crew_sync.py` and `test_crew_trade_check_preferences.py`.
+  `tools/planner-shakedown.js` gained a Crews tab pass and a `higher-rated` check.
+- Deploy: (controller fills in: tag, wall checks, served-file hashes)
+- Live verification: (controller fills in)
+
 ## THE 28 OCTOBER MEETING: decisions that bind, and guide Version 9 (28 October) drafted
 
 Record: `docs/2026-10-28-status-meeting-notes.md` (from the Teams recording's Stream transcript and
@@ -2964,7 +3028,7 @@ the Facilitator's Loop notes, both read headlessly through Claude in Chrome; the
 - **The Features drawer was empty on Don's screen because it had nothing to offer**: no template
   row is Optional yet and his Gunite projects already carry every Gunite row (or he had not pressed
   Refresh since the deploy, which shows "Press Refresh first"). Not a defect. The guide now says so.
-- **Skills and crew preferences** (to build, 2 to 3 sessions): Don adds skills; each crew gets a
+- **Skills and crew preferences** (**BUILT 2026-10-29, see "SKILLS AND CREW PREFERENCES".** Original note: to build, 2 to 3 sessions): Don adds skills; each crew gets a
   preference per skill, 0 to 3, and an overall 0 to 3 that overrides; 0 means never used, and the
   crew stays on the list. SharePoint becomes the one copy (Trades, Crew-Trades, Crews), the Crews
   tab edits it, Auto-Schedule picks by preference tier then load.
@@ -3139,6 +3203,7 @@ page after a deploy.
 **Guide v9 also gains two items from 2026-10-13:**
 - `+ Job` asks for a build type, Gunite or Fiberglass (Gunite preselected), and the project lays out from that type's phases.
 - The Phase Template tab ("Build phases") shows SharePoint's templates for both types and edits nothing; template changes are made in the SharePoint lists.
+- Needs a Crews tab section for the next major version: skills and ratings, adding a skill or crew, and why a new crew is "not on the crew list yet" until `D2 - Crew Sync` has run.
 
 ## BUILD TYPES: GUNITE AND FIBERGLASS TEMPLATES, 2026-10-13 (`deploy/2026-10-13`)
 
@@ -4370,7 +4435,9 @@ TEMPLATE TAB IS THE MOST DANGEROUS SURFACE"). So anyone other than Don and David
 template tab, whatever the template lists' permissions say.
 
 ~~**DECIDED 2026-09-16b by Shane: PMs keep edit access to both tabs.**~~ Superseded for the Phase Template
-tab on 2026-09-21, above; still stands for the Crews tab. Do not lock them down or hide
+tab on 2026-09-21, above. **Superseded for the Crews tab too on 2026-10-29:** the tab now edits
+SharePoint (skills, ratings, crews) and `Trades`, `Crews` and `Crew-Trades` are gated to Don and
+David. For PMs the rest of this paragraph is history. Do not lock them down or hide
 them. What protects PMs is honest copy, not removed controls: the dialogs say what reaches SharePoint on
 the next Save (`honest-copy.js` pins that), and the guide says both tabs are per-browser and to ask for
 permanent template or crew-trade changes. Keep both true when either tab changes.
